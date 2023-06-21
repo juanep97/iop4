@@ -27,6 +27,7 @@ from astropy.coordinates import SkyCoord
 from pathlib import Path
 import astropy.io.fits as fits
 import glob
+from astropy.time import Time
 
 # iop4 imports
 
@@ -603,40 +604,79 @@ class Epoch(models.Model):
         TODO: might be better to use the sources_in_field but right now the catalog is pretty incomplete.
         """
 
-        from .reducedfit import ReducedFit
+        logger.debug("{self}: grouping observations for polarimetry...")
 
-        if self.telescope == TELESCOPES.OSN_T090:
-            N_per_cluster = 4
-        elif self.telescope == TELESCOPES.CAHA_T220:
-            N_per_cluster = 4
-        else:
-            raise Exception
+        from .reducedfit import ReducedFit
 
         redf_qs = ReducedFit.objects.filter(epoch=self, obsmode=OBSMODES.POLARIMETRY, flags__has=ReducedFit.FLAGS.BUILT_REDUCED).order_by('juliandate').all()
 
-        clusters_L = list()
-        groupkeys_L = list()
+        # Create a groups with the same keys (object, band, exptime)
+
+        groups_D = dict()
 
         for i, redf in enumerate(redf_qs):
             
-            groupkeys = dict(kwobj=redf.rawfit.header['OBJECT'].split(" ")[0], band=redf.band, exptime=redf.exptime)
+            keys = (
+                    ('kwobj', redf.rawfit.header['OBJECT'].split(" ")[0]), 
+                    ('band', redf.band), 
+                    ('exptime', redf.exptime)
+            )
             
-            if i == 0:
-                groupkeys_L.append(groupkeys)
-                clusters_L.append([redf])
-                continue
-            
-            if groupkeys == groupkeys_L[-1] and len(clusters_L[-1]) < N_per_cluster and np.abs(redf.juliandate-np.amax([redf_in_clusters.juliandate for redf_in_clusters in clusters_L[-1]])) < 10/60/24: # only if group keys match and it is not more than ~10min than the latest redf in the cluster (max exptime in DB is 300s -> 5min)
-                clusters_L[-1].append(redf)
-            else:
-                groupkeys_L.append(groupkeys)
-                clusters_L.append([redf])
+            if keys not in groups_D.keys():
+                groups_D[keys] = list()
+                
+            groups_D[keys].append(redf)
 
-        return clusters_L, groupkeys_L
+        # output some debug info about the groups made
+        for key_T, redf_L in groups_D.items():
+            key_D = dict(key_T)
+            logger.debug(f"{len(redf_L)=}; {key_D.values()}, {set([redf.rotangle for redf in redf_L])}")
     
+        # split the groups into subgroups such that every subgroup has at most 4 elements and all rotangles are present in the subgroup
 
+        split_groups_keys = list()
+        split_groups = list()
 
+        for key_T, redf_L in groups_D.items():
+            key_D = dict(key_T)
+            
+            if len(redf_L) <= 4:
+                split_groups.append(redf_L)
+                split_groups_keys.append(key_D)
 
+            if len(redf_L) > 4:
+                rotangles_S = set([redf.rotangle for redf in redf_L])
+                
+                split_rotangle_D = {rotangle:[redf for redf in redf_L if redf.rotangle==rotangle] for rotangle in rotangles_S}
+                
+                
+                while any([len(split_rotangle_D[rotangle])>0 for rotangle in rotangles_S]):
+                    split_groups.append([split_rotangle_D[rotangle].pop() for rotangle in rotangles_S if len(split_rotangle_D[rotangle]) > 0])
+                    split_groups_keys.append(key_D)
+
+        # sort the groups by min(juliandate)
+         
+        t1_L = [min([redf.juliandate for redf in redf_L]) for redf_L in split_groups]
+
+        split_groups_keys = [x[1] for x in sorted(zip(t1_L, split_groups_keys))]
+        split_groups = [x[1] for x in sorted(zip(t1_L, split_groups))]
+
+        # some debug info about the final sorted groups:
+
+        if iop4conf.log_level == logging.DEBUG:
+            for key_D, redf_L in zip(split_groups_keys, split_groups):
+                
+                t1 = Time(min([redf.juliandate for redf in redf_L]), format="jd").datetime.strftime("%H:%M:%S")
+                t2 = Time(max([redf.juliandate for redf in redf_L]), format="jd").datetime.strftime("%H:%M:%S")
+                
+                print(f"{len(redf_L)=}; {key_D.values()}, {set([redf.rotangle for redf in redf_L])}   ({t1}, {t2})")
+                
+                for redf in redf_L:
+                    print(f"     -> {redf.rotangle}: {Time(redf.juliandate, format='jd').datetime.strftime('%H:%M:%S')}")
+
+        # return the groups and their keys:
+
+        return split_groups, split_groups_keys
 
 
     def compute_relative_polarimetry(self):
