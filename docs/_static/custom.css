@@ -1,0 +1,15 @@
+.py .method h2 {
+	font-size: 105%;
+}
+
+.py .method .simple {
+    margin-left: 12px;
+}
+
+.py .method .simple dt {
+    font-size: 105%;
+}
+
+.py .method .simple dd p {
+    font-size: 12px;
+}

@@ -1,0 +1,22 @@
+basedir: < path to iop4 installation, you can ommit this option>
+datadir: </path/to/iop4data/>
+set_rawdata_readonly: <True/False (sets raw fits file to readonly when downloading them or creating a RawFit object)>
+db_path: </path/to/iop4.db>
+astrometry_cache_path: <path/to/astrometry_cache>
+max_concurrent_threads: <number of threads (e.g. 4)>
+mplt_default_dpi: <dpi for matplotlib (e.g. 100)>
+log_fname: </path/to/iop4.log>
+log_date_format: '%Y-%m-%d %H:%M:%S'
+log_format: '%(asctime)s - %(name)s [%(filename)s:%(lineno)d] - %(levelname)s - %(message)s'
+log_level: <10 (DEBUG), 20 (INFO), 30 (WARNING), 40 (ERROR), 50 (CRITICAL)>
+caha_address: <caha ftp address>
+caha_password: <your caha password>
+caha_user: <your caha user>
+osn_address: <osn ip address>
+osn_user: <yourosnuser>
+osn_password: <yourosnpassword>
+osn_source_list_path: <path/to/osn/source/list>
+osn_fnames_patterns:
+- <osn source regexs, e.g.:>
+- (^Flat.*\.fits?$)
+- (^Bias.*\.fits?$)

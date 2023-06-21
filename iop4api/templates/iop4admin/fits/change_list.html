@@ -1,0 +1,18 @@
+{% extends "admin/change_list.html" %}
+
+{% block object-tools %}
+  {{ block.super }}
+  <!-- the following form implements a checkbox that always returns 1 to toggle preview -->
+  <div style="padding: 10px;">
+    <form method="get" action="" style="display: inline-block;">
+      {% for k, v in keep_in_url_dict.items %}
+        {% if v is not None %}
+          <input type="hidden" name="{{ k }}" value="{{ v }}">
+        {% endif %}
+      {% endfor %}
+      <input type="hidden" name="toggle_image_preview" value="1">
+      <input type="checkbox" value="1" {% if request.session.show_image_preview %}checked{% endif %} onclick="this.form.submit();">
+      <label>Show Image Preview</label>
+    </form>
+  </div>
+{% endblock %}

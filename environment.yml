@@ -1,0 +1,50 @@
+# Conda environment for IOP4
+#
+# Install:    conda env create -f environment.yml
+# Update:     conda env update -f environment.yml
+# Activate:   conda activate iop4
+# Deactivate: conda deactivate
+
+name: iop4
+
+channels:
+  - conda-forge
+
+dependencies:
+  # core dependencies
+  - python=3.10.9
+  - pip
+  - numpy=1.24.2
+  - matplotlib=3.7.1
+  - scipy=1.10.1
+  - astropy=5.2.2
+  - astroquery
+  - photutils=1.8.0
+  - pandas
+  - scikit-image=0.20.0
+  - scikit-learn=1.2.2
+  - coloredlogs
+  # test dependencies
+  - codecov
+  - pytest
+  - pytest-cov
+  # extra dependencies
+  - ipython
+  - jupyter
+  - jupyterlab
+  # dev dependencies
+  - black
+  - isort
+  - numpydoc
+  - sphinx
+  - sphinx-automodapi
+  - sphinx_rtd_theme
+  - sphinx-mdinclude
+  - nbsphinx
+  - pip:
+    - astrometry==4.1.2
+    - django==4.1.7
+    - multiprocess==0.70.14
+    - ray[default]==2.4.0
+    - pypandoc
+    - pympler==1.0.1

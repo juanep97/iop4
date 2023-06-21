@@ -1,0 +1,482 @@
+"""
+Some plotting utilities for the IOP4 project.
+"""
+
+import iop4lib.config
+iop4conf = iop4lib.Config(config_db=False)  
+
+# other imports
+
+import numpy as np
+import scipy as sp
+import matplotlib as mplt
+import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
+import itertools
+from astropy.coordinates import Angle, SkyCoord
+from astropy.wcs import WCS
+import astropy.units as u
+from astropy.visualization import SqrtStretch, LogStretch, AsymmetricPercentileInterval
+from astropy.visualization.mpl_normalize import ImageNormalize
+from photutils.aperture import CircularAperture
+from pathlib import Path
+
+from iop4lib.utils.sourcepairing import (get_pairs_d, get_pairs_dxy, get_best_pairs)
+
+from .sourcedetection import select_points
+
+# logging
+
+import logging
+logger = logging.getLogger(__name__)
+
+def hist_data(data, log=True, ax=None):
+                
+    if ax is None:
+        ax = plt.gca()
+
+    if log:
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+
+    ax.hist(data, bins="sqrt", log=log)
+    
+    ax.axvline(x=np.quantile(data, 0.3), color="r")
+    ax.axvline(x=np.quantile(data, 0.5), color="g")
+    ax.axvline(x=np.quantile(data, 0.99), color="b") 
+
+    ax.xaxis.set_major_locator(mplt.ticker.MaxNLocator(4))
+
+def imshow_w_sources(imgdata, pos1=None, pos2=None, normtype="log", vmin=None, vmax=None, a=10, cmap=None, ax=None):
+    if ax is None:
+        ax = plt.gca()
+
+    if isinstance(imgdata, np.ma.masked_array):
+        data = imgdata.compressed()
+    else:
+        data = np.array(imgdata[np.isfinite(imgdata)]).flatten()
+
+    if cmap is None:
+        cmap = plt.cm.gray
+        cmap.set_bad(color='red')
+        cmap.set_under(color='black')
+        cmap.set_over(color='white')
+            
+    if vmin is None:
+        vmin = np.quantile(data, 0.3)
+
+    if vmax is None:
+        vmax = np.quantile(data, 0.99)
+
+    if normtype == "log":
+        #norm = ImageNormalize(imgdata, interval=AsymmetricPercentileInterval(30, 99), stretch=LogStretch(a=10))
+        norm = ImageNormalize(imgdata, vmin=vmin, vmax=vmax, stretch=LogStretch(a=a))
+        #norm = LogNorm(vmin=vmin, vmax=vmax)
+    elif normtype == "logstretch":
+        norm = ImageNormalize(stretch=LogStretch(a=a))
+    elif normtype == "sqrtstretch":
+        norm = ImageNormalize(stretch=SqrtStretch())
+    else:
+        pass
+
+    ax.imshow(imgdata, cmap=cmap, origin='lower', norm=norm)    
+
+    pos1_present = pos1 is not None and len(pos1) > 0
+    pos2_present = pos2 is not None and len(pos2) > 0
+
+    if pos1_present and not pos2_present:
+        apertures1 = CircularAperture(pos1, r=20.0)
+        apertures1.plot(color="r", lw=1, alpha=0.9, linestyle='--', ax=ax)
+            
+    if pos1_present and pos2_present:
+
+        if len(pos1) < 300:
+            apertures1 = CircularAperture(pos1, r=20.0)
+            apertures2 = CircularAperture(pos2, r=20.0)
+            
+            color_cycle = itertools.cycle(plt.rcParams['axes.prop_cycle'].by_key()['color'])
+            colors = [next(color_cycle) for _ in range(len(apertures1))]
+
+            for i, (ap1, ap2) in enumerate(zip(apertures1, apertures2)):
+                ap1.plot(color=colors[i], lw=1, alpha=0.9, linestyle='--', ax=ax)
+                ap2.plot(color=colors[i], lw=1, alpha=0.9, linestyle='-', ax=ax)
+        else:
+            apertures1 = CircularAperture(pos1, r=20.0)
+            apertures2 = CircularAperture(pos2, r=20.0)
+            
+            apertures1.plot(color="m", lw=1, alpha=0.9, linestyle='--', ax=ax)
+            apertures2.plot(color="y", lw=1, alpha=0.9, linestyle='-', ax=ax)
+
+
+
+def plot_preview_background_substraction_1row(redf, bkg, axs=None, fig=None):
+
+    imgdata_bkg_substracted = redf.mdata - bkg.background
+
+    if axs is None:
+        if fig is None:
+            fig = plt.gcf()
+        axs = fig.subplots(nrows=1, ncols=4)
+
+    axs[0].set_title('Original')
+    imshow_w_sources(redf.mdata, ax=axs[0])
+    axs[1].set_title('Background')
+    imshow_w_sources(bkg.background, ax=axs[1])
+    axs[2].set_title('Background-subtracted Data')
+    imshow_w_sources(imgdata_bkg_substracted, ax=axs[2])
+    axs[3].set_title('Background RMS')
+    imshow_w_sources(bkg.background_rms, ax=axs[3])
+
+    
+def plot_preview_background_substraction(redf, bkg, axs=None, fig=None):
+
+    if axs is None:
+        if fig is None:
+            fig = plt.gcf()
+        axs = fig.subplots(nrows=2, ncols=4)
+
+    imgdata_bkg_substracted = redf.mdata - bkg.background
+
+    axs[0,0].set_title('Original')
+    imshow_w_sources(redf.mdata, ax=axs[0,0])
+    hist_data(redf.mdata.compressed(), ax=axs[1,0])
+    axs[0,1].set_title('Background')
+    imshow_w_sources(bkg.background, ax=axs[0,1])
+    hist_data(bkg.background.flatten(), ax=axs[1,1])
+    axs[0,2].set_title('Background-subtracted Data')
+    imshow_w_sources(imgdata_bkg_substracted, ax=axs[0,2])
+    hist_data(imgdata_bkg_substracted.compressed(), ax=axs[1,2])
+    axs[0,3].set_title('Background RMS')
+    imshow_w_sources(bkg.background_rms, ax=axs[0,3])
+    hist_data(bkg.background_rms.flatten(), ax=axs[1,3])
+
+
+def plot_preview_astrometry(redf, with_simbad=False, legend=True, names_over=False, ax=None, fig=None, **astrocalib_proc_vars):
+
+    from iop4lib.db import AstroSource
+    from astroquery.simbad import Simbad
+    Simbad.ROW_LIMIT = 50
+    Simbad.add_votable_fields('otype')
+    #Simbad.add_votable_fields('flux(R)', 'flux(G)')
+
+    def get_matched_sources(match, pos, d_eps=1.412):
+        """ Finds sources matching field stars within sqrt(2) pixels. """
+        
+        wcs = WCS(match.wcs_fields)
+        raL = [star.ra_deg*u.deg for star in match.stars]
+        decL = [star.dec_deg*u.deg for star in match.stars]
+        
+        match_coords = SkyCoord(ra=raL, dec=decL)
+        matchs_pix = wcs.world_to_pixel(match_coords)
+
+        matched_stars = list()
+        
+        for i, pix in enumerate(zip(*matchs_pix)):
+            d = np.sqrt((pix[0]-pos[:,0])**2 + (pix[1]-pos[:,1])**2)
+            if np.min(d) < d_eps:
+                matched_stars.append(match_coords[i])
+                
+        return matched_stars
+
+    ## if wcs1, wcs2 in astrocalib_proc_vars, use them, otherwise use the ones in redf
+
+    if 'wcs1' in astrocalib_proc_vars:
+        wcs1 = astrocalib_proc_vars['wcs1']
+    else:
+        wcs1 = redf.wcs1
+
+    with_pairs = astrocalib_proc_vars.pop('with_pairs', redf.with_pairs)
+    
+    if with_pairs:
+        if 'wcs2' in astrocalib_proc_vars:
+            wcs2 = astrocalib_proc_vars['wcs2']
+        else:
+            wcs2 = redf.wcs2
+
+    ## get detected stars sources in the image
+    if 'stars' in astrocalib_proc_vars and astrocalib_proc_vars['stars'] is not None:
+        detected_stars = astrocalib_proc_vars['stars']
+    else:
+        detected_stars = None
+
+    ## get the index stars from the astrometry match 
+    if 'solution' in astrocalib_proc_vars:
+        indexstars_ra, indexstars_dec = list(zip(*[[star.ra_deg, star.dec_deg] for star in astrocalib_proc_vars['solution'].best_match().stars]))
+        indexstars_coords = SkyCoord(ra=indexstars_ra*u.deg,  dec=indexstars_dec*u.deg)
+    else:
+        indexstars_coords = None
+
+    ## get index stars matching within sqrt(2) pixels of the used centroids.
+    if 'bm' in astrocalib_proc_vars and 'stars' in astrocalib_proc_vars:
+        matched_stars = get_matched_sources(astrocalib_proc_vars['bm'], np.array(astrocalib_proc_vars['stars']))
+    else: 
+        matched_stars = None
+
+    ## get sources in field
+    sources_in_field = AstroSource.get_sources_in_field(wcs1, redf.mdata.shape[0], redf.mdata.shape[1])
+    logger.debug(f"{redf}: found {len(sources_in_field)} catalog sources in field: {sources_in_field}")
+
+
+    if ax is None:
+        ax = plt.gca()
+
+    if fig is None:
+        fig = ax.figure
+
+    legend_handles_L = list()
+    legend_labels_L = list()
+
+    # image
+
+    imshow_w_sources(redf.mdata, ax=ax)
+
+    # # detected stars
+
+    # if detected_stars is not None:
+    #     ap = CircularAperture(detected_stars, r=20.0)
+    #     h = ap.plot(color="g", lw=1, alpha=1.0, linestyle='--', ax=ax)[-1]
+    #     legend_handles_L.append(h)
+    #     legend_labels_L.append("detected sources")
+
+    # # index stars
+
+    # if indexstars_coords is not None:
+    #     aps = CircularAperture(list(zip(*SkyCoord(indexstars_coords).to_pixel(wcs1))), r=20)
+    #     h = aps.plot(color="b", lw=1, alpha=0.8, linestyle='-', ax=ax)[-1]
+    #     legend_handles_L.append(h)
+    #     legend_labels_L.append("index stars")
+
+    # # matched stars
+
+    # if matched_stars is not None and len(matched_stars) > 0:
+    #     aps = CircularAperture(list(zip(*SkyCoord(matched_stars).to_pixel(wcs1))), r=20)
+    #     h = aps.plot(color="y", lw=1, alpha=0.8, linestyle='--', ax=ax, label="matched stars")[-1]
+    #     legend_handles_L.append(h)
+    #     legend_labels_L.append("matched stars (d<sqrt(2))")
+
+    # catalogue sources
+
+    if sources_in_field is not None and len(sources_in_field) > 0:
+        for i, source in enumerate(sources_in_field):
+            ap = CircularAperture([*source.coord.to_pixel(wcs1)], r=20)
+            h = ap.plot(color="r", lw=1, alpha=1, linestyle='-', ax=ax, label=f"{source.name}")
+            if with_pairs:
+                ax.plot(*source.coord.to_pixel(wcs2), 'rx', alpha=1)
+            x, y = source.coord.to_pixel(wcs1)
+            ax.annotate(text=source.name if names_over else f"{i}", 
+                        xy=(x+20, y), 
+                        xytext=(40,0) if names_over else (10,0), 
+                        textcoords="offset pixels", 
+                        color="red", fontsize=10, weight="bold",
+                        verticalalignment="center",
+                        #path_effects=[mplt.patheffects.withStroke(linewidth=0.5, foreground="black")],
+                        arrowprops=dict(color="red", width=0.5, headwidth=1, headlength=3))
+            
+            if not names_over:
+                legend_handles_L.append(h)
+                legend_labels_L.append(f"{i}: {source.name}")
+
+        if names_over:
+            legend_handles_L.append(h)
+            legend_labels_L.append(f"Catalog sources")
+
+    # overlay sources in Simbad
+
+    if with_simbad:
+        try:
+            # known sources in this area of sky (Simbad)
+            pixscale = np.mean(np.sqrt(np.sum(wcs1.pixel_scale_matrix**2, axis=0)))*u.Unit("deg/pix")
+            #radius = np.linalg.norm(redf.mdata.shape)//2 * u.Unit('pixel') * pixscale
+            radius = redf.mdata.shape[0]//2 * u.Unit('pixel') * pixscale
+
+            centercoord = wcs1.pixel_to_world(redf.mdata.shape[0]//2, redf.mdata.shape[1]//2)
+
+            logger.debug(f"Querying Simbad for {centercoord=}, {pixscale.to('arcsec/pix')=}, {radius.to('arcmin')=}")
+
+            tb_simbad = Simbad.query_region(centercoord, radius=radius, epoch="J2000")
+
+
+            N_max_simbad = 4 if names_over else 10
+            idx = (tb_simbad['OTYPE'] == 'Star') | (tb_simbad['OTYPE'] == 'QSO') | (tb_simbad['OTYPE'] == 'BLLac')
+
+            # if sum(idx) >= N_max_simbad:
+            #     tb_simbad = tb_simbad[idx]
+            idx = np.argsort(idx)[::-1]
+            tb_simbad = tb_simbad[idx][:N_max_simbad] # this will get only N_max_simbad sources, starting from selected types
+
+            logger.debug(f"Simbad query returned {len(tb_simbad)}")
+
+            if len(tb_simbad) > N_max_simbad:
+                simbad_coords = SkyCoord(Angle(tb_simbad['RA'], unit=u.hourangle), Angle(tb_simbad['DEC'], unit=u.degree), frame='icrs')
+                simbad_pos_px = np.transpose(simbad_coords.to_pixel(wcs1))
+                simbad_selected_idx = np.array(select_points(simbad_pos_px, 5)[1])
+                tb_simbad = tb_simbad[simbad_selected_idx]
+
+            for i, row in enumerate(tb_simbad):
+                logger.debug(f"Plotting Simbad's {row['MAIN_ID']}")
+                c = SkyCoord(Angle(row['RA'], unit=u.hourangle), Angle(row['DEC'], unit=u.degree), frame='icrs')
+                x, y = c.to_pixel(wcs1)
+                ap = CircularAperture([*c.to_pixel(wcs1)], r=20)
+                h = ap.plot(color="yellow", lw=1, alpha=0.8, linestyle='--', ax=ax, label=f"{row['MAIN_ID']}")
+                ax.annotate(text=row['MAIN_ID'] if names_over else f"{i}", 
+                            xy=(x+20, y) if names_over else (x-20, y), 
+                            xytext=(40,-20) if names_over else (-15,0), 
+                            verticalalignment="center",
+                            textcoords="offset pixels", color="yellow", fontsize=10, weight="bold", arrowprops=dict(color='yellow', width=1.0, headwidth=1, headlength=3) if names_over else None)
+                
+                if not names_over:
+                    legend_handles_L.append(h)
+                    legend_labels_L.append(f"{i}: {row['MAIN_ID']}")
+       
+        except Exception as e:
+            logger.debug(f"Simbad query failed, ignoring: {e}")
+
+    # Plot the displacement betwen pairs as scale, if specified
+
+    if astrocalib_proc_vars['disp_sign'] is not None:
+        ax.arrow(x=redf.mdata.shape[0]-20, y=20, dx=astrocalib_proc_vars['disp_sign'][0], dy=astrocalib_proc_vars['disp_sign'][1], color='red', lw=2, head_width=8, length_includes_head=True)
+
+    # set axes and legends
+
+    if legend:
+        if names_over:
+            ax.legend(legend_handles_L, legend_labels_L, facecolor=(1,1,1,0.5))
+        else:
+            ax.legend(legend_handles_L, legend_labels_L, title="Sources", facecolor=(1,1,1,0.5), loc="lower left", bbox_to_anchor=(1,0))
+
+    ax.set_xlim([0, redf.mdata.shape[1]])
+    ax.set_ylim([0, redf.mdata.shape[0]])
+    ax.coords.grid(True, color='white', ls='solid')
+    ax.coords[0].set_axislabel_visibility_rule("always")
+    ax.coords[1].set_axislabel_visibility_rule("always")
+
+
+
+
+
+
+    
+
+
+
+
+
+
+
+def build_astrometry_summary_images(redf, astrocalib_proc_vars, summary_kwargs):
+
+    # Summary image of background substraction results
+
+    logger.debug(f"{redf}: plotting astrometry summary image of background substraction results")
+
+    fig = mplt.figure.Figure(figsize=(14,7), dpi=iop4conf.mplt_default_dpi)
+    axs = fig.subplots(nrows=2, ncols=4)
+    plot_preview_background_substraction(redf, astrocalib_proc_vars['bkg'], axs=axs)
+    fig.savefig(Path(redf.filedpropdir) / "astrometry_1_bkgsubstraction.png", bbox_inches="tight")
+    fig.clf()
+
+    # Summary images of segmentation and pair finding results
+
+    if 'pos_seg' in astrocalib_proc_vars.keys():
+
+        logger.debug(f"{redf}: plotting astrometry summary image of segmentation results")
+
+        if astrocalib_proc_vars['with_pairs']:
+            fig = mplt.figure.Figure(figsize=(12,6), dpi=iop4conf.mplt_default_dpi)
+            axs = fig.subplots(nrows=2, ncols=4)
+
+            axs[0,0].set_title('Segmented Image')
+            axs[0,0].imshow(astrocalib_proc_vars['segment_map'], origin="lower", cmap=astrocalib_proc_vars['segment_map'].cmap, interpolation="nearest")
+
+            axs[1,0].set_title(f"Kron apertures (N={len(astrocalib_proc_vars['pos_seg'])})")
+            imshow_w_sources(astrocalib_proc_vars['imgdata_bkg_substracted'], ax=axs[1,0])
+            astrocalib_proc_vars['seg_cat'].plot_kron_apertures(ax=axs[1,0], color='red', lw=1.5)
+
+            axs[0,1].set_title(f"Pairs (n={len(astrocalib_proc_vars['seg1'])}, {len(astrocalib_proc_vars['seg1'])/len(astrocalib_proc_vars['pos_seg'])*100:.1f}%)")
+            imshow_w_sources(redf.mdata, pos1=astrocalib_proc_vars['seg1'], pos2=astrocalib_proc_vars['seg2'], ax=axs[0,1])
+
+            axs[1,1].set_title(f"PairsXY (n={len(astrocalib_proc_vars['seg1xy'])}, {len(astrocalib_proc_vars['seg1xy'])/len(astrocalib_proc_vars['pos_seg'])*100:.1f}%)")
+            imshow_w_sources(redf.mdata, pos1=astrocalib_proc_vars['seg1xy'], pos2=astrocalib_proc_vars['seg2xy'], ax=axs[1,1])
+
+            axs[0,2].set_title(f"BestPairs (n={len(astrocalib_proc_vars['seg1_best'])}, {len(astrocalib_proc_vars['seg1_best'])/len(astrocalib_proc_vars['pos_seg'])*100:.1f}%)")
+            imshow_w_sources(redf.mdata, pos1=astrocalib_proc_vars['seg1_best'], pos2=astrocalib_proc_vars['seg2_best'], ax=axs[0,2])
+
+            axs[1,2].set_title(f"BestPairsXY (n={len(astrocalib_proc_vars['seg1xy_best'])}, {len(astrocalib_proc_vars['seg1xy_best'])/len(astrocalib_proc_vars['pos_seg'])*100:.1f}%)")
+            imshow_w_sources(redf.mdata, pos1=astrocalib_proc_vars['seg1xy_best'], pos2=astrocalib_proc_vars['seg2xy_best'], ax=axs[1,2])
+
+            axs[0,3].set_title(f"d0 (1st)")
+            get_pairs_d(astrocalib_proc_vars['pos_seg'], d_eps=astrocalib_proc_vars['d_eps'], bins=astrocalib_proc_vars['bins'], hist_range=astrocalib_proc_vars['hist_range'], ax=axs[0,3], doplot=True)
+            axs[0,3].set_xlim([0,120])
+
+            get_pairs_dxy(astrocalib_proc_vars['pos_seg'], d_eps=astrocalib_proc_vars['d_eps'], bins=astrocalib_proc_vars['bins'], hist_range=astrocalib_proc_vars['hist_range'], axs=[axs[1,3]], doplot=True)
+            axs[1,3].set_title(f"disp (1st)")
+            axs[1,3].set_xlim([0,120])
+
+            fig.savefig(Path(redf.filedpropdir) / "astrometry_2_segmentation.png", bbox_inches="tight")
+            fig.clf()
+        else:
+            fig = mplt.figure.Figure(figsize=(6,3), dpi=iop4conf.mplt_default_dpi)
+            axs = fig.subplots(nrows=1, ncols=2)
+            axs[0].set_title('Segmented Image')
+            axs[0].imshow(astrocalib_proc_vars['segment_map'], cmap=astrocalib_proc_vars['segment_map'].cmap, origin="lower", interpolation="nearest")
+            axs[1].set_title(f"Kron apertures (N={len(astrocalib_proc_vars['pos_seg'])})")
+            imshow_w_sources(astrocalib_proc_vars['imgdata_bkg_substracted'], ax=axs[1])
+            astrocalib_proc_vars['seg_cat'].plot_kron_apertures(ax=axs[1], color='red', lw=1.5)
+
+            fig.savefig(Path(redf.filedpropdir) / "astrometry_2_segmentation.png", bbox_inches="tight")
+            fig.clf()
+
+    # Summary image of DAOFind and pair finding results
+
+    if 'pos_dao' in astrocalib_proc_vars.keys():
+
+        logger.debug(f"{redf}: plotting astrometry summary image of daofind results")
+
+        if astrocalib_proc_vars['with_pairs']:
+            fig = mplt.figure.Figure(figsize=(12,6), dpi=iop4conf.mplt_default_dpi, layout="constrained")
+            axs = fig.subplot_mosaic([["A", "B", "C", "D"], 
+                                    ["A", "E", "F", "G"]])
+
+            axs["A"].set_title(f"Sources (N={len(astrocalib_proc_vars['pos_dao'])})")
+            imshow_w_sources(astrocalib_proc_vars['imgdata_bkg_substracted'], pos1=astrocalib_proc_vars['pos_dao'], ax=axs["A"])
+
+            axs["B"].set_title(f"Pairs (n={len(astrocalib_proc_vars['dao1'])}, {len(astrocalib_proc_vars['dao1'])/len(astrocalib_proc_vars['pos_dao'])*100:.1f}%)")
+            imshow_w_sources(astrocalib_proc_vars['imgdata_bkg_substracted'], pos1=astrocalib_proc_vars['dao1'], pos2=astrocalib_proc_vars['dao2'], ax=axs["B"])
+
+            axs["E"].set_title(f"PairsXY (n={len(astrocalib_proc_vars['dao1xy'])}, {len(astrocalib_proc_vars['dao1xy'])/len(astrocalib_proc_vars['pos_dao'])*100:.1f}%)")
+            imshow_w_sources(redf.mdata, pos1=astrocalib_proc_vars['dao1xy'], pos2=astrocalib_proc_vars['dao2xy'], ax=axs["E"])
+
+            axs["C"].set_title(f"BestPairs (n={len(astrocalib_proc_vars['dao1_best'])}, {len(astrocalib_proc_vars['dao1_best'])/len(astrocalib_proc_vars['pos_dao'])*100:.1f}%)")
+            imshow_w_sources(astrocalib_proc_vars['imgdata_bkg_substracted'], pos1=astrocalib_proc_vars['dao1_best'], pos2=astrocalib_proc_vars['dao2_best'], ax=axs["C"])
+
+            axs["F"].set_title(f"BestPairsXY (n={len(astrocalib_proc_vars['dao1xy'])}, {len(astrocalib_proc_vars['dao1xy_best'])/len(astrocalib_proc_vars['pos_dao'])*100:.1f}%)")
+            imshow_w_sources(redf.mdata, pos1=astrocalib_proc_vars['dao1xy_best'], pos2=astrocalib_proc_vars['dao2xy_best'], ax=axs["F"])
+
+            axs['D'].set_title(f"d0 (1st)")
+            get_pairs_d(astrocalib_proc_vars['pos_dao'], d_eps=astrocalib_proc_vars['d_eps'], bins=astrocalib_proc_vars['bins'], hist_range=astrocalib_proc_vars['hist_range'], ax=axs['D'], doplot=True)
+            axs['D'].set_xlim([0,120])
+
+            get_pairs_dxy(astrocalib_proc_vars['pos_dao'], d_eps=astrocalib_proc_vars['d_eps'], bins=astrocalib_proc_vars['bins'], hist_range=astrocalib_proc_vars['hist_range'], axs=[axs['G']], doplot=True)
+            axs['G'].set_title(f"disp (1st)")
+            axs['G'].set_xlim([0,120])
+
+            fig.savefig(Path(redf.filedpropdir) / "astrometry_3_daofind.png", bbox_inches="tight")
+            fig.clf()
+        else:
+            fig = mplt.figure.Figure(figsize=(3,3), dpi=iop4conf.mplt_default_dpi)
+            ax = fig.subplots(nrows=1, ncols=1)
+            ax.set_title(f"Sources (N={len(astrocalib_proc_vars['pos_dao'])})")
+            imshow_w_sources(astrocalib_proc_vars['imgdata_bkg_substracted'], pos1=astrocalib_proc_vars['pos_dao'], ax=ax)
+            fig.savefig(Path(redf.filedpropdir) / "astrometry_3_daofind.png", bbox_inches="tight")
+            fig.clf()
+
+    # Summary image of astrometry results
+
+    if 'wcs1' in astrocalib_proc_vars.keys():
+        logger.debug(f"{redf}: plotting astrometry summary image of astrometry results")
+
+        fig = mplt.figure.Figure(figsize=(6,6), dpi=iop4conf.mplt_default_dpi)
+        ax = fig.subplots(nrows=1, ncols=1, subplot_kw={'projection': astrocalib_proc_vars['wcs1']})
+        plot_preview_astrometry(redf, **astrocalib_proc_vars, ax=ax, fig=fig, with_simbad=summary_kwargs['with_simbad'])
+        fig.savefig(Path(redf.filedpropdir) / "astrometry_4_img_result.png", bbox_inches="tight")
+        fig.clf()

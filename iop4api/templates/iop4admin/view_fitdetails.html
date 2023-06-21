@@ -1,0 +1,343 @@
+{% extends "iop4admin/base_site.html" %}
+
+{% load i18n admin_urls %}
+
+{% block content %}
+
+
+
+
+<!-- <h1>FIT file details</h1> -->
+
+<!-- <h2><code>{{ fileloc }}</code></h2> -->
+
+<code>{{ fit }}</code><br><br>
+
+<!--
+	<code>{{ fitclsname }}</code>(id={{fit.id}}) /  <code>{{ fileloc }}</code><br><br>
+-->
+
+
+
+<!-- Links -->
+{% if url_changelist is not None %}
+	<a href="{{ url_changelist }}">Back to list</a><br><br>
+{% endif %}
+{% if url_reduced is not None %}
+	<a href="{{ url_reduced }}">See reduced file</a><br><br>
+{% endif %}
+{% if url_raw is not None %}
+	<a href="{{ url_raw }}">See raw file</a><br><br>
+{% endif %}
+{% if url_viewer is not None %}
+	<a href="{{ url_viewer }}">See in advanced FITS viewer</a><br><br>
+{% endif %}
+
+
+
+
+<!-- Fields and values -->
+
+<h2>Fields</h2>
+
+<div class="fields_tb_wrapper" style="max-width: min(85%,800px); overflow-x: scroll;">
+	<table>
+		<thead>
+		<tr>
+			<th></th>
+			{% for field, value in fields_and_values %}
+			{% if value != "None" %}
+				<th>{{ field }}</th>
+			{% endif %}
+			{% endfor %}
+		</tr>
+		</thead>
+		<tbody>
+		<tr>
+			<th></th>
+			{% for field, value in fields_and_values %}
+			{% if value != "None" %}
+				<td>{{ value }}</td>
+			{% endif %}
+			{% endfor %}
+		</tr>
+		</tbody>
+	</table>
+</div>
+
+
+<!-- Additional info if the file exists -->
+
+{% if fileexists %}
+
+	<h2>Summary statistics</h2><br>
+
+	<table>
+		<thead>
+		  <tr>
+			{% for key in stats %}
+			  <th>{{ key }}</th>
+			{% endfor %}
+		  </tr>
+		</thead>
+		<tbody>
+		  <tr>
+			{% for value in stats.values %}
+			  <td>{{ value | stringformat:".2g" }}</td>
+			{% endfor %}
+		  </tr>
+		</tbody>
+	  </table>
+
+
+
+
+
+
+	<h2>Preview</h2><br>
+
+	<div id="img_preview">
+		<form action="" method="get" id="img_preview_range_form">
+			<img style="grid-area: histimg; object-fit: fill; width: 100%;" src='data:image/png;base64, {{ histimg_b64 }}'/>
+
+			<label style="grid-area: label1;">vmin:</label>
+			<input id="slider1" type="range" style="grid-area: slider1;" oninput="updateSliderValues()" step="any">
+			<input id="value1" name="vmin" type="hidden">
+			<label id="value1_label" style="grid-area: value1;"></label>
+
+			<label style="grid-area: label2;">vmax:</label>
+			<input id="slider2" type="range" style="grid-area: slider2;" oninput="updateSliderValues()" step="any">
+			<input id="value2" name="vmax" type="hidden">
+			<label id="value2_label" style="grid-area: value2;"></label>
+
+			<input type="submit" value="reload" style="grid-area: reload;">
+		</form>
+		
+		<div id="img_preview_image">
+			<img src='data:image/png;base64, {{ imgb64 }}' width='256' height='256'/>
+		</div>
+	</div>
+
+	<br>
+
+
+
+
+
+
+	<h2>Reduction information:</h2>
+
+
+
+		<h3>MasterBias and MasterFlat</h3>
+		<ul>
+		{% if fit.masterbias %}
+			<li><a href="{% url 'iop4admin:iop4api_masterbias_changelist' %}?id={{ fit.masterbias.id }}">MasterBias {{ fit.masterbias.id }}</a></li>
+		{% endif %}
+		{% if fit.masterflat %}
+			<li><a href="{% url 'iop4admin:iop4api_masterflat_changelist' %}?id={{ fit.masterflat.id }}">MasterFlat {{ fit.masterflat.id }}</a></li>
+		{% endif %}
+		</ul>
+
+
+
+		<h3>Astrometric calibration</h3>
+
+		{{ astrometry_info.working_msg }} <br>
+		{{ astrometry_info.bm }} <br>
+
+		<small><i>(scroll horizontally)<i></small><br>
+
+		<div class="astrometry_summary_div">
+			{% for fname, imgb64 in astrometry_img_D.items reversed %}
+				<!-- <code>{{ fname }}</code><br> -->
+				<img src='data:image/png;base64, {{ imgb64 }}' title="{{ fname }}" alt="{{ fname }}"/>
+			{% empty %}
+				<i>There are no images for astrometry.</i>
+			{% endfor %}
+		</div>
+
+
+
+		<h3>Sources in the field</h3>
+		{% if sources_in_field_L %}
+			<ul>
+			{% for source, source_changelist_url in sources_in_field_L %}
+				<li>
+					<a href="{{ source_changelist_url }}">
+						{{ source.name }}
+						{% if source.other_name %} 
+							({{ source.other_name }}) 
+						{% endif %}.
+						[{{ source.srctype | upper }}]
+					</a>
+				</li>
+			{% endfor %}
+			</ul>
+		{% else %}
+			<i>No sources found in this field.</i>
+		{% endif %}
+
+		<h3>Results from this image</h3>
+		<i>Not implemented.</i>
+
+
+
+
+
+
+	<h2>FITS file headers: </h2>
+
+	{% for header in header_L %}
+		<h3>Header {{forloop.counter }}:</h3> <small><i>(scroll down)<i></small> <br>
+		<div class="header_tb_wrapper">
+			<table>
+				<thead>
+				<tr>
+					<th>Key</th>
+					<th>Value</th>
+				</tr>
+				</thead>
+				<tbody>
+				{% for key, value in header.items %}
+				<tr>
+					<td>{{ key }}</td>
+					<td>{{ value }}</td>
+				</tr>
+				{% endfor %}
+				</tbody>
+			</table>  
+		</div>
+	{% endfor %}
+
+{% else %}
+    <p>Local file does not exist, FIT can not be opened.</p>
+{% endif %}
+
+
+
+
+
+<script>
+	vmin = Number("{{ vmin }}");
+	vmax = Number("{{ vmax }}");
+	vabsmin = Number("{{ stats.min }}");
+	vabsmax = Number("{{ stats.max }}");
+
+	var slider1 = document.getElementById("slider1");
+	var slider2 = document.getElementById("slider2");
+	var value1 = document.getElementById("value1");
+	var value2 = document.getElementById("value2");
+	var value1_label = document.getElementById("value1_label");
+	var value2_label = document.getElementById("value2_label");
+
+	function updateSliderValues() {
+		// Make sure slider1 is always one unit less than slider2
+		// convert to int to avoid summing strings...
+		if (Number(slider2.value) <= Number(slider1.value)) { // +1
+			slider2.value = Number(slider1.value); // +1
+		}
+
+		// Update real values from the scaled values of the sliders
+		value1.value = fscale_inv(Number(slider1.value))
+		value2.value = fscale_inv(Number(slider2.value))
+
+		//console.log('real values')
+		//console.log(value1.value)
+		//console.log(value2.value)
+
+		// Update displayed values
+		value1_label.innerHTML = Number(value1.value).toFixed(5);
+		value2_label.innerHTML = Number(value2.value).toFixed(5);
+	}
+
+	a = 10
+
+	function fscale(x) {
+		xs = (x-vabsmin)/(vabsmax-vabsmin)
+		let y = Math.log(a * xs  + 1 ) / Math.log(a + 1)
+		return y;
+	}
+
+	function fscale_inv(y) {
+		let xs = (Math.exp(y * (Math.log(a+1))) - 1) / a
+		let x = xs * (vabsmax - vabsmin) + vabsmin
+		return x;
+	}
+
+	//function fscale(x){ return x}
+	//function fscale_inv(y){ return y}
+
+	(function() {
+		value1.value = vmin;
+		slider1.value = fscale(vmin);
+		slider1.min = fscale(vabsmin);
+		slider1.max = fscale(vabsmax);
+
+		value2.value = vmax;
+		slider2.value = fscale(vmax);
+		slider2.min = fscale(vabsmin);
+		slider2.max = fscale(vabsmax);
+
+		updateSliderValues()
+	})();
+
+</script>
+
+
+<style>
+
+	/* img preview css */ 
+	#img_preview {
+		display: flex;
+		flex-direction: row;
+		align-items: flex-end; 
+		/* align-items: center; */
+		gap: 20px;
+	}
+
+	#img_preview_range_form {
+		display: grid;
+		column-gap: 10px;
+  		grid-template-columns: 50px 200px 100px;
+  		grid-template-rows: auto;
+		grid-template-areas: 
+			".      histimg .     "
+			"label1 slider1 value1"
+			"label2 slider2 value2"
+			"reload reload  reload"
+	}
+
+	#img_preview_image {
+		border: 1px solid black;
+	}
+
+	#img_preview_range_form label {
+		text-align: right;
+	}
+
+	/* header div */
+	.header_tb_wrapper {
+		max-height: 60vh; 
+		overflow-y: scroll;
+	}
+
+	/* astrometry div */
+	.astrometry_summary_div {
+		display: flex;
+		flex-direction: row;
+		max-width: 800px;
+		overflow-x: scroll;
+	}
+
+	.astrometry_summary_div img {
+		max-width : 800px;
+		object-fit: contain;
+		border: 1px solid gray;
+		border-collapse: collapse;
+	}
+
+</style>
+
+{{ block.super }}
+{% endblock %}

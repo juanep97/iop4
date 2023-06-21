@@ -1,0 +1,36 @@
+{% extends "iop4admin/base_site.html" %}
+
+{% load i18n admin_urls %}
+
+{% block content %}
+
+<h1>Epoch details for {{ epoch.epochname }}</h1>
+
+Epoch status is <i>{{ epoch.flag_labels }}</i><br><br>
+
+<h2>RawFits</h2>
+
+There are {{ epoch.rawcount }} raw fits in this epoch in total.
+<ul>
+	<li>{{ epoch.rawbiascount }} bias fits </li>
+	<li>{{ epoch.rawflatcount }} flats fits </li>
+	<li>{{ epoch.rawlightcount }} science fits </li>
+</ul><br>
+
+This epoch's raw fit summary status is <code>{{ rawfitsummarystatus }}</code>.<br><br>
+
+The following header keys are present in the FITS files for this epoch (join set):<br>
+<!--
+key / number of fits with key in header<br>
+	{% for key, value in header_key_D.items %}
+		{{ key }}:  {{ value }}, &nbsp; &nbsp; 
+	{% endfor %}
+-->  
+<code>
+	{% for key in header_key_S %}
+		{{ key }}, &nbsp; 
+	{% endfor %}
+</code>
+
+{{ block.super }}
+{% endblock %}

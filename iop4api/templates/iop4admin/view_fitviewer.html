@@ -1,0 +1,68 @@
+{% extends "iop4admin/base_site.html" %}
+
+{% load i18n admin_urls %}
+
+
+{% block content %}
+
+	<h1>FIT viewer</h1>
+
+	<span><b>{{ fitclsname }}</b> <code>{{ fileloc }}</code></span><br>
+	<span id="patiencemsg">This might take a while to load ({{ filesize_mb_str }} MB), please be patient.</span><br><br>
+
+	<a href="{{ url_changelist }}">Back to list</a><br>
+
+	{% if url_raw is not None %}
+		<a href="{{ url_raw }}">See raw file</a><br>
+	{% endif %}
+
+	{% if url_reduced is not None %}
+	<a href="{{ url_reduced }}">See reduced file</a><br>
+	{% endif %}
+
+
+	Download at <a href="{{ fits_url }}"><code>{{ fits_url }}</code></a><br><br>
+
+	{% load static %}
+	<link type="text/css" rel="stylesheet" href="{% static 'iop4api/js9/js9support.css' %}">
+	<link type="text/css" rel="stylesheet" href="{% static 'iop4api/js9/js9.css' %}">
+	<script type="text/javascript" src="{% static 'iop4api/js9/js9prefs.js' %}"></script>
+	<script type="text/javascript" src="{% static 'iop4api/js9/js9support.min.js' %}"></script>
+	<script type="text/javascript" src="{% static 'iop4api/js9/js9.min.js' %}"></script>
+	<script type="text/javascript" src="{% static 'iop4api/js9/js9plugins.js' %}"></script>
+
+	<script type="text/javascript">
+		function imageLoaded() {
+			// document.getElementById("patiencemsg").style.display = "none";
+			document.getElementById("patiencemsg").innerHTML = "Loaded {{ filesize_mb_str }} MB.";
+		}
+
+		function loadFIT() {
+			console.log("loading fits...")
+			
+			JS9.Preload("{{ fits_url }}", { 
+				parentFile: "{{filename}}", // filename ended in .fit, otherwise it is buggy
+				zoom: "tofit",
+				scale: "log", 
+				colormap: "grey", 
+				div: "myJS9",
+				display: "myJS9",
+				onload: imageLoaded
+			});
+		}
+
+		$(document).ready(function(){
+			loadFIT();
+		});
+	</script>
+
+	<div class="JS9Menubar" id="myJS9Menubar"></div>
+	<div class="JS9" id="myJS9"></div>
+	<div class="JS9Statusbar" id="myJS9Statusbar"></div>
+	<div class="JS9Colorbar" id="myJS9Colorbar"></div>
+
+
+	
+{{ block.super }}
+
+{% endblock %}
