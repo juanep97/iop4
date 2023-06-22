@@ -3,6 +3,7 @@ import iop4lib.config
 iop4conf = iop4lib.Config(config_db=False)
 
 # django imports
+from abc import ABCMeta, abstractmethod
 
 # other imports
 import re
@@ -21,10 +22,19 @@ from .telescope import Telescope
 import logging
 logger = logging.getLogger(__name__)
 
-class OSNT090(Telescope):
+class OSNT090(Telescope, metaclass=ABCMeta):
+    
+    # telescope identification
+
     name = "OSN-T090"
     abbrv = "T090"
     telescop_kw = "T90-OSN"
+
+    # telescope specific properties
+
+    gain_e_adu = 4.5
+
+    # telescope specific methods
 
     @classmethod
     def list_remote_epochnames(cls):

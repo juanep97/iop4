@@ -403,7 +403,7 @@ class ReducedFit(RawFit):
             logger.debug(f"{self}: {np.sum(img_bkg_sub <= 0.0)} px < 0 ({math.sqrt(np.sum(img_bkg_sub <= 0.0)):.0f} px2) in BKG-SUBSTRACTED IMG, after masking.")
 
 
-        effective_gain = 4.0 # TODO: this is probabbly wrong?
+        effective_gain = Telescope.by_name(self.epoch.telescope).gain_e_adu
         error = calc_total_error(img_bkg_sub, bkg.background_rms, effective_gain)
 
         for astrosource in self.sources_in_field.all():

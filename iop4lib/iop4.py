@@ -104,10 +104,15 @@ if __name__ == '__main__':
         rawfits = RawFit.objects.filter(epoch__in=epoch_L, imgtype=IMGTYPES.LIGHT).all()
         Epoch.reduce_rawfits(rawfits, force_rebuild=args.force_rebuild)
 
-        logger.info("Computing photometry results.")
+        logger.info("Computing relative photometry results.")
 
         for epoch in epoch_L:
                 epoch.compute_relative_photometry()
+
+        logger.info("Computing relative polarimetry results.")
+        
+        for epoch in epoch_L:
+                epoch.compute_polarimetry()
 
 
     if args.retry_failed:

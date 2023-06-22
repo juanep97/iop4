@@ -5,5 +5,5 @@ from .astrosource import AstroSource
 from .masterbias import MasterBias
 from .masterflat import MasterFlat
 from .reducedfit import ReducedFit
-from .photopolresult import PhotoPolResult
+from .photopolresult import PhotoPolResult, PhotoPolResultReducedFitRelation
 from .aperphotresult import AperPhotResult

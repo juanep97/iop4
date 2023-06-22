@@ -5,6 +5,8 @@ iop4conf = iop4lib.Config(config_db=False)
 # django imports
 
 # other imports
+from abc import ABCMeta, abstractmethod
+
 import re
 import ftplib
 import logging
@@ -20,70 +22,104 @@ from iop4lib.enums import *
 import logging
 logger = logging.getLogger(__name__)
 
-class Telescope():
+class Telescope(metaclass=ABCMeta):
     """
         Inherit this class to provide telescope specific functionality and
-        translations. For example listing remote telescope archive, downloading
-        data, translating non standard keywords, etc.
+        translations.
 
-        Methods that should be implemented in child classes have NotImplementedError.
+        Attributes and methods that must be implemented are marked as abstract (they will give
+        error if the class is inherited and the method is not implemented in the subclass).
 
-        Also provide some common methods which in principle should not need to 
-        overriden because they are telescope independent.
+        Some classmethods are already defined since they are telescope independent; we should not need to
+        override them (but it can be done).
 
-        Provide some utilities also.
+        .. note::
+            This class is abstract, it should not be instantiated.
 
-        To add a new telescope, inherit this class and add it to the list of known telescopes
-        in the get_known() method and the TelescopeEnum.
+        .. note::
+            To add a new telescope, inherit this class and add it to the list of known telescopes
+            in the get_known() method and the TelescopeEnum.
     """
 
-    # Telescope dependent methods (should be overriden in child classes)
+    # Abstract attributes
 
-    name = None
-    abbrv = None
-    telescop_kw = None
-        
+    # telescope identification
+
+    @property
+    @abstractmethod
+    def name(self):
+        pass
+
+    @property
+    @abstractmethod
+    def abbrv(self):
+        pass
+
+    @property
+    @abstractmethod
+    def telescop_kw(self):
+        pass
+
+    # telescope properties
+
+    @property
+    @abstractmethod
+    def gain_e_adu(self):
+        pass
+
+    # Abstract methods
+
     @classmethod
+    @abstractmethod
     def list_remote_raw_fnames(cls, epoch):
-        raise NotImplementedError
+        pass
 
     @classmethod
+    @abstractmethod
     def download_rawfits(cls, epoch):
-        raise NotImplementedError
+        pass
 
     @classmethod
+    @abstractmethod
     def list_remote_epochnames(cls):
-        raise NotImplementedError
+        pass
 
     @classmethod
+    @abstractmethod
     def classify_juliandate_rawfit(cls, rawfit):
-        raise NotImplementedError
+        pass
 
     @classmethod
+    @abstractmethod
     def classify_imgtype_rawfit(cls, rawfit):
-        raise NotImplementedError
+        pass
 
     @classmethod
+    @abstractmethod
     def classify_band_rawfit(cls, rawfit):
-        raise NotImplementedError
+        pass
 
     @classmethod
+    @abstractmethod
     def classify_obsmode_rawfit(cls, rawfit):
-        raise NotImplementedError
+        pass
 
     @classmethod
+    @abstractmethod
     def get_header_hintcoord(cls, rawfit, *args, **kwargs):
-        raise NotImplementedError
+        pass
     
     @classmethod
+    @abstractmethod
     def get_astrometry_position_hint(cls, rawfit, *args, **kwargs):
-        raise NotImplementedError
-    
+        pass
+
     @classmethod
+    @abstractmethod
     def get_astrometry_size_hint(cls, rawfit):
-        raise NotImplementedError
-    
-    # Methods to use
+        pass
+
+    # Class methods (usable)
     
     @classmethod
     def get_known(cls):
@@ -111,7 +147,9 @@ class Telescope():
         """
         return (name in [tel.name for tel in Telescope.get_known()]) or (name in [tel.abbrv for tel in Telescope.get_known()])
     
-    # telescope independent methods
+
+    # telescope independent functionality (they don't need to be overriden in subclasses)
+
 
     @classmethod
     def check_telescop_kw(cls, rawfit):

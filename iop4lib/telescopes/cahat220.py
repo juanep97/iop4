@@ -5,6 +5,7 @@ iop4conf = iop4lib.Config(config_db=False)
 # django imports
 
 # other imports
+from abc import ABCMeta, abstractmethod
 import re
 import ftplib
 import logging
@@ -21,7 +22,7 @@ from .telescope import Telescope
 import logging
 logger = logging.getLogger(__name__)
 
-class CAHAT220(Telescope):
+class CAHAT220(Telescope, metaclass=ABCMeta):
     """
     CAHA T220 telescope.
 
@@ -31,9 +32,18 @@ class CAHAT220(Telescope):
     where CAFOS refers to the polarimeter
     and inside each folder there are the files for that day.
     """
+
+    # telescope identification
+
     name = "CAHA-T220"
     abbrv = "T220"
     telescop_kw = "CA-2.2"
+
+    # telescope specific properties
+
+    gain_e_adu = 1.45
+
+    # telescope specific methods
 
     @classmethod
     def list_remote_epochnames(cls):
