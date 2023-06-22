@@ -26,14 +26,6 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-# -- options for rth theme
-
-# html_theme = "sphinx_rtd_theme"
-# html_static_path = ['_static']
-# html_css_files = [
-#     'custom.css',
-# ]
-
 # -- options for pydata theme
 
 html_theme = "pydata_sphinx_theme"
@@ -47,8 +39,17 @@ html_theme_options = {
             "icon": "fa-brands fa-square-github",
             "type": "fontawesome",
         }
-   ]
+   ],
+   "show_toc_level": 2,
+   "show_nav_level": 2,
+   "navigation_depth": 2,
 }
+
+html_static_path = ['_static']
+
+html_css_files = [
+    'pydata/custom.css',
+]
 
 # -- doc options -------------------------------------------------
 autodoc_member_order = 'groupwise'
