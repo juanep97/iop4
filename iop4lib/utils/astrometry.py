@@ -68,15 +68,6 @@ def build_wcs(redf, shotgun_params_kwargs=None, build_summary_images=True, summa
             Whether to query and plot a few Simbad sources in the image. Might be useful to 
             check whether the found coordinates are correct. Default is True.
 
-            
-    TODO
-    ----
-      - refactor build_wcs: build_wcs is the most time consuming step of the calibration, so we should refactor so build_wcs 
-    to work only with data in arguments and to the WCS objects, so it can be invoked in parallel also from other machines 
-    or cluster which dont have access to the disk or the DB, and then the WCS objects can be saved locally (right now it 
-    can be invoked in parallel locally, as it gets passed the ReducedFit instance and writes the wcs to the FITS file).
-    
-
     """
 
     if summary_kwargs is None:
@@ -86,7 +77,7 @@ def build_wcs(redf, shotgun_params_kwargs=None, build_summary_images=True, summa
         shotgun_params_kwargs = dict()
 
     # OSN-T090 images of HIP2838 in band U with < 2.5s
-    # tehy can not get automatically calibrated because there are almost no sources visible, just return error so we dont loose time trying parameters.
+    # they can not get automatically calibrated because there are almost no sources visible, just return error so we dont loose time trying parameters.
 
     if redf.band == "U" and "HIP2838" in redf.filename and redf.exptime < 2.5:
         logger.error("Skipping WCS build for HIP2838 U band image with exptime < 2.5 , as it is known to fail, and we will only lose time. Manual calibration is needed for this image. See build_wcs_for_HIP2838_U_band_images.ipynb for more info.")
@@ -133,8 +124,6 @@ def build_wcs(redf, shotgun_params_kwargs=None, build_summary_images=True, summa
 
 def build_wcs_params_shotgun(redf, shotgun_params_kwargs=None, hard=False):
     """ Build the appropiate WCSs for a ReducedFit image, trying different parameters. See `build_wcs` for more info.
-
-    Same signature as `build_wcs`.
 
     Note: at the moment, this function tries source extraction with different combination of parameters and thresholds for 
     source extraction by calling a helper func (`_build_wcs_detect_and_try_solve`) with these parameters, which detects 
@@ -319,6 +308,11 @@ def _build_wcs_params_shotgun_helper(redf, with_pairs=None,
 
     seg_threshold = n_rms_seg * bkg.background_rms
     segment_map, convolved_data = get_segmentation(imgdata_bkg_substracted, fwhm=seg_fwhm, kernel_size=seg_kernel_size, npixels=npixels, threshold=seg_threshold)
+
+    if segment_map is None:
+        logger.debug(f"{redf}: No segments found, returning early.")
+        return {'success': False}
+    
     seg_cat, pos_seg, tb = get_cat_sources_from_segment_map(segment_map, imgdata_bkg_substracted, convolved_data)
     
     logger.debug(f"{redf}: {len(pos_seg)=}")
