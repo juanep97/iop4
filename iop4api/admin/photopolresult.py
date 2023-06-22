@@ -16,7 +16,7 @@ from astropy.time import Time
 
 class AdminPhotoPolResult(admin.ModelAdmin):
     model = PhotoPolResult
-    list_display = ['id', 'get_telescope', 'get_juliandate', 'get_datetime', 'get_src_name', 'get_src_type', 'get_reducedfits', 'band', 'exptime', 'get_mag', 'get_mag_err', 'get_p', 'get_p_err', 'get_chi', 'get_chi_err', 'modified']
+    list_display = ['id', 'get_telescope', 'get_juliandate', 'get_datetime', 'get_src_name', 'get_src_type', 'get_reducedfits', 'obsmode', 'band', 'exptime', 'get_mag', 'get_mag_err', 'get_p', 'get_p_err', 'get_chi', 'get_chi_err', 'modified']
     readonly_fields = [field.name for field in PhotoPolResult._meta.fields]
     search_fields = ['id', 'astrosource__name', 'astrosource__srctype']
     ordering = ['-juliandate']
