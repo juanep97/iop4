@@ -112,7 +112,7 @@ if __name__ == '__main__':
         logger.info("Computing relative polarimetry results.")
         
         for epoch in epoch_L:
-                epoch.compute_relative_photometry()
+                epoch.compute_relative_polarimetry()
 
 
     if args.retry_failed:
