@@ -72,26 +72,35 @@ class PhotoPolResult(models.Model):
 
     ## photo-polarimetric reduction info
 
-    aperpix = models.FloatField(null=True)
-    bkg_flux_counts = models.FloatField(null=True)
-    bkg_flux_counts_err = models.FloatField(null=True)
-    flux_counts = models.FloatField(null=True)
-    flux_counts_err = models.FloatField(null=True)
-    mag_inst = models.FloatField(null=True)
-    mag_inst_err = models.FloatField(null=True)
-    mag_zp = models.FloatField(null=True)
-    mag_zp_err = models.FloatField(null=True)
+    aperpix = models.FloatField(null=True, help_text="Aperture radius in pixels.")
+    bkg_flux_counts = models.FloatField(null=True, help_text="Background flux in counts from aperture photometry.")
+    bkg_flux_counts_err = models.FloatField(null=True, help_text="Error for bkg_flux_counts.")
+    flux_counts = models.FloatField(null=True, help_text="Flux in counts from aperture photometry (background-substracted).")
+    flux_counts_err = models.FloatField(null=True, help_text="Error for flux_counts.")
+    mag_inst = models.FloatField(null=True, help_text="Instrumental magnitude, computed directly from the flux counts.")
+    mag_inst_err = models.FloatField(null=True, help_text="Error for mag_inst.")
+    mag_zp = models.FloatField(null=True, help_text="Magnitude zero point (if it is a calibrator with known magnitude, it is the computed zero point from it, if it is not a calibrator, it is the zero point used to compute the magnitude of the source")
+    mag_zp_err = models.FloatField(null=True, help_text="Error for mag_zp.")
+
+    ## photo-polarimetric extra-info; to be used for automatic computation of instrumental polarization
+
+    _q_nocorr = models.FloatField(null=True, help_text="value without correction for instrumental polarization!")
+    _u_nocorr = models.FloatField(null=True, help_text="value without correction for instrumental polarization!")
+    _dqa_nocorr = models.FloatField(null=True, help_text="value without correction for instrumental polarization!")
+    _dqb_nocorr = models.FloatField(null=True, help_text="value without correction for instrumental polarization!")
+    _p_nocorr = models.FloatField(null=True, help_text="value without correction for instrumental polarization!")
+    _chi_nocorr = models.FloatField(null=True, help_text="value without correction for instrumental polarization!")
 
     ## photo-polarimetric results
 
-    mag = models.FloatField(null=True)
-    mag_err = models.FloatField(null=True)
+    mag = models.FloatField(null=True, help_text="Magnitude of the source, result of the reduction.")
+    mag_err = models.FloatField(null=True, help_text="Error for mag.")
 
-    p = models.FloatField(null=True)
-    p_err = models.FloatField(null=True)
+    p = models.FloatField(null=True, help_text="Polarization of the source [0-1], result of the reduction.")
+    p_err = models.FloatField(null=True, help_text="Error for p.")
 
-    chi = models.FloatField(null=True)
-    chi_err = models.FloatField(null=True)
+    chi = models.FloatField(null=True, help_text="Polarization angle of the source [deg], result of the reduction.")
+    chi_err = models.FloatField(null=True, help_text="Error for chi.")
 
     ## extra fields
 

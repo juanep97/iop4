@@ -737,11 +737,19 @@ class ReducedFit(RawFit):
 
     @classmethod
     def compute_relative_polarimetry_osnt090(cls, polarimetry_group):
-        """ Computes the relative polarimetry for a polarimetry group for OSNT090 observations."""
+        """ Computes the relative polarimetry for a polarimetry group for OSNT090 observations.
+        
+        Instrumental polarization is corrected. Currently values are hardcoded in qoff, uoff, dqoff, duoff, Phi, dPhi (see code),
+        but the values without any correction are stored in the DB so the correction can be automatically obtained in the future.
+        """
 
         logger.debug("Computing OSN-T090 relative polarimetry for group: %s", "".join(map(str,polarimetry_group)))
 
-        #values for T090 TODO: update them
+        # Instrumental polarization
+
+        ## values for T090 TODO: update them  manually or (preferibly) dinamically (TODO)
+        ## to compute the instrumental polarization we need to get the mean of the Q and U images, use zero
+        ## (done in the _X_nocorr variables)
 
         qoff = 0.0579
         uoff = 0.0583
@@ -749,7 +757,6 @@ class ReducedFit(RawFit):
         duoff = 0.0023
         Phi = math.radians(-18)
         dPhi = math.radians(0.001)
-
 
         # Perform some checks on the group
 
@@ -836,47 +843,34 @@ class ReducedFit(RawFit):
 
             q = qc*math.cos(2*Phi) - uc*math.sin(2*Phi)
             u = qc*math.sin(2*Phi) + uc*math.cos(2*Phi)
-            
-            #Comment these to get instrumental polarization
+ 
             dqa = qc*math.cos(2*Phi) * math.sqrt((dqc/qc)**2+((2*dPhi*math.sin(2*Phi))/(math.cos(2*Phi)))**2) 
             dqb = uc*math.sin(2*Phi) * math.sqrt((duc/uc)**2+((2*dPhi*math.cos(2*Phi))/(math.sin(2*Phi)))**2)
             dua = qc*math.sin(2*Phi) * math.sqrt((dqc/qc)**2+((2*dPhi*math.cos(2*Phi))/(math.sin(2*Phi)))**2) 
             dub = uc*math.cos(2*Phi) * math.sqrt((duc/uc)**2+((2*dPhi*math.sin(2*Phi))/(math.cos(2*Phi)))**2)
-            
-            #For instrumental polarization
-            #dqa=0
-            #dua=0
-            #dqb=0
-            #dub=0
             
             dq = np.sqrt(dqa**2+dqb**2)
             du = np.sqrt(dua**2+dub**2)
             
             P = math.sqrt(q**2 + u**2)
             dP = P * (1/(q**2+u**2)) * math.sqrt((q*dq)**2+(u*du)**2)
-            
-            Theta_0 = 0
-            if q >=0:
-                Theta_0 = math.pi
-                if u > 0:
-                    Theta_0 = -1 * math.pi
-
-            #    Theta_0 = 0
-            #    if q > 0:
-            #        if u >= 0:
-            #            Theta_0 = 0
-            #        if u < 0:
-            #            Theta_0 = math.pi / 2
-            #    elif q < 0:
-            #        Theta_0 = math.pi / 4
 
             Theta_0 = 0
             Theta = (1/2) * math.degrees(math.atan2(u,q) + Theta_0)
             dTheta = dP/P * 28.6
 
-            # same as for caha now: 
+            # compute also non-corrected values for computation of instrumental polarization
+
+            _Phi_nocorr = 0 # no rotation correction?
+            _qc_nocorr = qraw # no offset correction
+            _uc_nocorr = uraw # no offset correction
+            _q_nocorr = _qc_nocorr*math.cos(2*_Phi_nocorr) - _uc_nocorr*math.sin(2*_Phi_nocorr)
+            _u_nocorr = _qc_nocorr*math.sin(2*_Phi_nocorr) + _uc_nocorr*math.cos(2*_Phi_nocorr) 
+            _P_nocorr = math.sqrt(_q_nocorr**2 + _u_nocorr**2)
+            _Theta_0_nocorr = 0
+            _Theta_nocorr = (1/2) * math.degrees(math.atan2(_u_nocorr,_q_nocorr) + _Theta_0_nocorr)
             
-            # compute instrumental magnitude
+            # compute instrumental magnitude (same as for CAHA)
 
             if flux_mean <= 0.0:
                 logger.warning(f"{polarimetry_group=}: negative flux mean encountered while relative polarimetry for {astrosource=} ??!! It will be nan, but maybe we should look into this...")
@@ -907,7 +901,8 @@ class ReducedFit(RawFit):
                                            astrosource=astrosource, 
                                            reduction=REDUCTIONMETHODS.RELPOL, 
                                            mag_inst=mag_inst, mag_inst_err=mag_inst_err, mag_zp=mag_zp, mag_zp_err=mag_zp_err,
-                                           flux_counts=flux_mean, p=P, p_err=dP, chi=Theta, chi_err=dTheta)
+                                           flux_counts=flux_mean, p=P, p_err=dP, chi=Theta, chi_err=dTheta,
+                                           _q_nocorr=_q_nocorr, _u_nocorr=_u_nocorr, _p_nocorr=_P_nocorr, _chi_nocorr=_Theta_nocorr)
             
             photopolresult_L.append(result)
 
