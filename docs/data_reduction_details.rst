@@ -9,20 +9,31 @@ Data reduction details
 Introduction
 ------------
 
-The following steps are done by IOP4 to reduce the data, for each epoch.
+The following steps are done by IOP4 to reduce data from one epoch.
 
-#. Create Master Bias image
-#. Create Master Flat image
+#. Registring the epoch in the database, listing, registring and downloading the raw files.
 
-(No dark flat images / dark current correction currently, should be pretty low anyway)
+#. Classifying the files from their FITS header (FLAT, BIAS, LIGHT -science-; image sizes, band, exposure time). Many of these are telescope-dependent and the implementation is relegated to the corresponding telescope class.
 
-#. Calibrate science images. This includes:
+#. Create MasterBias images.
+
+   Following standard procedures, the master bias is created by taking the median of all bias images in the epoch (for each image size available).
+
+#. Create MasterFlat images.
+
+   Following standard procedures, the master flat is created by taking the median of all flat images in the epoch, each image normalized to its median value (for each band, etc, available).
+
+#. No dark flat images / dark current correction currently, but it should be pretty low anyway.
+
+#. Calibrate science images, which creates a ReducedFit for each RawFit of type LIGHT. This includes:
+
    #. Subtract master bias
    #. Divide by master flat
    #. Astrometrically calibrate the images (find the WCS).
 
 #. Compute the aperture photometry for each source in the catalog and reduced image.
-
+#. Compute the results of relative photometry for each source in the catalog and reduced image.
+#. Compute the results of relative polarimetry for each source in the catalog and group of reduced images.
 
 CAHA T220 Information
 ---------------------
@@ -33,6 +44,8 @@ CAHA T220 Information
 
   * https://www.caha.es/es/telescope-2-2m-2/cafos
   * https://www.caha.es/CAHA/Instruments/CAFOS/detector.html
+
+* Reduction of polarization is done according to :cite:t:`zapatero_caballero_bejar:2005`.
 
 OSN T090 Information
 --------------------
@@ -47,3 +60,10 @@ OSN T150 Information
 * Information about the telescope: https://www.osn.iaa.csic.es/page/telescopio-15-m
 * Information about the camera:  https://www.osn.iaa.csic.es/page/camaras-ccdt150-y-ccdt90
 * Old camera: https://www.osn.iaa.csic.es/page/camara-ccd-roper
+
+
+References
+----------
+.. bibliography::
+   :style: unsrt
+   :all:

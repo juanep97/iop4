@@ -15,8 +15,8 @@ release = '0.0.1'
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
+    'sphinxcontrib.bibtex',
     'sphinx.ext.autodoc',
-    'sphinx_rtd_theme',
     'sphinx_mdinclude',
     'numpydoc',
 ]
@@ -50,6 +50,10 @@ html_static_path = ['_static']
 html_css_files = [
     'pydata/custom.css',
 ]
+
+# --- bibliography options
+bibtex_bibfiles = ['citations.bib']
+bibtex_reference_style = "author_year"
 
 # -- doc options -------------------------------------------------
 autodoc_member_order = 'groupwise'

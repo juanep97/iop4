@@ -38,8 +38,10 @@ dependencies:
   - numpydoc
   - sphinx
   - sphinx-automodapi
-  - sphinx_rtd_theme
   - sphinx-mdinclude
+  - pydata-sphinx-theme
+  - sphinxcontrib-bibtex
+  - docutils>=0.20 # for sphinxcontrib-bibtex 
   - nbsphinx
   - pip:
     - astrometry==4.1.2
