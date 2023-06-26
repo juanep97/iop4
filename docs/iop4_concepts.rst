@@ -72,6 +72,12 @@ proper installation, you can start the debug server with:
 
 This should open a tab in your browser with the IOP4 web interface.
 
+.. warning::
+   This server is only recommended for debugging purposes, and you should use another server 
+   in production (`see Django documentation <https://docs.djangoproject.com/en/dev/ref/django-admin/#runserver>`_).
+   The `iop4site` submodule is written to enable the use of Django's debug server and should be reconfigured when 
+   used in production, or entirely replaced by a new Django project and used only as a guide.
+
 Telescope Specific Code
 -----------------------
 
