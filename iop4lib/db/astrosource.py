@@ -114,7 +114,7 @@ class AstroSource(models.Model):
     # helper properties
 
     def get_aperpix(self):
-        return 8
+        return 12
     
     @property
     def coord(self):
