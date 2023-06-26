@@ -124,14 +124,6 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
-# begin added by me:
-import os
-import iop4api
-STATICFILES_DIRS = [
-    os.path.abspath(os.path.join(os.path.dirname(iop4api.__file__), 'static')),
-]
-# end added by me
-
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
