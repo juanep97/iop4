@@ -450,9 +450,11 @@ class ReducedFit(RawFit):
         photopolresult_L = list()
         
         for astrosource in self.sources_in_field.all():
-            result = PhotoPolResult.create(reducedfits=[self], astrosource=astrosource, reduction=REDUCTIONMETHODS.RELPHOT) # aperpix auto
+            aperpix = astrosource.get_aperpix()
 
-            aperphotresult = AperPhotResult.objects.get(reducedfit=self, astrosource=astrosource)
+            result = PhotoPolResult.create(reducedfits=[self], astrosource=astrosource, reduction=REDUCTIONMETHODS.RELPHOT)
+
+            aperphotresult = AperPhotResult.objects.get(reducedfit=self, astrosource=astrosource, aperpix=aperpix, pairs="O")
 
             result.bkg_flux_counts = aperphotresult.bkg_flux_counts
             result.bkg_flux_counts_err = aperphotresult.bkg_flux_counts_err
@@ -588,38 +590,40 @@ class ReducedFit(RawFit):
         for astrosource in group_sources:
             logger.debug(f"Computing relative polarimetry for {astrosource}.")
 
+            aperpix = astrosource.get_aperpix()
+
             # if any rotator angle is missing, uses the extraordinaty of other angles
 
-            obs_0 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, reducedfit__rotangle=0.0).exists()
-            obs_22 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, reducedfit__rotangle=22.48).exists()
-            obs_45 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, reducedfit__rotangle=44.98).exists()
-            obs_67 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, reducedfit__rotangle=67.48).exists()
+            obs_0 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource,  aperpix=aperpix, reducedfit__rotangle=0.0).exists()
+            obs_22 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, reducedfit__rotangle=22.48).exists()
+            obs_45 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, reducedfit__rotangle=44.98).exists()
+            obs_67 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, reducedfit__rotangle=67.48).exists()
 
             if not obs_0 or not obs_22 or not obs_45 or not obs_67:
                 logger.warning(f"missing rotangles for {astrosource}")
 
-            qs_O_0 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O" if obs_0 else "E", reducedfit__rotangle=0.0 if obs_0 else 44.98)
+            qs_O_0 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="O" if obs_0 else "E", reducedfit__rotangle=0.0 if obs_0 else 44.98)
             flux_O_0, flux_O_0_err = qs_O_0.values_list("flux_counts", "flux_counts_err").last()
 
-            qs_O_22 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O" if obs_22 else "E", reducedfit__rotangle=22.48 if obs_0 else 67.48)
+            qs_O_22 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="O" if obs_22 else "E", reducedfit__rotangle=22.48 if obs_0 else 67.48)
             flux_O_22, flux_O_22_err = qs_O_22.values_list("flux_counts", "flux_counts_err").last()
 
-            qs_O_45 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O" if obs_45 else "E", reducedfit__rotangle=44.98 if obs_45 else 0.0)
+            qs_O_45 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="O" if obs_45 else "E", reducedfit__rotangle=44.98 if obs_45 else 0.0)
             flux_O_45, flux_O_45_err = qs_O_45.values_list("flux_counts", "flux_counts_err").last()
 
-            qs_O_67 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O" if obs_67 else "E", reducedfit__rotangle=67.48 if obs_67 else 22.48)
+            qs_O_67 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="O" if obs_67 else "E", reducedfit__rotangle=67.48 if obs_67 else 22.48)
             flux_O_67, flux_O_67_err = qs_O_67.values_list("flux_counts", "flux_counts_err").last()
 
-            qs_E_0 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="E" if obs_0 else "O", reducedfit__rotangle=0.0 if obs_0 else 44.98)
+            qs_E_0 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="E" if obs_0 else "O", reducedfit__rotangle=0.0 if obs_0 else 44.98)
             flux_E_0, flux_E_0_err = qs_E_0.values_list("flux_counts", "flux_counts_err").last()
 
-            qs_E_22 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="E" if obs_22 else "O", reducedfit__rotangle=22.48 if obs_22 else 67.48)
+            qs_E_22 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="E" if obs_22 else "O", reducedfit__rotangle=22.48 if obs_22 else 67.48)
             flux_E_22, flux_E_22_err = qs_E_22.values_list("flux_counts", "flux_counts_err").last()
 
-            qs_E_45 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="E" if obs_45 else "O", reducedfit__rotangle=44.98 if obs_45 else 0.0)
+            qs_E_45 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="E" if obs_45 else "O", reducedfit__rotangle=44.98 if obs_45 else 0.0)
             flux_E_45, flux_E_45_err = qs_E_45.values_list("flux_counts", "flux_counts_err").last()
 
-            qs_E_67 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="E" if obs_67 else "O", reducedfit__rotangle=67.48 if obs_67 else 22.48)
+            qs_E_67 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource,aperpix=aperpix,  pairs="E" if obs_67 else "O", reducedfit__rotangle=67.48 if obs_67 else 22.48)
             flux_E_67, flux_E_67_err = qs_E_67.values_list("flux_counts", "flux_counts_err").last()
 
             fluxes_O = np.array([flux_O_0, flux_O_22, flux_O_45, flux_O_67])
@@ -809,17 +813,19 @@ class ReducedFit(RawFit):
 
         for astrosource in group_sources:
             
-            flux_0 = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", reducedfit__rotangle=0.0).flux_counts
-            flux_0_err = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", reducedfit__rotangle=0.0).flux_counts_err
+            aperpix = astrosource.get_aperpix()
 
-            flux_45 = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", reducedfit__rotangle=45.0).flux_counts
-            flux_45_err = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", reducedfit__rotangle=45.0).flux_counts_err
+            flux_0 = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="O", reducedfit__rotangle=0.0).flux_counts
+            flux_0_err = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", aperpix=aperpix, reducedfit__rotangle=0.0).flux_counts_err
 
-            flux_90 = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", reducedfit__rotangle=90.0).flux_counts
-            flux_90_err = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", reducedfit__rotangle=90.0).flux_counts_err
+            flux_45 = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", aperpix=aperpix, reducedfit__rotangle=45.0).flux_counts
+            flux_45_err = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", aperpix=aperpix, reducedfit__rotangle=45.0).flux_counts_err
 
-            flux_n45 = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", reducedfit__rotangle=-45.0).flux_counts
-            flux_n45_err = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", reducedfit__rotangle=-45.0).flux_counts_err
+            flux_90 = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", aperpix=aperpix, reducedfit__rotangle=90.0).flux_counts
+            flux_90_err = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", aperpix=aperpix, reducedfit__rotangle=90.0).flux_counts_err
+
+            flux_n45 = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", aperpix=aperpix, reducedfit__rotangle=-45.0).flux_counts
+            flux_n45_err = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", aperpix=aperpix, reducedfit__rotangle=-45.0).flux_counts_err
 
             # from IOP3 polarimetry_osn() :
 

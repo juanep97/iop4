@@ -46,7 +46,7 @@ class AperPhotResult(models.Model):
         verbose_name = 'Aperture Photometry Result'
         verbose_name_plural = 'Aperture Photometry Results'
         constraints = [
-            models.UniqueConstraint(fields=['reducedfit', 'astrosource', 'pairs'], name='unique_aperphotresult')
+            models.UniqueConstraint(fields=['reducedfit', 'astrosource', 'aperpix', 'pairs'], name='unique_aperphotresult')
         ]
 
     @classmethod
