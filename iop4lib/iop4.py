@@ -142,7 +142,7 @@ if __name__ == '__main__':
             new_epochnames = set(remote_epochnames).difference(local_epochnames)
             logger.info(f"New epochs discovered in {tel_cls.name} (n={len(new_epochnames)}): {new_epochnames}")
 
-            new_epochnames_all.union(new_epochnames)
+            new_epochnames_all = new_epochnames_all.union(new_epochnames)
 
         process_epochs(new_epochnames_all, args.force_rebuild, check_remote_list=True)
                         
