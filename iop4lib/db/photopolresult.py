@@ -86,8 +86,6 @@ class PhotoPolResult(models.Model):
 
     _q_nocorr = models.FloatField(null=True, help_text="value without correction for instrumental polarization!")
     _u_nocorr = models.FloatField(null=True, help_text="value without correction for instrumental polarization!")
-    _dqa_nocorr = models.FloatField(null=True, help_text="value without correction for instrumental polarization!")
-    _dqb_nocorr = models.FloatField(null=True, help_text="value without correction for instrumental polarization!")
     _p_nocorr = models.FloatField(null=True, help_text="value without correction for instrumental polarization!")
     _chi_nocorr = models.FloatField(null=True, help_text="value without correction for instrumental polarization!")
 
