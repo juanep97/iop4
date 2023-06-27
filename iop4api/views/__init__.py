@@ -18,7 +18,7 @@ def index(request):
     iop4admin_url = reverse('iop4admin:index')
     return HttpResponse(f"Hello! You're at the iop4api index.<br><a href='{admin_url}'>admin</a><br><a href='{iop4admin_url}'>iop4api admin</a>")
 
-# Other IO4ADMIN VIEWs
+# Other IOP4ADMIN VIEWs
 
 from .fitpreview import *
 from .getfile import *
