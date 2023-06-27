@@ -115,7 +115,11 @@ if __name__ == '__main__':
     # Set up number of threads:
 
     if args.nthreads is not None:
-          iop4conf.max_concurrent_threads = args.nthreads
+        iop4conf.max_concurrent_threads = args.nthreads
+
+    # Set up use_ray:
+    if args.use_ray:
+        iop4conf.use_ray = True
 
     # Reduce indicated epochs
     

@@ -562,9 +562,10 @@ class Epoch(models.Model):
         """
 
         if len(reduced_L) > 0:
-            if iop4conf.max_concurrent_threads > 1:
+            if iop4conf.use_ray:
                 epoch_bulkreduce_ray(reduced_L)
-                #epoch_bulkreduce_multiprocesing(reduced_L, epoch=epoch)
+            elif iop4conf.max_concurrent_threads > 1:
+                epoch_bulkreduce_multiprocesing(reduced_L, epoch=epoch)
             else:
                 epoch_bulkreduce_onebyone(reduced_L, epoch=epoch)
         else:
@@ -951,7 +952,7 @@ def epoch_bulkreduce_ray(reduced_L):
     os.system(fr"rsync -va --update --delete {iop4conf.datadir}/masterflat/ {iop4conf.ray_cluster_address}:'{iop4conf.ray_datadir}/masterflat/'")
     os.system(fr"rsync -va --update --delete {iop4conf.datadir}/masterbias/ {iop4conf.ray_cluster_address}:'{iop4conf.ray_datadir}/masterbias/'")
 
-    logger.info("Connecting to Ray cluster at localhost:25000. Remember to attach to the cluster with 'ray attach priv.rayconfig.yaml -p 25000' and start the head node with 'ray stop' and 'ray start --head --ray-client-server-port 25000 --num-cpus=128'. Additionaly worker nodes can be started with 'ray start --address:head_address:port', port is usually 6379.")
+    logger.info("Connecting to Ray cluster at localhost:25000. Remember to attach to the cluster with 'ray attach priv.rayconfig.yaml -p 25000' and start the head node with 'ray stop' and 'ray start --head --ray-client-server-port 25000 --num-cpus=128'. Additionaly worker nodes can be started with 'ray start --address:head_address:port', port is usually 6379. It might be enough to use ray priv.rayconfig.yaml --restart-only.")
     ray.init("ray://localhost:25000", ignore_reinit_error=True)
 
     def _init_func():
