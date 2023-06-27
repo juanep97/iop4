@@ -946,10 +946,10 @@ def epoch_bulkreduce_ray(reduced_L):
 
     logger.info("Syncing raw files and DB to Ray cluster.")
     os.system(f"ray rsync-up priv.rayconfig.yaml")
-    os.system(fr"rsync -v ~/iop4data/iop4.db {iop4conf.ray_cluster_address}:'~/iop4data/iop4.db'")
-    os.system(fr"rsync -va --update ~/iop4data/raw/ {iop4conf.ray_cluster_address}:'~/iop4data/raw/'")
-    os.system(fr"rsync -va --update --delete ~/iop4data/masterflat/ {iop4conf.ray_cluster_address}:'~/iop4data/masterflat/'")
-    os.system(fr"rsync -va --update --delete ~/iop4data/masterbias/ {iop4conf.ray_cluster_address}:'~/iop4data/masterbias/'")
+    os.system(fr"rsync -v {iop4conf.db_path} {iop4conf.ray_cluster_address}:'{iop4conf.ray_db_path}'")
+    os.system(fr"rsync -va --update {iop4conf.datadir}/raw/ {iop4conf.ray_cluster_address}:'{iop4conf.ray_datadir}/raw/'")
+    os.system(fr"rsync -va --update --delete {iop4conf.datadir}/masterflat/ {iop4conf.ray_cluster_address}:'{iop4conf.ray_datadir}/masterflat/'")
+    os.system(fr"rsync -va --update --delete {iop4conf.datadir}/masterbias/ {iop4conf.ray_cluster_address}:'{iop4conf.ray_datadir}/masterbias/'")
 
     logger.info("Connecting to Ray cluster at localhost:25000. Remember to attach to the cluster with 'ray attach priv.rayconfig.yaml -p 25000' and start the head node with 'ray stop' and 'ray start --head --ray-client-server-port 25000 --num-cpus=128'. Additionaly worker nodes can be started with 'ray start --address:head_address:port', port is usually 6379.")
     ray.init("ray://localhost:25000", ignore_reinit_error=True)

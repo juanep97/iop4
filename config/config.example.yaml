@@ -6,7 +6,9 @@ astrometry_cache_path: <path/to/astrometry_cache>
 max_concurrent_threads: <number of threads (e.g. 4)>
 ray_use_cluster: <true/false (use ray for parallelization), let it to false if you have not configured it>
 ray_cluster_address: <address for the cluster, needs ssh keys for current user; e.g. 'user@address'>
-ray_cluster_config: <path to ray cluster config file>
+ray_cluster_config: <path to ray cluster config file, e.g. /path/to/iop4/priv.rayconfig.yaml'>
+ray_db_path: <path in ray cluster, e.g. '~/iop4data/iop4.db'>
+ray_data_dir: <path in ray cluster, e.g. '~/iop4data/'>
 mplt_default_dpi: <dpi for matplotlib (e.g. 100)>
 log_fname: </path/to/iop4.log>
 log_date_format: '%Y-%m-%d %H:%M:%S'
