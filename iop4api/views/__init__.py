@@ -14,7 +14,9 @@ from .. import admin
 # IOP4 index page
 
 def index(request):
-    return HttpResponse("Hello! You're at the iop4api index.<br><a href='/admin/'>admin</a><br><a href='/iop4admin/'>iop4api admin</a>")
+    admin_url = reverse('admin:index')
+    iop4admin_url = reverse('iop4admin:index')
+    return HttpResponse(f"Hello! You're at the iop4api index.<br><a href='{admin_url}'>admin</a><br><a href='{iop4admin_url}'>iop4api admin</a>")
 
 # Other IO4ADMIN VIEWs
 
