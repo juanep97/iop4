@@ -46,7 +46,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
             remote_dirnameL_all = ftp.nlst()
             ftp.quit()
 
-            logger.debug(f"Total of {len(remote_dirnameL_all)} dirs in OSN.")
+            logger.debug(f"Total of {len(remote_dirnameL_all)} dirs in OSN T090 remote.")
 
             remote_epochnameL_all = list()
 
