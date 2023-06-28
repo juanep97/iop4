@@ -738,15 +738,17 @@ def epoch_bulkreduce_multiprocesing(reduced_L, epoch=None):
         If provided, it is used only to print the epoch in the log messages of the main thread.
     """
 
-    queue = multiprocessing.Manager().Queue(-1)  # create queue listener for multiprocessing logging (-1 so no limit on size)
-    listener = logging.handlers.QueueListener(queue, *logging.getLogger().handlers)
-    listener.start()
-
-    counter = multiprocessing.Value('i', 0)
-
     logger.info(f"{epoch}: starting {iop4conf.max_concurrent_threads} threads to build {len(reduced_L)} reduced files. Current memory usage: {get_mem_current()/1024**3:.2f} GB.")
 
-    with multiprocessing.get_context('spawn').Pool(processes=iop4conf.max_concurrent_threads, 
+    mp_ctx = multiprocessing.get_context('spawn')
+
+    queue = mp_ctx.Manager().Queue(-1)  # create queue listener for multiprocessing logging (-1 so no limit on size)
+    listener = logging.handlers.QueueListener(queue, *logging.getLogger().handlers)
+    listener.start()
+    
+    counter = mp_ctx.Value('i', 0)
+
+    with mp_ctx.Pool(processes=iop4conf.max_concurrent_threads, 
                               initializer=_epoch_bulkreduce_multiprocessing_init,
                               initargs=(counter, queue, len(reduced_L), iop4conf), 
                               maxtasksperchild=20) as pool:
