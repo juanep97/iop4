@@ -176,6 +176,8 @@ class OSNT090(Telescope, metaclass=ABCMeta):
         For photometry, the filter keyword willl be simply the letter R, U, etc.
 
         The values for angles are -45, 0, 45 and 90.
+
+        Lately we have seeb "R-45" instead of "R_45", so we have to take care of that too.
         """
 
         from iop4lib.db.rawfit import RawFit
@@ -192,7 +194,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
 
                 rawfit.obsmode = OBSMODES.POLARIMETRY
 
-                if rawfit.header['FILTER'] == "R_45":
+                if rawfit.header['FILTER'] == "R_45" or rawfit.header['FILTER'] == "R-45":
                     rawfit.rotangle = -45
                 elif rawfit.header['FILTER'] == "R0":
                     rawfit.rotangle = 0
