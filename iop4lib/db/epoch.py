@@ -562,7 +562,7 @@ class Epoch(models.Model):
         """
 
         if len(reduced_L) > 0:
-            if iop4conf.use_ray:
+            if iop4conf.ray_use_cluster:
                 epoch_bulkreduce_ray(reduced_L)
             elif iop4conf.max_concurrent_threads > 1:
                 epoch_bulkreduce_multiprocesing(reduced_L, epoch=epoch)

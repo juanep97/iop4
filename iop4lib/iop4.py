@@ -75,7 +75,7 @@ if __name__ == '__main__':
 
     # parallelization options
     parser.add_argument("--nthreads", dest="nthreads", type=int, default=None, help="<Optional> Number of threads to use when possible (default: %(default)s)", required=False)
-    parser.add_argument("--use-ray", dest="use_ray", action="store_true", help="<Optional> Use ray for parallelization", required=False)
+    parser.add_argument("--use-ray-cluster", dest="ray_use_cluster", action="store_true", help="<Optional> Use ray for parallelization", required=False)
     
     # processing options
     parser.add_argument('--retry-failed', dest='retry_failed', action='store_true', help='<Optional> Retry failed reduced fits', required=False)
@@ -118,8 +118,8 @@ if __name__ == '__main__':
         iop4conf.max_concurrent_threads = args.nthreads
 
     # Set up use_ray:
-    if args.use_ray:
-        iop4conf.use_ray = True
+    if args.ray_use_cluster:
+        iop4conf.ray_use_cluster = True
 
     # Reduce indicated epochs
     
