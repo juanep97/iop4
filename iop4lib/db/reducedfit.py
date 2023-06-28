@@ -392,12 +392,15 @@ class ReducedFit(RawFit):
             logger.debug(f"{self}: {np.sum(self.mdata <= 0.0)} px < 0  ({math.sqrt(np.sum(self.mdata <= 0.0)):0f} px2) in IMAGE.")
 
         if np.sum(img_bkg_sub <= 0.0) >= 1:
-            logger.debug(f"{self}: {np.sum(img_bkg_sub <= 0.0)} px < 0 ({math.sqrt(np.sum(img_bkg_sub <= 0.0)):.0f} px2) in BKG-SUBSTRACTED IMG. Check if the bkg-substraction method, I'm going to try to mask sources...")
-            seg_threshold = 3.0 * bkg.background_rms # safer to ensure they are sources
-            segment_map, convolved_data = get_segmentation(img_bkg_sub, threshold=seg_threshold, fwhm=1, kernel_size=None, npixels=16, deblend=True)
-            mask = segment_map.make_source_mask(footprint=circular_footprint(radius=6))
-            bkg = get_bkg(self.mdata, filter_size=1, box_size=bkg_box_size, mask=mask)
-            img_bkg_sub = self.mdata - bkg.background
+            try:
+                logger.debug(f"{self}: {np.sum(img_bkg_sub <= 0.0)} px < 0 ({math.sqrt(np.sum(img_bkg_sub <= 0.0)):.0f} px2) in BKG-SUBSTRACTED IMG. Check the bkg-substraction method, I'm going to try to mask sources...")
+                seg_threshold = 3.0 * bkg.background_rms # safer to ensure they are sources
+                segment_map, convolved_data = get_segmentation(img_bkg_sub, threshold=seg_threshold, fwhm=1, kernel_size=None, npixels=16, deblend=True)
+                mask = segment_map.make_source_mask(footprint=circular_footprint(radius=6))
+                bkg = get_bkg(self.mdata, filter_size=1, box_size=bkg_box_size, mask=mask)
+                img_bkg_sub = self.mdata - bkg.background
+            except Exception as e:
+                logger.debug(f"{self}: can not mask sources here... {e}")
         
         if np.sum(img_bkg_sub <= 0.0) >= 1:
             logger.debug(f"{self}: {np.sum(img_bkg_sub <= 0.0)} px < 0 ({math.sqrt(np.sum(img_bkg_sub <= 0.0)):.0f} px2) in BKG-SUBSTRACTED IMG, after masking.")
