@@ -245,10 +245,12 @@ def build_wcs_params_shotgun(redf, shotgun_params_kwargs=None, hard=False):
     for i, params_dict in enumerate(param_dicts_L):
         logger.debug(f"{redf}: attempt {i+1} / {len(param_dicts_L)}, ({params_dict}) ...")
 
-        try:
-            build_wcs_result = _build_wcs_params_shotgun_helper(redf, **params_dict)
-        except Exception as e:
-            logger.error(f"{redf}: some error ocurred during attempt {i+1} / {len(param_dicts_L)}, ({params_dict}), ignoring. Error: {e}")
+        build_wcs_result = _build_wcs_params_shotgun_helper(redf, **params_dict)
+        # try: # if we want to allow exceptions, but if there's an error something is wrong, we should fix the cause of the underlying exception; different thing is that we could not solve astrometry
+        #     build_wcs_result = _build_wcs_params_shotgun_helper(redf, **params_dict)
+        # except Exception as e:
+        #     logger.error(f"{redf}: some error ocurred during attempt {i+1} / {len(param_dicts_L)}, ({params_dict}), ignoring. Error: {e}")
+        #     build_wcs_result = {'success': False}
 
         if build_wcs_result['success']:
             logger.debug(f"{redf}: WCS built with attempt {i+1} / {len(param_dicts_L)} ({params_dict}).")
