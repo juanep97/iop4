@@ -42,6 +42,7 @@ class INSTRUMENTS(models.TextChoices):
     NONE = None, "None"
     CAFOS = 'CAFOS2.2', "CAFOS2.2"
     AndorT90 = 'AndorT90', "AndorT90"
+    AndorT150 = 'AndorT150', "AndorT150"
 
 class TELESCOPES(models.TextChoices):
     """
@@ -49,6 +50,7 @@ class TELESCOPES(models.TextChoices):
     """
     CAHA_T220 = 'CAHA-T220', "CAHA-T220"
     OSN_T090 = 'OSN-T090', "OSN-T090"
+    OSN_T150 = 'OSN-T150', "OSN-T150"
 
 class SRCTYPES(models.TextChoices):
     """

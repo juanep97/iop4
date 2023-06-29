@@ -14,6 +14,8 @@ import astropy.io.fits as fits
 import astropy.units as u
 from astropy.coordinates import Angle, SkyCoord
 import astrometry
+import numpy as np
+import math
 
 # iop4lib imports
 from iop4lib.enums import *
@@ -29,6 +31,8 @@ class Telescope(metaclass=ABCMeta):
 
         Attributes and methods that must be implemented are marked as abstract (they will give
         error if the class is inherited and the method is not implemented in the subclass).
+
+        Other methods can be implemented in the subclass but are not required just raise NotImplementedError.
 
         Some classmethods are already defined since they are telescope independent; we should not need to
         override them (but it can be done).
@@ -119,13 +123,28 @@ class Telescope(metaclass=ABCMeta):
     def get_astrometry_size_hint(cls, rawfit):
         pass
 
+    # Not Implemented Methods (skeleton)
+
+    @classmethod
+    def compute_relative_photometry(cls):
+        raise NotImplementedError
+    
+    @classmethod
+    def compute_absolute_photometry(cls):
+        raise NotImplementedError
+    
+    @classmethod
+    def compute_relative_polarimetry(cls):
+        raise NotImplementedError
+
     # Class methods (usable)
     
     @classmethod
     def get_known(cls):
         from .cahat220 import CAHAT220
         from .osnt090 import OSNT090
-        return [OSNT090, CAHAT220]
+        from .osnt150 import OSNT150
+        return [CAHAT220, OSNT090, OSNT150]
     
     @classmethod
     def by_name(cls, name):
@@ -220,4 +239,174 @@ class Telescope(metaclass=ABCMeta):
         else:
             return None
 
+
+
+
+    # should not depend on the telescope
+
+    def compute_aperture_photometry(cls, redf):
+
+        from iop4lib.db.aperphotresult import AperPhotResult
+        from iop4lib.utils.sourcedetection import get_bkg, get_segmentation
+        from photutils.utils import circular_footprint
+        from photutils.aperture import CircularAperture, aperture_photometry
+        from photutils.utils import calc_total_error
+
+        if redf.mdata.shape[0] == 1024:
+            bkg_box_size = 128
+        elif redf.mdata.shape[0] == 2048:
+            bkg_box_size = 256
+        elif redf.mdata.shape[0] == 800:
+            bkg_box_size = 100
+
+        bkg = get_bkg(redf.mdata, filter_size=1, box_size=bkg_box_size)
+        img_bkg_sub = redf.mdata - bkg.background
+
+        if np.sum(redf.mdata <= 0.0) >= 1:
+            logger.debug(f"{redf}: {np.sum(redf.mdata <= 0.0)} px < 0  ({math.sqrt(np.sum(redf.mdata <= 0.0)):0f} px2) in IMAGE.")
+
+        if np.sum(img_bkg_sub <= 0.0) >= 1:
+            try:
+                logger.debug(f"{redf}: {np.sum(img_bkg_sub <= 0.0)} px < 0 ({math.sqrt(np.sum(img_bkg_sub <= 0.0)):.0f} px2) in BKG-SUBSTRACTED IMG. Check the bkg-substraction method, I'm going to try to mask sources...")
+                seg_threshold = 3.0 * bkg.background_rms # safer to ensure they are sources
+                segment_map, convolved_data = get_segmentation(img_bkg_sub, threshold=seg_threshold, fwhm=1, kernel_size=None, npixels=16, deblend=True)
+                mask = segment_map.make_source_mask(footprint=circular_footprint(radius=6))
+                bkg = get_bkg(redf.mdata, filter_size=1, box_size=bkg_box_size, mask=mask)
+                img_bkg_sub = redf.mdata - bkg.background
+            except Exception as e:
+                logger.debug(f"{redf}: can not mask sources here... {e}")
+        
+        if np.sum(img_bkg_sub <= 0.0) >= 1:
+            logger.debug(f"{redf}: {np.sum(img_bkg_sub <= 0.0)} px < 0 ({math.sqrt(np.sum(img_bkg_sub <= 0.0)):.0f} px2) in BKG-SUBSTRACTED IMG, after masking.")
+
+
+        effective_gain = cls.gain_e_adu
+        error = calc_total_error(img_bkg_sub, bkg.background_rms, effective_gain)
+
+        for astrosource in redf.sources_in_field.all():
+            for pairs, wcs in (('O', redf.wcs1), ('E', redf.wcs2)) if redf.with_pairs else (('O',redf.wcs),):
+
+                aperpix = astrosource.get_aperpix()
+
+                ap = CircularAperture(astrosource.coord.to_pixel(wcs), r=aperpix)
+
+                bkg_aperphot_tb = aperture_photometry(bkg.background, ap, error=error)
+                bkg_flux_counts = bkg_aperphot_tb['aperture_sum'][0]
+                bkg_flux_counts_err = bkg_aperphot_tb['aperture_sum_err'][0]
+
+                aperphot_tb = aperture_photometry(img_bkg_sub, ap, error=error)
+                flux_counts = aperphot_tb['aperture_sum'][0]
+                flux_counts_err = aperphot_tb['aperture_sum_err'][0]
+
+                AperPhotResult.create(reducedfit=redf, 
+                                      astrosource=astrosource, 
+                                      aperpix=aperpix, 
+                                      pairs=pairs, 
+                                      bkg_flux_counts=bkg_flux_counts, bkg_flux_counts_err=bkg_flux_counts_err,
+                                      flux_counts=flux_counts, flux_counts_err=flux_counts_err)
+    
+
+    def compute_relative_photometry(cls, redf):
+        
+        from iop4lib.db.aperphotresult import AperPhotResult
+        from iop4lib.db.photopolresult import PhotoPolResult
+
+        if redf.obsmode != OBSMODES.PHOTOMETRY:
+            raise Exception(f"{redf}: this method is only for plain photometry images.")
+
+        # 1. Compute all aperture photometries
+
+        logger.debug(f"{redf}: computing aperture photometries for {redf}.")
+
+        redf.compute_aperture_photometry()
+
+        # 2. Compute relative polarimetry for each source (uses the computed aperture photometries)
+
+        logger.debug(f"{redf}: computing relative photometry.")
+
+        # 2. Compute the flux in counts and the instrumental magnitude
+        
+        photopolresult_L = list()
+        
+        for astrosource in redf.sources_in_field.all():
+            aperpix = astrosource.get_aperpix()
+
+            result = PhotoPolResult.create(reducedfits=[redf], astrosource=astrosource, reduction=REDUCTIONMETHODS.RELPHOT)
+
+            aperphotresult = AperPhotResult.objects.get(reducedfit=redf, astrosource=astrosource, aperpix=aperpix, pairs="O")
+
+            result.bkg_flux_counts = aperphotresult.bkg_flux_counts
+            result.bkg_flux_counts_err = aperphotresult.bkg_flux_counts_err
+            result.flux_counts = aperphotresult.flux_counts
+            result.flux_counts_err = aperphotresult.flux_counts_err
+
+            # logger.debug(f"{self}: {result.flux_counts=}")
+
+            if result.flux_counts <= 0.0:
+                logger.warning(f"{redf}: negative flux counts encountered while relative photometry for {astrosource=} ??!! They will be nans, but maybe we should look into this...")
+
+            result.mag_inst = -2.5 * np.log10(result.flux_counts) # np.nan if result.flux_counts <= 0.0
+            result.mag_inst_err = math.fabs(2.5 / math.log(10) / result.flux_counts * result.flux_counts_err)
+
+            # if the source is a calibrator, compute also the zero point
+            if result.astrosource.srctype == SRCTYPES.CALIBRATOR:
+                result.mag_known = getattr(result.astrosource, f"mag_{redf.band}")
+                result.mag_known_err = getattr(result.astrosource, f"mag_{redf.band}_err", None) or 0.0
+
+                if result.mag_known is None:
+                    logger.warning(f"Relative Photometry over {redf}: calibrator {result.astrosource} has no magnitude for band {redf.band}.")
+                    result.mag_zp = np.nan
+                    result.mag_zp_err = np.nan
+                else:
+                    result.mag_zp = result.mag_known - result.mag_inst
+                    result.mag_zp_err = math.sqrt(result.mag_inst_err**2 + result.mag_known_err**2)
+            else:
+                # if it is not a calibrator, we can not save the COMPUTED zp, it will be computed and the USED zp will be stored.
+                result.mag_zp = None
+                result.mag_zp_err = None
+
+            result.save()
+
+            photopolresult_L.append(result)
+
+        # 3. Average the zero points
+
+        calib_mag_zp_array = np.array([result.mag_zp or np.nan for result in photopolresult_L if result.astrosource.srctype == SRCTYPES.CALIBRATOR]) # else it fills with None also and the dtype becomes object
+        calib_mag_zp_array = calib_mag_zp_array[~np.isnan(calib_mag_zp_array)]
+
+        calib_mag_zp_array_err = np.array([result.mag_zp_err or np.nan for result in photopolresult_L if result.astrosource.srctype == SRCTYPES.CALIBRATOR])
+        calib_mag_zp_array_err = calib_mag_zp_array_err[~np.isnan(calib_mag_zp_array_err)]
+
+        if len(calib_mag_zp_array) == 0:
+            logger.error(f"{redf}: can not perform relative photometry without any calibrators for this reduced fit. Deleting results.")
+            [result.delete() for result in redf.photopolresults.all()]
+            return #raise Exception(f"{self}: can not perform relative photometry without any calibrators for this reduced fit.") 
+
+        zp_avg = np.nanmean(calib_mag_zp_array)
+        zp_std = np.nanstd(calib_mag_zp_array)
+
+        zp_err = math.sqrt(np.sum(calib_mag_zp_array_err**2)) / len(calib_mag_zp_array_err)
+        zp_err = math.sqrt(zp_std**2 + zp_err**2)
+
+        # 4. Compute the calibrated magnitudes
+
+        for result in photopolresult_L:
+
+            if result.astrosource.srctype == SRCTYPES.CALIBRATOR:
+                continue
+
+            # save the zp (to be) used
+            result.mag_zp = zp_avg
+            result.mag_zp_err = zp_err
+
+            # compute the calibrated magnitude
+            result.mag = zp_avg + result.mag_inst
+            result.mag_err = math.sqrt(result.mag_inst_err**2 + zp_err**2)
+
+            result.save()
+        
+        # 5. Save the results
+
+        for result in photopolresult_L:
+            result.save()
 

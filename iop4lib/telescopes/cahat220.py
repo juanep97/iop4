@@ -13,6 +13,8 @@ import astropy.io.fits as fits
 import astropy.units as u
 from astropy.coordinates import Angle, SkyCoord
 import astrometry
+import numpy as np
+import math
 
 # iop4lib imports
 from iop4lib.enums import *
@@ -245,3 +247,209 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
         upper_arcsec_per_pixel = 0.537
         
         return astrometry.SizeHint(lower_arcsec_per_pixel=lower_arcsec_per_pixel,  upper_arcsec_per_pixel=upper_arcsec_per_pixel)
+
+    @classmethod
+    def compute_relative_polarimetry(cls, polarimetry_group):
+        """ Computes the relative polarimetry for a polarimetry group for CAHA T220 observations."""
+        
+        from iop4lib.db.aperphotresult import AperPhotResult
+        from iop4lib.db.photopolresult import PhotoPolResult
+
+        # Perform some checks on the group
+
+        ## get the band of the group
+
+        bands = [reducedfit.band for reducedfit in polarimetry_group]
+
+        if len(set(bands)) == 1:
+            band = bands[0]
+        else: # should not happens
+            raise Exception(f"Can not compute relative polarimetry for a group with different bands: {bands}")
+
+        ## check obsmodes
+
+        if not all([reducedfit.obsmode == OBSMODES.POLARIMETRY for reducedfit in polarimetry_group]):
+            raise Exception(f"This method is only for polarimetry images.")
+        
+        ## check sources in the fields
+
+        sources_in_field_qs_list = [reducedfit.sources_in_field.all() for reducedfit in polarimetry_group]
+        group_sources = set.intersection(*map(set, sources_in_field_qs_list))
+
+        if len(group_sources) == 0:
+            logger.error("No common sources in field for all polarimetry groups.")
+            return
+        
+        if group_sources != set.union(*map(set, sources_in_field_qs_list)):
+            logger.warning(f"Sources in field do not match for all polarimetry groups: {set.difference(*map(set, sources_in_field_qs_list))}")
+
+        ## check rotation angles
+
+        rot_angles_available = set([redf.rotangle for redf in polarimetry_group])
+        rot_angles_required = {0.0, 22.48, 44.98, 67.48}
+
+        if not rot_angles_available.issubset(rot_angles_required):
+            logger.warning(f"Rotation angles missing: {rot_angles_required - rot_angles_available}")
+
+        # 1. Compute all aperture photometries
+
+        logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group.")
+
+        for reducedfit in polarimetry_group:
+            reducedfit.compute_aperture_photometry()
+
+        # 2. Compute relative polarimetry for each source (uses the computed aperture photometries)
+
+        logger.debug("Computing relative polarimetry.")
+
+        photopolresult_L = list()
+
+        for astrosource in group_sources:
+            logger.debug(f"Computing relative polarimetry for {astrosource}.")
+
+            aperpix = astrosource.get_aperpix()
+
+            # if any rotator angle is missing, uses the extraordinaty of other angles
+
+            obs_0 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource,  aperpix=aperpix, reducedfit__rotangle=0.0).exists()
+            obs_22 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, reducedfit__rotangle=22.48).exists()
+            obs_45 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, reducedfit__rotangle=44.98).exists()
+            obs_67 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, reducedfit__rotangle=67.48).exists()
+
+            if not obs_0 or not obs_22 or not obs_45 or not obs_67:
+                logger.warning(f"missing rotangles for {astrosource}")
+
+            qs_O_0 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="O" if obs_0 else "E", reducedfit__rotangle=0.0 if obs_0 else 44.98)
+            flux_O_0, flux_O_0_err = qs_O_0.values_list("flux_counts", "flux_counts_err").last()
+
+            qs_O_22 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="O" if obs_22 else "E", reducedfit__rotangle=22.48 if obs_0 else 67.48)
+            flux_O_22, flux_O_22_err = qs_O_22.values_list("flux_counts", "flux_counts_err").last()
+
+            qs_O_45 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="O" if obs_45 else "E", reducedfit__rotangle=44.98 if obs_45 else 0.0)
+            flux_O_45, flux_O_45_err = qs_O_45.values_list("flux_counts", "flux_counts_err").last()
+
+            qs_O_67 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="O" if obs_67 else "E", reducedfit__rotangle=67.48 if obs_67 else 22.48)
+            flux_O_67, flux_O_67_err = qs_O_67.values_list("flux_counts", "flux_counts_err").last()
+
+            qs_E_0 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="E" if obs_0 else "O", reducedfit__rotangle=0.0 if obs_0 else 44.98)
+            flux_E_0, flux_E_0_err = qs_E_0.values_list("flux_counts", "flux_counts_err").last()
+
+            qs_E_22 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="E" if obs_22 else "O", reducedfit__rotangle=22.48 if obs_22 else 67.48)
+            flux_E_22, flux_E_22_err = qs_E_22.values_list("flux_counts", "flux_counts_err").last()
+
+            qs_E_45 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="E" if obs_45 else "O", reducedfit__rotangle=44.98 if obs_45 else 0.0)
+            flux_E_45, flux_E_45_err = qs_E_45.values_list("flux_counts", "flux_counts_err").last()
+
+            qs_E_67 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource,aperpix=aperpix,  pairs="E" if obs_67 else "O", reducedfit__rotangle=67.48 if obs_67 else 22.48)
+            flux_E_67, flux_E_67_err = qs_E_67.values_list("flux_counts", "flux_counts_err").last()
+
+            fluxes_O = np.array([flux_O_0, flux_O_22, flux_O_45, flux_O_67])
+            fluxes_E = np.array([flux_E_0, flux_E_22, flux_E_45, flux_E_67])
+
+            if np.any(fluxes_O <= 0) or np.any(fluxes_E <= 0):
+                logger.warning(f"{astrosource}: fluxes <= 0 !!")
+                logger.debug(f"Fluxes_O: {fluxes_O}")
+                logger.debug(f"Fluxes_E: {fluxes_E}")
+
+            fluxes = (fluxes_O + fluxes_E) /2.
+            flux_mean = fluxes.mean()
+            flux_std = fluxes.std()
+
+            RQ = np.sqrt((flux_O_0 / flux_E_0) / (flux_O_45 / flux_E_45))
+            dRQ = RQ * np.sqrt((flux_O_0_err / flux_O_0) ** 2 + (flux_E_0_err / flux_E_0) ** 2 + (flux_O_45_err / flux_O_45) ** 2 + (flux_E_45_err / flux_E_45) ** 2)
+
+            RU = np.sqrt((flux_O_0 / flux_E_22) / (flux_O_67 / flux_E_67))
+            dRU = RU * np.sqrt((flux_O_22_err / flux_O_22) ** 2 + (flux_E_22_err / flux_E_22) ** 2 + (flux_O_67_err / flux_O_67) ** 2 + (flux_E_67_err / flux_E_67) ** 2)
+        
+            Q_I = (RQ - 1) / (RQ + 1)
+            dQ_I = Q_I * np.sqrt(2 * (dRQ / RQ) ** 2)
+            U_I = (RU - 1) / (RU + 1)
+            dU_I = U_I * np.sqrt(2 * (dRU / RU) ** 2)
+
+            P = np.sqrt(Q_I ** 2 + U_I ** 2)
+            dP = P * np.sqrt((dRQ / RQ) ** 2 + (dRU / RU) ** 2) / 2
+
+            Theta_0 = 0
+        
+            if Q_I >= 0:
+                Theta_0 = math.pi 
+                if U_I > 0:
+                    Theta_0 = -1 * math.pi
+                # if Q_I < 0:
+                #     Theta_0 = math.pi / 2
+                
+            Theta = 0.5 * math.degrees(math.atan(U_I / Q_I) + Theta_0)
+            dTheta = dP / P * 28.6
+
+            # compute instrumental magnitude
+
+            if flux_mean <= 0.0:
+                logger.warning(f"{polarimetry_group=}: negative flux mean encountered while relative polarimetry for {astrosource=} ??!! It will be nan, but maybe we should look into this...")
+
+            mag_inst = -2.5 * np.log10(flux_mean)
+            mag_inst_err = math.fabs(2.5 / math.log(10) * flux_std / flux_mean)
+
+            # if the source is a calibrator, compute also the zero point
+
+            if astrosource.srctype == SRCTYPES.CALIBRATOR:
+                mag_known = getattr(astrosource, f"mag_{band}")
+                mag_known_err = getattr(astrosource, f"mag_{band}_err", None) or 0.0
+
+                if mag_known is None:
+                    logger.warning(f"Calibrator {astrosource} has no magnitude for band {band}.")
+                    mag_zp = np.nan
+                    mag_zp_err = np.nan
+                else:
+                    mag_zp = mag_known - mag_inst
+                    mag_zp_err = math.sqrt(mag_known_err ** 2 + mag_inst_err ** 2)
+            else:
+                mag_zp = None
+                mag_zp_err = None
+
+            # save the results
+                    
+            result = PhotoPolResult.create(reducedfits=polarimetry_group, 
+                                                           astrosource=astrosource, 
+                                                           reduction=REDUCTIONMETHODS.RELPOL, 
+                                                           mag_inst=mag_inst, mag_inst_err=mag_inst_err, mag_zp=mag_zp, mag_zp_err=mag_zp_err,
+                                                           flux_counts=flux_mean, p=P, p_err=dP, chi=Theta, chi_err=dTheta)
+            
+            photopolresult_L.append(result)
+
+
+        # 3. Get average zero point from zp of all calibrators in the group
+
+        calib_mag_zp_array = np.array([result.mag_zp or np.nan for result in photopolresult_L if result.astrosource.srctype == SRCTYPES.CALIBRATOR]) # else it fills with None also and the dtype becomes object
+        calib_mag_zp_array = calib_mag_zp_array[~np.isnan(calib_mag_zp_array)]
+
+        calib_mag_zp_array_err = np.array([result.mag_zp_err or np.nan for result in photopolresult_L if result.astrosource.srctype == SRCTYPES.CALIBRATOR])
+        calib_mag_zp_array_err = calib_mag_zp_array_err[~np.isnan(calib_mag_zp_array_err)]
+
+        if len(calib_mag_zp_array) == 0:
+            logger.error(f"Can not compute magnitude during relative photo-polarimetry without any calibrators for this reduced fit.")
+
+        zp_avg = np.nanmean(calib_mag_zp_array)
+        zp_std = np.nanstd(calib_mag_zp_array)
+
+        zp_err = np.sqrt(np.nansum(calib_mag_zp_array_err ** 2)) / len(calib_mag_zp_array_err)
+        zp_err = math.sqrt(zp_err ** 2 + zp_std ** 2)
+
+        # 4. Compute the calibrated magnitudes for non-calibrators in the group using the averaged zero point
+
+        for result in photopolresult_L:
+
+            if result.astrosource.srctype == SRCTYPES.CALIBRATOR:
+                continue
+
+            result.mag_zp = zp_avg
+            result.mag_zp_err = zp_err
+        
+            result.mag = result.mag_inst + zp_avg
+            result.mag_err = math.sqrt(result.mag_inst_err ** 2 + zp_err ** 2)
+
+            result.save()
+
+        # 5. Save results
+        for result in photopolresult_L:
+            result.save()
+

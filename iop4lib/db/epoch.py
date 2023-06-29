@@ -688,13 +688,7 @@ class Epoch(models.Model):
         logger.info(f"{self}: computing relative polarimetry over {len(groupkeys_L)} polarimetry groups.")
         logger.debug(f"{self}: {groupkeys_L=}")
 
-        if self.telescope == TELESCOPES.OSN_T090:
-            return list(map(ReducedFit.compute_relative_polarimetry_osnt090, clusters_L))
-        elif self.telescope == TELESCOPES.CAHA_T220:
-            return list(map(ReducedFit.compute_relative_polarimetry_caha, clusters_L))
-        else:
-            raise Exception
-
+        return list(map(Telescope.by_name(self.telescope).compute_relative_polarimetry, clusters_L))
 
 
 

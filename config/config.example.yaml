@@ -17,7 +17,8 @@ log_level: <10 (DEBUG), 20 (INFO), 30 (WARNING), 40 (ERROR), 50 (CRITICAL)>
 caha_address: <caha ftp address>
 caha_password: <your caha password>
 caha_user: <your caha user>
-osn_address: <osn ip address>
+osn_t090_address: <osn t090 ftp archive ip address>
+osn_t150_address: <osn t150 ftp archive ip address>
 osn_user: <yourosnuser>
 osn_password: <yourosnpassword>
 osn_source_list_path: <path/to/osn/source/list>
