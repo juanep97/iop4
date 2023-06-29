@@ -34,21 +34,27 @@ class OSNT090(Telescope, metaclass=ABCMeta):
 
     # telescope specific properties
 
+    field_width_arcmin = 13.2 
+    arcsec_per_pix = 0.387
     gain_e_adu = 4.5
+
+    ftp_address = iop4conf.osn_t090_address
+    ftp_user = iop4conf.osn_t090_user
+    ftp_password = iop4conf.osn_t090_password
 
     # telescope specific methods
 
     @classmethod
     def list_remote_epochnames(cls):
         try:
-            logger.debug(f"Loging to OSN T090 FTP server")
+            logger.debug(f"Loging to {cls.name} FTP server")
 
-            ftp =  ftplib.FTP(iop4conf.osn_t090_address)
-            ftp.login(iop4conf.osn_user, iop4conf.osn_password)
+            ftp =  ftplib.FTP(cls.ftp_address)
+            ftp.login(cls.ftp_user, cls.ftp_password)
             remote_dirnameL_all = ftp.nlst()
             ftp.quit()
 
-            logger.debug(f"Total of {len(remote_dirnameL_all)} dirs in OSN T090 remote.")
+            logger.debug(f"Total of {len(remote_dirnameL_all)} dirs in {cls.name} remote.")
 
             remote_epochnameL_all = list()
 
@@ -64,16 +70,16 @@ class OSNT090(Telescope, metaclass=ABCMeta):
             return remote_epochnameL_all
         
         except Exception as e:
-            raise Exception(f"Error listing remote epochs in OSN: {e}.")
+            raise Exception(f"Error listing remote epochs in {cls.name}: {e}.")
 
 
     @classmethod
     def list_remote_raw_fnames(cls, epoch):
         try:
-            logger.debug(f"Loging to OSN FTP server")
+            logger.debug(f"Loging to {cls.name} FTP server")
 
-            ftp =  ftplib.FTP(iop4conf.osn_t090_address)
-            ftp.login(iop4conf.osn_user, iop4conf.osn_password)
+            ftp =  ftplib.FTP(cls.ftp_address)
+            ftp.login(cls.ftp_user, cls.ftp_password)
 
             logger.debug(f"Changing to OSN dir {epoch.yyyymmdd}")
 
@@ -232,7 +238,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
         if allsky:
             hintsep = 180.0
         else:
-            hintsep = n_field_width * u.Quantity("13.2 arcmin").to_value(u.deg) # should be a bit less than the field size of AndorT090
+            hintsep = (n_field_width * cls.field_width_arcmin*u.Unit("arcmin")).to_value(u.deg)
 
         return astrometry.PositionHint(ra_deg=hintcoord.ra.deg, dec_deg=hintcoord.dec.deg, radius_deg=hintsep)
     
@@ -243,12 +249,14 @@ class OSNT090(Telescope, metaclass=ABCMeta):
             According to OSN T090 camera information (https://www.osn.iaa.csic.es/page/camaras-ccdt150-y-ccdt90) 
             the camera pixels are 0.387as/px and it has a field of view of 13,20' x 13,20'. So we provide close values 
             for the hint. If the files are 1x1 it will be 0.387as/px, if 2x2 it will be twice.
+
+            For OSN T150 camera pixels are 0.232as/px and it has a field of view of 7.92' x 7.92'.
         """
 
         if rawfit.header['NAXIS1'] == 2048:
-            return astrometry.SizeHint(lower_arcsec_per_pixel=0.380, upper_arcsec_per_pixel=0.394)
+            return astrometry.SizeHint(lower_arcsec_per_pixel=0.95*cls.arcsec_per_pix, upper_arcsec_per_pixel=1.05*cls.arcsec_per_pix)
         elif rawfit.header['NAXIS1'] == 1024:
-            return astrometry.SizeHint(lower_arcsec_per_pixel=2*0.380, upper_arcsec_per_pixel=2*0.394)
+            return astrometry.SizeHint(lower_arcsec_per_pixel=2*0.95*cls.arcsec_per_pix, upper_arcsec_per_pixel=2*1.05*cls.arcsec_per_pix)
         
 
 

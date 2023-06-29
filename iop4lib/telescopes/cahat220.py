@@ -43,6 +43,7 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
 
     # telescope specific properties
 
+    arcsec_per_pix = 0.530
     gain_e_adu = 1.45
 
     # telescope specific methods
@@ -242,11 +243,8 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
         it seems that this is for 2048x2048 images, our images are 800x800 but the fitsheader DATASEC
         indicates it is a cut
         """
-
-        lower_arcsec_per_pixel = 0.523
-        upper_arcsec_per_pixel = 0.537
         
-        return astrometry.SizeHint(lower_arcsec_per_pixel=lower_arcsec_per_pixel,  upper_arcsec_per_pixel=upper_arcsec_per_pixel)
+        return astrometry.SizeHint(lower_arcsec_per_pixel=0.95*cls.arcsec_per_pix,  upper_arcsec_per_pixel=1.05*cls.arcsec_per_pix)
 
     @classmethod
     def compute_relative_polarimetry(cls, polarimetry_group):
