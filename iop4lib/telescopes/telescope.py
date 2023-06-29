@@ -125,9 +125,9 @@ class Telescope(metaclass=ABCMeta):
 
     # Not Implemented Methods (skeleton)
 
-    @classmethod
-    def compute_relative_photometry(cls):
-        raise NotImplementedError
+    # @classmethod
+    # def compute_relative_photometry(cls):
+    #     raise NotImplementedError
     
     @classmethod
     def compute_absolute_photometry(cls):
@@ -308,6 +308,7 @@ class Telescope(metaclass=ABCMeta):
                                       flux_counts=flux_counts, flux_counts_err=flux_counts_err)
     
 
+    @classmethod
     def compute_relative_photometry(cls, redf):
         
         from iop4lib.db.aperphotresult import AperPhotResult
