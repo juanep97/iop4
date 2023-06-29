@@ -605,7 +605,7 @@ class Epoch(models.Model):
         TODO: might be better to use the sources_in_field but right now the catalog is pretty incomplete.
         """
 
-        logger.debug("{self}: grouping observations for polarimetry...")
+        logger.debug(f"{self}: grouping observations for polarimetry...")
 
         from .reducedfit import ReducedFit
 

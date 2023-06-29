@@ -190,6 +190,8 @@ class Telescope(metaclass=ABCMeta):
         
         if instrume_header == "AndorT90":
             rawfit.instrument = INSTRUMENTS.AndorT90
+        elif instrume_header == "Andor":
+            rawfit.instrument = INSTRUMENTS.AndorT150
         elif instrume_header == "CAFOS 2.2":
             rawfit.instrument = INSTRUMENTS.CAFOS
         else:

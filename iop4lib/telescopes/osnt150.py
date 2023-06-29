@@ -43,7 +43,7 @@ class OSNT150(OSNT090, Telescope, metaclass=ABCMeta):
             logger.debug(f"Loging to OSN T150 FTP server")
 
             ftp =  ftplib.FTP(iop4conf.osn_t150_address)
-            ftp.login(iop4conf.osn_user, iop4conf.osn_password)
+            ftp.login(iop4conf.osn_t150_user, iop4conf.osn_t150_password)
             remote_dirnameL_all = ftp.nlst()
             ftp.quit()
 
@@ -72,7 +72,7 @@ class OSNT150(OSNT090, Telescope, metaclass=ABCMeta):
             logger.debug(f"Loging to OSN FTP server")
 
             ftp =  ftplib.FTP(iop4conf.osn_t150_address)
-            ftp.login(iop4conf.osn_user, iop4conf.osn_password)
+            ftp.login(iop4conf.osn_t150_user, iop4conf.osn_t150_password)
 
             logger.debug(f"Changing to OSN dir {epoch.yyyymmdd}")
 
@@ -95,7 +95,7 @@ class OSNT150(OSNT090, Telescope, metaclass=ABCMeta):
     def download_rawfits(cls, rawfits):
         try:
             ftp =  ftplib.FTP(iop4conf.osn_t150_address)
-            ftp.login(iop4conf.osn_user, iop4conf.osn_password)
+            ftp.login(iop4conf.osn_t150_user, iop4conf.osn_t150_password)
 
             for rawfit in rawfits:
                 logger.debug(f"Changing to OSN dir {rawfit.epoch.night} ...")

@@ -289,6 +289,7 @@ class RawFit(FitFileModel):
         logger.debug(f"{self}: classifying")
 
         try:
+            self.unset_flag(RawFit.FLAGS.ERROR_CLASSIFY)
             self.unset_flag(RawFit.FLAGS.CLASSIFIED)
             Telescope.by_name(self.epoch.telescope).check_telescop_kw(self)
             Telescope.by_name(self.epoch.telescope).classify_instrument_kw(self)
