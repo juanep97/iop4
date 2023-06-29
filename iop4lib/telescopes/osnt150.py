@@ -49,11 +49,11 @@ class OSNT150(OSNT090, Telescope, metaclass=ABCMeta):
 
     @classmethod
     def compute_relative_photometry(cls, rawfit):
-        logger.warning("OSNT150.compute_relative_photometry not implemented yet, using OSNT090.compute_relative_photometry")
-        super(cls).compute_relative_photometry(rawfit)
+        logger.warning(f"OSNT150.compute_relative_photometry not implemented yet, using OSNT090.compute_relative_photometry {super(cls)=}")
+        super(OSNT150, cls).compute_relative_photometry(rawfit)
 
     @classmethod
     def compute_relative_polarimetry(cls, polarimetry_group):
-        logger.warning("OSNT150.compute_relative_polarimetry not implemented yet, using OSNT090.compute_relative_polarimetry")
-        super(cls).compute_relative_polarimetry(polarimetry_group)
+        logger.warning(f"OSNT150.compute_relative_polarimetry not implemented yet, using OSNT090.compute_relative_polarimetry {super(cls)=}")
+        super(OSNT150, cls).compute_relative_polarimetry(polarimetry_group)
 

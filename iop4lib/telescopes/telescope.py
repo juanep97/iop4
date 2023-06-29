@@ -246,6 +246,7 @@ class Telescope(metaclass=ABCMeta):
 
     # should not depend on the telescope
 
+    @classmethod
     def compute_aperture_photometry(cls, redf):
 
         from iop4lib.db.aperphotresult import AperPhotResult
