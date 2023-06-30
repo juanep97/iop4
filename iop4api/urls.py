@@ -7,6 +7,8 @@ from . import admin
 from django.conf import settings
 from django.conf.urls.static import static
 
+app_name = "iop4api"
+
 urlpatterns = [
     path('', views.index, name='index'),
     ##path('view_fitdetails/<str:fitclsname>/<int:id>/', views.view_fitdetails, name='view_fitdetails') # done from iop4admin views, which provides right permission check
