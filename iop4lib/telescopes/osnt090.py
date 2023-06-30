@@ -101,7 +101,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
     @classmethod
     def download_rawfits(cls, rawfits):
         try:
-            ftp =  ftplib.FTP(iop4conf.osn_t090_address)
+            ftp =  ftplib.FTP(cls.ftp_address)
             ftp.login(cls.ftp_user, cls.ftp_password)
 
             for rawfit in rawfits:
