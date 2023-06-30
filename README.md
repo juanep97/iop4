@@ -24,10 +24,15 @@ Then, populate it with the necessary default data (a catalog, etc):
 ```bash
     $ python manage.py loaddata priv.dumps.yaml
 ```
-An utility script, `iop4site/resetdb.sh` is provided which will reset the DB and reload default data. To back up the data from the DB, you can use
+An utility script, `iop4site/resetdb.py`, is provided which will completely reset the DB keeping catalog and users data. To manually back up all data from the DB, you can use
 ```bash
     $ python manage.py dumpdata --natural-primary --natural-foreign --format=yaml > priv.dumps.yaml
 ```
+If no previous users have been loaded, create one with
+```bash
+    $ python manage.py createsuperuser
+```
+You can later use these credentials to login to the admin site.
 
 ## Usage
 ### As A Program
@@ -51,7 +56,7 @@ although this server is only recommended for debugging purposes, and you should 
 ```
 once at the start of your script. IOP4 configuration can be accessed anywhere without configuring the ORM doing `import iop4lib; iop4conf = iop4lib.Config(config_db=False)`.
 
-> This way of configuring `IOP4` is should be also valid inside IPython Shell, but not for Jupyter notebooks, since their asynchronous output interferes with Django ORM. To use IOP4 inside a notebook, see below. More details can be found in the documentation for `iop4lib.Config`.
+> This way of configuring `IOP4` should be also valid inside IPython Shell, but not for Jupyter notebooks, since their asynchronous output interferes with Django ORM. To use IOP4 inside a notebook, see below. More details can be found in the documentation for `iop4lib.Config`.
 
 Now you are ready to import and use IOP4 models from your Python script, e.g:
 ```python
