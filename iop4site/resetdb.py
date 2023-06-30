@@ -11,20 +11,23 @@ from datetime import datetime
 from termcolor import colored, cprint
 
 manage_fpath = f"{iop4conf.basedir}/iop4site/manage.py"
-configdir_path = f"{iop4conf.basedir}/config/"
+backupdir_path = f"{iop4conf.basedir}/priv.backups/"
 datetime_str = datetime.now().strftime("%Y-%m-%d_%H%M")
 
 print(colored("DANGER! This script will reset the database, keeping the users and catalog data. USE WITH CARE.", "yellow"))
+
+if not os.path.exists(backupdir_path):
+    os.makedirs(backupdir_path)
 
 c = input("Are you sure you want to continue? (y/n) ")
 if c != "y":
     print("Aborting.")
     exit(1)
 
-print(f"Backing up catalog and users to  priv.iop4.dump.*.{datetime_str}.yaml ...")
+print(f"Backing up catalog and users to {backupdir_path}/priv.iop4.dump.*.{datetime_str}.yaml ...")
 
-os.system(f"python {manage_fpath} dumpdata --natural-primary --natural-foreign --format=yaml iop4api.astrosource > {configdir_path}/priv.iop4.dump.catalog.{datetime_str}.yaml")
-os.system(f"python {manage_fpath} dumpdata --natural-primary --natural-foreign --format=yaml auth > {configdir_path}/priv.iop4.dump.auth.{datetime_str}.yaml")
+os.system(f"python {manage_fpath} dumpdata --natural-primary --natural-foreign --format=yaml iop4api.astrosource > {backupdir_path}/priv.iop4.dump.catalog.{datetime_str}.yaml")
+os.system(f"python {manage_fpath} dumpdata --natural-primary --natural-foreign --format=yaml auth > {backupdir_path}/priv.iop4.dump.auth.{datetime_str}.yaml")
 
 c = input("Reset the DB? (y/n) ")
 if c != "y":
@@ -43,4 +46,4 @@ os.system(rf"python {manage_fpath} migrate")
 
 print(f"Loading catalog and users from priv.iop4.dump.*.{datetime_str}.yaml ...")
 
-os.system(rf"python {manage_fpath} loaddata  {configdir_path}/priv.iop4.*.{datetime_str}.yaml")
+os.system(rf"python {manage_fpath} loaddata  {backupdir_path}/priv.iop4.*.{datetime_str}.yaml")
