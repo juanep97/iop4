@@ -307,39 +307,60 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
 
             aperpix = astrosource.get_aperpix()
 
-            # if any rotator angle is missing, uses the extraordinaty of other angles
+            # if any angle is missing, it uses the complementary angle of the other pair
 
-            obs_0 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource,  aperpix=aperpix, reducedfit__rotangle=0.0).exists()
-            obs_22 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, reducedfit__rotangle=22.48).exists()
-            obs_45 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, reducedfit__rotangle=44.98).exists()
-            obs_67 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, reducedfit__rotangle=67.48).exists()
+            obs_0 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource,  aperpix=aperpix, reducedfit__rotangle=0.0, flux_counts__isnull=False)
+            obs_22 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, reducedfit__rotangle=22.48, flux_counts__isnull=False)
+            obs_45 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, reducedfit__rotangle=44.98, flux_counts__isnull=False)
+            obs_67 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, reducedfit__rotangle=67.48, flux_counts__isnull=False)
 
-            if not obs_0 or not obs_22 or not obs_45 or not obs_67:
-                logger.warning(f"missing rotangles for {astrosource}")
+            if obs_0.filter(pairs="O").exists():
+                flux_O_0, flux_O_0_err = obs_0.filter(pairs="O").values_list("flux_counts", "flux_counts_err").last()
+            elif obs_45.filter(pairs="E").exists():
+                logger.warning(f"missing Ordinary rotangle 0º for {astrosource}, using Extraordinary 45º")
+                flux_O_0, flux_O_0_err = obs_45.filter(pairs="E").values_list("flux_counts", "flux_counts_err").last()
 
-            qs_O_0 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="O" if obs_0 else "E", reducedfit__rotangle=0.0 if obs_0 else 44.98)
-            flux_O_0, flux_O_0_err = qs_O_0.values_list("flux_counts", "flux_counts_err").last()
+            if obs_22.filter(pairs="O").exists():
+                flux_O_22, flux_O_22_err = obs_22.filter(pairs="O").values_list("flux_counts", "flux_counts_err").last()
+            elif obs_67.filter(pairs="E").exists():
+                logger.warning(f"missing Ordinary rotangle 22º for {astrosource}, using Extraordinary 67º")
+                flux_O_22, flux_O_22_err = obs_67.filter(pairs="E").values_list("flux_counts", "flux_counts_err").last()
 
-            qs_O_22 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="O" if obs_22 else "E", reducedfit__rotangle=22.48 if obs_0 else 67.48)
-            flux_O_22, flux_O_22_err = qs_O_22.values_list("flux_counts", "flux_counts_err").last()
+            if obs_45.filter(pairs="O").exists():
+                flux_O_45, flux_O_45_err = obs_45.filter(pairs="O").values_list("flux_counts", "flux_counts_err").last()
+            elif obs_0.filter(pairs="E").exists():
+                logger.warning(f"missing Ordinary rotangle 45º for {astrosource}, using Extraordinary 0º")
+                flux_O_45, flux_O_45_err = obs_0.filter(pairs="E").values_list("flux_counts", "flux_counts_err").last()
 
-            qs_O_45 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="O" if obs_45 else "E", reducedfit__rotangle=44.98 if obs_45 else 0.0)
-            flux_O_45, flux_O_45_err = qs_O_45.values_list("flux_counts", "flux_counts_err").last()
+            if obs_67.filter(pairs="O").exists():
+                flux_O_67, flux_O_67_err = obs_67.filter(pairs="O").values_list("flux_counts", "flux_counts_err").last()
+            elif obs_22.filter(pairs="E").exists():
+                logger.warning(f"missing Ordinary rotangle 67º for {astrosource}, using Extraordinary 22º")
+                flux_O_67, flux_O_67_err = obs_22.filter(pairs="E").values_list("flux_counts", "flux_counts_err").last()
 
-            qs_O_67 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="O" if obs_67 else "E", reducedfit__rotangle=67.48 if obs_67 else 22.48)
-            flux_O_67, flux_O_67_err = qs_O_67.values_list("flux_counts", "flux_counts_err").last()
+            if obs_0.filter(pairs="E").exists():
+                flux_E_0, flux_E_0_err = obs_0.filter(pairs="E").values_list("flux_counts", "flux_counts_err").last()
+            elif obs_45.filter(pairs="O").exists():
+                logger.warning(f"missing Extraordinary rotangle 0º for {astrosource}, using Ordinary 45º")
+                flux_E_0, flux_E_0_err = obs_45.filter(pairs="O").values_list("flux_counts", "flux_counts_err").last()
 
-            qs_E_0 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="E" if obs_0 else "O", reducedfit__rotangle=0.0 if obs_0 else 44.98)
-            flux_E_0, flux_E_0_err = qs_E_0.values_list("flux_counts", "flux_counts_err").last()
+            if obs_22.filter(pairs="E").exists():
+                flux_E_22, flux_E_22_err = obs_22.filter(pairs="E").values_list("flux_counts", "flux_counts_err").last()
+            elif obs_67.filter(pairs="O").exists():
+                logger.warning(f"missing Extraordinary rotangle 22º for {astrosource}, using Ordinary 67º")
+                flux_E_22, flux_E_22_err = obs_67.filter(pairs="O").values_list("flux_counts", "flux_counts_err").last()
 
-            qs_E_22 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="E" if obs_22 else "O", reducedfit__rotangle=22.48 if obs_22 else 67.48)
-            flux_E_22, flux_E_22_err = qs_E_22.values_list("flux_counts", "flux_counts_err").last()
+            if obs_45.filter(pairs="E").exists():
+                flux_E_45, flux_E_45_err = obs_45.filter(pairs="E").values_list("flux_counts", "flux_counts_err").last()
+            elif obs_0.filter(pairs="O").exists():
+                logger.warning(f"missing Extraordinary rotangle 45º for {astrosource}, using Ordinary 0º")
+                flux_E_45, flux_E_45_err = obs_0.filter(pairs="O").values_list("flux_counts", "flux_counts_err").last()
 
-            qs_E_45 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="E" if obs_45 else "O", reducedfit__rotangle=44.98 if obs_45 else 0.0)
-            flux_E_45, flux_E_45_err = qs_E_45.values_list("flux_counts", "flux_counts_err").last()
-
-            qs_E_67 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource,aperpix=aperpix,  pairs="E" if obs_67 else "O", reducedfit__rotangle=67.48 if obs_67 else 22.48)
-            flux_E_67, flux_E_67_err = qs_E_67.values_list("flux_counts", "flux_counts_err").last()
+            if obs_67.filter(pairs="E").exists():
+                flux_E_67, flux_E_67_err = obs_67.filter(pairs="E").values_list("flux_counts", "flux_counts_err").last()
+            elif obs_22.filter(pairs="O").exists():
+                logger.warning(f"missing Extraordinary rotangle 67º for {astrosource}, using Ordinary 22º")
+                flux_E_67, flux_E_67_err = obs_22.filter(pairs="O").values_list("flux_counts", "flux_counts_err").last()
 
             fluxes_O = np.array([flux_O_0, flux_O_22, flux_O_45, flux_O_67])
             fluxes_E = np.array([flux_E_0, flux_E_22, flux_E_45, flux_E_67])
