@@ -51,6 +51,8 @@ class AdminEpoch(admin.ModelAdmin):
     @admin.display(description='Details')
     def details(self, obj):
         url = reverse('iop4admin:view_epochdetails', args=[obj.id])
+        url_rawfits = reverse(f'iop4admin:{RawFit._meta.app_label}_{RawFit._meta.model_name}_changelist') + f'?telescope={obj.telescope}&night={obj.night}'
+        url_reducedfits = reverse(f'iop4admin:{ReducedFit._meta.app_label}_{ReducedFit._meta.model_name}_changelist')+ f'?telescope={obj.telescope}&night={obj.night}'
         return format_html(rf'<a href="{url}">details</a> / '
-                           rf'<a href="/iop4admin/iop4api/rawfit/?telescope={obj.telescope}&night={obj.night}">rawfits</a> / '
-                           rf'<a href="/iop4admin/iop4api/reducedfit/?telescope={obj.telescope}&night={obj.night}">reducedfits</a>')
+                           rf'<a href="{url_rawfits}">rawfits</a> / '
+                           rf'<a href="{url_reducedfits}">reducedfits</a>')
