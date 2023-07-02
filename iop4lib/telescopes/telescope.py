@@ -261,6 +261,9 @@ class Telescope(metaclass=ABCMeta):
             bkg_box_size = 256
         elif redf.mdata.shape[0] == 800:
             bkg_box_size = 100
+        else:
+            logger.warning(f"Image size {redf.mdata.shape[0]} not expected.")
+            bkg_box_size = redf.mdata.shape[0]//10
 
         bkg = get_bkg(redf.mdata, filter_size=1, box_size=bkg_box_size)
         img_bkg_sub = redf.mdata - bkg.background
