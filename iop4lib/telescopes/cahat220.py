@@ -307,68 +307,46 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
 
             aperpix = astrosource.get_aperpix()
 
-            # if any angle is missing, it uses the complementary angle of the other pair
+            # if any angle is missing for some pair, it uses the equivalent angle of the other pair
 
-            obs_0 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource,  aperpix=aperpix, reducedfit__rotangle=0.0, flux_counts__isnull=False)
-            obs_22 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, reducedfit__rotangle=22.48, flux_counts__isnull=False)
-            obs_45 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, reducedfit__rotangle=44.98, flux_counts__isnull=False)
-            obs_67 = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, reducedfit__rotangle=67.48, flux_counts__isnull=False)
+            qs = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, flux_counts__isnull=False)
 
-            if obs_0.filter(pairs="O").exists():
-                flux_O_0, flux_O_0_err = obs_0.filter(pairs="O").values_list("flux_counts", "flux_counts_err").last()
-            elif obs_45.filter(pairs="E").exists():
-                logger.warning(f"missing Ordinary rotangle 0º for {astrosource}, using Extraordinary 45º")
-                flux_O_0, flux_O_0_err = obs_45.filter(pairs="E").values_list("flux_counts", "flux_counts_err").last()
+            equivs = ((('O',0.0),   ('E',44.98)),
+                      (('O',22.48), ('E',67.48)),
+                      (('O',44.98), ('E',0.0)),
+                      (('O',67.48), ('E',22.48)),
+                      (('E',0.0),   ('O',44.98)),
+                      (('E',22.48), ('O',67.48)),
+                      (('E',44.98),  ('O',0.0)),
+                      (('E',67.48), ('O',22.48)))
 
-            if obs_22.filter(pairs="O").exists():
-                flux_O_22, flux_O_22_err = obs_22.filter(pairs="O").values_list("flux_counts", "flux_counts_err").last()
-            elif obs_67.filter(pairs="E").exists():
-                logger.warning(f"missing Ordinary rotangle 22º for {astrosource}, using Extraordinary 67º")
-                flux_O_22, flux_O_22_err = obs_67.filter(pairs="E").values_list("flux_counts", "flux_counts_err").last()
+            flux_D = dict()
+            for equiv in equivs:
+                if qs.filter(pairs=equiv[0][0], reducedfit__rotangle=equiv[0][1]).exists():
+                    flux_D[(equiv[0][0], equiv[0][1])] = qs.filter(pairs=equiv[0][0], reducedfit__rotangle=equiv[0][1]).values_list("flux_counts", "flux_counts_err").last()
+                elif qs.filter(pairs=equiv[1][0], reducedfit__rotangle=equiv[1][1]).exists():
+                    logger.warning(f"Missing flux for {astrosource} {equiv[0][0]} {equiv[0][1]}, using {equiv[1][0]} {equiv[1][1]}")
+                    flux_D[(equiv[0][0], equiv[0][1])] = qs.filter(pairs=equiv[1][0], reducedfit__rotangle=equiv[1][1]).values_list("flux_counts", "flux_counts_err").last()
+                else:
+                    logger.error(f"Missing flux for {astrosource} {equiv[0][0]} {equiv[0][1]} and {equiv[1][0]} {equiv[1][1]}")
+                    return
 
-            if obs_45.filter(pairs="O").exists():
-                flux_O_45, flux_O_45_err = obs_45.filter(pairs="O").values_list("flux_counts", "flux_counts_err").last()
-            elif obs_0.filter(pairs="E").exists():
-                logger.warning(f"missing Ordinary rotangle 45º for {astrosource}, using Extraordinary 0º")
-                flux_O_45, flux_O_45_err = obs_0.filter(pairs="E").values_list("flux_counts", "flux_counts_err").last()
-
-            if obs_67.filter(pairs="O").exists():
-                flux_O_67, flux_O_67_err = obs_67.filter(pairs="O").values_list("flux_counts", "flux_counts_err").last()
-            elif obs_22.filter(pairs="E").exists():
-                logger.warning(f"missing Ordinary rotangle 67º for {astrosource}, using Extraordinary 22º")
-                flux_O_67, flux_O_67_err = obs_22.filter(pairs="E").values_list("flux_counts", "flux_counts_err").last()
-
-            if obs_0.filter(pairs="E").exists():
-                flux_E_0, flux_E_0_err = obs_0.filter(pairs="E").values_list("flux_counts", "flux_counts_err").last()
-            elif obs_45.filter(pairs="O").exists():
-                logger.warning(f"missing Extraordinary rotangle 0º for {astrosource}, using Ordinary 45º")
-                flux_E_0, flux_E_0_err = obs_45.filter(pairs="O").values_list("flux_counts", "flux_counts_err").last()
-
-            if obs_22.filter(pairs="E").exists():
-                flux_E_22, flux_E_22_err = obs_22.filter(pairs="E").values_list("flux_counts", "flux_counts_err").last()
-            elif obs_67.filter(pairs="O").exists():
-                logger.warning(f"missing Extraordinary rotangle 22º for {astrosource}, using Ordinary 67º")
-                flux_E_22, flux_E_22_err = obs_67.filter(pairs="O").values_list("flux_counts", "flux_counts_err").last()
-
-            if obs_45.filter(pairs="E").exists():
-                flux_E_45, flux_E_45_err = obs_45.filter(pairs="E").values_list("flux_counts", "flux_counts_err").last()
-            elif obs_0.filter(pairs="O").exists():
-                logger.warning(f"missing Extraordinary rotangle 45º for {astrosource}, using Ordinary 0º")
-                flux_E_45, flux_E_45_err = obs_0.filter(pairs="O").values_list("flux_counts", "flux_counts_err").last()
-
-            if obs_67.filter(pairs="E").exists():
-                flux_E_67, flux_E_67_err = obs_67.filter(pairs="E").values_list("flux_counts", "flux_counts_err").last()
-            elif obs_22.filter(pairs="O").exists():
-                logger.warning(f"missing Extraordinary rotangle 67º for {astrosource}, using Ordinary 22º")
-                flux_E_67, flux_E_67_err = obs_22.filter(pairs="O").values_list("flux_counts", "flux_counts_err").last()
+            flux_O_0, flux_O_0_err = flux_D[('O',0.0)]
+            flux_O_22, flux_O_22_err = flux_D[('O',22.48)]
+            flux_O_45, flux_O_45_err = flux_D[('O',44.98)]
+            flux_O_67, flux_O_67_err = flux_D[('O',67.48)]
+            flux_E_0, flux_E_0_err = flux_D[('E',0.0)]
+            flux_E_22, flux_E_22_err = flux_D[('E',22.48)]
+            flux_E_45, flux_E_45_err = flux_D[('E',44.98)]
+            flux_E_67, flux_E_67_err = flux_D[('E',67.48)]
 
             fluxes_O = np.array([flux_O_0, flux_O_22, flux_O_45, flux_O_67])
             fluxes_E = np.array([flux_E_0, flux_E_22, flux_E_45, flux_E_67])
 
-            if np.any(fluxes_O <= 0) or np.any(fluxes_E <= 0):
-                logger.warning(f"{astrosource}: fluxes <= 0 !!")
-                logger.debug(f"Fluxes_O: {fluxes_O}")
-                logger.debug(f"Fluxes_E: {fluxes_E}")
+            # if np.any(fluxes_O <= 0) or np.any(fluxes_E <= 0):
+            #     logger.warning(f"{astrosource}: fluxes <= 0 !!")
+            #     logger.debug(f"Fluxes_O: {fluxes_O}")
+            #     logger.debug(f"Fluxes_E: {fluxes_E}")
 
             fluxes = (fluxes_O + fluxes_E) /2.
             flux_mean = fluxes.mean()
