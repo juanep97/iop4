@@ -359,6 +359,124 @@ def plot_preview_astrometry(redf, with_simbad=False, legend=True, names_over=Fal
 
 
 
+def photopolresult_mplt_viewer(src, band="R"):
+    from iop4lib.db import PhotoPolResult, AstroSource
+    from astropy.time import Time
+    from django.db.models import Q, F, Func, Avg, StdDev, Min, Max
+
+    if isinstance(src, str):
+        astrosource = AstroSource.objects.get(name=src)
+        srcname = src
+    elif isinstance(src, AstroSource):
+        astrosource = src
+        srcname = astrosource.name
+    else:
+        raise ValueError("src must be either a string or an AstroSource object")
+
+    telescopes = ["OSN-T090", "OSN-T150", "CAHA-T220"]
+    colors = ['b', 'g', 'r']
+
+    fig, axs = plt.subplots(nrows=3, figsize=(10,10), sharex=True)
+        
+    lines_L = list()
+
+    for telescope, color in zip(telescopes, colors):
+        qs = PhotoPolResult.objects.order_by('-juliandate').filter(astrosource__name=srcname, epoch__telescope=telescope)
+        
+        if qs.count() == 0:
+            continue
+            
+        values_lists = zip(*qs.values_list('juliandate', 'mag', 'mag_err', 'p', 'p_err', 'chi', 'chi_err', 'pk'))
+        
+        values_lists = [[x if x is not None else np.nan for x in values] for values in values_lists]
+        jd, mag, mag_err, p, p_err, chi, chi_err, pk = map(np.array, values_lists)
+        datetime = Time(jd, format="jd").datetime
+
+        lines_L.append((0, pk, axs[0].errorbar(x=datetime, y=mag, yerr=mag_err, marker=".", color=color, linestyle="none").lines[0]))
+        lines_L.append((1, pk, axs[1].errorbar(x=datetime, y=p, yerr=p_err, marker=".", color=color, linestyle="none").lines[0]))
+        lines_L.append((2, pk, axs[2].errorbar(x=datetime, y=chi, yerr=chi_err, marker=".", color=color, linestyle="none").lines[0]))
+
+    # invert magnitude axis
+    axs[0].invert_yaxis()
+
+    # secondary axes and its x limits
+    datetime_min, datetime_max = mplt.dates.num2date(axs[0].get_xlim())
+    mjd_min, mjd_max = Time([datetime_min, datetime_max]).mjd
+    ax0_2 = axs[0].twiny()
+    ax0_2.set_xlim([mjd_min, mjd_max])
+
+    # x and secondary x labels
+
+    axs[-1].set_xlabel('date')
+    ax0_2.set_xlabel('MJD')
+
+    # y labels
+
+    axs[0].set_ylabel(f"{band} mag")
+    axs[1].set_ylabel("p")
+    axs[1].yaxis.set_major_formatter(mplt.ticker.PercentFormatter(1.0, decimals=1))
+    axs[2].set_ylabel("chi [º]")
+
+    # title 
+    fig.suptitle(f"{srcname} ({astrosource.other_name})")
+
+    # legend
+    legend_handles = [axs[0].plot([],[],color=color, marker=".", linestyle="none", label=telescope)[0] for color, telescope in zip(colors, telescopes)]
+    legend_labels = telescopes
+    fig.legend(legend_handles, legend_labels, loc="lower left", ncols=3)
+
+    # hover
+    qs = PhotoPolResult.objects.order_by('-juliandate').filter(astrosource__name=srcname)
+
+    if qs.count() == 0:
+        raise Exception
+        
+    annots = [ax.annotate("", xy=(0,0), xytext=(-20,20), textcoords="offset points", fontsize=8, bbox=dict(boxstyle="round", fc="gray", pad=0.5), arrowprops=dict(arrowstyle="->")) for ax in axs]
+
+    for annot in annots:
+        annot.set_visible(True)
+
+    def update_annots(ax_i, event, line, ind, pks):
+        
+        idx = ind["ind"][0]
+        pk = pks[idx] 
+        obj = PhotoPolResult.objects.get(pk=pk)
+        
+        x = Time(obj.juliandate, format="jd").datetime
+        y = getattr(obj, ['mag', 'p', 'chi'][ax_i])
+
+        annot = annots[ax_i]
+        annot.xy = [x, y]
+        print([x,y])
+        
+        text = (f"{obj.epoch.epochname}\n"
+                f"id {pk} / {obj.obsmode}\n"
+                f"{obj.band}  {obj.mag:.2f} $\\pm$ {obj.mag_err:.2f}\n"
+                f"p [%]  {100*obj.p:.1f} $\\pm$ {10*obj.p_err:.1f}\n"
+                f"chi [º]  {obj.chi:.1f} $\\pm$ {obj.chi_err:.1f}")
+        
+        annot.set_text(text)
+        annot.get_bbox_patch().set_alpha(0.2)
+        
+    def on_plot_hover(event):
+        axs_proc = [False for ax in axs]
+        for i, pks, line in lines_L:
+            cont, ind = line.contains(event)
+            if cont:
+                update_annots(i, event, line, ind, pks)
+                annots[i].set_visible(True)
+                fig.canvas.draw_idle()
+                axs_proc[i] = True
+            elif not axs_proc[i] and annots[i].get_visible():
+                annots[i].set_visible(False)
+                fig.canvas.draw_idle()
+                
+                
+    fig.canvas.mpl_connect('motion_notify_event', on_plot_hover)  
+
+    return fig, axs
+
+
 
 
 
