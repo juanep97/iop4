@@ -206,7 +206,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
                     rawfit.rotangle = -45
                 elif rawfit.header['FILTER'] == "R0":
                     rawfit.rotangle = 0
-                elif rawfit.header['FILTER'] == "R45":
+                elif rawfit.header['FILTER'] == "R45" or rawfit.header['FILTER'] == "R+45":
                     rawfit.rotangle = 45
                 elif rawfit.header['FILTER'] == "R90":
                     rawfit.rotangle = 90
