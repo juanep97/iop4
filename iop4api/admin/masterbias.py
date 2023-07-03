@@ -16,6 +16,12 @@ class AdminMasterBias(admin.ModelAdmin):
     model = MasterBias
     list_display = ['id', 'telescope', 'night', 'imgsize', 'options']
 
+    def has_module_permission(self, *args, **kwargs):
+        return True
+    
+    def has_view_permission(self, *args, **kwargs):
+        return True
+    
     @admin.display(description='Options')
     def options(self, obj):
         url_details = reverse('iop4admin:view_fitdetails', args=["MasterBias", obj.id])

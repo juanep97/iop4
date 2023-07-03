@@ -33,6 +33,12 @@ class AdminRawFit(admin.ModelAdmin):
     
     change_list_template = 'iop4admin/fits/change_list.html'
 
+    def has_module_permission(self, *args, **kwargs):
+        return True
+    
+    def has_view_permission(self, *args, **kwargs):
+        return True
+    
     def changelist_view(self, request, extra_context=None):
         # this gets the image preview checkbox value and leaves the url unaltered, otherwise
         # the url would redirect to ?e=1 because of the unexpected parameters

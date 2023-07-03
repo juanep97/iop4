@@ -28,6 +28,12 @@ class AdminAstroSource(admin.ModelAdmin):
     
     list_filter = ('srctype',)
 
+    def has_module_permission(self, *args, **kwargs):
+        return True
+    
+    def has_view_permission(self, *args, **kwargs):
+        return True
+    
     # # by default exclude calibrators and non-polarized stars
     # def get_queryset(self, request):
     #     # Get the original queryset

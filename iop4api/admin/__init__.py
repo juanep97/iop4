@@ -84,7 +84,7 @@ iop4admin_site.register(PhotoPolResult, AdminPhotoPolResult)
 iop4admin_site.register(AperPhotResult, AdminAperPhotResult)
 
 # from django.contrib import admin
-# from django.contrib.auth.models import User, Group
+from django.contrib.auth.models import User, Group
 
-# iop4admin_site.register(User)
-# iop4admin_site.register(Group)
+iop4admin_site.register(User)
+iop4admin_site.register(Group)
