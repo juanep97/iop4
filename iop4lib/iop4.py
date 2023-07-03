@@ -82,6 +82,7 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--epoch-list', dest='epochname_list', nargs='+', help='<Optional> List of epochs (e.g: T090/230102 T090/230204)', required=False)
     parser.add_argument('--skip-remote-file-list', dest='skip_remote_file_list', action='store_true', help='<Optional> Skip remote file list check', required=False)
     parser.add_argument('--discover-new', dest='discover_new', action='store_true', help='<Optional> Discover new epochs and process them (remote file list for each epoch is always checked)', required=False)
+    parser.add_argument('--add-local-epochs-to-list', dest='add_local_epochs_to_list', action='store_true', help='<Optional> Add local epochs to the list created by --discover-new', required=False)
     parser.add_argument("--force-rebuild", dest="force_rebuild", action="store_true", help="<Optional> Force re-building of files (pass force_rebuild=True)", required=False)
 
     args = parser.parse_args()
@@ -144,7 +145,13 @@ if __name__ == '__main__':
 
             new_epochnames_all = new_epochnames_all.union(new_epochnames)
 
-        process_epochs(new_epochnames_all, args.force_rebuild, check_remote_list=True)
+        epochs_to_process = set(new_epochnames_all)
+
+        if args.add_local_epochs_to_list:
+            for tel_cls in Telescope.get_known():
+                epochs_to_process = epochs_to_process.union([f"{tel_cls.name}/{night}" for night in os.listdir(f"{iop4conf.datadir}/raw/{tel_cls.name}/")])
+
+        process_epochs(epochs_to_process, args.force_rebuild, check_remote_list=True)
                         
 
     if args.retry_failed:
