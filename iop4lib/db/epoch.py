@@ -333,21 +333,18 @@ class Epoch(models.Model):
 
         return epoch
 
-    @classmethod 
-    def from_db(cls, db, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         """Provides some defaults for attributes that are not stores in DB.
 
         Should be the same as default kwargs in .create() for consistency.
-        This method is executed when getting the instance from DB with a query.
         """
-        instance = super(Epoch, cls).from_db(db, *args, **kwargs)
-        instance.auto_link_rawfits = True
-        instance.check_remote_list = False
-        instance.force_redownload = False
-        instance.fallback_to_local = True
-        instance.auto_merge_to_db = True
-        instance.rawfits_kwargs = dict()
-        return instance
+        super().__init__(*args, **kwargs)
+        self.auto_link_rawfits = True
+        self.check_remote_list = False
+        self.force_redownload = False
+        self.fallback_to_local = True
+        self.auto_merge_to_db = True
+        self.rawfits_kwargs = dict()
       
     # methods
 
@@ -669,7 +666,7 @@ class Epoch(models.Model):
 
         split_groups_keys = [x[1] for x in sorted(zip(t1_L, split_groups_keys))]
         split_groups = [x[1] for x in sorted(zip(t1_L, split_groups))]
-        
+
         # some debug info about the final sorted groups:
 
         if iop4conf.log_level == logging.DEBUG:

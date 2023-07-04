@@ -163,11 +163,10 @@ class ReducedFit(RawFit):
 
         return reduced
     
-    @classmethod
-    def from_db(cls, db, *args, **kwargs):
-        instance = super(ReducedFit, cls).from_db(db, *args, **kwargs)
-        instance.auto_merge_to_db=True,
-        return instance
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.auto_merge_to_db = True
+    
 
     # Calibration methods
 

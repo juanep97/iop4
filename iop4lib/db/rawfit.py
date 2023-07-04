@@ -234,16 +234,14 @@ class RawFit(FitFileModel):
             rawfit.save()
 
         return rawfit
-
-    @classmethod 
-    def from_db(cls, db, *args, **kwargs):
-        instance = super(RawFit, cls).from_db(db, *args, **kwargs)
-        instance.auto_procure_local=True,
-        instance.auto_classify=True,
-        instance.reset_flags=False, 
-        instance.force_redownload=False
-        instance.auto_merge_to_db=True,
-        return instance
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.auto_procure_local=True
+        self.auto_classify=True
+        self.reset_flags=False
+        self.force_redownload=False
+        self.auto_merge_to_db=True
     
     # Methods
 
