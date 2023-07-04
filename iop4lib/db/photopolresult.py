@@ -129,8 +129,9 @@ class PhotoPolResult(models.Model):
                 p.text(f'{self.obsmode} {self.band} {self.astrosource.name}')
                 p.breakable()
                 p.text(f'JD: {self.juliandate:.5f} ({Time(self.juliandate, format="jd").iso})')
-                p.breakable()
-                p.text(f'mag: {self.mag:.3f} ± {self.mag_err:.3f}')
+                if self.mag is not None:
+                    p.breakable()
+                    p.text(f'mag: {self.mag:.3f} ± {self.mag_err:.3f}')
                 if self.p is not None:
                     p.breakable()
                     p.text(f'p: {self.p:.3f} ± {self.p_err:.3f}')

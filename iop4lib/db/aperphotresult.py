@@ -49,6 +49,14 @@ class AperPhotResult(models.Model):
             models.UniqueConstraint(fields=['reducedfit', 'astrosource', 'aperpix', 'pairs'], name='unique_aperphotresult')
         ]
 
+  # repr and str
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}.objects.get(id={self.id!r})'
+    
+    def __str__(self):
+        return f'<{self.__class__.__name__} {self.id} | {self.reducedfit.fileloc} {self.astrosource.srcname} {self.aperpix} px {self.pairs}>' 
+
     @classmethod
     def create(cls, reducedfit, astrosource, aperpix, pairs, **kwargs):
 
