@@ -321,8 +321,9 @@ class OSNT090(Telescope, metaclass=ABCMeta):
         rot_angles_available = set([redf.rotangle for redf in polarimetry_group])
         rot_angles_required = {0.0, 45.0, 90.0, -45.0}
 
-        if not rot_angles_available.issubset(rot_angles_required):
-            logger.warning(f"Rotation angles missing: {rot_angles_required - rot_angles_available}")
+        if not rot_angles_required.issubset(rot_angles_available):
+            logger.error(f"Rotation angles missing: {rot_angles_required - rot_angles_available}; returning early.")
+            return
 
         # 1. Compute all aperture photometries
 
