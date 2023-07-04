@@ -641,19 +641,27 @@ class Epoch(models.Model):
         for key_T, redf_L in groups_D.items():
             key_D = dict(key_T)
             
-            if len(redf_L) <= 4:
-                split_groups.append(redf_L)
-                split_groups_keys.append(key_D)
+            # if len(redf_L) <= 4:
+            #     split_groups.append(redf_L)
+            #     split_groups_keys.append(key_D)
 
-            if len(redf_L) > 4:
-                rotangles_S = set([redf.rotangle for redf in redf_L])
+            # if len(redf_L) > 4:
+            #     rotangles_S = set([redf.rotangle for redf in redf_L])
                 
-                split_rotangle_D = {rotangle:[redf for redf in redf_L if redf.rotangle==rotangle] for rotangle in rotangles_S}
+            #     split_rotangle_D = {rotangle:[redf for redf in redf_L if redf.rotangle==rotangle] for rotangle in rotangles_S}
                 
                 
-                while any([len(split_rotangle_D[rotangle])>0 for rotangle in rotangles_S]):
-                    split_groups.append([split_rotangle_D[rotangle].pop() for rotangle in rotangles_S if len(split_rotangle_D[rotangle]) > 0])
-                    split_groups_keys.append(key_D)
+            #     while any([len(split_rotangle_D[rotangle])>0 for rotangle in rotangles_S]):
+            #         split_groups.append([split_rotangle_D[rotangle].pop() for rotangle in rotangles_S if len(split_rotangle_D[rotangle]) > 0])
+            #         split_groups_keys.append(key_D)
+
+            rotangles_S = set([redf.rotangle for redf in redf_L]) # rotangles available in the redf_L
+            
+            split_rotangle_D = {rotangle:[redf for redf in redf_L if redf.rotangle==rotangle] for rotangle in rotangles_S}  # to access the redfs in the redfL by rotangle
+            
+            while any([len(split_rotangle_D[rotangle])>0 for rotangle in rotangles_S]): # while there are redfs for some rotangle, create groups by popping one of each rotangle
+                split_groups.append([split_rotangle_D[rotangle].pop() for rotangle in rotangles_S if len(split_rotangle_D[rotangle]) > 0])
+                split_groups_keys.append(key_D)
 
         # sort the groups by min(juliandate)
          
@@ -661,7 +669,7 @@ class Epoch(models.Model):
 
         split_groups_keys = [x[1] for x in sorted(zip(t1_L, split_groups_keys))]
         split_groups = [x[1] for x in sorted(zip(t1_L, split_groups))]
-
+        
         # some debug info about the final sorted groups:
 
         if iop4conf.log_level == logging.DEBUG:
