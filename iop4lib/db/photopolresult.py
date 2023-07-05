@@ -82,8 +82,10 @@ class PhotoPolResult(models.Model):
     mag_zp = models.FloatField(null=True, help_text="Magnitude zero point (if it is a calibrator with known magnitude, it is the computed zero point from it, if it is not a calibrator, it is the zero point used to compute the magnitude of the source")
     mag_zp_err = models.FloatField(null=True, help_text="Error for mag_zp.")
 
-    ## photo-polarimetric extra-info; to be used for automatic computation of instrumental polarization
+    ## photo-polarimetric extra-info; e.g. to be used for automatic computation of instrumental polarization
 
+    _x_px = models.FloatField(null=True, help_text="pixel position of the source in the image, x coordinate.")
+    _y_px = models.FloatField(null=True, help_text="pixel position of the source in the image, y coordinate.")
     _q_nocorr = models.FloatField(null=True, help_text="value without correction for instrumental polarization!")
     _u_nocorr = models.FloatField(null=True, help_text="value without correction for instrumental polarization!")
     _p_nocorr = models.FloatField(null=True, help_text="value without correction for instrumental polarization!")

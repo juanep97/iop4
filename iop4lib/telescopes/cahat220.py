@@ -248,7 +248,41 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
 
     @classmethod
     def compute_relative_polarimetry(cls, polarimetry_group):
-        """ Computes the relative polarimetry for a polarimetry group for CAHA T220 observations."""
+        """ Computes the relative polarimetry for a polarimetry group for CAHA T220 observations.
+        
+        .. note::
+            CAHA-T220 Polarimetry observations are done with a system consisting of a half-wave plate (HW) and a Wollaston prism (P).
+
+            The rotation angle theta_i refers to the angle theta_i between the HW plate and its fast (extraordinary) axes.
+
+            The effect of the HW is to rotate the polarization vector by 2*theta_i, and the effect of the Wollaston prism is to split 
+            the beam into two beams polarized in orthogonal directions (ordinary and extraordinary).
+
+            An input polarized beam with direction v will be rotated by HW by 2*theta_i. The O and E fluxes will be the projections of the
+            rotated vector onto the ordinary and extraordinary directions of the Wollaston prism (in absolute values since -45 and 45 
+            polarization directions are equivalent). A way to write this is:
+
+            fo(theta_i) = abs( <HW(theta_i)v,e_i> ) = abs ( <R(2*theta_i)v,e_i> ), where <,> denotes the scalar product and R is the rotation matrix.
+
+            Therefore the following observed fluxes should be the same (ommiting the abs for clarity):
+
+            fo(0º) = <v,e_1> = <v,R(-90)R(+90)e_1> = <R(90),R(90)e_i> = <HW(45),R(90)e_1> = fe(45º)
+            fo(22º) = <HW(22)v,e_1> = <R(45)v,e_1> = <R(90)R(45)v,R(90)e_1> = <R(135)v,e_1> = <HW(67),R(90)e_1> = fe(67º)
+            fo(45º) = <HW(45)v,e_1> = <R(90)v,e_1> = <v,R(-90)e_1> = -<v,e_2> = fe(0º)
+            fo(67º) = <HW(67)v,e_1> = <R(135)v,e_1> = <R(90)R(45)v,e_1> = <R(45)v,R(-90)e_1> = <HW(22),R(-90)e_1> = fe(22º)
+
+            See https://arxiv.org/pdf/astro-ph/0509153.pdf (doi 10.1086/497581) for the formulas relating these fluxes to 
+            the Stokes parameters.
+
+        .. note::
+            This rotation angle has a different meaning than for OSN-T090 Polarimetry observations. For them, it is the rotation angle of a polarized filter
+            with respect to some reference direction. Therefore we have the equivalencies (again ommiting the abs for clarity):
+            
+            OSN(45º) = <v,R(45)e_1> = <R(45)v,R(45)R(45)e_1> = <HW(22),R(90)e_1> = fE(22º) = fO(67º)
+            OSN(90º) = <v,R(90)e_1> = <R(90)v,R(90)R(90)e_1> = fO(45º)
+            OSN(-45º) = OSN(135º) = abs(<v,R(-45)e_1>) = <R(45)v,e_1> = <R(135)v,R(90)e_1> = fE(67º) = fO(22º)
+            OSN(0º) = <v,e_1> = <v,e_1> = fO(0º)
+        """
         
         from iop4lib.db.aperphotresult import AperPhotResult
         from iop4lib.db.photopolresult import PhotoPolResult
