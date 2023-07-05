@@ -359,7 +359,7 @@ def plot_preview_astrometry(redf, with_simbad=False, legend=True, names_over=Fal
 
 
 
-def photopolresult_mplt_viewer(src, band="R"):
+def photopolresult_mplt_viewer(src, band="R", qs0 = None):
     from iop4lib.db import PhotoPolResult, AstroSource
     from astropy.time import Time
     from django.db.models import Q, F, Func, Avg, StdDev, Min, Max
@@ -372,6 +372,9 @@ def photopolresult_mplt_viewer(src, band="R"):
         srcname = astrosource.name
     else:
         raise ValueError("src must be either a string or an AstroSource object")
+    
+    if qs0 is None:
+        qs0 = PhotoPolResult.objects.order_by('-juliandate')
 
     telescopes = ["OSN-T090", "OSN-T150", "CAHA-T220"]
     colors = ['b', 'g', 'r']
@@ -381,7 +384,7 @@ def photopolresult_mplt_viewer(src, band="R"):
     lines_L = list()
 
     for telescope, color in zip(telescopes, colors):
-        qs = PhotoPolResult.objects.order_by('-juliandate').filter(astrosource__name=srcname, epoch__telescope=telescope)
+        qs = qs0.filter(astrosource__name=srcname, epoch__telescope=telescope, band=band)
         
         if qs.count() == 0:
             continue
@@ -437,41 +440,50 @@ def photopolresult_mplt_viewer(src, band="R"):
         annot.set_visible(True)
 
     def update_annots(ax_i, event, line, ind, pks):
-        
+
         idx = ind["ind"][0]
         pk = pks[idx] 
         obj = PhotoPolResult.objects.get(pk=pk)
-        
+
         x = Time(obj.juliandate, format="jd").datetime
         y = getattr(obj, ['mag', 'p', 'chi'][ax_i])
 
         annot = annots[ax_i]
         annot.xy = [x, y]
         print([x,y])
+
+        text = ((f"{obj.epoch.epochname}\n") + 
+                (f"id {pk} / {obj.obsmode}\n") + 
+                (f"{obj.band}  {obj.mag:.2f} $\\pm$ {obj.mag_err:.2f}\n" if obj.mag is not None else '') + 
+                (f"p [%]  {100*obj.p:.1f} $\\pm$ {100*obj.p_err:.1f}\n" if obj.p is not None else '') + 
+                (f"chi [º]  {obj.chi:.1f} $\\pm$ {obj.chi_err:.1f}" if obj.chi is not None else ''))
         
-        text = (f"{obj.epoch.epochname}\n"
-                f"id {pk} / {obj.obsmode}\n"
-                f"{obj.band}  {obj.mag:.2f} $\\pm$ {obj.mag_err:.2f}\n"
-                f"p [%]  {100*obj.p:.1f} $\\pm$ {10*obj.p_err:.1f}\n"
-                f"chi [º]  {obj.chi:.1f} $\\pm$ {obj.chi_err:.1f}")
+        import sys
+        print(text, file=sys.__stdout__)
         
         annot.set_text(text)
         annot.get_bbox_patch().set_alpha(0.2)
-        
+
     def on_plot_hover(event):
-        axs_proc = [False for ax in axs]
-        for i, pks, line in lines_L:
-            cont, ind = line.contains(event)
-            if cont:
-                update_annots(i, event, line, ind, pks)
-                annots[i].set_visible(True)
-                fig.canvas.draw_idle()
-                axs_proc[i] = True
-            elif not axs_proc[i] and annots[i].get_visible():
-                annots[i].set_visible(False)
-                fig.canvas.draw_idle()
-                
-                
+        try:
+            annots_visible = [False for annot in annots]
+
+            for i, pks, line in lines_L:
+                cont, ind = line.contains(event)
+                if cont:
+                    update_annots(i, event, line, ind, pks)
+                    annots_visible[i] = True
+
+            for annot, visible in zip(annots,annots_visible):
+                annot.set_visible(visible)
+
+            fig.canvas.draw_idle()
+        except Exception as e:
+            pass
+            #import sys, traceback
+            #print(f"{e} {traceback.format_exc()}", file=sys.__stdout__)
+
+
     fig.canvas.mpl_connect('motion_notify_event', on_plot_hover)  
 
     return fig, axs
