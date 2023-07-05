@@ -1,27 +1,30 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """ iop4.py
     Invoke the IOP4 pipeline.
 """
 
+# iop4lib config
 import iop4lib.config
 iop4conf = iop4lib.Config(config_db=True)
 
+#other imports
 import os
 import sys
 import argparse
-import logging
 import coloredlogs
-
 import numpy as np
 import scipy as sp
 import pandas as pd
 import matplotlib as mplt
 import matplotlib.pyplot as plt
 
+# iop4lib imports
 from iop4lib.db import *
 from iop4lib.telescopes import *
 
-
+# logging
+import logging
+logger = logging.getLogger(__name__)
 
 def process_epochs(epochname_list, force_rebuild, check_remote_list):
     epoch_L = list()
@@ -57,8 +60,8 @@ def process_epochs(epochname_list, force_rebuild, check_remote_list):
     for epoch in epoch_L:
             epoch.compute_relative_polarimetry()
 
+def main():
 
-if __name__ == '__main__':
     # Parse args:
 
     parser = argparse.ArgumentParser(
@@ -110,9 +113,6 @@ if __name__ == '__main__':
     ROOT_LOGGER.addHandler(logger_h2)
 
 
-    # get our logger, it will inherit root logger handles
-    logger = logging.getLogger("iop4.py")
-
     # Set up number of threads:
 
     if args.nthreads is not None:
@@ -151,8 +151,7 @@ if __name__ == '__main__':
             for tel_cls in Telescope.get_known():
                 epochs_to_process = epochs_to_process.union([f"{tel_cls.name}/{night}" for night in os.listdir(f"{iop4conf.datadir}/raw/{tel_cls.name}/")])
 
-        process_epochs(epochs_to_process, args.force_rebuild, check_remote_list=True)
-                        
+        process_epochs(epochs_to_process, args.force_rebuild, check_remote_list=True)            
 
     if args.retry_failed:
         qs = ReducedFit.objects.filter(flags__has=ReducedFit.FLAGS.ERROR_ASTROMETRY).all()
@@ -161,10 +160,12 @@ if __name__ == '__main__':
         qs2 = ReducedFit.objects.filter(flags__has=ReducedFit.FLAGS.ERROR_ASTROMETRY).all()
         logger.info(f"Fixed {qs.count()-qs2.count()} out of {qs.count()} failed reduced fits.")
 
-
     if args.interactive:
         logger.info("Jumping to IPython shell.")
         import IPython
-        IPython.embed(header="Start IOP4ing!", module=sys.modules['__main__'], user_ns=sys.modules['__main__'].__dict__)
+        IPython.embed(header="Start IOP4ing!", module=sys.modules['__main__'])
 
     sys.exit(0)
+
+if __name__ == '__main__':
+    main()

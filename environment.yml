@@ -21,15 +21,14 @@ dependencies:
   - astroquery
   - photutils=1.8.0
   - pandas
-  - scikit-image=0.20.0
   - scikit-learn=1.2.2
   - coloredlogs
+  - ipython
   # test dependencies
   - codecov
   - pytest
   - pytest-cov
   # extra dependencies
-  - ipython
   - jupyter
   - jupyterlab
   # dev dependencies
@@ -50,3 +49,4 @@ dependencies:
     - ray[default]==2.4.0
     - pypandoc
     - pympler==1.0.1
+    - setuptools==67.7.1
