@@ -264,14 +264,19 @@ class OSNT090(Telescope, metaclass=ABCMeta):
 
     @classmethod
     def compute_relative_polarimetry(cls, polarimetry_group):
-        from iop4lib.db.aperphotresult import AperPhotResult
-        from iop4lib.db.photopolresult import PhotoPolResult
-
         """ Computes the relative polarimetry for a polarimetry group for OSNT090 observations.
+
+        .. note:: 
+            The rotation angle in OSNT090 refers to the angle between the polarized filter and some reference direction. This is different
+            to the rotation angle for CAHA-T220 which is the angle between the half-wave plate (HW) and its fast (extraordinary) axis. See the docs
+            for ``CAHAT220.compute_relative_polarimetry`` for more information.
         
         Instrumental polarization is corrected. Currently values are hardcoded in qoff, uoff, dqoff, duoff, Phi, dPhi (see code),
         but the values without any correction are stored in the DB so the correction can be automatically obtained in the future.
         """
+                
+        from iop4lib.db.aperphotresult import AperPhotResult
+        from iop4lib.db.photopolresult import PhotoPolResult
 
         logger.debug("Computing OSN-T090 relative polarimetry for group: %s", "".join(map(str,polarimetry_group)))
 
@@ -399,9 +404,10 @@ class OSNT090(Telescope, metaclass=ABCMeta):
             _uc_nocorr = uraw # no offset correction
             _q_nocorr = _qc_nocorr*math.cos(2*_Phi_nocorr) - _uc_nocorr*math.sin(2*_Phi_nocorr)
             _u_nocorr = _qc_nocorr*math.sin(2*_Phi_nocorr) + _uc_nocorr*math.cos(2*_Phi_nocorr) 
-            _P_nocorr = math.sqrt(_q_nocorr**2 + _u_nocorr**2)
+            _p_nocorr = math.sqrt(_q_nocorr**2 + _u_nocorr**2)
             _Theta_0_nocorr = 0
             _Theta_nocorr = (1/2) * math.degrees(math.atan2(_u_nocorr,_q_nocorr) + _Theta_0_nocorr)
+            _x_px, _y_px = astrosource.coord.to_pixel(polarimetry_group[0].wcs)
             
             # compute instrumental magnitude (same as for CAHA)
 
@@ -435,7 +441,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
                                            reduction=REDUCTIONMETHODS.RELPOL, 
                                            mag_inst=mag_inst, mag_inst_err=mag_inst_err, mag_zp=mag_zp, mag_zp_err=mag_zp_err,
                                            flux_counts=flux_mean, p=P, p_err=dP, chi=Theta, chi_err=dTheta,
-                                           _q_nocorr=_q_nocorr, _u_nocorr=_u_nocorr, _p_nocorr=_P_nocorr, _chi_nocorr=_Theta_nocorr)
+                                           _x_px=_x_px, _y_px=_y_px, _q_nocorr=_q_nocorr, _u_nocorr=_u_nocorr, _p_nocorr=_p_nocorr, _chi_nocorr=_Theta_nocorr)
             
             photopolresult_L.append(result)
 
