@@ -18,15 +18,15 @@ import pandas as pd
 import matplotlib as mplt
 import matplotlib.pyplot as plt
 
-# iop4lib imports
-from iop4lib.db import *
-from iop4lib.telescopes import *
-
 # logging
 import logging
 logger = logging.getLogger(__name__)
 
 def process_epochs(epochname_list, force_rebuild, check_remote_list):
+
+    from iop4lib.db import Epoch, RawFit
+    from iop4lib.enums import IMGTYPES
+
     epoch_L = list()
     
     logger.info("Epochs will be created.")
@@ -59,6 +59,41 @@ def process_epochs(epochname_list, force_rebuild, check_remote_list):
     
     for epoch in epoch_L:
             epoch.compute_relative_polarimetry()
+
+def discover_new_epochs(add_local_epochs_to_list=False):
+
+    from iop4lib.db import Telescope
+
+    new_epochnames_all = set()   
+
+    for tel_cls in Telescope.get_known():
+        logger.debug(f"Listing remote epochs for {tel_cls.name}...")
+        remote_epochnames = tel_cls.list_remote_epochnames()
+        logger.info(f"Found {len(remote_epochnames)} remote epochs for {tel_cls.name}.")
+
+        local_epochnames = [f"{tel_cls.name}/{night}" for night in os.listdir(f"{iop4conf.datadir}/raw/{tel_cls.name}/")]
+        logger.info(f"Found {len(local_epochnames)} epochs for {tel_cls.name} in local raw archive.")
+
+        new_epochnames = set(remote_epochnames).difference(local_epochnames)
+        logger.info(f"New epochs discovered in {tel_cls.name} (n={len(new_epochnames)}): {new_epochnames}")
+
+        new_epochnames_all = new_epochnames_all.union(new_epochnames)
+
+    epochs_to_process = set(new_epochnames_all)
+
+    if add_local_epochs_to_list:
+        for tel_cls in Telescope.get_known():
+            epochs_to_process = epochs_to_process.union([f"{tel_cls.name}/{night}" for night in os.listdir(f"{iop4conf.datadir}/raw/{tel_cls.name}/")])
+
+
+def retry_failed_files():
+    from iop4lib.db import Epoch, ReducedFit
+
+    qs = ReducedFit.objects.filter(flags__has=ReducedFit.FLAGS.ERROR_ASTROMETRY).all()
+    logger.info(f"Retrying {qs.count()} failed reduced fits.")
+    Epoch.reduce_reducedfits(qs)
+    qs2 = ReducedFit.objects.filter(flags__has=ReducedFit.FLAGS.ERROR_ASTROMETRY).all()
+    logger.info(f"Fixed {qs.count()-qs2.count()} out of {qs.count()} failed reduced fits.")
 
 def main():
 
@@ -112,7 +147,6 @@ def main():
     ROOT_LOGGER.addHandler(logger_h1)
     ROOT_LOGGER.addHandler(logger_h2)
 
-
     # Set up number of threads:
 
     if args.nthreads is not None:
@@ -130,35 +164,11 @@ def main():
     # Discover new epochs and process them
     
     if args.discover_new:   
-        new_epochnames_all = set()   
-
-        for tel_cls in Telescope.get_known():
-            logger.debug(f"Listing remote epochs for {tel_cls.name}...")
-            remote_epochnames = tel_cls.list_remote_epochnames()
-            logger.info(f"Found {len(remote_epochnames)} remote epochs for {tel_cls.name}.")
-
-            local_epochnames = [f"{tel_cls.name}/{night}" for night in os.listdir(f"{iop4conf.datadir}/raw/{tel_cls.name}/")]
-            logger.info(f"Found {len(local_epochnames)} epochs for {tel_cls.name} in local raw archive.")
-
-            new_epochnames = set(remote_epochnames).difference(local_epochnames)
-            logger.info(f"New epochs discovered in {tel_cls.name} (n={len(new_epochnames)}): {new_epochnames}")
-
-            new_epochnames_all = new_epochnames_all.union(new_epochnames)
-
-        epochs_to_process = set(new_epochnames_all)
-
-        if args.add_local_epochs_to_list:
-            for tel_cls in Telescope.get_known():
-                epochs_to_process = epochs_to_process.union([f"{tel_cls.name}/{night}" for night in os.listdir(f"{iop4conf.datadir}/raw/{tel_cls.name}/")])
-
+        epochs_to_process = discover_new_epochs(add_local_epochs_to_list=args.add_local_epochs_to_list)
         process_epochs(epochs_to_process, args.force_rebuild, check_remote_list=True)            
 
     if args.retry_failed:
-        qs = ReducedFit.objects.filter(flags__has=ReducedFit.FLAGS.ERROR_ASTROMETRY).all()
-        logger.info(f"Retrying {qs.count()} failed reduced fits.")
-        Epoch.reduce_reducedfits(qs)
-        qs2 = ReducedFit.objects.filter(flags__has=ReducedFit.FLAGS.ERROR_ASTROMETRY).all()
-        logger.info(f"Fixed {qs.count()-qs2.count()} out of {qs.count()} failed reduced fits.")
+        retry_failed_files()
 
     if args.interactive:
         logger.info("Jumping to IPython shell.")

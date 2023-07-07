@@ -11,7 +11,7 @@ Clone this repository and run from a terminal
     $ conda activate iop4
     $ pip install .
 ```
-or `pip install -e .` if you want to install it in developer mode. This will install the module `iop4lib` and the `iop4.py` command, and the `iop4site` project.
+or `pip install -e .` if you want to install it in developer mode. This will install the module `iop4lib` and the `iop4` command, and the `iop4site` project.
 
 After installation, take a look at the configuration file (`iop4lib/config.example.yaml`), set the appropiate variables (path to the database, data directory, astrometry index files path, credentials, etc) and rename it to `iop4lib/config.yaml`.
 
@@ -83,18 +83,9 @@ iop4conf = iop4lib.Config(config_db=True, gonogui=False, jupytermode=True)
 ```
 
 ### Tips
-You can get an ipython interactive terminal after running the iop4.py script with 
+You can get an IPython interactive terminal after running iop4 using the `-i` option as
 ```bash
-    $ ipython -i -c "%run iop4lib/iop4.py -l T090/230313 T090/230317 T090/230319"
-```
-or better yet, directly using the `-i` option when invoking `iop4.py` as
-```bash
-    $ iop4.py -i -l T090/230313 T090/230317 T090/230319
-```
-
-You can invoke the pipeline with the python debugger as 
-```bash
-    $ python -m pdb -c continue iop4lib/iop4.py -l T090/230313 T090/230317 T090/230319 
+    $ iop4 -i -l T090/230313 T090/230317 T090/230319
 ```
 
 
