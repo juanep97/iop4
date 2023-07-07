@@ -6,10 +6,8 @@ config.yaml
 priv.*
 
 # other files
-iop4api/static/iop4api/js9/*
-iop4api/templates/original/
-iop4api/migrations
-
+**/static/iop4admin/js9
+**/migrations
 # IDE files
 .vscode/
 

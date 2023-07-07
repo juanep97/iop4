@@ -1,14 +1,12 @@
-{% extends "iop4admin/base_site.html" %}
-
-{% load i18n admin_urls %}
-
+{% extends "iop4admin/singleobj.html" %}
 
 {% block content %}
 
+	<code>{{ object.fileloc }}</code></span><br><br>
+
 	<h1>FIT viewer</h1>
 
-	<span><b>{{ fitclsname }}</b> <code>{{ fileloc }}</code></span><br>
-	<span id="patiencemsg">This might take a while to load ({{ filesize_mb_str }} MB), please be patient.</span><br><br>
+	<span id="patiencemsg">This might take a while to load ({{ filesize_mb | floatformat:1 }} MB), please be patient.</span><br><br>
 
 	<a href="{{ url_changelist }}">Back to list</a><br>
 
@@ -24,17 +22,17 @@
 	Download at <a href="{{ fits_url }}"><code>{{ fits_url }}</code></a><br><br>
 
 	{% load static %}
-	<link type="text/css" rel="stylesheet" href="{% static 'iop4api/js9/js9support.css' %}">
-	<link type="text/css" rel="stylesheet" href="{% static 'iop4api/js9/js9.css' %}">
-	<script type="text/javascript" src="{% static 'iop4api/js9/js9prefs.js' %}"></script>
-	<script type="text/javascript" src="{% static 'iop4api/js9/js9support.min.js' %}"></script>
-	<script type="text/javascript" src="{% static 'iop4api/js9/js9.min.js' %}"></script>
-	<script type="text/javascript" src="{% static 'iop4api/js9/js9plugins.js' %}"></script>
+	<link type="text/css" rel="stylesheet" href="{% static 'iop4admin/js9/js9support.css' %}">
+	<link type="text/css" rel="stylesheet" href="{% static 'iop4admin/js9/js9.css' %}">
+	<script type="text/javascript" src="{% static 'iop4admin/js9/js9prefs.js' %}"></script>
+	<script type="text/javascript" src="{% static 'iop4admin/js9/js9support.min.js' %}"></script>
+	<script type="text/javascript" src="{% static 'iop4admin/js9/js9.min.js' %}"></script>
+	<script type="text/javascript" src="{% static 'iop4admin/js9/js9plugins.js' %}"></script>
 
 	<script type="text/javascript">
 		function imageLoaded() {
 			// document.getElementById("patiencemsg").style.display = "none";
-			document.getElementById("patiencemsg").innerHTML = "Loaded {{ filesize_mb_str }} MB.";
+			document.getElementById("patiencemsg").innerHTML = "Loaded {{ filesize_mb | floatformat:1 }} MB.";
 		}
 
 		function loadFIT() {
@@ -43,7 +41,7 @@
 			JS9.Preload("{{ fits_url }}", { 
 				parentFile: "{{filename}}", // filename ended in .fit, otherwise it is buggy
 				zoom: "tofit",
-				scale: "log", 
+				scale: "histeq", 
 				colormap: "grey", 
 				div: "myJS9",
 				display: "myJS9",

@@ -32,9 +32,8 @@ ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
     "iop4api",
-    #"django.contrib.admin",
-    #"django.contrib.admindocs", # if uncommented, add User, Group to iop4admin
-    "iop4site.apps.IOP4AdminConfig",  # replaces 'django.contrib.admin'
+    "iop4admin",
+    "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",

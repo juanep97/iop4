@@ -8,7 +8,7 @@ from django.template import loader
 from django.contrib.admin.views.decorators import staff_member_required
 
 from ..models import *
-from .. import admin
+# from .. import admin
 
 
 # IOP4API 
@@ -16,10 +16,3 @@ from .. import admin
 from .index import *
 
 # IOP4ADMIN VIEWs
-
-from .fitpreview import *
-from .getfile import *
-from .fitviewer import *
-from .fitdetails import *
-from .epochdetails import *
-from .astrosourcedetails import *
