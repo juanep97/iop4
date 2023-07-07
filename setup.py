@@ -21,6 +21,5 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.10',
-    scripts=['iop4lib/iop4.py',],
     entry_points={'console_scripts': ['iop4=iop4lib.iop4:main',],},
 )
