@@ -1,0 +1,12 @@
+{% extends "iop4admin/base_site.html" %}
+
+{% load i18n admin_urls %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label=app_label %}">{{ app_label | upper}}</a>
+&rsaquo; <a href="{% url 'iop4admin:'|add:app_label|add:'_'|add:model_name|add:'_changelist' %}">{{ model_verbose_name_plural }}</a>
+&rsaquo; {{ view_name | capfirst}}
+</div>
+{% endblock %}

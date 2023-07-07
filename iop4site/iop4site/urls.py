@@ -16,7 +16,7 @@ Including another URLconf
 
 from django.urls import path, include
 from iop4api.views import index
-from iop4api.admin import iop4admin_site
+from iop4admin.sites import iop4admin_site
 
 urlpatterns = [
     path(r"", index),

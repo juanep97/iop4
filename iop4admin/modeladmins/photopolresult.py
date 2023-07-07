@@ -6,9 +6,8 @@ from django.urls import path, reverse
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseNotFound
 from django.shortcuts import render
 
-from ..filters import *
-from ..models import *
-from .. import views
+from iop4api.filters import *
+from iop4api.models import *
 
 # other imports
 from iop4lib.enums import *

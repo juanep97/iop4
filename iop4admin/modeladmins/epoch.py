@@ -5,13 +5,16 @@ from django.urls import path, reverse
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseNotFound
 from django.shortcuts import render
 
-from ..filters import *
-from ..models import *
-from .. import views
+from iop4api.filters import *
+from iop4api.models import *
+from iop4admin import views
+
+import itertools
 
 class AdminEpoch(admin.ModelAdmin):
     model = Epoch
     list_display = ['id', 'telescope', 'night', 'status', 'count_rawfits', 'count_bias', 'count_flats', 'count_light', 'count_reduced', 'count_calibrated', 'summary_rawfits_status', 'details']
+    search_fields = ['id', 'telescope', 'night']
     readonly_fields = [field.name for field in Epoch._meta.fields] 
     ordering = ['-night','-telescope']
 
@@ -56,9 +59,18 @@ class AdminEpoch(admin.ModelAdmin):
        
     @admin.display(description='Details')
     def details(self, obj):
-        url = reverse('iop4admin:view_epochdetails', args=[obj.id])
-        url_rawfits = reverse(f'iop4admin:{RawFit._meta.app_label}_{RawFit._meta.model_name}_changelist') + f'?telescope={obj.telescope}&night={obj.night}'
-        url_reducedfits = reverse(f'iop4admin:{ReducedFit._meta.app_label}_{ReducedFit._meta.model_name}_changelist')+ f'?telescope={obj.telescope}&night={obj.night}'
+        url = reverse('iop4admin:iop4api_epoch_details', args=[obj.id])
+        url_rawfits = reverse(f'iop4admin:iop4api_rawfit_changelist') + f'?telescope={obj.telescope}&night={obj.night}'
+        url_reducedfits = reverse(f'iop4admin:iop4api_reducedfit_changelist')+ f'?telescope={obj.telescope}&night={obj.night}'
         return format_html(rf'<a href="{url}">details</a> / '
                            rf'<a href="{url_rawfits}">rawfits</a> / '
                            rf'<a href="{url_reducedfits}">reducedfits</a>')
+    
+
+    def get_urls(self):
+        urls = super().get_urls()
+        my_urls = [
+            path('details/<int:pk>', self.admin_site.admin_view(views.EpochDetailsView.as_view()), name='iop4api_epoch_details'),
+        ]
+        return my_urls + urls
+    

@@ -12,7 +12,7 @@ from django.views.generic.base import RedirectView
 
 # iop4api imports
 from ..models import *
-from .. import admin
+# from .. import admin
 
 #logging
 import logging

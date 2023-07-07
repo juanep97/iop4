@@ -1,46 +1,31 @@
-{% extends "iop4admin/base_site.html" %}
-
-{% load i18n admin_urls %}
+{% extends "iop4admin/singleobj.html" %}
 
 {% block content %}
 
 
-
-
-<!-- <h1>FIT file details</h1> -->
-
-<!-- <h2><code>{{ fileloc }}</code></h2> -->
-
-<code>{{ fit }}</code><br><br>
-
-<!--
-	<code>{{ fitclsname }}</code>(id={{fit.id}}) /  <code>{{ fileloc }}</code><br><br>
--->
-
+<code>{{ object.fileloc }}</code><br><br>
 
 
 <!-- Links -->
+
 {% if url_changelist is not None %}
 	<a href="{{ url_changelist }}">Back to list</a><br><br>
 {% endif %}
-{% if url_reduced is not None %}
-	<a href="{{ url_reduced }}">See reduced file</a><br><br>
-{% endif %}
 {% if url_raw is not None %}
 	<a href="{{ url_raw }}">See raw file</a><br><br>
+{% endif %}
+{% if url_reduced is not None %}
+	<a href="{{ url_reduced }}">See reduced file</a><br><br>
 {% endif %}
 {% if url_viewer is not None %}
 	<a href="{{ url_viewer }}">See in advanced FITS viewer</a><br><br>
 {% endif %}
 
-
-
-
 <!-- Fields and values -->
 
 <h2>Fields</h2>
 
-<div class="fields_tb_wrapper" style="max-width: min(85%,800px); overflow-x: scroll;">
+<div class="fields_tb_wrapper" style="overflow-x: scroll;">
 	<table>
 		<thead>
 		<tr>
@@ -68,27 +53,28 @@
 
 <!-- Additional info if the file exists -->
 
-{% if fileexists %}
+{% if object.fileexists %}
 
 	<h2>Summary statistics</h2><br>
 
+	<div class="stats_table_wrapper" style="overflow-x: scroll;">
 	<table>
 		<thead>
 		  <tr>
-			{% for key in stats %}
+			{% for key in object.stats %}
 			  <th>{{ key }}</th>
 			{% endfor %}
 		  </tr>
 		</thead>
 		<tbody>
 		  <tr>
-			{% for value in stats.values %}
+			{% for value in object.stats.values %}
 			  <td>{{ value | stringformat:".2g" }}</td>
 			{% endfor %}
 		  </tr>
 		</tbody>
 	  </table>
-
+	</div>
 
 
 
@@ -131,11 +117,11 @@
 
 		<h3>MasterBias and MasterFlat</h3>
 		<ul>
-		{% if fit.masterbias %}
-			<li><a href="{% url 'iop4admin:iop4api_masterbias_changelist' %}?id={{ fit.masterbias.id }}">MasterBias {{ fit.masterbias.id }}</a></li>
+		{% if object.masterbias %}
+			<li><a href="{% url 'iop4admin:iop4api_masterbias_changelist' %}?id={{ object.masterbias.id }}">MasterBias {{ object.masterbias.id }}</a></li>
 		{% endif %}
-		{% if fit.masterflat %}
-			<li><a href="{% url 'iop4admin:iop4api_masterflat_changelist' %}?id={{ fit.masterflat.id }}">MasterFlat {{ fit.masterflat.id }}</a></li>
+		{% if object.masterflat %}
+			<li><a href="{% url 'iop4admin:iop4api_masterflat_changelist' %}?id={{ object.masterflat.id }}">MasterFlat {{ object.masterflat.id }}</a></li>
 		{% endif %}
 		</ul>
 
@@ -221,8 +207,8 @@
 <script>
 	vmin = Number("{{ vmin }}");
 	vmax = Number("{{ vmax }}");
-	vabsmin = Number("{{ stats.min }}");
-	vabsmax = Number("{{ stats.max }}");
+	vabsmin = Number("{{ object.stats.min }}");
+	vabsmax = Number("{{ object.stats.max }}");
 
 	var slider1 = document.getElementById("slider1");
 	var slider2 = document.getElementById("slider2");
@@ -294,13 +280,16 @@
 		align-items: flex-end; 
 		/* align-items: center; */
 		gap: 20px;
+		overflow-x: scroll;
+		align-items: center;
+		flex-wrap: wrap;
 	}
 
 	#img_preview_range_form {
 		display: grid;
 		column-gap: 10px;
-  		grid-template-columns: 50px 200px 100px;
-  		grid-template-rows: auto;
+		grid-template-columns: auto 3fr 1fr;
+		grid-template-rows: auto;
 		grid-template-areas: 
 			".      histimg .     "
 			"label1 slider1 value1"
@@ -326,14 +315,14 @@
 	.astrometry_summary_div {
 		display: flex;
 		flex-direction: row;
-		max-width: 800px;
+		/* width: 800px; */
 		overflow-x: scroll;
 	}
 
 	.astrometry_summary_div img {
-		max-width : 800px;
+		/* max-width : 800px; */
 		object-fit: contain;
-		border: 1px solid gray;
+		/* border: 1px solid gray; */
 		border-collapse: collapse;
 	}
 

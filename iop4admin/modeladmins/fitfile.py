@@ -1,43 +1,70 @@
+# iop4lib config
+import iop4lib.config
+iop4conf = iop4lib.Config(config_db=False)
+
+# django imports
 from django.contrib import admin
 
 from django.utils.html import format_html
 from django.urls import path, reverse 
-from django.http import HttpResponse, HttpResponseRedirect, HttpResponseNotFound
+from django.http import HttpResponse, HttpResponseRedirect, HttpResponseNotFound, FileResponse
 from django.shortcuts import render
+from django.db.models import Q
+from django.apps import apps
 
+# iop4lib imports
+from iop4api.filters import *
+from iop4api.models import *
+from iop4admin.views import FitPreviewView, FitDetailsView, get_fit_view
 from iop4lib.enums import *
-from ..filters import *
-from ..models import *
 
+# other imports
+import os
+import base64
+import glob
+import numpy as np
+from astropy.io import fits
+
+# logging
 import logging
 logger = logging.getLogger(__name__)
-
-class AdminRawFit(admin.ModelAdmin):
-    model = RawFit
-    list_display = ["id", 'filename', 'telescope', 'night', 'status', 'imgtype', 'imgsize', 'band', 'obsmode', 'rotangle', 'exptime', 'options']
-    readonly_fields = [field.name for field in RawFit._meta.fields] 
-    search_fields = ['id', 'filename', 'epoch__telescope', 'epoch__night'] 
-    ordering = ['-epoch__night','-epoch__telescope']
-    list_per_page = 25
-    list_filter = (
-            RawFitIdFilter,
-            RawFitTelescopeFilter,
-            RawFitNightFilter,
-            RawFitFilenameFilter,
-            RawFitFlagFilter,
-            "imgtype",
-            "obsmode",
-            "band",
-            "imgsize",
-        )
     
+class AdminFitFile(admin.ModelAdmin):
+    
+    def get_urls(self):
+        urls = super().get_urls()
+        my_urls = [
+            path('details/<int:pk>', self.admin_site.admin_view(get_fit_view(FitDetailsView,self.model).as_view()),  name=f"iop4api_{self.model._meta.model_name}_details"),
+            path('viewer/<int:pk>', self.admin_site.admin_view(get_fit_view(FitPreviewView,self.model).as_view()), name=f"iop4api_{self.model._meta.model_name}_viewer"),
+            path('getfile/<int:pk>', self.admin_site.admin_view(self.view_getfile),  name=f"iop4api_{self.model._meta.model_name}_getfile"),
+            path('preview/<int:pk>', self.admin_site.admin_view(self.view_preview),  name=f"iop4api_{self.model._meta.model_name}_preview"),
+        ]
+        return my_urls + urls
+    
+    def get_absolute_url(self):
+        return reverse(f"iop4admin:{self.model._meta.app_label}_{self.model._meta.model_name}_details", args=[self.id])
+    
+    def view_getfile(self, request, pk):
+        if ((fit := self.model.objects.filter(id=pk).first()) is None):
+            return HttpResponseNotFound()
+
+        if not fit.fileexists:
+            return HttpResponseNotFound()
+
+        return FileResponse(open(fit.filepath, 'rb'), filename=fit.filename)
+    
+    def view_preview(self, request, pk):
+        
+        if ((fit := self.model.objects.filter(id=pk).first()) is None):
+            return HttpResponseNotFound()
+
+        if not fit.fileexists:
+            return HttpResponseNotFound()
+
+        imgbytes = fit.get_imgbytes_preview_image()
+        return HttpResponse(imgbytes, content_type="image/png")
+
     change_list_template = 'iop4admin/fits/change_list.html'
-
-    def has_module_permission(self, *args, **kwargs):
-        return True
-    
-    def has_view_permission(self, *args, **kwargs):
-        return True
     
     def changelist_view(self, request, extra_context=None):
         # this gets the image preview checkbox value and leaves the url unaltered, otherwise
@@ -71,7 +98,7 @@ class AdminRawFit(admin.ModelAdmin):
         extra_context['show_image_preview'] = show_image_preview # will be used to display the cbox as checked or not
 
         return super().changelist_view(request, extra_context=extra_context)
-
+    
     def get_list_display(self, request):
         list_display = list(super().get_list_display(request))
 
@@ -79,29 +106,7 @@ class AdminRawFit(admin.ModelAdmin):
             list_display = self.list_display + ['image_preview']
 
         return list_display
-
-    def telescope(self, obj):
-        return obj.epoch.telescope
     
-    def night(self, obj):
-        return obj.epoch.night
-    
-    @admin.display(description='STATUS')
-    def status(self, obj):
-        return ", ".join(obj.flag_labels)
-    
-    @admin.display(description='OPTIONS')
-    def options(self, obj):
-        if obj.imgtype == IMGTYPES.LIGHT:
-            url_reduced = reverse('iop4admin:%s_%s_changelist' % (ReducedFit._meta.app_label, ReducedFit._meta.model_name)) + f"?id={obj.reduced.id}"
-            url_details = reverse('iop4admin:view_fitdetails', args=["RawFit", obj.id])
-            url_viewer= reverse('iop4admin:view_fitviewer', args=["RawFit", obj.id])
-            return format_html(rf'<a href="{url_reduced}">reduced</a> / <a href="{url_details}">details</a> / <a href="{url_viewer}">advanced viewer</a>')
-        else:
-            url_details = reverse('iop4admin:view_fitdetails', args=["RawFit", obj.id])
-            url_viewer= reverse('iop4admin:view_fitviewer', args=["RawFit", obj.id])
-            return format_html(rf'<a href="{url_details}">details</a> / <a href="{url_viewer}">advanced viewer</a>')
-
     def image_preview(self, obj, allow_tags=True):
-        url_img_preview = reverse('iop4admin:view_fitpreview', args=["RawFit", obj.id])
+        url_img_preview = reverse(f"iop4admin:iop4api_{self.model._meta.model_name}_preview", args=[obj.id])
         return format_html(rf"<img src='{url_img_preview}' width='64' height='64' />")

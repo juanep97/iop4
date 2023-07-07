@@ -6,18 +6,17 @@ from django.http import HttpResponse, HttpResponseRedirect, HttpResponseNotFound
 from django.shortcuts import render
 from django.db.models import Q
 
-from ..filters import *
-from ..models import *
-from .. import views
-
 # other imports
+from iop4api.filters import *
+from iop4api.models import *
 from iop4lib.enums import *
+from .fitfile import AdminFitFile
 
 # logging
 import logging
 logger = logging.getLogger(__name__)
 
-class AdminReducedFit(admin.ModelAdmin):
+class AdminReducedFit(AdminFitFile):
     model = ReducedFit
     list_display = ["id", 'filename', 'telescope', 'night', 'status', 'imgtype', 'imgsize', 'band', 'obsmode', 'rotangle', 'exptime', 'get_targets_in_field', 'options', 'modified']
     readonly_fields = [field.name for field in ReducedFit._meta.fields]
@@ -43,10 +42,9 @@ class AdminReducedFit(admin.ModelAdmin):
     
     @admin.display(description='OPTIONS')
     def options(self, obj):
-        #url_rawfit = f"/iop4admin/iop4api/rawfit/?id={obj.id}"
         url_rawfit = reverse('iop4admin:%s_%s_changelist' % (RawFit._meta.app_label, RawFit._meta.model_name)) + f"?id={obj.rawfit.id}"
-        url_details = reverse('iop4admin:view_fitdetails', args=["ReducedFit", obj.id])
-        url_viewer= reverse('iop4admin:view_fitviewer', args=["ReducedFit", obj.id])
+        url_details = reverse('iop4admin:iop4api_reducedfit_details', args=[obj.id])
+        url_viewer= reverse('iop4admin:iop4api_reducedfit_viewer', args=[obj.id])
         return format_html(rf'<a href="{url_rawfit}">raw</a> / <a href="{url_details}">details</a> / <a href="{url_viewer}">advanced viewer</a>')
     
     @admin.display(description='TELESCOPE')

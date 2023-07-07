@@ -1,11 +1,6 @@
-{% extends "iop4admin/base_site.html" %}
-
-{% load i18n admin_urls %}
-
+{% extends "iop4admin/singleobj.html" %}
 
 {% block content %}
-
-<h1>Source <b>{{ astrosrc.name }}</b></h1><br>
 
 <h2>Fields</h2>
 
@@ -34,7 +29,7 @@
 
 <h2>Comment</h2>
 
-{{ comment_html | safe }}
+{{ object.comment_html | safe }}
 
 {{ block.super }}
 {% endblock %}
