@@ -32,7 +32,7 @@ def get_fit_view(viewcls, modelcls):
     return _
 
 
-class FitPreviewView(SingleObjView):
+class FitJS9View(SingleObjView):
 
     template_name = "iop4admin/view_fitviewer.html"
     

@@ -7,23 +7,16 @@ from django.contrib import admin
 
 from django.utils.html import format_html
 from django.urls import path, reverse 
-from django.http import HttpResponse, HttpResponseRedirect, HttpResponseNotFound, FileResponse
-from django.shortcuts import render
-from django.db.models import Q
+from django.http import HttpResponse, HttpResponseNotFound, FileResponse
 from django.apps import apps
 
 # iop4lib imports
 from iop4api.filters import *
 from iop4api.models import *
-from iop4admin.views import FitPreviewView, FitDetailsView, get_fit_view
+from iop4admin.views import FitJS9View, FitDetailsView, get_fit_view
 from iop4lib.enums import *
 
 # other imports
-import os
-import base64
-import glob
-import numpy as np
-from astropy.io import fits
 
 # logging
 import logging
@@ -35,7 +28,7 @@ class AdminFitFile(admin.ModelAdmin):
         urls = super().get_urls()
         my_urls = [
             path('details/<int:pk>', self.admin_site.admin_view(get_fit_view(FitDetailsView,self.model).as_view()),  name=f"iop4api_{self.model._meta.model_name}_details"),
-            path('viewer/<int:pk>', self.admin_site.admin_view(get_fit_view(FitPreviewView,self.model).as_view()), name=f"iop4api_{self.model._meta.model_name}_viewer"),
+            path('viewer/<int:pk>', self.admin_site.admin_view(get_fit_view(FitJS9View,self.model).as_view()), name=f"iop4api_{self.model._meta.model_name}_viewer"),
             path('getfile/<int:pk>', self.admin_site.admin_view(self.view_getfile),  name=f"iop4api_{self.model._meta.model_name}_getfile"),
             path('preview/<int:pk>', self.admin_site.admin_view(self.view_preview),  name=f"iop4api_{self.model._meta.model_name}_preview"),
         ]
