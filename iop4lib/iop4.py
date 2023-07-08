@@ -18,14 +18,16 @@ import pandas as pd
 import matplotlib as mplt
 import matplotlib.pyplot as plt
 
+# iop4lib imports
+from iop4lib.db import *
+from iop4lib.enums import *
+from iop4lib.telescopes import Telescope
+
 # logging
 import logging
 logger = logging.getLogger(__name__)
 
 def process_epochs(epochname_list, force_rebuild, check_remote_list):
-
-    from iop4lib.db import Epoch, RawFit
-    from iop4lib.enums import IMGTYPES
 
     epoch_L = list()
     
@@ -61,8 +63,6 @@ def process_epochs(epochname_list, force_rebuild, check_remote_list):
             epoch.compute_relative_polarimetry()
 
 def discover_new_epochs(add_local_epochs_to_list=False):
-
-    from iop4lib.db import Telescope
 
     new_epochnames_all = set()   
 
