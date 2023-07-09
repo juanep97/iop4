@@ -93,7 +93,7 @@ class MasterFlat(FitFileModel):
         else:
             with p.group(4, f'<{self.__class__.__name__}(', ')>'):
                 p.text(f"id: {self.id},")
-                for k,v in self.mbargs.items():
+                for k,v in self.mfargs.items():
                     p.breakable()
                     p.text(f"{k}: {v}")
 
