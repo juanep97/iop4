@@ -5,7 +5,7 @@ matplotlib.pyplot.set_loglevel('warning')
 
 
 
-class Config():
+class Config(dict):
     """ Configuration class for IOP4.
     
     This class is a singleton, that is, it always returns the same instance of the class.
@@ -33,7 +33,7 @@ class Config():
             Config._instance =  super().__new__(cls)
         return Config._instance
         
-    def __init__(self, config_path=None, config_db=False, gonogui=True, jupytermode=False, reconfigure=False):
+    def __init__(self, reconfigure=False, **kwargs):
         """
         Reads the specified config file, or the default one, and creates a configuration object.
         The configuration is performed only once, the first time it is called.
@@ -68,56 +68,94 @@ class Config():
         for data download from remote sources, etc.
         """
 
+        super(Config, self).__init__(**kwargs)
+        self.__dict__ = self
+
         if reconfigure or not Config._configured:
-            Config._configured = True
-            
-            if config_path is None:
-                config_path = pathlib.Path(Config.basedir) / "config" / "config.yaml"
+            self.configure(**kwargs)
 
-            with open(config_path, 'r') as f:
-                config_dict = yaml.safe_load(f)
-            for k, v in config_dict.items():
-                setattr(Config, k, v)
+    def copy(self, iop4conf):
+        for k, v in iop4conf.items():
+            setattr(self, k, v)
 
-            if Config.osn_source_list_path is not None and os.path.exists(Config.osn_source_list_path):
-                with open(Config.osn_source_list_path, 'r') as f:
-                    Config.osn_fnames_patterns += [f"(^{s[:-1]}.*\.fits?$)" for s in f.readlines() if s[0] != '#']
+    def configure(self, config_path=None, config_db=False, gonogui=True, jupytermode=False, **kwargs):
+    
+        Config._configured = True
 
-            if gonogui:
-                matplotlib.use("Agg")
+        # If config_path is None, either use already in use or the default one
 
-            if jupytermode:
-                os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
+        if config_path is None:
+            if hasattr(self, 'config_path') and self.config_path is not None:
+                config_path = self.config_path
+            else:
+                config_path = pathlib.Path(self.basedir) / "config" / "config.yaml"
+        
+        self.config_path = config_path
 
-            if config_db:
-                import django
-                from django.conf import settings
-                from django.apps import apps
-                
-                #import sys
-                #sys.path.append(r"/path/to/iop4/iop4site/")
-                #not necessary anymore, now app is a module.
-                settings.configure(
-                    INSTALLED_APPS=[
-                        'iop4api',
-                        # # apps below not necessary for iop4lib but allows using User model from the iop4.py -i shell 
-                        # # (python manage.py shell includes this by default, since it uses the settings in iop4site.settings)
-                        # "iop4site.iop4site.apps.IOP4AdminConfig", 
-                        # "django.contrib.auth", 
-                        # "django.contrib.contenttypes",
-                        # "django.contrib.sessions",
-                        # "django.contrib.messages",
-                        # "django.contrib.staticfiles",
-                    ],
-                    DATABASES = {
-                        "default": {
-                            "ENGINE": "django.db.backends.sqlite3",
-                            "NAME": Config.db_path,
-                        }
-                    },
-                    DEBUG = False,
-                )
-                
-                apps.populate(settings.INSTALLED_APPS)
-            
-                django.setup()
+        # Load config file and set attributes
+
+        with open(config_path, 'r') as f:
+            config_dict = yaml.safe_load(f)
+
+        for k, v in config_dict.items():
+            setattr(self, k, v)
+
+        # Override with config options passed as kwargs
+
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+        # Allow paths relative to home directory
+
+        for k, v in self.items():
+            if (k == 'basedir' or k == 'datadir' or 'path' in k) and v is not None:
+                setattr(self, k, str(pathlib.Path(v).expanduser()))
+
+        # Load OSN names from external file if indicated
+
+        if self.osn_source_list_path is not None and os.path.exists(self.osn_source_list_path):
+            with open(self.osn_source_list_path, 'r') as f:
+                self.osn_fnames_patterns += [fr"(^{s[:-1]}.*\.fits?$)" for s in f.readlines() if s[0] != '#']
+
+        if gonogui:
+            matplotlib.use("Agg")
+
+        if jupytermode:
+            os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
+
+        if config_db:
+            self.configure_db()
+
+    def configure_db(self):
+
+        import django
+        from django.conf import settings
+        from django.apps import apps
+        
+        #import sys
+        #sys.path.append(r"/path/to/iop4/iop4site/")
+        #not necessary anymore, now app is a module.
+        settings.configure(
+            INSTALLED_APPS=[
+                'iop4api',
+                # # apps below not necessary for iop4lib but allows using User model from the iop4.py -i shell 
+                # # (python manage.py shell includes this by default, since it uses the settings in iop4site.settings)
+                # "iop4site.iop4site.apps.IOP4AdminConfig", 
+                # "django.contrib.auth", 
+                # "django.contrib.contenttypes",
+                # "django.contrib.sessions",
+                # "django.contrib.messages",
+                # "django.contrib.staticfiles",
+            ],
+            DATABASES = {
+                "default": {
+                    "ENGINE": "django.db.backends.sqlite3",
+                    "NAME": self.db_path,
+                }
+            },
+            DEBUG = False,
+        )
+        
+        apps.populate(settings.INSTALLED_APPS)
+    
+        django.setup()

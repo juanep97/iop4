@@ -59,9 +59,10 @@ def epoch_bulkreduce_multiprocesing(reduced_L, epoch=None):
 
         tasks = [pool.apply_async(_epoch_bulkreduce_multiprocessing_worker, args=(redf,)) for redf in reduced_L]    
     
+        pool.close() # no more tasks to be submitted
+
         _epoch_bulkreduce_multiprocesing_mainloop(tasks, counter, reduced_L, epoch=epoch)
         
-        pool.close() # no more tasks to be submitted
         pool.join() # wait for all tasks to finish (should already be finished anyway)
         pool.terminate()
     
@@ -91,28 +92,6 @@ def _epoch_bulkreduce_multiprocessing_init(counter, queue, Nredf, iop4conf):
     global _Nredf
     _Nredf = Nredf
 
-    # set up django ORM to be available
-
-    import django
-    from django.conf import settings
-    from django.apps import apps
-    
-    if not settings.configured:
-        settings.configure(
-            INSTALLED_APPS=["iop4api"],
-            DATABASES = {
-                "default": {
-                    "ENGINE": "django.db.backends.sqlite3",
-                    "NAME": iop4conf.db_path,
-                }
-            },
-            DEBUG = False,
-        )
-        
-        apps.populate(settings.INSTALLED_APPS)
-
-        django.setup()
-
     # set up logging to send messages to a common queue
 
     h = QueueHandler(queue)    
@@ -124,6 +103,16 @@ def _epoch_bulkreduce_multiprocessing_init(counter, queue, Nredf, iop4conf):
 
     root.setLevel(iop4conf.log_level)
 
+    logger = logging.getLogger(__name__)
+
+    # set up django ORM to be available
+
+    import iop4lib
+    iop4conf = iop4lib.Config(**iop4conf)
+    iop4conf.configure_db()
+
+    from django import db
+    db.connections.close_all()
 
 
 class TimeoutException(Exception):
