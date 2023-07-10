@@ -46,4 +46,9 @@ os.system(rf"python {manage_fpath} migrate")
 
 print(f"Loading catalog and users from priv.iop4.dump.*.{datetime_str}.yaml ...")
 
+c = input("Do you want to load the data? (y/n) ")
+if c != "y":
+    print("Aborting.")
+    exit(1)
+
 os.system(rf"python {manage_fpath} loaddata  {backupdir_path}/priv.iop4.*.{datetime_str}.yaml")
