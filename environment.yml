@@ -45,6 +45,7 @@ dependencies:
   - pip:
     - astrometry==4.1.2
     - django==4.1.7
+    - pytest-django
     - multiprocess==0.70.14
     - ray[default]==2.4.0
     - pypandoc
