@@ -1,4 +1,3 @@
-basedir: < path to iop4 installation, you can ommit this option>
 datadir: </path/to/iop4data/>
 set_rawdata_readonly: <True/False (sets raw fits file to readonly when downloading them or creating a RawFit object)>
 db_path: </path/to/iop4.db>
