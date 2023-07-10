@@ -18,8 +18,10 @@ extensions = [
     'sphinxcontrib.bibtex',
     'sphinx.ext.autodoc',
     'sphinx_mdinclude',
+    'sphinx.ext.linkcode',
     'numpydoc',
 ]
+
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
@@ -56,9 +58,9 @@ bibtex_bibfiles = ['citations.bib']
 bibtex_reference_style = "author_year"
 
 # -- doc options -------------------------------------------------
-autodoc_member_order = 'groupwise'
 
 autodoc_default_options = {
+    'member-order': 'groupwise',
     'no-undoc-members': True,
     'exclude-members': 'TimeoutException, DoesNotExist, MultipleObjectsReturned, get_deferred_fields, save_base, serializable_value, validate_unique, full_clean, clean_fields, prepare_database_save, unique_error_message, date_error_message, validate_constraints, refresh_from_db'
 }
@@ -71,7 +73,7 @@ numpydoc_show_class_members = False
 import os, sys, pathlib
 sys.path.insert(0, os.path.abspath(os.path.join('..', 'iop4lib')))
 import iop4lib.config
-iop4lib.Config(config_path=pathlib.Path(iop4lib.config.Config.basedir) / "config" / "config.example.yaml", config_db=True)
+iop4conf = iop4lib.Config(config_path=pathlib.Path(iop4lib.config.Config.basedir) / "config" / "config.example.yaml", config_db=True)
 import iop4lib.db
 
 # -- Add models' fields and their help_text to the documentation --
@@ -114,3 +116,38 @@ def process_docstring(app, what, name, obj, options, lines):
 def setup(app):
     # Register the docstring processor with sphinx
     app.connect('autodoc-process-docstring', process_docstring)
+
+def linkcode_resolve(domain, info):
+    """
+    Determine the URL corresponding to Python object definition.
+
+    This function is used by the sphinx.ext.linkcode extension.
+    """
+    if domain != 'py':
+        return None
+
+    # Get the module and object name
+    module = sys.modules.get(info['module'])
+    if module is None:
+        return None
+    obj = module.__dict__.get(info['fullname'])
+    if obj is None:
+        return None
+
+    # Get the file location of the object's source code
+    try:
+        file_path = inspect.getsourcefile(obj)
+    except Exception:
+        return None
+
+    # Convert the file path to a GitHub URL
+    repo_url = 'https://github.com/juanep97/iop4'
+    if file_path.startswith(os.path.commonprefix([iop4conf.basedir, file_path])):
+        print(f"file_path: {file_path}")
+        print(f"basedir: {iop4conf.basedir}")
+        rel_path = os.path.relpath(file_path, iop4conf.basedir)
+        print(f"rel_path: {rel_path}")
+        url = f'{repo_url}/blob/main/{rel_path}'
+        return url
+    else:
+        return None
