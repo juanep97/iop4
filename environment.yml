@@ -51,3 +51,4 @@ dependencies:
     - pypandoc
     - pympler==1.0.1
     - setuptools==67.7.1
+    - termcolor
