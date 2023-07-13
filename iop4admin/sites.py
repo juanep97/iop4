@@ -30,4 +30,4 @@ iop4admin_site.register(ReducedFit, AdminReducedFit)
 iop4admin_site.register(AstroSource, AdminAstroSource)
 iop4admin_site.register(PhotoPolResult, AdminPhotoPolResult)
 iop4admin_site.register(AperPhotResult, AdminAperPhotResult)
-
+ 
