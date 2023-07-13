@@ -11,7 +11,7 @@ class IOP4AdminSite(admin.AdminSite):
     
 iop4admin_site = IOP4AdminSite(name='iop4admin')
 
-# Register admin classes.
+# Register IOP4 models in the admin.
 
 from .modeladmins.epoch import AdminEpoch
 from .modeladmins.rawfit import AdminRawFit
@@ -31,9 +31,3 @@ iop4admin_site.register(AstroSource, AdminAstroSource)
 iop4admin_site.register(PhotoPolResult, AdminPhotoPolResult)
 iop4admin_site.register(AperPhotResult, AdminAperPhotResult)
 
-# Users and groups
-
-from django.contrib.auth.models import User, Group
-
-iop4admin_site.register(User)
-iop4admin_site.register(Group)
