@@ -34,6 +34,12 @@ If no previous users have been loaded, create one with
 ```
 You can later use these credentials to login to the admin site.
 
+### Running Tests
+To run the tests, first follow the previous steps to configure IOP4. The tests use a different database and data directory (under `~/.iop4tests/`), but need the real database already created (the migration steps above). They will also need the location of the astrometry index files. At the moment, you will also need to download the `iop4testdata.tar.gz` file manually and place it under your home directory. Then, run
+```bash
+    $ pytest
+```
+
 ## Usage
 ### As A Program
 The pipeline script `iop4` can be invoked as
@@ -87,7 +93,6 @@ You can get an IPython interactive terminal after running iop4 using the `-i` op
 ```bash
     $ iop4 -i -l T090/230313 T090/230317 T090/230319
 ```
-
 
 ## Documentation
 To build and show the documentation, run
