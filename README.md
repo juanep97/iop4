@@ -13,7 +13,7 @@ Clone this repository and run from a terminal
 ```
 or `pip install -e .` if you want to install it in developer mode. This will install the module `iop4lib` and the `iop4` command, and the `iop4site` project.
 
-After installation, take a look at the configuration file (`iop4lib/config.example.yaml`), set the appropiate variables (path to the database, data directory, astrometry index files path, credentials, etc) and rename it to `iop4lib/config.yaml`.
+After installation, take a look at the example configuration file (`config/config.example.yaml`), set the appropriate variables (path to the database, data directory, astrometry index files path, credentials, etc) and rename it to `iop4lib/config.yaml`.
 
 If no previous database exists, make sure to create it. You can do it automatically from the `iop4site/` directory by using
 ```bash
@@ -77,8 +77,8 @@ Now you are ready to import and use IOP4 models from your Python script, e.g:
     Epoch.objects.filter(telescope="CAHA-T220").last().reduce()
 ```
 
-### In Interative Notebooks (JupyterLab)
-You can use `IOP4` in a interactive manner inside a Jupyter notebook. The following lines also activate matplotlib's graphical output (deactivated by default, as some plots may be generated inside the server).
+### In Interactive Notebooks (JupyterLab)
+You can use `IOP4` in an interactive manner inside a Jupyter notebook. The following lines also activate matplotlib's graphical output (deactivated by default, as some plots may be generated inside the server).
 ```python
 %autoawait off
 %load_ext autoreload
