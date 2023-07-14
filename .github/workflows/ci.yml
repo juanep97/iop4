@@ -83,7 +83,7 @@ jobs:
       - name: Install doc dependencies
         run: |
           pip install -e .[doc]
-          python -c 'import iop4; print(iop4.__version__)'
+          python -c 'import iop4lib; print(iop4lib.__version__)'
 
       - name: Build docs
         run: make html SPHINXOPTS="-W --keep-going -n --color -j auto"
