@@ -83,7 +83,6 @@ jobs:
       - name: Install doc dependencies
         run: |
           pip install -e .[doc]
-          git describe --tags
           python -c 'import iop4; print(iop4.__version__)'
 
       - name: Build docs
