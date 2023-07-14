@@ -11,7 +11,7 @@ import hashlib
 from pathlib import Path
 
 TEST_CONFIG = str(Path('~/.iop4tests/').expanduser() / "config.tests.yaml")
-TESTDATA_FPATH = str(Path("~/iop4testdata.tar").expanduser())
+TESTDATA_FPATH = str(Path("~/iop4testdata.tar.gz").expanduser())
 TESTDATA_MD5SUM = '2ee0de4eda7494b472d8223024bdf369'
 TEST_DATADIR = str(Path('~/.iop4tests/iop4testdata').expanduser())
 TEST_DB_PATH = str(Path(iop4conf.db_path).expanduser().parent / ("test_" + str(Path(iop4conf.db_path).name)))
