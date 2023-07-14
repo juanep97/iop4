@@ -1,0 +1,94 @@
+[build-system]
+requires = ["setuptools>=65", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "iop4"
+description = "A rewrite of IOP3, a pipeline to work with photometry and polarimetry of optical data from CAHA and OSN."
+readme = "README.md"
+license = {text = "BSD-3-Clause"}
+authors = [
+    {name = "Juan Escudero Pedrosa", email = "jescudero@iaa.es"},
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy==1.24.2",
+    "matplotlib==3.7.1",
+    "scipy==1.10.1",
+    "astropy==5.2.2",
+    "astroquery",
+    "photutils==1.8.0",
+    "pandas",
+    "scikit-learn==1.2.2",
+    "coloredlogs",
+    "ipython",
+    "django==4.1.7",
+    "astrometry==4.1.2",
+    "multiprocess==0.70.14",
+    "pympler==1.0.1",
+    "pypandoc",
+    "termcolor",
+    "ray[default]==2.4.0",
+    "pyyaml",
+]
+
+# need for setuptools_scm, so we derived version from git version control system
+dynamic = ["version"]
+
+[project.urls]
+repository = "https://github.com/juanep97/iop4"
+
+[project.scripts]
+iop4 = "iop4lib.iop4:main"
+
+[tool.setuptools.packages.find]
+include = ["iop4*"]
+exclude = ["iop4lib._dev_version"]
+
+[tool.setuptools.package-data]
+iop4lib = ["config/config.example.yaml"]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-django",
+    "codecov",
+    "pytest-cov",
+]
+doc = [
+    "numpydoc",
+    "sphinx",
+    "sphinx-automodapi",
+    "sphinx-mdinclude",
+    "pydata-sphinx-theme",
+    "sphinxcontrib-bibtex",
+    "docutils>=0.20",
+    "nbsphinx",
+]
+dev = [
+  "setuptools_scm",
+]
+
+# unfortunately, there is no way (yet) to generate this automatically using pyproject.toml
+all = [
+    "pytest",
+    "pytest-django",
+    "codecov",
+    "pytest-cov",
+    "numpydoc",
+    "sphinx",
+    "sphinx-automodapi",
+    "sphinx-mdinclude",
+    "pydata-sphinx-theme",
+    "sphinxcontrib-bibtex",
+    "docutils>=0.20",
+    "nbsphinx",
+]
+
+[tool.setuptools_scm]
+write_to = 'iop4lib/_version.py'

@@ -1,3 +1,6 @@
+# setuptools_scm generated version file
+_version.py
+
 # config file (it has credentials and addresses, DO NOT COMMIT)
 config.yaml
 **/config.yaml
