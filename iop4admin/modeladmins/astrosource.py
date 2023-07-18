@@ -34,6 +34,15 @@ class AdminAstroSource(admin.ModelAdmin):
     def has_view_permission(self, *args, **kwargs):
         return True
     
+    def has_add_permission(self, *args, **kwargs):
+        return True
+    
+    def has_change_permission(self, *args, **kwargs):
+        return True
+    
+    def has_delete_permission(self, *args, **kwargs):
+        return True
+    
     # # by default exclude calibrators and non-polarized stars
     # def get_queryset(self, request):
     #     # Get the original queryset
