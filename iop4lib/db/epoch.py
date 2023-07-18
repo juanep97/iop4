@@ -629,20 +629,6 @@ class Epoch(models.Model):
 
         for key_T, redf_L in groups_D.items():
             key_D = dict(key_T)
-            
-            # if len(redf_L) <= 4:
-            #     split_groups.append(redf_L)
-            #     split_groups_keys.append(key_D)
-
-            # if len(redf_L) > 4:
-            #     rotangles_S = set([redf.rotangle for redf in redf_L])
-                
-            #     split_rotangle_D = {rotangle:[redf for redf in redf_L if redf.rotangle==rotangle] for rotangle in rotangles_S}
-                
-                
-            #     while any([len(split_rotangle_D[rotangle])>0 for rotangle in rotangles_S]):
-            #         split_groups.append([split_rotangle_D[rotangle].pop() for rotangle in rotangles_S if len(split_rotangle_D[rotangle]) > 0])
-            #         split_groups_keys.append(key_D)
 
             rotangles_S = set([redf.rotangle for redf in redf_L]) # rotangles available in the redf_L
             
@@ -677,7 +663,7 @@ class Epoch(models.Model):
         return split_groups, split_groups_keys
 
 
-    def compute_relative_polarimetry(self):
+    def compute_relative_polarimetry(self, *args, **kwargs):
         from .reducedfit import ReducedFit
 
         clusters_L, groupkeys_L = self.make_polarimetry_groups()
@@ -685,7 +671,9 @@ class Epoch(models.Model):
         logger.info(f"{self}: computing relative polarimetry over {len(groupkeys_L)} polarimetry groups.")
         logger.debug(f"{self}: {groupkeys_L=}")
 
-        return list(map(Telescope.by_name(self.telescope).compute_relative_polarimetry, clusters_L))
+        f = lambda x: Telescope.by_name(self.telescope).compute_relative_polarimetry(x, *args, **kwargs)
+        
+        return list(map(f, clusters_L))
 
 
 
