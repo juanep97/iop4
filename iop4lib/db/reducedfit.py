@@ -372,16 +372,16 @@ class ReducedFit(RawFit):
 
     ## Delegated to telescopes
     
-    def compute_aperture_photometry(self):
-        return Telescope.by_name(self.telescope).compute_aperture_photometry(self)
+    def compute_aperture_photometry(self, *args, **kwargs):
+        return Telescope.by_name(self.telescope).compute_aperture_photometry(self, *args, **kwargs)
 
-    def compute_relative_photometry(self):
-        return Telescope.by_name(self.telescope).compute_relative_photometry(self)
+    def compute_relative_photometry(self, *args, **kwargs):
+        return Telescope.by_name(self.telescope).compute_relative_photometry(self, *args, **kwargs)
     
     @classmethod
-    def compute_relative_polarimetry(cls, polarimetry_group):
+    def compute_relative_polarimetry(cls, polarimetry_group, *args, **kwargs):
         
         if not all([redf.telescope == polarimetry_group[0].telescope for redf in polarimetry_group]):
             raise Exception("All reduced fits in a polarimetry group must be from the same telescope")
         
-        return Telescope.by_name(polarimetry_group[0].telescope).compute_relative_polarimetry(polarimetry_group)
+        return Telescope.by_name(polarimetry_group[0].telescope).compute_relative_polarimetry(polarimetry_group, *args, **kwargs)
