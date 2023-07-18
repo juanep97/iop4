@@ -247,7 +247,7 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
         return astrometry.SizeHint(lower_arcsec_per_pixel=0.95*cls.arcsec_per_pix,  upper_arcsec_per_pixel=1.05*cls.arcsec_per_pix)
 
     @classmethod
-    def compute_relative_polarimetry(cls, polarimetry_group):
+    def compute_relative_polarimetry(cls, polarimetry_group, aperpix=None):
         """ Computes the relative polarimetry for a polarimetry group for CAHA T220 observations.
         
         .. note::
@@ -286,6 +286,7 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
         
         from iop4lib.db.aperphotresult import AperPhotResult
         from iop4lib.db.photopolresult import PhotoPolResult
+        from iop4lib.utils import get_target_fwhm_aperpix
 
         # Perform some checks on the group
 
@@ -325,10 +326,13 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
 
         # 1. Compute all aperture photometries
 
-        logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group.")
+        if aperpix is None:
+            target_fwhm, aperpix, r_in, r_out = get_target_fwhm_aperpix(polarimetry_group)
+
+        logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group with target aperpix {aperpix:.1f}.")
 
         for reducedfit in polarimetry_group:
-            reducedfit.compute_aperture_photometry()
+            reducedfit.compute_aperture_photometry(aperpix, r_in, r_out)
 
         # 2. Compute relative polarimetry for each source (uses the computed aperture photometries)
 
@@ -338,8 +342,6 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
 
         for astrosource in group_sources:
             logger.debug(f"Computing relative polarimetry for {astrosource}.")
-
-            aperpix = astrosource.get_aperpix()
 
             # if any angle is missing for some pair, it uses the equivalent angle of the other pair
 
@@ -377,28 +379,31 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
             fluxes_O = np.array([flux_O_0, flux_O_22, flux_O_45, flux_O_67])
             fluxes_E = np.array([flux_E_0, flux_E_22, flux_E_45, flux_E_67])
 
-            # if np.any(fluxes_O <= 0) or np.any(fluxes_E <= 0):
-            #     logger.warning(f"{astrosource}: fluxes <= 0 !!")
-            #     logger.debug(f"Fluxes_O: {fluxes_O}")
-            #     logger.debug(f"Fluxes_E: {fluxes_E}")
+            # logger.debug(f"Fluxes_O: {fluxes_O}")
+            # logger.debug(f"Fluxes_E: {fluxes_E}")
 
-            fluxes = (fluxes_O + fluxes_E) /2.
+            fluxes = (fluxes_O + fluxes_E) / 2.
             flux_mean = fluxes.mean()
             flux_std = fluxes.std()
 
             RQ = np.sqrt((flux_O_0 / flux_E_0) / (flux_O_45 / flux_E_45))
-            dRQ = RQ * np.sqrt((flux_O_0_err / flux_O_0) ** 2 + (flux_E_0_err / flux_E_0) ** 2 + (flux_O_45_err / flux_O_45) ** 2 + (flux_E_45_err / flux_E_45) ** 2)
+            # dRQ = RQ * math.sqrt((flux_O_0_err / flux_O_0) ** 2 + (flux_E_0_err / flux_E_0) ** 2 + (flux_O_45_err / flux_O_45) ** 2 + (flux_E_45_err / flux_E_45) ** 2)
+            dRQ = RQ / 2 * math.sqrt((flux_O_0_err / flux_O_0) ** 2 + (flux_E_0_err / flux_E_0) ** 2 + (flux_O_45_err / flux_O_45) ** 2 + (flux_E_45_err / flux_E_45) ** 2)
 
-            RU = np.sqrt((flux_O_0 / flux_E_22) / (flux_O_67 / flux_E_67))
-            dRU = RU * np.sqrt((flux_O_22_err / flux_O_22) ** 2 + (flux_E_22_err / flux_E_22) ** 2 + (flux_O_67_err / flux_O_67) ** 2 + (flux_E_67_err / flux_E_67) ** 2)
-        
+            RU = np.sqrt((flux_O_22 / flux_E_22) / (flux_O_67 / flux_E_67))
+            # dRU = RU * math.sqrt((flux_O_22_err / flux_O_22) ** 2 + (flux_E_22_err / flux_E_22) ** 2 + (flux_O_67_err / flux_O_67) ** 2 + (flux_E_67_err / flux_E_67) ** 2)
+            dRU = RU / 2 * math.sqrt((flux_O_22_err / flux_O_22) ** 2 + (flux_E_22_err / flux_E_22) ** 2 + (flux_O_67_err / flux_O_67) ** 2 + (flux_E_67_err / flux_E_67) ** 2)
+
             Q_I = (RQ - 1) / (RQ + 1)
-            dQ_I = Q_I * np.sqrt(2 * (dRQ / RQ) ** 2)
+            # dQ_I = Q_I * math.sqrt(2 * (dRQ / RQ) ** 2)
+            dQ_I = math.fabs( RQ / (RQ + 1) ** 2 * dRQ)
             U_I = (RU - 1) / (RU + 1)
-            dU_I = U_I * np.sqrt(2 * (dRU / RU) ** 2)
+            # dU_I = U_I * math.sqrt(2 * (dRU / RU) ** 2)
+            dU_I = math.fabs( RU / (RU + 1) ** 2 * dRU)
 
-            P = np.sqrt(Q_I ** 2 + U_I ** 2)
-            dP = P * np.sqrt((dRQ / RQ) ** 2 + (dRU / RU) ** 2) / 2
+            P = math.sqrt(Q_I ** 2 + U_I ** 2)
+            # dP = P * math.sqrt((dRQ / RQ) ** 2 + (dRU / RU) ** 2) / 2
+            dP = 1/P * math.sqrt(Q_I**2 * dQ_I**2 + U_I**2 * dU_I**2)
 
             Theta_0 = 0
         
@@ -410,14 +415,15 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
                 #     Theta_0 = math.pi / 2
                 
             Theta = 0.5 * math.degrees(math.atan(U_I / Q_I) + Theta_0)
-            dTheta = dP / P * 28.6
+            # dTheta = dP / P * 28.6
+            dTheta = 0.5 * 180.0 / math.pi * (1 / (1 + (U_I/Q_I) ** 2)) * math.sqrt( (dU_I/Q_I)**2 + (U_I*dQ_I/Q_I**2)**2 )
 
             # compute instrumental magnitude
 
             if flux_mean <= 0.0:
                 logger.warning(f"{polarimetry_group=}: negative flux mean encountered while relative polarimetry for {astrosource=} ??!! It will be nan, but maybe we should look into this...")
 
-            mag_inst = -2.5 * np.log10(flux_mean)
+            mag_inst = -2.5 * math.log10(flux_mean)
             mag_inst_err = math.fabs(2.5 / math.log(10) * flux_std / flux_mean)
 
             # if the source is a calibrator, compute also the zero point
@@ -432,7 +438,8 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
                     mag_zp_err = np.nan
                 else:
                     mag_zp = mag_known - mag_inst
-                    mag_zp_err = math.sqrt(mag_known_err ** 2 + mag_inst_err ** 2)
+                    # mag_zp_err = math.sqrt(mag_known_err ** 2 + mag_inst_err ** 2)
+                    mag_zp_err = math.fabs(mag_inst_err) # do not add error on literature magnitude
             else:
                 mag_zp = None
                 mag_zp_err = None
@@ -443,7 +450,8 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
                                                            astrosource=astrosource, 
                                                            reduction=REDUCTIONMETHODS.RELPOL, 
                                                            mag_inst=mag_inst, mag_inst_err=mag_inst_err, mag_zp=mag_zp, mag_zp_err=mag_zp_err,
-                                                           flux_counts=flux_mean, p=P, p_err=dP, chi=Theta, chi_err=dTheta)
+                                                           flux_counts=flux_mean, p=P, p_err=dP, chi=Theta, chi_err=dTheta,
+                                                           aperpix=aperpix)
             
             photopolresult_L.append(result)
 
