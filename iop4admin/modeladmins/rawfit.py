@@ -31,11 +31,7 @@ class AdminRawFit(AdminFitFile):
             "imgsize",
         )
     
-    def has_module_permission(self, *args, **kwargs):
-        return True
-    
-    def has_view_permission(self, *args, **kwargs):
-        return True
+
     
     def telescope(self, obj):
         return obj.epoch.telescope

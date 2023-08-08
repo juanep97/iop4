@@ -21,11 +21,7 @@ class AdminPhotoPolResult(admin.ModelAdmin):
     ordering = ['-juliandate']
     list_filter = ['astrosource__srctype', 'epoch__telescope', 'obsmode']
 
-    def has_module_permission(self, *args, **kwargs):
-        return True
-    
-    def has_view_permission(self, *args, **kwargs):
-        return True
+
     
     @admin.display(description="TELESCOPE")
     def get_telescope(self, obj):

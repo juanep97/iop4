@@ -22,11 +22,7 @@ class AdminAperPhotResult(admin.ModelAdmin):
     search_fields = ['id', 'astrosource__name', 'astrosource__srctype', 'reducedfit__id']
     list_filter = ['astrosource__srctype', 'reducedfit__epoch__telescope', 'reducedfit__obsmode']
 
-    def has_module_permission(self, *args, **kwargs):
-        return True
-    
-    def has_view_permission(self, *args, **kwargs):
-        return True
+
     
     @admin.display(description="TELESCOPE")
     def get_telescope(self, obj):

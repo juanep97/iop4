@@ -18,11 +18,7 @@ class AdminEpoch(admin.ModelAdmin):
     readonly_fields = [field.name for field in Epoch._meta.fields] 
     ordering = ['-night','-telescope']
 
-    def has_module_permission(self, *args, **kwargs):
-        return True
-    
-    def has_view_permission(self, *args, **kwargs):
-        return True
+
 
     @admin.display(description='Status')
     def status(self, obj):

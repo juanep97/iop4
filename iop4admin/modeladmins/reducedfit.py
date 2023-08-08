@@ -34,11 +34,7 @@ class AdminReducedFit(AdminFitFile):
         "imgsize",
     )
 
-    def has_module_permission(self, *args, **kwargs):
-        return True
-    
-    def has_view_permission(self, *args, **kwargs):
-        return True
+
     
     @admin.display(description='OPTIONS')
     def options(self, obj):

@@ -28,11 +28,7 @@ class AdminAstroSource(admin.ModelAdmin):
     search_fields = ['name', 'other_name', 'ra_hms', 'dec_dms', 'srctype', 'comment']
     list_filter = ('srctype',)
 
-    def has_module_permission(self, *args, **kwargs):
-        return True
-    
-    def has_view_permission(self, *args, **kwargs):
-        return True
+
     
     def has_add_permission(self, *args, **kwargs):
         return True
