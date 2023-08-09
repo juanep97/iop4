@@ -145,7 +145,7 @@ def get_target_fwhm_aperpix(redfL):
         gaussian_fit = fit(gaussian, rp.radius, rp.profile)
 
         logger.debug(f"{target.name}: Gaussian FWHM: {gaussian_fit[0].fwhm:.1f} px")
-        # logger.debug(f"{target.srcname}: Moffat FWHM: {moffat_fit[0].fwhm:.1f} px")
+        # logger.debug(f"{target.name}: Moffat FWHM: {moffat_fit[0].fwhm:.1f} px")
 
         # list.append(fwhm_L, (moffat_fit[0].fwhm+gaussian_fit[0].fwhm)/2)
 
