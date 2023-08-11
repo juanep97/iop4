@@ -10,7 +10,7 @@ IOP4 implements _Object Relational Mapping_ (**ORM**) to seamlessly integrate al
 
 **Note:** IOP4 requires Python 3.10 or later. You can check your Python version with `python --version`. If you have a compatible version, you can skip this step.
   
-If you don't have Python 3.10 or later, you can install pyenv and pyenv-virtualenv, which will manage python versions for you. You can use the automatic installer [pyenv-installer](https://github.com/pyenv/pyenv-installer):
+If you don't have Python 3.10 or later, you can install [pyenv](https://github.com/pyenv/pyenv) and [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv), which will manage python versions for you. You can use the automatic installer [pyenv-installer](https://github.com/pyenv/pyenv-installer):
 
 ```bash
     $ curl https://pyenv.run | bash
@@ -26,7 +26,7 @@ Now you will have a virtual environment with the right Python version, and you c
 
 Now you can clone this repository and install IOP4:
 ```bash
-    $ git clone 'git@github.com:juanep97/iop4.git``
+    $ git clone 'git@github.com:juanep97/iop4.git'
     $ cd iop4
     $ pip install .
 ```
