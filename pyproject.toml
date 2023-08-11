@@ -15,7 +15,7 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
 ]
-requires-python = ">=3.10"
+requires-python = "=3.10"
 dependencies = [
     "numpy==1.24.2",
     "matplotlib==3.7.1",
@@ -25,12 +25,12 @@ dependencies = [
     "photutils==1.8.0",
     "pandas",
     "scikit-learn==1.2.2",
+    "scikit-image",
     "coloredlogs",
     "ipython",
     "django==4.1.7",
     "astrometry==4.1.2",
     "multiprocess==0.70.14",
-    "pympler==1.0.1",
     "pypandoc",
     "termcolor",
     "ray[default]==2.4.0",
@@ -76,18 +76,7 @@ dev = [
 
 # unfortunately, there is no way (yet) to generate this automatically using pyproject.toml
 all = [
-    "pytest",
-    "pytest-django",
-    "codecov",
-    "pytest-cov",
-    "numpydoc",
-    "sphinx",
-    "sphinx-automodapi",
-    "sphinx-mdinclude",
-    "pydata-sphinx-theme",
-    "sphinxcontrib-bibtex",
-    "docutils>=0.20",
-    "nbsphinx",
+    "iop4[doc,test,dev]",
 ]
 
 [tool.setuptools_scm]

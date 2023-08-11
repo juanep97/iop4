@@ -37,7 +37,7 @@ or `pip install -e .` if you want to install it in developer mode.
 
 Clone this repository and run from a terminal
 ```bash
-    $ conda env create  -f environment.yml
+    $ conda create -n iop4 python=3.10
     $ conda activate iop4
     $ pip install .
 ```
