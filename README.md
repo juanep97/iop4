@@ -5,15 +5,49 @@ IOP4 implements _Object Relational Mapping_ (**ORM**) to seamlessly integrate al
 
 
 ## Installation
+
+### Option 1: Using a virtual environment
+
+**Note:** IOP4 requires Python 3.10 or later. You can check your Python version with `python --version`. If you have a compatible version, you can skip this step.
+  
+If you don't have Python 3.10 or later, you can install [pyenv](https://github.com/pyenv/pyenv) and [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv), which will manage python versions for you. You can use the automatic installer [pyenv-installer](https://github.com/pyenv/pyenv-installer):
+
+```bash
+    $ curl https://pyenv.run | bash
+```
+
+Follow the instruction that these command output to add `pyenv`to `PATH` (or copy the commands from https://github.com/pyenv/pyenv for your shell). Restart your terminal, or source the file (e.g. `. ~/.bashrc` or `. ~/.zshrc`) Then, run 
+```bash 
+    $ pyenv install 3.10
+    $ pyenv virtualenv 3.10 iop4-venv
+    $ pyenv activate iop4-venv
+```
+Now you will have a virtual environment with the right Python version, and you can continue with the next step. To deactivate, just run `pyenv deactivate`.
+
+Now you can clone this repository and install IOP4:
+```bash
+    $ git clone 'git@github.com:juanep97/iop4.git'
+    $ cd iop4
+    $ pip install .
+```
+or `pip install -e .` if you want to install it in developer mode.
+
+
+### Option 2: Using conda
+
 Clone this repository and run from a terminal
 ```bash
-    $ conda env create  -f environment.yml
+    $ conda create -n iop4 python=3.10
     $ conda activate iop4
     $ pip install .
 ```
-or `pip install -e .` if you want to install it in developer mode. This will install the module `iop4lib` and the `iop4` command, and the `iop4site` project.
+or `pip install -e .` if you want to install it in developer mode.
+
+If you followed the steps in any of the two options above, you will have installed the module `iop4lib` and the `iop4` command, and the `iop4site` project. 
 
 After installation, take a look at the example configuration file (`config/config.example.yaml`), set the appropriate variables (path to the database, data directory, astrometry index files path, credentials, etc) and rename it to `config/config.yaml`.
+
+## Configuration
 
 If no previous database exists, make sure to create it. You can do it automatically from the `iop4site/` directory by using
 ```bash

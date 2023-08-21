@@ -225,10 +225,10 @@ class Telescope(metaclass=ABCMeta):
 
     @classmethod
     def get_header_objecthint(self, rawfit):
-        """ Get a hint for the AstroSource in this image from the header. OBJECT is a standard keyword. Return None if none found. 
+        r""" Get a hint for the AstroSource in this image from the header. OBJECT is a standard keyword. Return None if none found. 
         
         At the moment his only tries to match sources
-        with the IAU name format [0-9]*\+[0-9]*.
+        with the IAU name format `[0-9]*\+[0-9]*`.
         """
         
         from iop4lib.db import AstroSource

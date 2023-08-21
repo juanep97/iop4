@@ -89,6 +89,9 @@ class Config(dict):
                 config_path = self.config_path
             else:
                 config_path = pathlib.Path(self.basedir) / "config" / "config.yaml"
+
+                if not config_path.exists():
+                    config_path = pathlib.Path(self.basedir) / "config" / "config.example.yaml"
         
         self.config_path = config_path
 
@@ -108,8 +111,13 @@ class Config(dict):
         # Allow paths relative to home directory
 
         for k, v in self.items():
-            if (k == 'basedir' or k == 'datadir' or 'path' in k) and v is not None:
+            if (k in ['basedir', 'datadir', 'log_fname'] or 'path' in k) and v is not None: # config variables that are should have ~ expanded
                 setattr(self, k, str(pathlib.Path(v).expanduser()))
+
+        # If data dir does not exist, create it
+        
+        if not os.path.exists(self.datadir):
+            os.makedirs(self.datadir)
 
         # Load OSN names from external file if indicated
 
