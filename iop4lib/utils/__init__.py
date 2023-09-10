@@ -12,6 +12,16 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def get_column_values(qs, column_names):
+    """ Given a queryset and a list of column names, return a dictionary with the values of each column as a numpy array
+
+    None values are converted to np.nan (to avoid numpy arrays having dtype=object) 
+    """
+    values_lists = zip(*qs.values_list(*column_names))
+    values_lists = [[x if x is not None else np.nan for x in values] for values in values_lists]
+    return {k: v for k, v in zip(column_names, map(np.array, values_lists))}
+
+
 
 def divisorGenerator(n):
     """Generator for divisors of n"""
@@ -25,31 +35,33 @@ def divisorGenerator(n):
         yield divisor
 
 
-
 def stats_dict(data):
-        import numpy as np
-        import scipy as sp
-        import scipy.stats as stats
+    """Return a dictionary with some basic statistics of the input data"""
+    import numpy as np
+    import scipy as sp
+    import scipy.stats as stats
 
-        if isinstance(data, np.ma.MaskedArray):
-            data = data.compressed()
-        else:
-              data = data.flatten()
+    if isinstance(data, np.ma.MaskedArray):
+        data = data.compressed()
+    else:
+            data = data.flatten()
 
-        res = dict()
+    res = dict()
 
-        res['mean'] = np.mean(data)
-        res['median'] = np.median(data)
-        res['std'] = np.std(data)
-        res['min'] = np.min(data)
-        res['max'] = np.max(data)
-        res['mode'] = stats.mode(data, axis=None, keepdims=False).mode
+    res['mean'] = np.mean(data)
+    res['median'] = np.median(data)
+    res['std'] = np.std(data)
+    res['min'] = np.min(data)
+    res['max'] = np.max(data)
+    res['mode'] = stats.mode(data, axis=None, keepdims=False).mode
 
-        return res
+    return res
 
 
+# Functions to get memory usage
 
 def get_mem_children():
+    """Return the sum of the memory usage of all children processes, from the parent process"""
     children = psutil.Process(os.getpid()).children(recursive=True)
     memory_usage = 0
     for child in children:
@@ -60,23 +72,20 @@ def get_mem_children():
             pass
     return memory_usage
 
-
-
 def get_mem_current():
+    """Return the memory usage of the current process"""
     process = psutil.Process(os.getpid())
     mem_info = process.memory_info()
     return mem_info.rss
 
-
-
 def get_mem_parent_from_child():
+    """Return the memory usage of the parent process, from one of the child processes"""
     process = psutil.Process(os.getpid()).parent()
     mem_info = process.memory_info()
     return mem_info.rss
 
-
-
 def get_mem_children_from_child():
+    """Return the sum of the memory usage of all children processes, from one of the child processes"""
     parent = psutil.Process(os.getpid()).parent()
     children = parent.children(recursive=True)
     memory_usage = 0
@@ -88,9 +97,8 @@ def get_mem_children_from_child():
             pass
     return memory_usage
 
-
-
 def get_total_mem_from_child():
+    """Return the sum of the memory usage of all processes (parent and children) from one of the child processes"""
     return get_mem_parent_from_child() + get_mem_children_from_child()
 
 
@@ -101,7 +109,7 @@ def get_total_mem_from_child():
 
 
 
-
+# Function to get target FWHM
 
 def get_target_fwhm_aperpix(redfL):
     import numpy as np

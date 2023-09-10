@@ -1,0 +1,622 @@
+html, body, h1, h2, h3, h4, h5, h6, p, button, img, input, code, article, legend, figure, div, nav, section, header {
+    font-size: revert;
+    line-height: revert;
+}
+
+:root {
+    --main-font-color: #1c1c1c;
+    --primary-fg: #fff;
+    --button-fg: #fff;
+    --button-bg: #79aec8;
+    --border-color: #ccc;
+
+    /* Navbar styles */
+    --navbar-initial-height: 6em;
+    --navbar-scrolled-height: 4em;
+    --navbar-bg-color: #333;
+    --navbar-color: white;
+    --navbar-padding: 0 20px;
+
+    --navbar-gaps-initial: 3em;
+    --navbar-gaps-scrolled: 1em;
+    --navbar-h2-fontsize-initial: 1.2em;
+    --navbar-h2-fontsize-scrolled: 0.8em;
+
+    /* App body styles */
+    --appbody-margin-top: calc(6em - 1px);
+    --body-background: #f8f8f8;
+    --tab-content-padding: 20px;
+    
+    /* General styles */
+    --font-family: Arial, sans-serif;
+    --font-size: 16px;
+}
+
+@media (max-width: 800px) {
+    :root {
+        --navbar-gaps-initial: 1em;
+        --navbar-gaps-scrolled: 1em;
+        --navbar-h2-fontsize-initial: 0.8em;
+        --navbar-h2-fontsize-scrolled: 0.8em;
+
+        --tab-content-padding: 10px;
+
+        --font-size: 14px;
+    }
+}
+
+@media (max-width: 600px) {
+    :root {
+        --navbar-initial-height: 6em;
+        --navbar-scrolled-height: 5em;
+    }
+}
+
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    height: 100%;
+}
+
+body {
+    font-family: var(--font-family);
+    font-size: var(--font-size);
+    color: #1c1c1c;
+    background: var(--body-background);
+    width: 100%;
+    height: 100%;
+}
+
+#app {
+    width: 100%;
+    height: 100%;
+}
+
+/* NAVBAR */
+
+#navbar {
+    position: fixed;
+    z-index: 1;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: var(--navbar-initial-height);
+    background-color: var(--navbar-bg-color);
+    transition: height 0.3s;
+    color: var(--navbar-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--navbar-padding);
+}
+
+@media (max-width: 600px) {
+    #navbar {
+        flex-direction: column;
+        justify-content: center;
+        align-items: stretch;
+    }
+}
+
+#navbar > div {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+#navbar h2 {
+    font-size: var(--navbar-h2-fontsize-initial);
+    margin-left: var(--navbar-gaps-initial);
+    margin-right: var(--navbar-gaps-initial);
+    transition: font-size 0.3s, margin-left 0.3s;
+    white-space: nowrap;
+}
+
+#site-nav > div {
+    display: flex;
+    flex-direction: row;
+    gap: 0px;
+}
+
+#site-nav a {
+    flex-grow: 1;
+}
+
+#navbar .q-tab {
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+#navbar.scrolled .q-tab {
+    min-height: fit-content;
+    height: fit-content;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+    margin-bottom: 4px; /* 0px; or 4px to make the underline more visible */
+}
+
+#navbar.scrolled .q-tab *  {
+    line-height: unset;
+}
+
+#navbar a {
+    text-decoration: inherit;
+    color: inherit;
+}
+
+.tab-container {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    width: 100%;
+}
+
+.tab-content {
+    width: 100%;
+}
+
+.tab-content:first-child {
+    display: block;
+}
+
+/* APP BODY */
+
+#appBody {
+    /* this will always allow scrolling at least the navbar size */
+    margin-top: var(--appbody-margin-top); 
+    /* otherwise, if padding-top is set instead it will not scroll if not necessary */
+    /* padding-top: var(--appbody-margin-top); */
+
+    min-height: calc(100vh - var(--appbody-margin-top));
+    padding: var(--tab-content-padding);
+
+    /* this will allow scrolling only before the appbody is hidden by the shrinked navbar */
+    margin-top: calc(var(--appbody-margin-top) - var(--navbar-scrolled-height) +  var(--tab-content-padding));
+    padding-top: calc(var(--navbar-scrolled-height) - var(--tab-content-padding));
+}
+
+
+/* APPBODY CONTENT */
+
+.tab-content > div.header h1 {
+    font-size: 1.6em;
+}
+
+.tab-content > div.content {
+    padding: 1em 1em;
+    text-align: justify;
+}
+
+@media (max-width: 600px) {
+    .tab-content > div.content {
+        padding: 1em 4px;
+    }
+}
+
+.tab-content > div.content p {
+    text-indent: 1em;
+}
+
+.tab-content > div.content a {
+    color: var(--main-font-color);
+}
+
+/* LOGIN TAB */
+
+#login-tab {
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+
+form {
+    padding: 20px;
+
+    border: 1px solid var(--border-color);
+    background-color: var(--primary-fg);
+    border-radius: 5px;
+
+    min-width: fit-content;
+    width: 350px;
+    max-width: 100%;
+
+    margin: 1em;
+}
+
+form.centered {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+form .form-row {
+    display: flex;
+    flex-direction: row;
+    column-gap: 20px;
+}
+
+form .form-row.wrappable {
+    flex-wrap: wrap;
+}
+
+form .form-block {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+form .form-block+.form-block {
+    margin-top: 1em;
+}
+
+form label, form input {
+    display: block;
+}
+
+form label {
+    flex-grow: 1;
+    line-height: 2.0em;
+}
+
+form input {
+    flex-grow: 1;
+
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    background-color: var(--primary-fg);
+    border-radius: 4px;
+    color: black;
+}
+
+form .button {
+    flex-grow: 0;
+}
+
+form input[type="submit"], form input[type="button"] {
+    width: fit-content;
+
+    margin-left: auto;
+    margin-right: auto;
+
+    padding: 1em 2em;
+}
+
+.button {
+    width: fit-content;
+
+    appearance: none;
+    cursor: pointer;
+
+    padding: 0.5em 1em;
+
+    background-color: var(--button-bg);
+    color: var(--button-fg);
+    border: none;
+    border-radius: 4px;
+}
+
+.button.inline {
+    padding: 0.5em 1em !important;
+}
+
+form label {
+  vertical-align: center;
+  display: flex;
+  align-items: center;
+}
+
+/* #data_astrosource_form {
+    max-width: 600px;
+}
+  
+#data_astrosource_form input {
+    max-width: 12em;
+} */
+
+/* tab switching */
+
+#appBody .header {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+    padding-top: 1em;
+}
+
+#appBody  .header h1 {
+    display: flex;
+    white-space: nowrap;
+    padding: 10px 20px;
+}
+
+#appBody  .header > div {
+    display: flex;
+    cursor: pointer;
+}
+
+#appBody  .tab-navigator {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-evenly;
+    gap: 20px;
+}
+
+#appBody  .tab-navigator > div {
+    display: flex;
+    align-items: center;
+    padding: 10px 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+}
+
+#appBody  .tab-navigator > div.active-tab {
+    color: var(--primary-fg);
+    background-color: var(--navbar-bg-color);
+}
+
+@media (min-width: 600px) {
+    :root {
+        --tab-content-padding: 0.5em;
+    }
+}
+
+/* LOG TAB */
+
+#log-tab-content:empty {
+    display: none;
+}
+
+#log-tab-content {
+    margin: 20px 10px;
+    padding: 20px 10px;
+    background-color: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+
+.log-entry {
+    padding: 4px 0;
+
+    font-size: 14px;
+    font-family: "mono";
+}
+
+.log-entry+.log-entry {
+    border-top: 1px solid var(--border-color);
+}
+
+.log-entry-title {
+    font-weight: bold;
+    font-size: inherit;
+    font-family: inherit;
+}
+
+.log-entry-datetime {
+    padding: 0 1em;
+    font-size: smaller;
+    font-family: "mono";
+}
+
+.log-entry-content {
+    padding-left: 1em;
+    font-size: smaller;
+}
+
+/* PLOT TAB */
+
+#plot-tab {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 1em;
+
+    padding: 0 1em;
+}
+
+@media (max-width: 800px) { 
+    #plot-tab {
+        padding: 0;
+    } 
+}
+
+.nice-width {
+    min-width: 300px;
+    max-width: min(95vw, 1000px);
+    width: 100vw;
+}
+
+@media (max-width: 800px) {  
+    .nice-width {
+        width: calc(100vw - 2 * var(--tab-content-padding) - 2*18px) !important;
+    }
+}
+
+@media (max-width: 600px) {
+    .nice-width  {
+        width: calc(100vw - 2 * var(--tab-content-padding) - 2*4px) !important;
+    }
+}
+
+.styled-box{
+    background-color: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 1px 5px rgba(0,0,0,.2),0 2px 2px rgba(0,0,0,.14),0 3px 1px -2px rgba(0,0,0,.12);
+ }
+
+ .f-row {
+    display: flex;
+    flex-direction: row;
+    flex-grow: 1;
+
+    gap: 20px;
+
+    /* border: 1px solid rgb(255, 0, 0, 0.5); */
+}
+
+.f-cell {
+    flex-grow: 1;
+    /* border: 1px solid rgb(0, 0, 255, 0.5); */
+}
+
+.f-row.centered,  .f-cell.centered {
+    margin-left: auto;
+    margin-right: auto;
+ }
+
+.f-row.fit, .f-cell.fit {
+    flex-grow: unset;
+    width: fit-content !important;
+    height: fit-content !important;
+}
+
+.f-row.row-at-center {
+    align-items: center;
+}
+
+.f-row.column-at-top {
+    align-content: start;
+}
+
+.f-row.wrappable {
+    flex-wrap: wrap;
+}
+
+.f-row.align-start{
+    align-content: start;
+}
+
+.f-row.smallest {
+    width: unset;
+    flex-basis: 0;
+}
+
+/* .f-row.hide:empty {
+    display: none;
+}
+
+.f-cell:empty {
+    display: none;
+} */
+
+#plotControlsContainerDiv {
+    padding: 10px;
+    /* visibility: hidden; */
+}
+
+#plotContainerDiv {
+    min-height: max(500px, calc(100vh - var(--navbar-scrolled-height) - 2 * var(--tab-content-padding) - 1px));
+    margin-bottom: 0;
+    padding: 16px;
+    /* visibility: hidden; */
+    display: flex;
+}
+
+#plotDiv {
+    /* height: 100%; */
+    width: 100%;
+}
+
+/* DATA TABLE TAB */
+
+#data-tab {
+    padding: 0 2em;
+}
+
+@media (max-width: 700px) {
+    #data-tab {
+        padding: 0;
+    }
+}
+
+#tableContainerDiv {
+    padding: 10px 0;
+}
+
+#tableDiv {
+    border-radius: 4px;
+}
+
+#tableControlsContainer {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+
+    padding:10px;
+}
+
+
+
+
+
+ /* Modal form */
+
+ .modal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 1; /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgb(0,0,0); /* Fallback color */
+    background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+}
+
+.modal-content {
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 50%;
+    transform: translateX(-50%) translateY(-50%);
+
+    background-color: #fefefe;
+    /* margin: 15% auto; */ /* 15% from the top and centered */
+    padding: 20px;
+    border: 1px solid #888;
+
+    max-height: min(400px, 80%);
+    max-width: 800px; /* Could be more or less, depending on screen size */
+
+    display: flex;
+    flex-direction: column;
+    overflow: scroll;
+    gap: 10px;
+}
+
+.modal_header {
+    margin: 0px auto;
+    height: 1em;
+}
+
+.modal_header:hover {
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.modal_body {
+    margin: 1em auto;
+
+    display: flex;
+    flex-direction: column;
+    flex-wrap: wrap;
+    max-height: inherit;
+    overflow: scroll;
+    justify-content: flex-start;
+    align-items: flex-start;
+    margin: 0px;
+
+    gap: 4px;
+}
+
+.modal_body > label > span {
+    padding-left: 0.6em;
+}
