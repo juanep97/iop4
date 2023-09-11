@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 
-TEST_CONFIG = str(Path('~/.iop4tests/').expanduser() / "config.tests.yaml")
+from .conftest import TEST_CONFIG
 
 # iop4lib config
 import iop4lib.config
