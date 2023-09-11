@@ -10,10 +10,10 @@ import yaml
 import hashlib
 from pathlib import Path
 
-TEST_CONFIG = str(Path('~/.iop4data/').expanduser() / "config.tests.yaml")
+TEST_CONFIG = str(Path(iop4conf.datadir) / "config.tests.yaml")
 TESTDATA_FPATH = str(Path("~/iop4testdata.tar.gz").expanduser())
 TESTDATA_MD5SUM = '2ee0de4eda7494b472d8223024bdf369'
-TEST_DATADIR = str(Path('~/.iop4data/iop4testdata').expanduser())
+TEST_DATADIR = str(Path(iop4conf.datadir) / "iop4testdata")
 TEST_DB_PATH = str(Path(iop4conf.db_path).expanduser().parent / ("test_" + str(Path(iop4conf.db_path).name)))
 
 def pytest_configure():
