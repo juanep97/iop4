@@ -16,12 +16,16 @@ from ..models import *
 
 # other imports
 import json
+import os
+import subprocess
 
 #logging
 import logging
 logger = logging.getLogger(__name__)
 
-
+GIT_COMMIT_HASH = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=os.path.dirname(os.path.realpath(__file__))).decode('ascii').strip()
+GIT_BRANCH = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], cwd=os.path.dirname(os.path.realpath(__file__))).decode('ascii').strip()
+GIT_DESCRIBE = subprocess.check_output(['git', 'describe', '--always'], cwd=os.path.dirname(os.path.realpath(__file__))).decode('ascii').strip()
 
 def index(request, tabs=None):
 
@@ -40,6 +44,11 @@ def index(request, tabs=None):
     # if the user is logged, pass source names to the template
     if request.user.is_authenticated:
         context['source_name_list'] = AstroSource.objects.exclude(srctype=SRCTYPES.CALIBRATOR).exclude(srctype=SRCTYPES.UNPOLARIZED_FIELD_STAR).values_list('name', flat="True")
+
+    # add the hash of the current commit installed 
+    context['git_commit_hash'] = GIT_COMMIT_HASH
+    context['git_branch'] = GIT_BRANCH
+    context['git_describe'] = GIT_DESCRIBE
 
     return render(request, 'iop4api/index.html', context)
 
