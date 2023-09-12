@@ -7,6 +7,8 @@ from .astrometry import *
 import os
 import psutil
 import numpy as np
+import scipy as sp
+import scipy.stats 
 
 import logging
 logger = logging.getLogger(__name__)
@@ -37,9 +39,6 @@ def divisorGenerator(n):
 
 def stats_dict(data):
     """Return a dictionary with some basic statistics of the input data"""
-    import numpy as np
-    import scipy as sp
-    import scipy.stats as stats
 
     if isinstance(data, np.ma.MaskedArray):
         data = data.compressed()
@@ -53,7 +52,7 @@ def stats_dict(data):
     res['std'] = np.std(data)
     res['min'] = np.min(data)
     res['max'] = np.max(data)
-    res['mode'] = stats.mode(data, axis=None, keepdims=False).mode
+    res['mode'] = sp.stats.mode(data, axis=None, keepdims=False).mode
 
     return res
 
@@ -112,6 +111,11 @@ def get_total_mem_from_child():
 # Function to get target FWHM
 
 def get_target_fwhm_aperpix(redfL):
+    r"""estimate an appropriate common aperture for a list of reduced fits.
+    
+    It fits the target source profile in the fields and returns some multiples of the fwhm which are used as the aperture and as the inner and outer radius of the annulus for local bkg estimation).
+    """
+
     import numpy as np
     from iop4lib.db import AstroSource
     from photutils.profiles import RadialProfile
