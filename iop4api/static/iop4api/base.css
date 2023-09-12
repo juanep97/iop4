@@ -219,10 +219,11 @@ body {
     margin-bottom: 2em;
 }
 
-.content .styled-box {
+.content p.styled-box {
     margin-left: 1em;
     margin-right: 1em;
     padding: 1em;
+    text-indent: 0;
 }
 
 /* LOGIN TAB */
@@ -242,8 +243,8 @@ form {
 }
 
 form.centered {
-    margin-left: auto !important;
-    margin-right: auto !important;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 form .form-row {
