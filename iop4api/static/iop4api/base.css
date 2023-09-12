@@ -101,6 +101,10 @@ body {
         justify-content: center;
         align-items: stretch;
     }
+
+    #site-nav .q-icon {
+        display: none;
+    }
 }
 
 #navbar > div {
@@ -184,35 +188,44 @@ body {
 
 /* APPBODY CONTENT */
 
-.tab-content > div.header h1 {
+.header h1 {
     font-size: 1.6em;
 }
 
-.tab-content > div.content {
+.content {
     padding: 1em 1em;
     text-align: justify;
 }
 
 @media (max-width: 600px) {
-    .tab-content > div.content {
+    .content {
         padding: 1em 4px;
     }
 }
 
-.tab-content > div.content p {
+.content p {
     text-indent: 1em;
 }
 
-.tab-content > div.content a {
+.content a {
     color: var(--main-font-color);
 }
 
-/* LOGIN TAB */
-
-#login-tab {
-    margin-top: 20px;
-    margin-bottom: 10px;
+.content p~p {
+    margin-top: 2em;
 }
+
+.content p+p {
+    margin-bottom: 2em;
+}
+
+.content .styled-box {
+    margin-left: 1em;
+    margin-right: 1em;
+    padding: 1em;
+}
+
+/* LOGIN TAB */
 
 form {
     padding: 20px;

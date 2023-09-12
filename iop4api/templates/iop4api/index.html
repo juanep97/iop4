@@ -7,10 +7,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IOP4</title>
 
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+
     <!-- Vue.js -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <!-- QUASAR - vue.js (stylesheets) -->
-    <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet" type="text/css">
+    <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons|Material+Icons+Outlined" rel="stylesheet" type="text/css">
+    <script src="https://cdn.jsdelivr.net/npm/quasar@v2/dist/icon-set/material-icons-outlined.umd.prod.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/quasar@2.12.5/dist/quasar.prod.css" rel="stylesheet" type="text/css"> 
 
     <!-- Tabulator -->
@@ -39,19 +42,20 @@
                 <h1><a href="https://vhega.iaa.es/iop4">IOP4</a></h1>
                 <h2><a href="https://vhega.iaa.es/">VHEGA@IAA-CSIC</a></h2>
             </div>
-            <q-tabs v-model="C1selectedTab" class="tab-navigator" id="site-nav">
+            
+            <q-tabs v-model="C1selectedTab" class="tab-navigator" id="site-nav" inline-label outside-arrows >
 
-                <q-tab name="about" label="about" ></q-tab>
+                <q-tab name="about" label="about" icon="rocket_launch"></q-tab>
 
                 {% if request.user.is_authenticated %}
-                    <q-tab name="explore" label="explore" ></q-tab>
+                    <q-tab name="explore" label="explore" icon="search" ></q-tab>
                 {% endif %}
 
                 {% if not request.user.is_authenticated %} 
-                    <q-tab name="login" label="login"></q-tab>
+                    <q-tab name="login" label="login" icon="login" ></q-tab>
                 {% else %}
-                    <a href="{% url 'iop4api:logout_view' %}"><q-tab label="logout"></q-tab></a>
-                    <a href="{% url 'iop4admin:index' %}"><q-tab label="admin"></q-tab></a>
+                    <a href="{% url 'iop4admin:index' %}"><q-tab label="admin" icon="admin_panel_settings" ></q-tab></a>
+                    <a href="{% url 'iop4api:logout_view' %}"><q-tab label="logout" icon="logout" ></q-tab></a>
                 {% endif %}
 
             </q-tabs>
@@ -151,6 +155,9 @@
                 },
             },
         }).use(Quasar).mount('#app')
+
+        Quasar.iconSet.set(Quasar.iconSet.materialIconsOutlined);
+
     </script>
 
 </body>
