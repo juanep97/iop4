@@ -528,7 +528,7 @@ form label {
 #plotContainerDiv {
     min-height: max(500px, calc(100vh - var(--navbar-scrolled-height) - 2 * var(--tab-content-padding) - 1px));
     margin-bottom: 0;
-    padding: 16px;
+    padding: 16px 16px 16px 4px;
     /* visibility: hidden; */
     display: flex;
 }
