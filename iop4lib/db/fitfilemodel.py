@@ -106,6 +106,9 @@ class FitFileModel(AbstractModel):
         Returns a dict with some important statistics about the data (mean, etc).
         """
         
+        if not os.path.exists(self.filepath):
+            return dict()
+        
         from iop4lib.utils import stats_dict
 
         with fits.open(self.filepath) as hdul:
