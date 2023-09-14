@@ -11,6 +11,7 @@ priv.*
 # other files
 **/static/iop4admin/js9
 **/migrations
+
 # IDE files
 .vscode/
 

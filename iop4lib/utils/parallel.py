@@ -109,7 +109,11 @@ def _epoch_bulkreduce_multiprocessing_init(counter, queue, Nredf, iop4conf):
 
     import iop4lib
     iop4conf = iop4lib.Config(**iop4conf)
-    iop4conf.configure_db()
+
+    # fix for linux where the settings keep being configured even with spawn method
+    from django.conf import settings
+    if not settings.configured:
+        iop4conf.configure_db()
 
     from django import db
     db.connections.close_all()

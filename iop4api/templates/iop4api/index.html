@@ -1,0 +1,164 @@
+{% load i18n static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOP4</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+
+    <!-- Vue.js -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <!-- QUASAR - vue.js (stylesheets) -->
+    <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons|Material+Icons+Outlined" rel="stylesheet" type="text/css">
+    <script src="https://cdn.jsdelivr.net/npm/quasar@v2/dist/icon-set/material-icons-outlined.umd.prod.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/quasar@2.12.5/dist/quasar.prod.css" rel="stylesheet" type="text/css"> 
+
+    <!-- Tabulator -->
+    <link href="https://unpkg.com/tabulator-tables@5.4.2/dist/css/tabulator.min.css" rel="stylesheet">
+    <script type="text/javascript" src="https://unpkg.com/tabulator-tables@5.4.2/dist/js/tabulator.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js" integrity="sha512-SgWewGM3r8xXm8LNXt4ZHqKVKu/7eKrJ1aBCbMaX44xXXaCcIvCAvD2kj9qnC1lhyjAu04mcPiTzcc/CaACnUQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <!-- Bokeh -->
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.2.2.min.js"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.2.2.min.js"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-3.2.2.min.js"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-api-3.2.2.min.js"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-gl-3.2.2.min.js"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-mathjax-3.2.2.min.js"></script>
+
+    <link rel="stylesheet" href="{% static "iop4api/base.css" %}?datetime={% now "Y-m-d-Hi" %}">
+    <script src="{% static "iop4api/gui.js" %}?datetime={% now "Y-m-d-Hi" %}"></script>
+</head>
+
+<body>
+    <div id="app">
+
+        <div id="navbar">
+            <div id="site-header">
+                <h1><a href="https://vhega.iaa.es/iop4">IOP4</a></h1>
+                <h2><a href="https://vhega.iaa.es/">VHEGA@IAA-CSIC</a></h2>
+            </div>
+            
+            <q-tabs v-model="C1selectedTab" class="tab-navigator" id="site-nav" inline-label outside-arrows >
+
+                <q-tab name="about" label="about" icon="rocket_launch"></q-tab>
+
+                {% if request.user.is_authenticated %}
+                    <q-tab name="explore" label="explore" icon="search" ></q-tab>
+                {% endif %}
+
+                {% if not request.user.is_authenticated %} 
+                    <q-tab name="login" label="login" icon="login" ></q-tab>
+                {% else %}
+                    <a href="{% url 'iop4admin:index' %}"><q-tab label="admin" icon="admin_panel_settings" ></q-tab></a>
+                    <a href="{% url 'iop4api:logout_view' %}"><q-tab label="logout" icon="logout" ></q-tab></a>
+                {% endif %}
+
+            </q-tabs>
+        </div>
+
+        <div id="appBody" class="tab-container">
+            
+            <div v-show="C1selectedTab == 'about'" class="tab-content" id="about-tab"> 
+                {% include 'iop4api/about.html' %}
+            </div>
+
+            <div v-show="C1selectedTab == 'login'" class="tab-content" id="login-tab"> 
+                {% include 'iop4api/login.html' %}
+            </div>
+
+            {% if request.user.is_authenticated %}
+                <div v-show="C1selectedTab == 'explore'" class="tab-content" id="explore-tab">
+                    {% include 'iop4api/explore.html' %}
+                </div>
+            {% endif %}
+            
+        </div>
+    </div>
+
+    <!-- QUASAR - vue.js -->
+
+    <script src="https://cdn.jsdelivr.net/npm/quasar@2.12.5/dist/quasar.umd.prod.js"></script>
+    
+    <script>
+
+        const tab_tree = JSON.parse('{{ tab_tree | escapejs }}');
+        const { ref } = Vue
+
+        vueApp = Vue.createApp({
+            delimiters: ['[[', ']]'],
+            data() {
+                return {
+                    //tabs 
+                    C1selectedTab: {% if 'C1selectedTab' in tabs %} "{{ tabs.C1selectedTab }}" {% else %} "about" {% endif %},
+                    C2selectedTab: {% if 'C2selectedTab' in tabs %} "{{ tabs.C2selectedTab }}" {% else %} "plot" {% endif %},
+                    // log
+                    logEntries: [],
+                    // plot
+                    showPlot: false,
+                    // data,
+                    showDataTable: false,
+                    // catalog
+                    catalog: null,
+                    // query,
+                    input_astrosource: '',
+                }
+            },
+            watch: {
+                // Watch for changes in C1selectedTab
+                C1selectedTab(newVal, oldVal) {
+                    this.updateURL();
+                },
+                // Watch for changes in C2selectedTab
+                //C2selectedTab(newVal, oldVal) {
+                //    this.updateURL();
+                //},
+                // needed to load the catalog -only- if necessary
+                C2selectedTab: {
+                    handler(newVal) {
+                        this.updateURL();
+                        if ((this.catalog == null) & (newVal == 'catalog')) {
+                                load_catalog();
+                        }
+                    },
+                    immediate: true
+                }
+            },
+            methods: {
+                // Update the URL based on the selected tabs
+                updateURL() {
+                    let newURL = `/iop4/${this.C1selectedTab}/`
+
+                    if (this.C1selectedTab in tab_tree) {
+                        if (this.C2selectedTab in tab_tree[this.C1selectedTab]) {
+                            newURL = newURL + `${this.C2selectedTab}/`;
+                        }
+                    }
+
+                    window.history.pushState({}, '', newURL);
+                },
+                // Add a new entry to the log
+                addLogEntry(title, content) {
+                    this.logEntries.push({
+                        title: title,
+                        dateTime: getCurrentDateTime(),
+                        content: content,
+                    });
+                },
+                // catalog
+                catalog_row_clicked(evt,row) {
+                    this.input_astrosource = row.name;
+                },
+            },
+        }).use(Quasar).mount('#app')
+
+        Quasar.iconSet.set(Quasar.iconSet.materialIconsOutlined);
+
+    </script>
+
+</body>
+</html>

@@ -19,7 +19,7 @@ from iop4api.views import index
 from iop4admin.sites import iop4admin_site
 
 urlpatterns = [
-    path(r"", index),
-    path(r"iop4api/", include('iop4api.urls')),
-    path(r"iop4admin/", iop4admin_site.urls),
+    path(r"iop4/admin/", iop4admin_site.urls),
+    path(r"", index, name="index"),
+    path(r"iop4/", include('iop4api.urls')),
 ]

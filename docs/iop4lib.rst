@@ -63,6 +63,9 @@ iop4lib reference
    .. automodule:: iop4lib.utils.astrometry
       :members:
 
+   .. automodule:: iop4lib.utils.parallel
+      :members:
+
    iop4lib.telescopes
    ==================
    Telescope specific code.

@@ -37,7 +37,7 @@ class AperPhotResult(models.Model):
     flux_counts_err = models.FloatField(null=True, blank=True)
 
     ## extra fields
-    
+    fwhm = models.FloatField(null=True, blank=True)
     photopolresults = models.ManyToManyField("PhotoPolResult", related_name='aperphotresults', help_text="The PhotoPolResult(s) this AperPhotResult has been used for.")
     modified = models.DateTimeField(auto_now=True)
 
@@ -55,7 +55,7 @@ class AperPhotResult(models.Model):
         return f'{self.__class__.__name__}.objects.get(id={self.id!r})'
     
     def __str__(self):
-        return f'<{self.__class__.__name__} {self.id} | {self.reducedfit.fileloc} {self.astrosource.srcname} {self.aperpix} px {self.pairs}>' 
+        return f'<{self.__class__.__name__} {self.id} | {self.reducedfit.fileloc} {self.astrosource.name} {self.aperpix} px {self.pairs}>' 
 
     @classmethod
     def create(cls, reducedfit, astrosource, aperpix, pairs, **kwargs):

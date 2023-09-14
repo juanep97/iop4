@@ -15,11 +15,7 @@ class AdminMasterFlat(AdminFitFile):
     model = MasterFlat
     list_display = ['id', 'telescope', 'night', 'imgsize', 'band', 'obsmode', 'rotangle', 'exptime', 'masterbias', 'get_built_from', 'options']
 
-    def has_module_permission(self, *args, **kwargs):
-        return True
-    
-    def has_view_permission(self, *args, **kwargs):
-        return True
+
     
     @admin.display(description='Options')
     def options(self, obj):

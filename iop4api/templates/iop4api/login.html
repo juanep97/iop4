@@ -1,0 +1,24 @@
+<div class="header">
+    <h1>Login &nbsp;<span class="material-icons-outlined">login</span></h1>
+</div>
+<div class="content">
+    <form action="{% url 'iop4api:login_view' %}" class="styled-box centered" method="post" class="centered">
+        {% csrf_token %}
+        <div class="form-block">
+            <label for="username">Username</label>
+            <input type="text" name="username" id="username">
+        </div>
+        <div class="form-block">
+            <label for="password">Password</label>
+            <input type="password" name="password" id="password">
+        </div>
+        {% if request.GET.login_failed %}
+            <p style="color: red; margin: 1em auto; text-align: center;">Invalid username or password.</p>
+        {% endif %}
+        <div class="form-block">
+            <input class="button" type="submit" value="Login">
+        </div>
+    </form>
+</div>
+<div class="header">
+</div>

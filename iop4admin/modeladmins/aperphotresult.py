@@ -17,16 +17,12 @@ from astropy.time import Time
 
 class AdminAperPhotResult(admin.ModelAdmin):
     model = AperPhotResult
-    list_display = ['id', 'get_telescope', 'get_datetime', 'get_src_name', 'get_src_type', 'aperpix', 'get_reducedfit', 'get_obsmode', 'pairs', 'get_rotangle', 'get_src_type', 'flux_counts', 'flux_counts_err', 'bkg_flux_counts', 'bkg_flux_counts_err', 'modified']
+    list_display = ['id', 'get_telescope', 'get_datetime', 'get_src_name', 'get_src_type', 'get_fwhm', 'get_aperpix', 'get_reducedfit', 'get_obsmode', 'pairs', 'get_rotangle', 'get_src_type', 'get_flux_counts', 'get_flux_counts_err', 'get_bkg_flux_counts', 'get_bkg_flux_counts_err', 'modified']
     readonly_fields = [field.name for field in AperPhotResult._meta.fields]
     search_fields = ['id', 'astrosource__name', 'astrosource__srctype', 'reducedfit__id']
     list_filter = ['astrosource__srctype', 'reducedfit__epoch__telescope', 'reducedfit__obsmode']
 
-    def has_module_permission(self, *args, **kwargs):
-        return True
-    
-    def has_view_permission(self, *args, **kwargs):
-        return True
+
     
     @admin.display(description="TELESCOPE")
     def get_telescope(self, obj):
@@ -57,4 +53,44 @@ class AdminAperPhotResult(admin.ModelAdmin):
     @admin.display(description="ROTANGLE")
     def get_rotangle(self, obj):
         return obj.reducedfit.rotangle
+    
+    @admin.display(description="fwhm")
+    def get_fwhm(self, obj):
+        if obj.fwhm is None:
+            return "-"
+        return f"{obj.fwhm:.1f}"
+    
+    @admin.display(description="aperpix")
+    def get_aperpix(self, obj):
+        if obj.aperpix is None:
+            return "-"
+        return f"{obj.aperpix:.1f}"
+    
+    @admin.display(description="flux_counts")
+    def get_flux_counts(self, obj):
+        if obj.flux_counts is None:
+            return "-"
+        else:
+            return f"{obj.flux_counts:.1f}"
+    
+    @admin.display(description="flux_counts_err")
+    def get_flux_counts_err(self, obj):
+        if obj.flux_counts_err is None:
+            return "-"
+        else:
+            return f"{obj.flux_counts_err:.1f}"
+    
+    @admin.display(description="bkg_flux_counts")
+    def get_bkg_flux_counts(self, obj):
+        if obj.bkg_flux_counts is None:
+            return "-"
+        else:
+            return f"{obj.bkg_flux_counts:.1f}"
+    
+    @admin.display(description="bkg_flux_counts_err")
+    def get_bkg_flux_counts_err(self, obj):
+        if obj.bkg_flux_counts_err is None:
+            return "-"
+        else:
+            return f"{obj.bkg_flux_counts_err:.1f}"
     

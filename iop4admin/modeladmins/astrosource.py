@@ -27,24 +27,6 @@ class AdminAstroSource(admin.ModelAdmin):
     list_display = ['name', 'other_name', 'ra_hms', 'dec_dms', 'srctype', 'get_last_reducedfit', 'get_details']
     search_fields = ['name', 'other_name', 'ra_hms', 'dec_dms', 'srctype', 'comment']
     list_filter = ('srctype',)
-
-    def has_module_permission(self, *args, **kwargs):
-        return True
-    
-    def has_view_permission(self, *args, **kwargs):
-        return True
-    
-    # # by default exclude calibrators and non-polarized stars
-    # def get_queryset(self, request):
-    #     # Get the original queryset
-    #     queryset = super().get_queryset(request)
-
-    #     # Check if the filter is not already applied by checking if the 'is_active' key is not in the request's GET parameters
-    #     if 'srctype__exact' not in request.GET:
-    #         # Apply the default filter
-    #         queryset = queryset.exclude(srctype=SRCTYPES.CALIBRATOR).exclude(srctype=SRCTYPES.UNPOLARIZED_FIELD_STAR)
-
-    #     return queryset
     
     @admin.display(description='CALIBRATES')
     def get_calibrates(self, obj):

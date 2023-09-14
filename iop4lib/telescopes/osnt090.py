@@ -263,7 +263,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
 
 
     @classmethod
-    def compute_relative_polarimetry(cls, polarimetry_group):
+    def compute_relative_polarimetry(cls, polarimetry_group, aperpix=None):
         """ Computes the relative polarimetry for a polarimetry group for OSNT090 observations.
 
         .. note:: 
@@ -277,6 +277,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
                 
         from iop4lib.db.aperphotresult import AperPhotResult
         from iop4lib.db.photopolresult import PhotoPolResult
+        from iop4lib.utils import get_target_fwhm_aperpix
 
         logger.debug("Computing OSN-T090 relative polarimetry for group: %s", "".join(map(str,polarimetry_group)))
 
@@ -332,10 +333,13 @@ class OSNT090(Telescope, metaclass=ABCMeta):
 
         # 1. Compute all aperture photometries
 
-        logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group.")
+        if aperpix is None:
+            target_fwhm, aperpix, r_in, r_out = get_target_fwhm_aperpix(polarimetry_group, r_in, r_out)
+
+        logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group with target {aperpix:.1f}.")
 
         for reducedfit in polarimetry_group:
-            reducedfit.compute_aperture_photometry()
+            reducedfit.compute_aperture_photometry(aperpix)
 
         # 2. Compute relative polarimetry for each source (uses the computed aperture photometries)
 
@@ -345,8 +349,6 @@ class OSNT090(Telescope, metaclass=ABCMeta):
 
         for astrosource in group_sources:
             
-            aperpix = astrosource.get_aperpix()
-
             flux_0 = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="O", reducedfit__rotangle=0.0).flux_counts
             flux_0_err = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", aperpix=aperpix, reducedfit__rotangle=0.0).flux_counts_err
 
@@ -441,7 +443,8 @@ class OSNT090(Telescope, metaclass=ABCMeta):
                                            reduction=REDUCTIONMETHODS.RELPOL, 
                                            mag_inst=mag_inst, mag_inst_err=mag_inst_err, mag_zp=mag_zp, mag_zp_err=mag_zp_err,
                                            flux_counts=flux_mean, p=P, p_err=dP, chi=Theta, chi_err=dTheta,
-                                           _x_px=_x_px, _y_px=_y_px, _q_nocorr=_q_nocorr, _u_nocorr=_u_nocorr, _p_nocorr=_p_nocorr, _chi_nocorr=_Theta_nocorr)
+                                           _x_px=_x_px, _y_px=_y_px, _q_nocorr=_q_nocorr, _u_nocorr=_u_nocorr, _p_nocorr=_p_nocorr, _chi_nocorr=_Theta_nocorr,
+                                           aperpix=aperpix)
             
             photopolresult_L.append(result)
 

@@ -1,0 +1,8 @@
+<div class="header">
+    <h1>Catalog</h1>
+</div>
+<div class="content">
+    <q-table v-if="catalog != null" :rows="catalog.data" :columns="catalog.columns" row-key="id" @row-click="catalog_row_clicked"></q-table>
+</div>
+<div class="header">
+</div>

@@ -1,0 +1,120 @@
+<div class="header">
+    <h1>Explore data &nbsp;<span class="material-symbols-outlined">&#xE8B6;</span></h1>
+    <div>
+        <q-tabs v-model="C2selectedTab">
+            <q-tab name="catalog" label="catalog"></q-tab>
+            {% comment %} <q-tab name="query" label="Query"></q-tab> {% endcomment %}
+            <q-tab name="plot" label="Plot"></q-tab>
+            <q-tab name="data" label="Data"></q-tab>
+            <q-tab name="log" label="Log"></q-tab>
+        </q-tabs>
+    </div>
+</div>
+
+<div id="explore_container" class="tab-container">
+
+    <datalist id="source_name_list">
+        {% for source_name in source_name_list %}
+            <option value="{{ source_name }}">{{ source_name }}</option>
+        {% endfor %}
+    </datalist>
+
+    <div v-show="C2selectedTab === 'catalog'" class="tab-content" id="catalog-tab">
+        {% include 'iop4api/catalog.html' %}
+    </div>
+ 
+    {% comment %} <div v-show="C2selectedTab === 'query'" class="tab-content" id="query-tab">
+        <form id="query_astrosource_form" class="styled-box centered"  onsubmit="load_source_plot(this); load_source_datatable(this); return false;">
+            {% csrf_token %}
+            <div>
+                <div class="form-block">
+                    <label>Select a source from the catalog:</label>
+                    <input v-model="input_astrosource" type="text" name="source_name" list="source_name_list" placeholder="source (↓ to list)" title="Select a source from the catalog" required>
+                </div>
+                <div class="form-block">
+                    <div class="form-row">
+                        <input class="button" type="button" value="plot" onclick="load_source_plot(this.form);">
+                        <input class="button" type="button" value="query" onclick="load_source_datatable(this.form);">
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div> {% endcomment %}
+
+    <div v-show="C2selectedTab === 'plot'" class="tab-content" id="plot-tab">
+        <div class="f-row wrappable">
+            <div class="f-row wrappable smallest nice-width centered">
+                <div class="f-row wrappable column-at-top row-at-center">
+                    <div class="f-row">
+                        <form id="plot_astrosource_form" class="f-cell fit centered styled-box"  onsubmit="load_source_plot(this); return false;">
+                            {% csrf_token %}
+                            <div class="form-block">
+                                <div class="form-row">
+                                    <label>Select a source from the catalog:</label>
+                                </div>
+                                <div class="form-row">
+                                    <input v-model="input_astrosource" type="text" name="source_name" list="source_name_list" placeholder="source (↓ to list)" title="Select a source from the catalog" required>
+                                    <input class="button" type="button" value="plot" onclick="load_source_plot(this.form);">
+                                </div>
+                            </div>
+                        </form>
+                    </div> 
+                    <div v-show="showPlot" class="f-row">
+                        <div v-show="showPlot" id="plotControlsContainerDiv" class="f-cell fit centered styled-box" style="display: none;">
+                            <div id="controls" style="margin-bottom: 16px;"><label>Toggle errorbars <input onclick="plot_toggle_errorbars()" id="cbox_errobars" type="checkbox" checked/></label></div>
+                            <p>Click on an instrument or flag label to hide it in the plot.</p>
+                            <div id="legendDiv"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div v-show="showPlot" class="f-row nice-width centered">
+                <div v-show="showPlot" id="plotContainerDiv" class="f-cell styled-box">
+                    <div id="plotDiv"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div  v-show="C2selectedTab == 'data'" class="tab-content" id="data-tab">
+        <form id="data_astrosource_form" class="centered styled-box"  style="padding:16px;" onsubmit="load_source_datatable(this); return false;">
+            {% csrf_token %}
+            <div class="form-row wrappable">
+                <label>Select a source from the catalog:</label>
+                <div class="f-row">
+                    <input v-model="input_astrosource"  type="text" name="source_name" list="source_name_list" placeholder="source (↓ to list)" title="Select a source from the catalog" required>
+                    <input class="button inline" type="button" value="query" onclick="load_source_datatable(this.form);">
+                </div>
+            </div>
+        </form>
+        <div v-show="showDataTable" id="tableControlsContainer">
+            <button class="button" id="download-csv">Download as csv</button>
+            <button class="button" id="download-pdf">Download as pdf</button>
+            <button class="button" id="column-visibilities" onclick="show_column_visibility_modal_form()">Toggle columns</button>
+            <!-- Column modal form -->
+            <div id="column_visibility_modal_form" class="modal">
+                <div class="modal-content">
+                    <div class="modal_header"><span class="close" onclick="close_column_visibility_modal_form()">&times; Close</span></div>
+                    <div class="modal_body"><p>modal body</p></div>
+                    <div class="modal_footer"></div>
+                </div>
+            </div>
+            <!-- ################## -->
+        </div>
+        <div v-show="showDataTable" id="tableContainerDiv"><div id="tableDiv"></div></div>
+    </div>
+
+    <div v-show="C2selectedTab == 'log'" class="tab-content" id="log-tab">
+        <div id="log-tab-content">
+            <div class="log-entry" v-for="entry in logEntries">
+                <span class="log-entry-title">[[ entry.title ]]</span>
+                <span class="log-entry-datetime">[[ entry.dateTime ]]</span>
+                <pre class="log-entry-content">[[ entry.content ]]</pre>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="footer">
+</div>

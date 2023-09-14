@@ -247,13 +247,15 @@ class Telescope(metaclass=ABCMeta):
     # should not depend on the telescope
 
     @classmethod
-    def compute_aperture_photometry(cls, redf):
+    def compute_aperture_photometry(cls, redf, aperpix, r_in, r_out):
 
         from iop4lib.db.aperphotresult import AperPhotResult
         from iop4lib.utils.sourcedetection import get_bkg, get_segmentation
         from photutils.utils import circular_footprint
-        from photutils.aperture import CircularAperture, aperture_photometry
+        from photutils.aperture import CircularAperture, CircularAnnulus, ApertureStats, aperture_photometry
         from photutils.utils import calc_total_error
+        from astropy.stats import SigmaClip
+        from iop4lib.utils import get_target_fwhm_aperpix
 
         if redf.mdata.shape[0] == 1024:
             bkg_box_size = 128
@@ -292,17 +294,20 @@ class Telescope(metaclass=ABCMeta):
         for astrosource in redf.sources_in_field.all():
             for pairs, wcs in (('O', redf.wcs1), ('E', redf.wcs2)) if redf.with_pairs else (('O',redf.wcs),):
 
-                aperpix = astrosource.get_aperpix()
-
                 ap = CircularAperture(astrosource.coord.to_pixel(wcs), r=aperpix)
+                annulus = CircularAnnulus(astrosource.coord.to_pixel(wcs), r_in=r_in, r_out=r_out)
 
-                bkg_aperphot_tb = aperture_photometry(bkg.background, ap, error=error)
-                bkg_flux_counts = bkg_aperphot_tb['aperture_sum'][0]
-                bkg_flux_counts_err = bkg_aperphot_tb['aperture_sum_err'][0]
+                annulus_stats = ApertureStats(redf.mdata, annulus, error=error, sigma_clip=SigmaClip(sigma=5.0, maxiters=10))
+                bkg_stats = ApertureStats(bkg.background, ap, error=error)
+                ap_stats = ApertureStats(redf.mdata, ap, error=error)
 
-                aperphot_tb = aperture_photometry(img_bkg_sub, ap, error=error)
-                flux_counts = aperphot_tb['aperture_sum'][0]
-                flux_counts_err = aperphot_tb['aperture_sum_err'][0]
+                # bkg_flux_counts = bkg_stats.sum
+                # bkg_flux_counts_err = bkg_stats.sum_err
+                bkg_flux_counts = annulus_stats.median*ap_stats.sum_aper_area.value
+                bkg_flux_counts_err = annulus_stats.sum_err / annulus_stats.sum_aper_area.value * ap_stats.sum_aper_area.value
+
+                flux_counts = ap_stats.sum - annulus_stats.mean*ap_stats.sum_aper_area.value
+                flux_counts_err = ap_stats.sum_err
 
                 AperPhotResult.create(reducedfit=redf, 
                                       astrosource=astrosource, 
@@ -313,19 +318,23 @@ class Telescope(metaclass=ABCMeta):
     
 
     @classmethod
-    def compute_relative_photometry(cls, redf):
+    def compute_relative_photometry(cls, redf, aperpix=None):
         
         from iop4lib.db.aperphotresult import AperPhotResult
         from iop4lib.db.photopolresult import PhotoPolResult
+        from iop4lib.utils import get_target_fwhm_aperpix
 
         if redf.obsmode != OBSMODES.PHOTOMETRY:
             raise Exception(f"{redf}: this method is only for plain photometry images.")
+        
+        if aperpix is None:
+            target_fwhm, aperpix, r_in, r_out = get_target_fwhm_aperpix([redf])
 
         # 1. Compute all aperture photometries
 
         logger.debug(f"{redf}: computing aperture photometries for {redf}.")
 
-        redf.compute_aperture_photometry()
+        redf.compute_aperture_photometry(aperpix, r_in, r_out)
 
         # 2. Compute relative polarimetry for each source (uses the computed aperture photometries)
 
@@ -336,7 +345,6 @@ class Telescope(metaclass=ABCMeta):
         photopolresult_L = list()
         
         for astrosource in redf.sources_in_field.all():
-            aperpix = astrosource.get_aperpix()
 
             result = PhotoPolResult.create(reducedfits=[redf], astrosource=astrosource, reduction=REDUCTIONMETHODS.RELPHOT)
 

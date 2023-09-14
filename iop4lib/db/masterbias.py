@@ -125,7 +125,7 @@ class MasterBias(FitFileModel):
         if (mb := MasterBias.objects.filter(**mbargs).first()) is not None:
             logger.debug(f"DB entry for {mb} already exists, using it instead.")
         else:
-            logger.debug(f"A B entry for MasterBias {MasterBias.mbargs2str(mbargs)} will be created.")
+            logger.debug(f"A DB entry for MasterBias {MasterBias.mbargs2str(mbargs)} will be created.")
             mb = cls(**mbargs)
             mb.save()
 
