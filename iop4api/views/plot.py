@@ -64,7 +64,7 @@ def plot(request):
     iop3_df = iop3_df.loc[iop3_idx]
     
     # choose  the x and y
-    if source_name is not None:
+    if qs.count() > 0:
         vals = get_column_values(qs, column_names)
 
         vals["instrument"] = np.append(vals["instrument"], list(map(lambda x: "IOP3-"+x, iop3_df["Telescope"])))
