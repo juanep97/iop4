@@ -163,24 +163,21 @@ body {
 
 .tab-content {
     width: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
-.tab-content:first-child {
+/* .tab-content:first-child {
     display: block;
-}
+} */
 
 /* APP BODY */
 
 #appBody {
-    /* this will always allow scrolling at least the navbar size */
-    margin-top: var(--appbody-margin-top); 
-    /* otherwise, if padding-top is set instead it will not scroll if not necessary */
-    /* padding-top: var(--appbody-margin-top); */
-
-    min-height: calc(100vh - var(--appbody-margin-top));
+    /* min-height: calc(100vh - var(--appbody-margin-top)); */
+    min-height: calc(100vh - var(--appbody-margin-top) + var(--navbar-scrolled-height));
     padding: var(--tab-content-padding);
 
-    /* this will allow scrolling only before the appbody is hidden by the shrinked navbar */
     margin-top: calc(var(--appbody-margin-top) - var(--navbar-scrolled-height) +  var(--tab-content-padding));
     padding-top: calc(var(--navbar-scrolled-height) - var(--tab-content-padding));
 }
@@ -195,6 +192,11 @@ body {
 .content {
     padding: 1em 1em;
     text-align: justify;
+    flex-grow: 1;
+}
+
+.footer {
+    padding: 1em 1em;
 }
 
 @media (max-width: 600px) {
