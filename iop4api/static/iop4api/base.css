@@ -263,6 +263,7 @@ form .form-block {
     display: flex;
     flex-direction: column;
     flex-grow: 1;
+    gap: 10px;
 }
 
 form .form-block+.form-block {
@@ -275,7 +276,7 @@ form label, form input {
 
 form label {
     flex-grow: 1;
-    line-height: 2.0em;
+    /* line-height: 2.0em; */
 }
 
 form input {

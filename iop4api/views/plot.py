@@ -30,6 +30,11 @@ def plot(request):
     source_name = request.POST.get("source_name", None)
     band = request.POST.get("band", "R")
     fmt = request.POST.get("fmt", "json")
+    date_start = request.POST.get("date_start", None)
+    date_start = None if date_start == "" else date_start
+    date_end = request.POST.get("date_end", None)
+    date_end = None if date_end == "" else date_end
+
 
     # comment these lines to allow for empty plot
     if not AstroSource.objects.filter(name=source_name).exists(): 
@@ -40,7 +45,7 @@ def plot(request):
     import bokeh.colors
     from bokeh.transform import factor_cmap
     from bokeh.layouts import column, gridplot
-    from bokeh.models import CategoricalColorMapper, LinearColorMapper, RangeTool, Range1d, LinearAxis, CustomJS, ColumnDataSource, Whisker, DatetimeAxis, DatetimeTickFormatter, Scatter, Segment, CDSView, GroupFilter, AllIndices
+    from bokeh.models import CategoricalColorMapper, LinearColorMapper, RangeTool, Range1d, LinearAxis, CustomJS, ColumnDataSource, Whisker, DatetimeAxis, DatetimeTickFormatter, Scatter, Segment, CDSView, GroupFilter, AllIndices, HoverTool, NumeralTickFormatter, BoxZoomTool
     from bokeh.plotting import figure, show
     from bokeh.embed import components, json_item
 
@@ -57,10 +62,20 @@ def plot(request):
     column_names = ['id', 'juliandate', 'band', 'instrument', 'mag', 'mag_err', 'p', 'p_err', 'chi', 'chi_err']
     qs = PhotoPolResult.objects.filter(astrosource__name=source_name, band=band).all()
 
+    if date_start is not None:
+        qs = qs.filter(juliandate__gte=Time(date_start).jd)
+
+    if date_end is not None:
+        qs = qs.filter(juliandate__lte=Time(date_end).jd)
+
     # iop3? 
     import pandas as pd
     iop3_df = pd.read_csv(os.path.expanduser("~/iop3_results.csv"))
     iop3_idx = (iop3_df["name_IAU"] == source_name) & (iop3_df["filter"] == "R")
+    if date_start is not None:
+        iop3_idx = iop3_idx & (iop3_df["mjd_obs"] >= Time(date_start).mjd)
+    if date_end is not None:
+        iop3_idx = iop3_idx & (iop3_df["mjd_obs"] <= Time(date_end).mjd)
     iop3_df = iop3_df.loc[iop3_idx]
     
     # choose  the x and y
@@ -162,7 +177,9 @@ def plot(request):
 
     # other tools
 
-    tools = ["fullscreen", "reset", "save", "pan", "auto_box_zoom", "wheel_zoom", "box_select", "lasso_select"]
+    #tools = ["fullscreen", "reset", "save", "pan", "auto_box_zoom", "wheel_zoom", "box_select", "lasso_select"]
+    tools = ["fullscreen", "reset", "save", "pan", "wheel_zoom", "box_select", "lasso_select"]
+    box_zoom_tool = BoxZoomTool(dimensions="auto")
 
     # Create the main plot with range slider and secondary x-axis, fixed styles of markers
 
@@ -202,7 +219,7 @@ def plot(request):
                                 "y_label": "mag",
                                 "err": ["y1_min", "y1_max"],                                  
                                 "marker":"circle",
-                                "size": 3,
+                                "size": 5,
                                 "color": index_cmap,
                                 "selected_color": index_cmap,
                                 "nonselected_color": index_cmap_light,
@@ -213,10 +230,10 @@ def plot(request):
                     'ax2':  {
                                 'x':"x1", 
                                 'y':"y2", 
-                                "y_label": "p",
-                                "err": ["y3_min", "y3_max"],
+                                "y_label": "p [%]",
+                                "err": ["y2_min", "y2_max"],
                                 "marker":"circle",
-                                "size": 3,
+                                "size": 5,
                                 "color": index_cmap,
                                 "selected_color": index_cmap,
                                 "nonselected_color": index_cmap_light,
@@ -227,10 +244,10 @@ def plot(request):
                     'ax3':  {
                                 'x':"x1", 
                                 'y':"y3", 
-                                "y_label": "chi",
+                                "y_label": "chi [º]",
                                 "err": ["y3_min", "y3_max"],                                  
                                 "marker":"circle",
-                                "size": 3,
+                                "size": 5,
                                 "color": index_cmap,
                                 "selected_color": index_cmap,
                                 "nonselected_color": index_cmap_light,
@@ -247,7 +264,7 @@ def plot(request):
         scatter_initial = Scatter(x=axDict['x'], y=axDict['y'], size=axDict["size"], fill_color=axDict["color"], line_color=axDict["color"], marker=axDict["marker"], fill_alpha=axDict["alpha"], line_alpha=axDict["alpha"])
         # scatter_selected = Scatter(x=axDict['x'], y=axDict['y'], size=axDict["size"], fill_color=axDict["selected_color"], line_color=axDict["selected_color"], marker=axDict["marker"], fill_alpha=axDict["selected_alpha"], line_alpha=axDict["selected_alpha"])
         scatter_nonselected = Scatter(x=axDict['x'], y=axDict['y'], size=axDict["size"], fill_color=axDict["nonselected_color"], line_color=axDict["nonselected_color"], marker=axDict["marker"], fill_alpha=axDict["nonselected_alpha"], line_alpha=axDict["nonselected_alpha"])
-        p.add_glyph(source, scatter_initial, selection_glyph=scatter_initial, nonselection_glyph=scatter_nonselected, view=view, name=f"{axLabel}_scatter_renderer")
+        pt_renderers = p.add_glyph(source, scatter_initial, selection_glyph=scatter_initial, nonselection_glyph=scatter_nonselected, view=view, name=f"{axLabel}_scatter_renderer")
 
         if axDict["err"] is not None:
             segs_initial = Segment(x0=axDict['x'], y0=axDict["err"][0], x1=axDict['x'], y1=axDict["err"][1], line_color=axDict["color"], line_alpha=axDict["alpha"])
@@ -276,6 +293,41 @@ def plot(request):
             p.below[0].minor_tick_line_color = None  # turn off x-axis minor ticks
             p.below[0].major_label_text_font_size = '0pt'  # turn off x-axis tick labels
 
+        if axLabel == "ax2":
+            p.yaxis.formatter = NumeralTickFormatter(format=' 0.0 %')
+            #p.y_range.start = -0.01
+
+        p.yaxis.axis_label = axDict["y_label"]
+
+        # Add a box with info on hover
+        # hover_tool = HoverTool(tooltips=[
+        #                                 ("id", "@pk"),
+        #                                 ("instrument", "@instrument"),
+        #                                 ("mag", "@y1"),
+        #                                 ("p", "@y2{0.0 %}"),
+        #                                 ("chi", "@y3"),
+        #                         ], renderers=[pt_renderers])
+        # p.add_tools(hover_tool)
+
+        hover = HoverTool(renderers=[pt_renderers])
+        hover.callback = CustomJS(args = dict(source = source, hover = hover), code = '''
+                    
+                    if (cb_data.index.indices.length > 0) { 
+                        let index = cb_data.index.indices[0];
+                        let p = source.data.y2[index];
+
+                        if (isFinite(p)) {
+                            hover.tooltips = [["id", "@pk"], ["instrument", "@instrument"], ["mag", "@y1"], ["p", "@y2{0.0 %}"], ["chi", "@y3"]];                                       
+                        } else {
+                            hover.tooltips = [["id", "@pk"], ["instrument", "@instrument"], ["mag", "@y1"]];
+                        }
+                    } ''')
+        p.add_tools(hover)
+
+        # make box_zoom the default active tool
+        p.add_tools(box_zoom_tool)
+        p.toolbar.active_drag = box_zoom_tool
+
         axDict["p"] = p
 
     # Calculate the proportionality factor and shift between primary and secondary axes limits from the initial ranges
@@ -299,7 +351,7 @@ def plot(request):
 
     from bokeh.events import Event, PanStart, PanEnd, Press, PressUp, RangesUpdate
 
-    cb_hide_errorbars = """window.were_errorbars_active = document.querySelector('#cbox_errobars').checked; plot_hide_errorbars();"""
+    cb_hide_errorbars = """window.were_errorbars_active = document.querySelector('#cbox_errorbars').checked; plot_hide_errorbars();"""
     cb_restore_errorbars = """if (window.were_errorbars_active) {plot_show_errorbars();}"""
     p_main.js_on_event(PanStart, CustomJS(code=cb_hide_errorbars))
     p_main.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
