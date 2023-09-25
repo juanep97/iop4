@@ -327,7 +327,7 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
         # 1. Compute all aperture photometries
 
         if aperpix is None:
-            target_fwhm, aperpix, r_in, r_out = get_target_fwhm_aperpix(polarimetry_group)
+            target_fwhm, aperpix, r_in, r_out = get_target_fwhm_aperpix(polarimetry_group, reductionmethod=REDUCTIONMETHODS.RELPOL)
 
         logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group with target aperpix {aperpix:.1f}.")
 
@@ -387,22 +387,17 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
             flux_std = fluxes.std()
 
             RQ = np.sqrt((flux_O_0 / flux_E_0) / (flux_O_45 / flux_E_45))
-            # dRQ = RQ * math.sqrt((flux_O_0_err / flux_O_0) ** 2 + (flux_E_0_err / flux_E_0) ** 2 + (flux_O_45_err / flux_O_45) ** 2 + (flux_E_45_err / flux_E_45) ** 2)
             dRQ = RQ / 2 * math.sqrt((flux_O_0_err / flux_O_0) ** 2 + (flux_E_0_err / flux_E_0) ** 2 + (flux_O_45_err / flux_O_45) ** 2 + (flux_E_45_err / flux_E_45) ** 2)
 
             RU = np.sqrt((flux_O_22 / flux_E_22) / (flux_O_67 / flux_E_67))
-            # dRU = RU * math.sqrt((flux_O_22_err / flux_O_22) ** 2 + (flux_E_22_err / flux_E_22) ** 2 + (flux_O_67_err / flux_O_67) ** 2 + (flux_E_67_err / flux_E_67) ** 2)
             dRU = RU / 2 * math.sqrt((flux_O_22_err / flux_O_22) ** 2 + (flux_E_22_err / flux_E_22) ** 2 + (flux_O_67_err / flux_O_67) ** 2 + (flux_E_67_err / flux_E_67) ** 2)
 
             Q_I = (RQ - 1) / (RQ + 1)
-            # dQ_I = Q_I * math.sqrt(2 * (dRQ / RQ) ** 2)
             dQ_I = math.fabs( RQ / (RQ + 1) ** 2 * dRQ)
             U_I = (RU - 1) / (RU + 1)
-            # dU_I = U_I * math.sqrt(2 * (dRU / RU) ** 2)
             dU_I = math.fabs( RU / (RU + 1) ** 2 * dRU)
 
             P = math.sqrt(Q_I ** 2 + U_I ** 2)
-            # dP = P * math.sqrt((dRQ / RQ) ** 2 + (dRU / RU) ** 2) / 2
             dP = 1/P * math.sqrt(Q_I**2 * dQ_I**2 + U_I**2 * dU_I**2)
 
             Theta_0 = 0
@@ -415,7 +410,6 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
                 #     Theta_0 = math.pi / 2
                 
             Theta = 0.5 * math.degrees(math.atan(U_I / Q_I) + Theta_0)
-            # dTheta = dP / P * 28.6
             dTheta = 0.5 * 180.0 / math.pi * (1 / (1 + (U_I/Q_I) ** 2)) * math.sqrt( (dU_I/Q_I)**2 + (U_I*dQ_I/Q_I**2)**2 )
 
             # compute instrumental magnitude
