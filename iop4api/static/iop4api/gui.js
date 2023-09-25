@@ -61,9 +61,10 @@ function load_source_plot(form_element) {
                 // embed plot and the legend, 
                 plotData = JSON.parse(request.responseText);
                 bokeh_plot_promise = Bokeh.embed.embed_item(plotData.item, "plotDiv");
-                Bokeh.embed.embed_item(plotData.legend, "legendDiv");
-                // toggle the errorbars and check the layout when it finishes
-                bokeh_plot_promise.then((v) => { plot_toggle_errorbars(); check_plot_layout(); });
+                bokeh_legend_promise = Bokeh.embed.embed_item(plotData.legend, "legendDiv");
+                // toggle the errorbars and check the layout when it finishes 
+                // bokeh_plot_promise.then((v) => { plot_update_errorbars_status(); check_plot_layout(); }); // needs both items to be loaded since we use .slice(-2) :
+                Promise.allSettled([bokeh_plot_promise, bokeh_legend_promise]).then((v) => { plot_update_errorbars_status(); check_plot_layout(); });
                 // and add a listener to recheck the layout when the window is resized
                 window.addEventListener('resize', check_plot_layout);
 
@@ -224,12 +225,12 @@ function plot_hide_instrument(e) {
     Bokeh.documents.slice(-2)[0].get_model_by_name('plot_view').filter = final_filter;
 }
 
-function plot_toggle_errorbars() {
-    // instead of Bokeh.documents.documents[0] becaue if we plot several times without refreshing, the documents add up
-    if (Bokeh.documents.slice(-2)[0].get_model_by_name("ax1_errorbars_renderer").visible) {
-        plot_hide_errorbars();
-    } else {
+function plot_update_errorbars_status() {
+    // instead of Bokeh.documents.documents[0] because if we plot several times without refreshing, the documents add up
+    if (document.getElementById('cbox_errorbars').checked) {
         plot_show_errorbars();
+    } else {
+        plot_hide_errorbars();
     } 
 }
 
@@ -241,7 +242,7 @@ function plot_hide_errorbars() {
         Bokeh.documents.slice(-2)[0].get_model_by_name(`ax${i}_errorbars_renderer`).visible = false;
     }
     
-    document.querySelector('#cbox_errobars').checked = false;
+    document.querySelector('#cbox_errorbars').checked = false;
 }
 
 function plot_show_errorbars() {
@@ -252,7 +253,7 @@ function plot_show_errorbars() {
         Bokeh.documents.slice(-2)[0].get_model_by_name(`ax${i}_errorbars_renderer`).visible = true;
     }
 
-    document.querySelector('#cbox_errobars').checked = true;
+    document.querySelector('#cbox_errorbars').checked = true;
 }
 
 function check_plot_layout() {

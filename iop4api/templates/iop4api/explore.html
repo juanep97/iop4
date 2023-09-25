@@ -56,12 +56,17 @@
                                     <input v-model="input_astrosource" type="text" name="source_name" list="source_name_list" placeholder="source (↓ to list)" title="Select a source from the catalog" required>
                                     <input class="button" type="button" value="plot" onclick="load_source_plot(this.form);">
                                 </div>
+                                <div class="form-row">
+                                    <input v-model="input_date_start" type="text" name="date_start" placeholder="From..." title="Select a start date">
+                                    <input v-model="input_date_end" type="text" name="date_end" placeholder="To..." title="Select an end date">
+                                </div>
+                                <input type="submit" style="display:none" hidden />
                             </div>
                         </form>
                     </div> 
                     <div v-show="showPlot" class="f-row">
                         <div v-show="showPlot" id="plotControlsContainerDiv" class="f-cell fit centered styled-box" style="display: none;">
-                            <div id="controls" style="margin-bottom: 16px;"><label>Toggle errorbars <input onclick="plot_toggle_errorbars()" id="cbox_errobars" type="checkbox" checked/></label></div>
+                            <div id="controls" style="margin-bottom: 16px;"><label>Toggle errorbars <input onclick="plot_update_errorbars_status();" id="cbox_errorbars" type="checkbox" checked/></label></div>
                             <p>Click on an instrument or flag label to hide it in the plot.</p>
                             <div id="legendDiv"></div>
                         </div>
