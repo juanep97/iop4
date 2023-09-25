@@ -253,6 +253,7 @@ form .form-row {
     display: flex;
     flex-direction: row;
     column-gap: 20px;
+    row-gap: 10px;
 }
 
 form .form-row.wrappable {
