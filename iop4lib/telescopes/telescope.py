@@ -331,8 +331,7 @@ class Telescope(metaclass=ABCMeta):
         if redf.obsmode != OBSMODES.PHOTOMETRY:
             raise Exception(f"{redf}: this method is only for plain photometry images.")
         
-        if aperpix is None:
-            target_fwhm, aperpix, r_in, r_out = get_target_fwhm_aperpix([redf], reductionmethod=REDUCTIONMETHODS.RELPHOT)
+        target_fwhm, aperpix, r_in, r_out = get_target_fwhm_aperpix([redf], reductionmethod=REDUCTIONMETHODS.RELPHOT)
 
         # 1. Compute all aperture photometries
 
