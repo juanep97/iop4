@@ -334,7 +334,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
         # 1. Compute all aperture photometries
 
         if aperpix is None:
-            target_fwhm, aperpix, r_in, r_out = get_target_fwhm_aperpix(polarimetry_group, r_in, r_out)
+            target_fwhm, aperpix, r_in, r_out = get_target_fwhm_aperpix(polarimetry_group, reductionmethod=REDUCTIONMETHODS.RELPOL)
 
         logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group with target {aperpix:.1f}.")
 
