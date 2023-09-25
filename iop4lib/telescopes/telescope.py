@@ -24,6 +24,10 @@ from iop4lib.enums import *
 import logging
 logger = logging.getLogger(__name__)
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from iop4lib.db import RawFit, ReducedFit
+
 class Telescope(metaclass=ABCMeta):
     """
         Inherit this class to provide telescope specific functionality and
@@ -318,7 +322,7 @@ class Telescope(metaclass=ABCMeta):
     
 
     @classmethod
-    def compute_relative_photometry(cls, redf, aperpix=None):
+    def compute_relative_photometry(cls, redf: 'ReducedFit') -> None:
         
         from iop4lib.db.aperphotresult import AperPhotResult
         from iop4lib.db.photopolresult import PhotoPolResult
