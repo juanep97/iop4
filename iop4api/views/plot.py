@@ -175,6 +175,20 @@ def plot(request):
     range_tool.overlay.fill_color = "navy"
     range_tool.overlay.fill_alpha = 0.2
 
+    # Create a hover tool with custom JS callback
+    hover = HoverTool(renderers=[])
+    hover.callback = CustomJS(args = dict(source = source, hover = hover), code = '''
+                if (cb_data.index.indices.length > 0) { 
+                    let index = cb_data.index.indices[0];
+                    let p = source.data.y2[index];
+
+                    if (isFinite(p)) {
+                        hover.tooltips = [["id", "@pk"], ["instrument", "@instrument"], ["mag", "@y1"], ["p", "@y2{0.0 %}"], ["chi", "@y3"]];                                       
+                    } else {
+                        hover.tooltips = [["id", "@pk"], ["instrument", "@instrument"], ["mag", "@y1"]];
+                    }
+                } ''')
+    
     # other tools
 
     #tools = ["fullscreen", "reset", "save", "pan", "auto_box_zoom", "wheel_zoom", "box_select", "lasso_select"]
@@ -299,29 +313,8 @@ def plot(request):
 
         p.yaxis.axis_label = axDict["y_label"]
 
-        # Add a box with info on hover
-        # hover_tool = HoverTool(tooltips=[
-        #                                 ("id", "@pk"),
-        #                                 ("instrument", "@instrument"),
-        #                                 ("mag", "@y1"),
-        #                                 ("p", "@y2{0.0 %}"),
-        #                                 ("chi", "@y3"),
-        #                         ], renderers=[pt_renderers])
-        # p.add_tools(hover_tool)
-
-        hover = HoverTool(renderers=[pt_renderers])
-        hover.callback = CustomJS(args = dict(source = source, hover = hover), code = '''
-                    
-                    if (cb_data.index.indices.length > 0) { 
-                        let index = cb_data.index.indices[0];
-                        let p = source.data.y2[index];
-
-                        if (isFinite(p)) {
-                            hover.tooltips = [["id", "@pk"], ["instrument", "@instrument"], ["mag", "@y1"], ["p", "@y2{0.0 %}"], ["chi", "@y3"]];                                       
-                        } else {
-                            hover.tooltips = [["id", "@pk"], ["instrument", "@instrument"], ["mag", "@y1"]];
-                        }
-                    } ''')
+        # Add common hover tool with custom JS callback
+        hover.renderers += [pt_renderers] # it has no renderers, append the scatter
         p.add_tools(hover)
 
         # make box_zoom the default active tool
