@@ -9,6 +9,7 @@ import psutil
 import numpy as np
 import scipy as sp
 import scipy.stats 
+import math
 
 import logging
 logger = logging.getLogger(__name__)
@@ -110,7 +111,7 @@ def get_total_mem_from_child():
 
 # Function to get target FWHM
 
-def get_target_fwhm_aperpix(redfL):
+def get_target_fwhm_aperpix(redfL, reductionmethod=None):
     r"""estimate an appropriate common aperture for a list of reduced fits.
     
     It fits the target source profile in the fields and returns some multiples of the fwhm which are used as the aperture and as the inner and outer radius of the annulus for local bkg estimation).
@@ -163,4 +164,8 @@ def get_target_fwhm_aperpix(redfL):
 
         fwhm_L.append(gaussian_fit[0].fwhm)
 
-    return np.mean(fwhm_L), 3.0*np.mean(fwhm_L), 6.0*np.mean(fwhm_L), 9.0*np.mean(fwhm_L)
+    mean_fwhm = np.mean(fwhm_L)
+    sigma = mean_fwhm / (2*np.sqrt(2*math.log(2)))
+    r = sigma
+    
+    return mean_fwhm, 5.0*r, 15.0*r, 20.0*r
