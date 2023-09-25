@@ -263,7 +263,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
 
 
     @classmethod
-    def compute_relative_polarimetry(cls, polarimetry_group, aperpix=None):
+    def compute_relative_polarimetry(cls, polarimetry_group):
         """ Computes the relative polarimetry for a polarimetry group for OSNT090 observations.
 
         .. note:: 
@@ -339,7 +339,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
         logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group with target {aperpix:.1f}.")
 
         for reducedfit in polarimetry_group:
-            reducedfit.compute_aperture_photometry(aperpix)
+            reducedfit.compute_aperture_photometry(aperpix, r_in, r_out)
 
         # 2. Compute relative polarimetry for each source (uses the computed aperture photometries)
 

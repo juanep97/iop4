@@ -247,7 +247,7 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
         return astrometry.SizeHint(lower_arcsec_per_pixel=0.95*cls.arcsec_per_pix,  upper_arcsec_per_pixel=1.05*cls.arcsec_per_pix)
 
     @classmethod
-    def compute_relative_polarimetry(cls, polarimetry_group, aperpix=None):
+    def compute_relative_polarimetry(cls, polarimetry_group):
         """ Computes the relative polarimetry for a polarimetry group for CAHA T220 observations.
         
         .. note::
