@@ -139,7 +139,12 @@ def get_target_fwhm_aperpix(redfL, reductionmethod=None):
     fwhm_L = list()
 
     for redf in redfL:
-        xycen = centroid_quadratic(redf.mdata, *target.coord.to_pixel(redf.wcs), (15,15), search_boxsize=(5,5))
+        try:
+            xycen = centroid_quadratic(redf.mdata, *target.coord.to_pixel(redf.wcs), (15,15), search_boxsize=(5,5))
+        except Exception as e:
+            logger.warning(f"centroid_quadatric failed: {e}. Using target.coord.to_pixel(redf.wcs), probably wrong")
+            xycen = target.coord.to_pixel(redf.wcs)
+
         if not all(np.isfinite(xycen)):
             xycen = target.coord.to_pixel(redf.wcs)
 
