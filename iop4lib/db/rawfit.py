@@ -289,14 +289,7 @@ class RawFit(FitFileModel):
         try:
             self.unset_flag(RawFit.FLAGS.ERROR_CLASSIFY)
             self.unset_flag(RawFit.FLAGS.CLASSIFIED)
-            Telescope.by_name(self.epoch.telescope).check_telescop_kw(self)
-            Telescope.by_name(self.epoch.telescope).classify_instrument_kw(self)
-            Telescope.by_name(self.epoch.telescope).classify_juliandate_rawfit(self)
-            Telescope.by_name(self.epoch.telescope).classify_imgtype_rawfit(self)
-            Telescope.by_name(self.epoch.telescope).classify_band_rawfit(self)
-            Telescope.by_name(self.epoch.telescope).classify_obsmode_rawfit(self)
-            Telescope.by_name(self.epoch.telescope).classify_imgsize(self)
-            Telescope.by_name(self.epoch.telescope).classify_exptime(self)
+            Telescope.by_name(self.epoch.telescope).classify_rawfit(self)
             self.set_flag(RawFit.FLAGS.CLASSIFIED)
         except Exception as e:
             logger.error(f"Error classifying {self.fileloc}: {e}.")

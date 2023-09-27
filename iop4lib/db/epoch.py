@@ -395,9 +395,7 @@ class Epoch(models.Model):
 
             for rawfit in rawfits:
                 rawfit.procure_local_file()
-                rawfit.classify()
 
-            self.rawfits.set(rawfits)
         else:
             logger.error("Epoch not listed, not linking rawfits.")
 
@@ -408,7 +406,7 @@ class Epoch(models.Model):
 
     def get_summary_rawfits_status(self):
         """
-            Returns Flag() object if common to all fits
+            Returns list of flags present in the rawfits of this epoch.
         """
         from iop4lib.db import RawFit
 

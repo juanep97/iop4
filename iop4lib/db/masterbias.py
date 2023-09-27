@@ -145,7 +145,7 @@ class MasterBias(FitFileModel):
             except Exception as e:
                 logger.error("An error occurred while building the masterbias, deleting it and raising Exception")
                 mb.delete()
-                raise Exception(f"An error occurred while building the MasterBias for {mbargs}")
+                raise Exception(f"An error occurred while building the MasterBias for {mbargs}: {e}")
             else:
                 logger.info("Built masterbias successfully")
 
@@ -166,6 +166,7 @@ class MasterBias(FitFileModel):
         logger.debug(f"Getting data from files")
 
         if self.rawfits.count() == 0:
+            logger.error(f"No rawfits for {self}")
             raise Exception(f"No rawfits for {self}")
         
         data_L = []

@@ -171,6 +171,17 @@ class Telescope(metaclass=ABCMeta):
         return (name in [tel.name for tel in Telescope.get_known()]) or (name in [tel.abbrv for tel in Telescope.get_known()])
     
 
+    @classmethod
+    def classify_rawfit(cls, rawfit: 'RawFit'):
+        cls.check_telescop_kw(rawfit)
+        cls.classify_instrument_kw(rawfit)
+        cls.classify_juliandate_rawfit(rawfit)
+        cls.classify_imgtype_rawfit(rawfit)
+        cls.classify_band_rawfit(rawfit)
+        cls.classify_obsmode_rawfit(rawfit)
+        cls.classify_imgsize(rawfit)
+        cls.classify_exptime(rawfit)
+
     # telescope independent functionality (they don't need to be overriden in subclasses)
 
 
@@ -332,6 +343,10 @@ class Telescope(metaclass=ABCMeta):
             raise Exception(f"{redf}: this method is only for plain photometry images.")
         
         target_fwhm, aperpix, r_in, r_out = get_target_fwhm_aperpix([redf], reductionmethod=REDUCTIONMETHODS.RELPHOT)
+
+        if target_fwhm is None:
+            logger.error("Could not estimate a target FWHM, aborting relative photometry.")
+            return
 
         # 1. Compute all aperture photometries
 
