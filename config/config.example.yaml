@@ -1,21 +1,28 @@
+# This is an example of the config file, copy it to config/config.yaml and edit it.
+# IOP4LIB will attempt to use config/config.yaml if it exists, otherwise it will use this one.
 datadir: ~/.iop4data/ # <path to iop4data data folder>
 set_rawdata_readonly: False # <True / False (sets raw fits file to readonly when downloading them or creating a RawFit object)>
 db_path: ~/.iop4data/iop4.db # <path to iop4 sqlite database file>
 astrometry_cache_path: ~/.astrometry_cache/ # <where to store the astromery index files>
 max_concurrent_threads: 4 # <number of threads / processes to use (e.g. 4)>
+# RAY CLUSTER
 ray_use_cluster: False # <True/False (use ray for parallelization), let it to false if you have not configured it>
 ray_cluster_address: null # <address for the cluster, needs ssh keys for current user; e.g. 'user@address'>
 ray_cluster_config: null # <path to ray cluster config file, e.g. /path/to/iop4/priv.rayconfig.yaml'>
 ray_db_path: null # <path in ray cluster, e.g. '~/iop4data/iop4.db'>
 ray_datadir: null # <path in ray cluster, e.g. '~/iop4data/'>
+# GRAPHICS
 mplt_default_dpi: 100 # <dpi for matplotlib (e.g. 100)>
+# LOGGING
 log_fname: ~/.iop4data/iop4.log # </path/to/iop4.log>
 log_date_format: '%Y-%m-%d %H:%M:%S' # <log date format>
 log_format: '%(asctime)s - %(name)s [%(filename)s:%(lineno)d] - %(levelname)s - %(message)s' # <log format>
 log_level: 20 # <10 (DEBUG), 20 (INFO), 30 (WARNING), 40 (ERROR), 50 (CRITICAL), log level>
+# CAHA
 caha_address: null # <caha ftp address>
 caha_password: null # <your caha password>
 caha_user: null # <your caha user>
+# OSN
 osn_t090_address: null # <osn t090 ftp archive ip address>
 osn_t090_user: null # <yourosnuser>
 osn_t090_password: null # <yourosnpassword>
@@ -26,3 +33,4 @@ osn_source_list_path: null # <path/to/osn/source/list>
 osn_fnames_patterns: # <list of osn source regexs, e.g.: (^BLLac.*\.fits?$) will match file names starting with BLLac and ending in .fit or .fits>
 - (^Flat.*\.fits?$)
 - (^Bias.*\.fits?$)
+osn_download_all_then_check_owner: null # <str : for OSN, whether just download all files (^.*\.fits?$) and then remove those that contain this word in the OBSERVER kw in the header (except for files that contain bias or flats in the name)>
