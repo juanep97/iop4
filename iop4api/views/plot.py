@@ -105,7 +105,7 @@ def plot(request):
 
     # Instruments and colors (auto)
     instruments_L = sorted(list(set(vals['instrument'])), reverse=True)
-    instrument_color_L = [bokeh.palettes.TolRainbow[len(instruments_L)][i % len(instruments_L)] for i in range(len(instruments_L))] #Bright
+    instrument_color_L = [bokeh.palettes.TolRainbow[max(3,len(instruments_L))][i % len(instruments_L)] for i in range(len(instruments_L))] #Bright
     palette_dark = [bokeh.colors.RGB.from_hex_string(color).darken(0.1) for color in instrument_color_L]
     palette_light = [bokeh.colors.RGB.from_hex_string(color).lighten(0.3) for color in instrument_color_L]
 
