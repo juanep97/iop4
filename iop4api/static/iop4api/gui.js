@@ -108,10 +108,10 @@ function load_source_datatable(form_element) {
 }
 
 function make_nice_table(tableData) {
-
+    
     var table = new Tabulator("#tableDiv", {
         data: tableData.data,
-        columns: tableData.tabulatorjs_columns,
+        columns: tableData.columns,
         // autoColumns: true,
         layout: "fitDataFill", // "fitDataStretch",
         pagination: true, 
@@ -271,11 +271,11 @@ function load_catalog() {
         if (request.readyState === 4) {
             if (request.status === 200) {
                 vueApp.$data.catalog = JSON.parse(request.responseText);
-                vueApp.$data.catalog.columns = Object.keys(vueApp.$data.catalog.data[0]).map((key) => ({
-                                                        name: key,
+                vueApp.$data.catalog.columns = vueApp.$data.catalog.columns.map((c) => ({
+                                                        name: c.name,
                                                         align: 'left',
-                                                        label: key.charAt(0).toUpperCase() + key.slice(1),
-                                                        field: key,
+                                                        label: c.title,
+                                                        field: c.field,
                                                         style: 'min-width: min-content;',
                                                     }));
             } else {
