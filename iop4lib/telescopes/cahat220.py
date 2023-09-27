@@ -383,7 +383,7 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
 
             fluxes = (fluxes_O + fluxes_E) / 2.
             flux_mean = fluxes.mean()
-            flux_std = fluxes.std()
+            flux_err = fluxes.std() / math.sqrt(len(fluxes))
 
             RQ = np.sqrt((flux_O_0 / flux_E_0) / (flux_O_45 / flux_E_45))
             dRQ = RQ / 2 * math.sqrt((flux_O_0_err / flux_O_0) ** 2 + (flux_E_0_err / flux_E_0) ** 2 + (flux_O_45_err / flux_O_45) ** 2 + (flux_E_45_err / flux_E_45) ** 2)
@@ -417,7 +417,7 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
                 logger.warning(f"{polarimetry_group=}: negative flux mean encountered while relative polarimetry for {astrosource=} ??!! It will be nan, but maybe we should look into this...")
 
             mag_inst = -2.5 * math.log10(flux_mean)
-            mag_inst_err = math.fabs(2.5 / math.log(10) * flux_std / flux_mean)
+            mag_inst_err = math.fabs(2.5 / math.log(10) * flux_err / flux_mean)
 
             # if the source is a calibrator, compute also the zero point
 
