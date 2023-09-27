@@ -364,7 +364,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
 
             fluxes = np.array([flux_0, flux_45, flux_90, flux_n45])
             flux_mean = fluxes.mean()
-            flux_std = fluxes.std()
+            flux_err = fluxes.std() / math.sqrt(len(fluxes))
             
             qraw = (flux_0 - flux_90) / (flux_0 + flux_90)
             uraw = (flux_45 - flux_n45) / (flux_45 + flux_n45)
@@ -416,7 +416,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
                 logger.warning(f"{polarimetry_group=}: negative flux mean encountered while relative polarimetry for {astrosource=} ??!! It will be nan, but maybe we should look into this...")
 
             mag_inst = -2.5 * np.log10(flux_mean)
-            mag_inst_err = math.fabs(2.5 / math.log(10) * flux_std / flux_mean)
+            mag_inst_err = math.fabs(2.5 / math.log(10) * flux_err / flux_mean)
 
             # if the source is a calibrator, compute also the zero point
 
