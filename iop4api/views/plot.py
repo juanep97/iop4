@@ -296,9 +296,9 @@ def plot(request):
             p.extra_x_ranges["secondary"] = Range1d(*x2_range)
             p_ax_x2 = DatetimeAxis(x_range_name="secondary")
             p_ax_x2.formatter = DatetimeTickFormatter(months=r"%Y/%m/%d", 
-                                                      days=r"%Y/%m/%d %H:%M", 
-                                                      hours=r"%Y/%m/%d %H:%M", 
-                                                      minutes=r"%Y/%m/%d %H:%M")
+                                                      days=r"%m/%d %H:%M", 
+                                                      hours=r"%m/%d %H:%M", 
+                                                      minutes=r"%m/%d %H:%M")
             p.add_layout(p_ax_x2, 'above')
 
         if axLabel == "ax3":
