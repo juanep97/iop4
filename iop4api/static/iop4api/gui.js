@@ -39,15 +39,10 @@ function getCurrentDateTime() {
     return `${year}/${month}/${day} ${hours}:${minutes}`;
 }
 
-async function load_empty_plot(data) {
-    const response = await fetch('/iop4api/plot')
-    const item = await response.json()
-    Bokeh.embed.embed_item(item, "plotDiv")
-}
-
 function load_source_plot(form_element) {
     
     document.querySelector('#plotDiv').innerHTML = "";
+    document.querySelector('#tablePlotDiv').innerHTML = "";
     document.querySelector('#legendDiv').innerHTML = "";
 
     var formdata = new FormData(form_element);
@@ -60,13 +55,28 @@ function load_source_plot(form_element) {
                 vueApp.addLogEntry("Plot - Resonse OK", "");
                 // embed plot and the legend, 
                 plotData = JSON.parse(request.responseText);
-                bokeh_plot_promise = Bokeh.embed.embed_item(plotData.item, "plotDiv");
-                bokeh_legend_promise = Bokeh.embed.embed_item(plotData.legend, "legendDiv");
-                // toggle the errorbars and check the layout when it finishes 
-                // bokeh_plot_promise.then((v) => { plot_update_errorbars_status(); check_plot_layout(); }); // needs both items to be loaded since we use .slice(-2) :
-                Promise.allSettled([bokeh_plot_promise, bokeh_legend_promise]).then((v) => { plot_update_errorbars_status(); check_plot_layout(); });
-                // and add a listener to recheck the layout when the window is resized
-                window.addEventListener('resize', check_plot_layout);
+
+                // // for items:
+                var fn = function () {
+                    elementsIDs = ['plotDiv', 'tablePlotDiv', 'legendDiv'];
+                    Object.keys(plotData.render_items[0].roots).forEach((key, index) => {
+                        plotData.render_items[0].roots[key] = elementsIDs[index];
+                      });
+                    Bokeh.embed.embed_items(plotData.doc, plotData.render_items).then((v) => {
+                         plot_update_errorbars_status(); 
+                         check_plot_layout();
+                        });
+                }()
+
+                // // for json_items:
+                // Bokeh.embed.embed_item(plotData.plot.div_plot, "plotDiv");
+                // bokeh_plot_promise = Bokeh.embed.embed_item(plotData.plot, "plotDiv");
+                // bokeh_legend_promise = Bokeh.embed.embed_item(plotData.legend, "legendDiv");
+                // bokeh_table_promise = Bokeh.embed.embed_item(plotData.table, "tablePlotDiv");
+                // // toggle the errorbars and check the layout when it finishes 
+                // Promise.allSettled([bokeh_plot_promise, bokeh_legend_promise, bokeh_table_promise]).then((v) => { plot_update_errorbars_status(); check_plot_layout(); });
+                // // and add a listener to recheck the layout when the window is resized
+                // window.addEventListener('resize', check_plot_layout);
 
                 vueApp.$data.showPlot = true;
                 vueApp.$data.C2selectedTab = 'plot';
@@ -222,7 +232,7 @@ function plot_hide_instrument(e) {
     final_filter.operands = invfArray 
 
     // instead of Bokeh.documents.documents[0] becaue if we plot several times without refreshing, the documents add up
-    Bokeh.documents.slice(-2)[0].get_model_by_name('plot_view').filter = final_filter;
+    Bokeh.documents.slice(-1)[0].get_model_by_name('plot_view').filter = final_filter;
 }
 
 function plot_update_errorbars_status() {
@@ -239,7 +249,7 @@ function plot_hide_errorbars() {
 
     for (var i = 1; i <= 3; i++) {
         // instead of Bokeh.documents.documents[0] becaue if we plot several times without refreshing, the documents add up
-        Bokeh.documents.slice(-2)[0].get_model_by_name(`ax${i}_errorbars_renderer`).visible = false;
+        Bokeh.documents.slice(-1)[0].get_model_by_name(`ax${i}_errorbars_renderer`).visible = false;
     }
     
     document.querySelector('#cbox_errorbars').checked = false;
@@ -250,7 +260,7 @@ function plot_show_errorbars() {
 
     for (var i = 1; i <= 3; i++) {
         // instead of Bokeh.documents.documents[0] becaue if we plot several times without refreshing, the documents add up
-        Bokeh.documents.slice(-2)[0].get_model_by_name(`ax${i}_errorbars_renderer`).visible = true;
+        Bokeh.documents.slice(-1)[0].get_model_by_name(`ax${i}_errorbars_renderer`).visible = true;
     }
 
     document.querySelector('#cbox_errorbars').checked = true;
@@ -258,9 +268,9 @@ function plot_show_errorbars() {
 
 function check_plot_layout() {
     if (document.body.clientWidth < 700) {
-        Bokeh.documents.slice(-2)[0]._roots[0].toolbar_location = 'above';
+        Bokeh.documents.slice(-1)[0]._roots[0].toolbar_location = 'above';
     } else {
-        Bokeh.documents.slice(-2)[0]._roots[0].toolbar_location = 'right';
+        Bokeh.documents.slice(-1)[0]._roots[0].toolbar_location = 'right';
     }
 }
 

@@ -450,6 +450,10 @@ form label {
     width: 100vw;
 }
 
+.smallest * {
+    max-width: 100%;
+}
+
 @media (max-width: 800px) {  
     .nice-width {
         width: calc(100vw - 2 * var(--tab-content-padding) - 2*18px) !important;
@@ -531,6 +535,7 @@ form label {
 
 #plotContainerDiv {
     min-height: max(500px, calc(100vh - var(--navbar-scrolled-height) - 2 * var(--tab-content-padding) - 1px));
+    max-height: max(500px, calc(100vh - var(--navbar-scrolled-height) - 2 * var(--tab-content-padding) - 1px));
     margin-bottom: 0;
     padding: 16px 16px 16px 4px;
     /* visibility: hidden; */
@@ -540,6 +545,16 @@ form label {
 #plotDiv {
     /* height: 100%; */
     width: 100%;
+}
+
+#tablePlotDiv {
+    border-radius: 4px;
+    max-height: 15em;
+    overflow-y: scroll;
+}
+
+#tablePlotDiv * {
+    z-index: 0 !important;
 }
 
 /* DATA TABLE TAB */
@@ -558,10 +573,6 @@ form label {
     padding: 10px 0;
 }
 
-#tableDiv {
-    border-radius: 4px;
-}
-
 #tableControlsContainer {
     display: flex;
     flex-direction: row;
@@ -570,6 +581,11 @@ form label {
     padding:10px;
 }
 
+#legendDiv .bk-Column {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
 
 
 

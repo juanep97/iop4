@@ -29,7 +29,7 @@ def plot(request):
 
     source_name = request.POST.get("source_name", None)
     band = request.POST.get("band", "R")
-    fmt = request.POST.get("fmt", "json")
+    fmt = request.POST.get("fmt", "items") 
     date_start = request.POST.get("date_start", None)
     date_start = None if date_start == "" else date_start
     date_end = request.POST.get("date_end", None)
@@ -43,11 +43,15 @@ def plot(request):
     # build plot
 
     import bokeh.colors
+    from bokeh.document import Document
     from bokeh.transform import factor_cmap
     from bokeh.layouts import column, gridplot
-    from bokeh.models import CategoricalColorMapper, LinearColorMapper, RangeTool, Range1d, LinearAxis, CustomJS, ColumnDataSource, Whisker, DatetimeAxis, DatetimeTickFormatter, Scatter, Segment, CDSView, GroupFilter, AllIndices, HoverTool, NumeralTickFormatter, BoxZoomTool
+    from bokeh.models import CategoricalColorMapper, LinearColorMapper, RangeTool, Range1d, LinearAxis, CustomJS, ColumnDataSource, Whisker, DatetimeAxis, DatetimeTickFormatter, Scatter, Segment, CDSView, GroupFilter, AllIndices, HoverTool, NumeralTickFormatter, BoxZoomTool, DataTable, TableColumn
     from bokeh.plotting import figure, show
     from bokeh.embed import components, json_item
+    from bokeh.models import Div, Circle, Column, Row
+    from bokeh.plotting import figure
+    from bokeh.models import ColumnDataSource, Styles, InlineStyleSheet, GlobalInlineStyleSheet
 
     lod_threshold = 2000
     lod_factor = 10
@@ -143,7 +147,8 @@ def plot(request):
                                         y2_max = vals['p']+vals['p_err'],
                                         y3 = vals['chi'], 
                                         y3_min = vals['chi']-vals['chi_err'],
-                                        y3_max = vals['chi']+vals['chi_err']))
+                                        y3_max = vals['chi']+vals['chi_err']),
+                                name="source")
 
     view = CDSView(filter=AllIndices(), name="plot_view")
 
@@ -338,7 +343,26 @@ def plot(request):
 
     # Combine plots in a column layout
 
-    layout = gridplot([[p_main], [pltDict["ax1"]["p"]], [pltDict["ax2"]["p"]], [pltDict["ax3"]["p"]]], merge_tools=True, toolbar_location="right", sizing_mode='stretch_both')
+    plot_layout = gridplot([[p_main], [pltDict["ax1"]["p"]], [pltDict["ax2"]["p"]], [pltDict["ax3"]["p"]]], merge_tools=True, toolbar_location="right", sizing_mode='stretch_both')
+
+    ##############
+    # Data table #
+    ##############
+    from bokeh.models.widgets import HTMLTemplateFormatter
+    table_link_formatter = HTMLTemplateFormatter(template="""<a href="/iop4/admin/iop4api/photopolresult/?id=<%= value %>"><%= value %></a>""")
+    table_columns = [   TableColumn(field="pk", title="id", formatter=table_link_formatter),
+                        TableColumn(field="instrument", title="instrument"),
+                        TableColumn(field="x1", title="mjd"),
+                        TableColumn(field="y1", title="mag"),
+                        TableColumn(field="y1_err", title="dmag"),
+                        TableColumn(field="y2", title="p"),
+                        TableColumn(field="y2_err", title="dp"),
+                        TableColumn(field="y3", title="chi"),
+                        TableColumn(field="y3_err", title="dchi")]
+               
+    data_table = DataTable(source=source, view=view, columns=table_columns, index_position=None,
+                           sortable=True, reorderable=True, scroll_to_selection=True, 
+                           stylesheets=[InlineStyleSheet(css=""".slick-cell.selected { background-color: #d2eaff; }""")])
 
     # Add a callback to hide errorbars when panning (it makes the plot smoother)
 
@@ -358,10 +382,6 @@ def plot(request):
     #################################################
     # Create a legend (it will be a different plot) #
     #################################################
-
-    from bokeh.models import Div, Circle, Column, Row
-    from bokeh.plotting import figure
-    from bokeh.models import ColumnDataSource, Styles, InlineStyleSheet, GlobalInlineStyleSheet
 
     # Create a ColumnDataSource with data for Circle and Star glyphs
     legend_source = ColumnDataSource(data=dict(x=[0], y=[0]))
@@ -422,24 +442,41 @@ def plot(request):
 
 
 
+
     # Get the components to embed in the Django template
 
-    if fmt == "html":
-        script, div = components(layout)
-
-        context = {
-            'plot': {'script': script,
-                    'div': div
-            },
-        }
-        
-        return render(request, 'iop4api/plot.html', context)
-
-    elif fmt == "json":
-
-        return JsonResponse({'item':json_item(layout), 
+    doc = Document()
+    doc.add_root(plot_layout)
+    doc.add_root(data_table)
+    doc.add_root(legend_layout)
+    
+    if fmt == "components":
+        # these can be loaded independently in the template and will be connected, but no control on the load process
+        script, (div_plot, div_table, div_legend) = components([plot_layout, data_table, legend_layout], wrap_script=False)
+        return JsonResponse({
+                                'plot': {
+                                        'script': script,
+                                        'div_plot': div_plot,
+                                        'div_table': div_table,
+                                        'div_legend': div_legend,
+                                    }, 
+                                'n_points':len(x1)
+                            })
+    
+    elif fmt == "json_item":
+        # this will make them indepenedent, so table wont be connected to plot
+        return JsonResponse({'plot':json_item(plot_layout), 
                              'legend':json_item(legend_layout),
+                             'table':json_item(data_table),
                              'n_points':len(x1)})
+    
+    elif fmt == "items":
+        # to implement my own load process
+        from bokeh.embed.util import standalone_docs_json_and_render_items
+        doc, render_items = standalone_docs_json_and_render_items([plot_layout, data_table, legend_layout])
+        return JsonResponse({'doc':doc,
+                            'render_items':[item.to_json() for item in render_items],
+                            'n_points':len(x1)})
     
     else:
 
