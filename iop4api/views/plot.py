@@ -126,30 +126,30 @@ def plot(request):
 
     # Instruments and colors (auto)
     instruments_L = sorted(list(set(vals['instrument'])), reverse=True)
-    instrument_color_L = [bokeh.palettes.TolRainbow[max(3,len(instruments_L))][i % len(instruments_L)] for i in range(len(instruments_L))] #Bright
-    palette_dark = [bokeh.colors.RGB.from_hex_string(color).darken(0.1) for color in instrument_color_L]
-    palette_light = [bokeh.colors.RGB.from_hex_string(color).lighten(0.3) for color in instrument_color_L]
+    instrument_color_L = [bokeh.palettes.TolRainbow[max(3,len(instruments_L))][i % len(instruments_L)] for i in range(len(instruments_L))]
 
-    # Instruments and colors (manual)
+    rgb_L = [bokeh.colors.RGB.from_hex_string(hexcolor) for hexcolor in instrument_color_L]
 
-    # instruments_L = ["CAFOS2.2", "AndorT90", "AndorT150"]
+    hsl_L_nonselected = [rgb.to_hsl() for rgb in rgb_L]
+    hsl_L_selected= [rgb.to_hsl() for rgb in rgb_L]
 
-    # instrument_color_L = [bokeh.colors.named.navy, bokeh.colors.named.seagreen, bokeh.colors.named.crimson]
+    for hsl in hsl_L_nonselected:
+        # make non-selected colors lighter and more gray
+        hsl.l = 0.8
+        hsl.s = 0.5
+
+    for hsl in hsl_L_selected:
+        hsl.l = 0.5
     
-    # palette_dark = [bokeh.colors.named.navy.darken(0),
-    #            bokeh.colors.named.green.darken(0),
-    #            bokeh.colors.named.crimson.darken(0.2)]
+    palette_selected = [bokeh.colors.RGB.from_hsl(hsl) for hsl in hsl_L_selected]
+    palette_nonselected = [bokeh.colors.RGB.from_hsl(hsl) for hsl in hsl_L_nonselected]
     
-    # palette_light = [bokeh.colors.named.navy.lighten(0.6), 
-    #                  bokeh.colors.named.green.lighten(0.6), 
-    #                  bokeh.colors.named.crimson.lighten(0.4)]
-    
-    index_cmap = factor_cmap('instrument', 
-                             palette=palette_dark, 
+    index_cmap_selected = factor_cmap('instrument', 
+                             palette=palette_selected, 
                              factors=instruments_L)
     
-    index_cmap_light = factor_cmap('instrument', 
-                                   palette=palette_light, 
+    index_cmap_nonselected = factor_cmap('instrument', 
+                                   palette=palette_nonselected, 
                                    factors=instruments_L)
     
     source = ColumnDataSource(data=dict(pk = pks,
@@ -259,9 +259,9 @@ def plot(request):
                                 "err": ["y1_min", "y1_max"],                                  
                                 "marker":"circle",
                                 "size": 5,
-                                "color": index_cmap,
-                                "selected_color": index_cmap,
-                                "nonselected_color": index_cmap_light,
+                                "color": index_cmap_selected,
+                                "selected_color": index_cmap_selected,
+                                "nonselected_color": index_cmap_nonselected,
                                 "alpha": 0.5,
                                 "selected_alpha": 0.5,
                                 "nonselected_alpha": 0.5,
@@ -273,9 +273,9 @@ def plot(request):
                                 "err": ["y2_min", "y2_max"],
                                 "marker":"circle",
                                 "size": 5,
-                                "color": index_cmap,
-                                "selected_color": index_cmap,
-                                "nonselected_color": index_cmap_light,
+                                "color": index_cmap_selected,
+                                "selected_color": index_cmap_selected,
+                                "nonselected_color": index_cmap_nonselected,
                                 "alpha": 0.5,
                                 "selected_alpha": 0.5,
                                 "nonselected_alpha": 0.5,
@@ -287,9 +287,9 @@ def plot(request):
                                 "err": ["y3_min", "y3_max"],                                  
                                 "marker":"circle",
                                 "size": 5,
-                                "color": index_cmap,
-                                "selected_color": index_cmap,
-                                "nonselected_color": index_cmap_light,
+                                "color": index_cmap_selected,
+                                "selected_color": index_cmap_selected,
+                                "nonselected_color": index_cmap_nonselected,
                                 "alpha": 0.5,
                                 "selected_alpha": 0.5,
                                 "nonselected_alpha": 0.5,
@@ -315,10 +315,10 @@ def plot(request):
         if axLabel == "ax1":
             p.extra_x_ranges["secondary"] = Range1d(*x2_range)
             p_ax_x2 = DatetimeAxis(x_range_name="secondary")
-            p_ax_x2.formatter = DatetimeTickFormatter(months=r"%Y/%m/%d", 
-                                                      days=r"%m/%d %H:%M", 
-                                                      hours=r"%m/%d %H:%M", 
-                                                      minutes=r"%m/%d %H:%M")
+            p_ax_x2.formatter = DatetimeTickFormatter(months=r"%Y/%m/%d",
+                                                days=r"%Y/%m/%d %H:%M",
+                                                hours=r"%Y/%m/%d %H:%M",
+                                                minutes=r"%Y/%m/%d %H:%M")
             p.add_layout(p_ax_x2, 'above')
 
         if axLabel == "ax3":
