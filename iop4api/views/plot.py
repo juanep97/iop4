@@ -17,6 +17,8 @@ from iop4lib.utils import get_column_values
 # other imports
 import os
 import numpy as np
+import scipy as sp
+import pandas as pd
 from astropy.time import Time
 
 #logging
@@ -34,6 +36,10 @@ def plot(request):
     date_start = None if date_start == "" else date_start
     date_end = request.POST.get("date_end", None)
     date_end = None if date_end == "" else date_end
+
+    enable_iop3 = request.POST.get("enable_iop3", False)
+    enable_full_lc = request.POST.get("enable_full_lc", False)
+    enable_errorbars = request.POST.get("enable_errorbars", False)
 
 
     # comment these lines to allow for empty plot
@@ -73,28 +79,39 @@ def plot(request):
         qs = qs.filter(juliandate__lte=Time(date_end).jd)
 
     # iop3? 
-    import pandas as pd
-    iop3_df = pd.read_csv(os.path.expanduser("~/iop3_results.csv"))
-    iop3_idx = (iop3_df["name_IAU"] == source_name) & (iop3_df["filter"] == "R")
-    if date_start is not None:
-        iop3_idx = iop3_idx & (iop3_df["mjd_obs"] >= Time(date_start).mjd)
-    if date_end is not None:
-        iop3_idx = iop3_idx & (iop3_df["mjd_obs"] <= Time(date_end).mjd)
-    iop3_df = iop3_df.loc[iop3_idx]
+    if enable_iop3:
+        iop3_df = pd.read_csv(os.path.expanduser("~/iop3_results.csv"))
+        iop3_idx = (iop3_df["name_IAU"] == source_name) & (iop3_df["filter"] == "R")
+        if date_start is not None:
+            iop3_idx = iop3_idx & (iop3_df["mjd_obs"] >= Time(date_start).mjd)
+        if date_end is not None:
+            iop3_idx = iop3_idx & (iop3_df["mjd_obs"] <= Time(date_end).mjd)
+        iop3_df = iop3_df.loc[iop3_idx]
     
     # choose  the x and y
     if qs.count() > 0:
         vals = get_column_values(qs, column_names)
 
-        vals["instrument"] = np.append(vals["instrument"], list(map(lambda x: "IOP3-"+x, iop3_df["Telescope"])))
-        vals["id"] = np.append(vals["id"], -np.arange(len(iop3_df)))
-        vals["juliandate"] = np.append(vals["juliandate"], Time(iop3_df["mjd_obs"], format="mjd").jd)
-        vals["mag"] = np.append(vals["mag"],  iop3_df['Mag'])
-        vals["mag_err"] = np.append(vals["mag_err"], iop3_df['dMag'])
-        vals["p"] = np.append(vals["p"], iop3_df['P']/100)
-        vals["p_err"] = np.append(vals["p_err"], iop3_df['dP']/100)
-        vals["chi"] = np.append(vals["chi"], iop3_df['Theta'])
-        vals["chi_err"] = np.append(vals["chi_err"], iop3_df['dTheta'])
+        vals["instrument"] = np.array(vals["instrument"])
+        vals["id"] = np.array(vals["id"])
+        vals["juliandate"] = np.array(vals["juliandate"])
+        vals["mag"] = np.array(vals["mag"])
+        vals["mag_err"] = np.array(vals["mag_err"])
+        vals["p"] = np.array(vals["p"])
+        vals["p_err"] = np.array(vals["p_err"])
+        vals["chi"] = np.array(vals["chi"])
+        vals["chi_err"] = np.array(vals["chi_err"])
+
+        if enable_iop3:
+            vals["instrument"] = np.append(vals["instrument"], list(map(lambda x: "IOP3-"+x, iop3_df["Telescope"])))
+            vals["id"] = np.append(vals["id"], -np.arange(len(iop3_df)))
+            vals["juliandate"] = np.append(vals["juliandate"], Time(iop3_df["mjd_obs"], format="mjd").jd)
+            vals["mag"] = np.append(vals["mag"],  iop3_df['Mag'])
+            vals["mag_err"] = np.append(vals["mag_err"], iop3_df['dMag'])
+            vals["p"] = np.append(vals["p"], iop3_df['P']/100)
+            vals["p_err"] = np.append(vals["p_err"], iop3_df['dP']/100)
+            vals["chi"] = np.append(vals["chi"], iop3_df['Theta'])
+            vals["chi_err"] = np.append(vals["chi_err"], iop3_df['dTheta'])
 
         pks = vals['id']
         x1 = Time(vals['juliandate'], format='jd').mjd
@@ -176,9 +193,11 @@ def plot(request):
 
     # Create RangeTool and Selected_range
     selected_range = Range1d(*x1_range)
-    range_tool = RangeTool(x_range=selected_range)
-    range_tool.overlay.fill_color = "navy"
-    range_tool.overlay.fill_alpha = 0.2
+
+    if enable_full_lc:
+        range_tool = RangeTool(x_range=selected_range)
+        range_tool.overlay.fill_color = "navy"
+        range_tool.overlay.fill_alpha = 0.2
 
     # Create a hover tool with custom JS callback
     hover = HoverTool(renderers=[])
@@ -200,34 +219,35 @@ def plot(request):
     tools = ["fullscreen", "reset", "save", "pan", "wheel_zoom", "box_select", "lasso_select"]
     box_zoom_tool = BoxZoomTool(dimensions="auto")
 
-    # Create the main plot with range slider and secondary x-axis, fixed styles of markers
+    if enable_full_lc:
+        # Create the main plot with range slider and secondary x-axis, fixed styles of markers
 
-    # alternatively: # figure(sizing_mode="stretch", width=800, height=200,
-    p_main = figure(x_range=x1_lims, tools="", lod_threshold=lod_threshold, lod_factor=lod_factor, lod_timeout=lod_timeout, output_backend="webgl")  
-    p_main.circle(x='x1', y='y1', source=source, view=view,
-                  size=3, 
-                  line_color=bokeh.colors.named.navy, 
-                  fill_color=bokeh.colors.named.navy, 
-                  selection_line_color=bokeh.colors.named.navy.darken(0.1), 
-                  nonselection_line_color=bokeh.colors.named.navy.lighten(0.55), 
-                  selection_fill_color=bokeh.colors.named.navy.darken(0.1), 
-                  nonselection_fill_color=bokeh.colors.named.navy.lighten(0.55), 
-                  selection_fill_alpha=0.5, 
-                  nonselection_fill_alpha=0.5, 
-                  selection_line_alpha=0.5, 
-                  nonselection_line_alpha=0.5)
+        # alternatively: # figure(sizing_mode="stretch", width=800, height=200,
+        p_main = figure(x_range=x1_lims, tools="", lod_threshold=lod_threshold, lod_factor=lod_factor, lod_timeout=lod_timeout, output_backend="webgl")  
+        p_main.circle(x='x1', y='y1', source=source, view=view,
+                    size=3, 
+                    line_color=bokeh.colors.named.navy, 
+                    fill_color=bokeh.colors.named.navy, 
+                    selection_line_color=bokeh.colors.named.navy.darken(0.1), 
+                    nonselection_line_color=bokeh.colors.named.navy.lighten(0.55), 
+                    selection_fill_color=bokeh.colors.named.navy.darken(0.1), 
+                    nonselection_fill_color=bokeh.colors.named.navy.lighten(0.55), 
+                    selection_fill_alpha=0.5, 
+                    nonselection_fill_alpha=0.5, 
+                    selection_line_alpha=0.5, 
+                    nonselection_line_alpha=0.5)
 
-    p_main.y_range = Range1d(*y1_lims)
+        p_main.y_range = Range1d(*y1_lims)
 
-    p_main.extra_x_ranges["secondary"] = Range1d(*x2_lims)
-    p_main_ax_x2 = DatetimeAxis(x_range_name="secondary", axis_label="Date")
-    p_main_ax_x2.formatter = DatetimeTickFormatter(months=r"%Y/%m/%d",
-                                               days=r"%Y/%m/%d %H:%M",
-                                               hours=r"%Y/%m/%d %H:%M",
-                                               minutes=r"%Y/%m/%d %H:%M")
-    p_main.add_layout(p_main_ax_x2, 'above')
+        p_main.extra_x_ranges["secondary"] = Range1d(*x2_lims)
+        p_main_ax_x2 = DatetimeAxis(x_range_name="secondary", axis_label="Date")
+        p_main_ax_x2.formatter = DatetimeTickFormatter(months=r"%Y/%m/%d",
+                                                days=r"%Y/%m/%d %H:%M",
+                                                hours=r"%Y/%m/%d %H:%M",
+                                                minutes=r"%Y/%m/%d %H:%M")
+        p_main.add_layout(p_main_ax_x2, 'above')
 
-    p_main.add_tools(range_tool)
+        p_main.add_tools(range_tool)
 
     # Create three subplots that show data in the selected range tool of the main plot
 
@@ -285,7 +305,7 @@ def plot(request):
         scatter_nonselected = Scatter(x=axDict['x'], y=axDict['y'], size=axDict["size"], fill_color=axDict["nonselected_color"], line_color=axDict["nonselected_color"], marker=axDict["marker"], fill_alpha=axDict["nonselected_alpha"], line_alpha=axDict["nonselected_alpha"])
         pt_renderers = p.add_glyph(source, scatter_initial, selection_glyph=scatter_initial, nonselection_glyph=scatter_nonselected, view=view, name=f"{axLabel}_scatter_renderer")
 
-        if axDict["err"] is not None:
+        if enable_errorbars and axDict["err"] is not None:
             segs_initial = Segment(x0=axDict['x'], y0=axDict["err"][0], x1=axDict['x'], y1=axDict["err"][1], line_color=axDict["color"], line_alpha=axDict["alpha"])
             # segs_selected = Segment(x0=axDict['x'], y0=axDict["err"][0], x1=axDict['x'], y1=axDict["err"][1], line_color=axDict["selected_color"], line_alpha=axDict["selected_alpha"])
             segs_nonselected = Segment(x0=axDict['x'], y0=axDict["err"][0], x1=axDict['x'], y1=axDict["err"][1], line_color=axDict["nonselected_color"], line_alpha=axDict["nonselected_alpha"])
@@ -317,6 +337,8 @@ def plot(request):
             #p.y_range.start = -0.01
 
         p.yaxis.axis_label = axDict["y_label"]
+        p.title = axDict["y_label"]
+        p.title.visible = False
 
         # Add common hover tool with custom JS callback
         hover.renderers += [pt_renderers] # it has no renderers, append the scatter
@@ -343,7 +365,10 @@ def plot(request):
 
     # Combine plots in a column layout
 
-    plot_layout = gridplot([[p_main], [pltDict["ax1"]["p"]], [pltDict["ax2"]["p"]], [pltDict["ax3"]["p"]]], merge_tools=True, toolbar_location="right", sizing_mode='stretch_both')
+    if enable_full_lc:
+        plot_layout = gridplot([[p_main], [pltDict["ax1"]["p"]], [pltDict["ax2"]["p"]], [pltDict["ax3"]["p"]]], merge_tools=True, toolbar_location="right", sizing_mode='stretch_both')
+    else:
+        plot_layout = gridplot([[pltDict["ax1"]["p"]], [pltDict["ax2"]["p"]], [pltDict["ax3"]["p"]]], merge_tools=True, toolbar_location="right", sizing_mode='stretch_both')
 
     ##############
     # Data table #
@@ -368,16 +393,20 @@ def plot(request):
 
     from bokeh.events import Event, PanStart, PanEnd, Press, PressUp, RangesUpdate
 
-    cb_hide_errorbars = """window.were_errorbars_active = document.querySelector('#cbox_errorbars').checked; plot_hide_errorbars();"""
-    cb_restore_errorbars = """if (window.were_errorbars_active) {plot_show_errorbars();}"""
-    p_main.js_on_event(PanStart, CustomJS(code=cb_hide_errorbars))
-    p_main.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
-    p1.js_on_event(PanStart, CustomJS(code=cb_hide_errorbars))
-    p1.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
-    p2.js_on_event(PanStart, CustomJS(code=cb_hide_errorbars))
-    p2.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
-    p3.js_on_event(PanStart, CustomJS(code=cb_hide_errorbars))
-    p3.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
+    if enable_errorbars:
+        cb_hide_errorbars = """window.were_errorbars_active = document.querySelector('#cbox_errorbars').checked; plot_hide_errorbars();"""
+        cb_restore_errorbars = """if (window.were_errorbars_active) {plot_show_errorbars();}"""
+
+        if enable_full_lc:
+            p_main.js_on_event(PanStart, CustomJS(code=cb_hide_errorbars))
+            p_main.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
+
+        p1.js_on_event(PanStart, CustomJS(code=cb_hide_errorbars))
+        p1.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
+        p2.js_on_event(PanStart, CustomJS(code=cb_hide_errorbars))
+        p2.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
+        p3.js_on_event(PanStart, CustomJS(code=cb_hide_errorbars))
+        p3.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
 
     #################################################
     # Create a legend (it will be a different plot) #
@@ -460,7 +489,10 @@ def plot(request):
                                         'div_table': div_table,
                                         'div_legend': div_legend,
                                     }, 
-                                'n_points':len(x1)
+                                'n_points':len(x1),
+                                'enable_full_lc': enable_full_lc,
+                                'enable_iop3': enable_iop3,
+                                'enable_errorbars': enable_errorbars,
                             })
     
     elif fmt == "json_item":
@@ -468,7 +500,10 @@ def plot(request):
         return JsonResponse({'plot':json_item(plot_layout), 
                              'legend':json_item(legend_layout),
                              'table':json_item(data_table),
-                             'n_points':len(x1)})
+                             'n_points':len(x1),
+                             'enable_full_lc': enable_full_lc,
+                             'enable_iop3': enable_iop3,
+                             'enable_errorbars': enable_errorbars})
     
     elif fmt == "items":
         # to implement my own load process
@@ -476,7 +511,10 @@ def plot(request):
         doc, render_items = standalone_docs_json_and_render_items([plot_layout, data_table, legend_layout])
         return JsonResponse({'doc':doc,
                             'render_items':[item.to_json() for item in render_items],
-                            'n_points':len(x1)})
+                            'n_points':len(x1),
+                            'enable_full_lc': enable_full_lc,
+                            'enable_iop3': enable_iop3,
+                            'enable_errorbars': enable_errorbars})
     
     else:
 

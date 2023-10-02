@@ -65,6 +65,7 @@ function load_source_plot(form_element) {
                     Bokeh.embed.embed_items(plotData.doc, plotData.render_items).then((v) => {
                          plot_update_errorbars_status(); 
                          check_plot_layout();
+                         window.addEventListener('resize', check_plot_layout);
                         });
                 }()
 
@@ -245,33 +246,57 @@ function plot_update_errorbars_status() {
 }
 
 function plot_hide_errorbars() {
-    console.log("Hiding errorbars")
+    if (plotData.enable_errorbars) {
+        console.log("Hiding errorbars")
 
-    for (var i = 1; i <= 3; i++) {
-        // instead of Bokeh.documents.documents[0] becaue if we plot several times without refreshing, the documents add up
-        Bokeh.documents.slice(-1)[0].get_model_by_name(`ax${i}_errorbars_renderer`).visible = false;
+        for (var i = 1; i <= 3; i++) {
+            // instead of Bokeh.documents.documents[0] becaue if we plot several times without refreshing, the documents add up
+            Bokeh.documents.slice(-1)[0].get_model_by_name(`ax${i}_errorbars_renderer`).visible = false;
+        }
+        
+        document.querySelector('#cbox_errorbars').checked = false;
     }
-    
-    document.querySelector('#cbox_errorbars').checked = false;
 }
 
 function plot_show_errorbars() {
-    console.log("Showing errorbars")
+    if (plotData.enable_errorbars) {
 
-    for (var i = 1; i <= 3; i++) {
-        // instead of Bokeh.documents.documents[0] becaue if we plot several times without refreshing, the documents add up
-        Bokeh.documents.slice(-1)[0].get_model_by_name(`ax${i}_errorbars_renderer`).visible = true;
+        console.log("Showing errorbars")
+
+        for (var i = 1; i <= 3; i++) {
+            // instead of Bokeh.documents.documents[0] becaue if we plot several times without refreshing, the documents add up
+            Bokeh.documents.slice(-1)[0].get_model_by_name(`ax${i}_errorbars_renderer`).visible = true;
+        }
+
+        document.querySelector('#cbox_errorbars').checked = true;
     }
-
-    document.querySelector('#cbox_errorbars').checked = true;
 }
 
 function check_plot_layout() {
     if (document.body.clientWidth < 700) {
         Bokeh.documents.slice(-1)[0]._roots[0].toolbar_location = 'above';
+        Bokeh.documents.slice(-1)[0]._roots[0].children[0][0].above[0].ticker.desired_num_ticks = 4;
+        for (let plot of Bokeh.documents.slice(-1)[0]._roots[0].children) {
+            plot[0].left[0].axis_label = "";
+            plot[0].title.visible = true;
+        }
     } else {
         Bokeh.documents.slice(-1)[0]._roots[0].toolbar_location = 'right';
+        Bokeh.documents.slice(-1)[0]._roots[0].children[0][0].above[0].ticker.desired_num_ticks = 5;
+        for (let plot of Bokeh.documents.slice(-1)[0]._roots[0].children) {
+            plot[0].left[0].axis_label = plot[0].title.text;
+            plot[0].title.visible = false;
+        }
     }
+
+    // emit all changes
+    for (let plot of Bokeh.documents.slice(-1)[0]._roots[0].children) {
+        plot[0].left[0].change.emit();
+        plot[0].title.change.emit();
+    }
+
+    Bokeh.documents.slice(-1)[0]._roots[0].children[0][0].above[0].change.emit();
+    Bokeh.documents.slice(-1)[0]._roots[0].children[0][0].change.emit();
 }
 
 function load_catalog() {
