@@ -1,3 +1,4 @@
+# other imports
 import os, pathlib, yaml, logging
 
 import matplotlib, matplotlib.pyplot
@@ -6,7 +7,7 @@ matplotlib.pyplot.set_loglevel('warning')
 
 
 class Config(dict):
-    """ Configuration class for IOP4.
+    r""" Configuration class for IOP4.
     
     This class is a singleton, that is, it always returns the same instance of the class.
 
