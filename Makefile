@@ -15,10 +15,10 @@ help:
 
 
 test:
-	python -m pytest -v
+	python -m pytest -vx tests/
 
 test-cov:
-	python -m pytest -v --cov=iop4lib
+	python -m pytest -vx --cov=iop4lib tests/
 
 docs-sphinx:
 	#cd docs && make clean && make html
