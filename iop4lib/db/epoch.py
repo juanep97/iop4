@@ -7,7 +7,7 @@ from django.db.models import Count, Q
 from django.db.models.functions import Concat
 
 # other imports
-
+from collections.abc import Sequence
 import re
 import os
 import datetime
@@ -681,7 +681,7 @@ class Epoch(models.Model):
 
 # BULK REDUCTION ONE BY ONE
 
-def epoch_bulkreduce_onebyone(reduced_L, epoch=None):
+def epoch_bulkreduce_onebyone(reduced_L: Sequence['ReducedFit'], epoch: Epoch = None) -> None:
     """ Reduces a list of ReducedFit instances one by one."""
     logger.info(f"{epoch}: building {len(reduced_L)} reduced files one by one. This may take a while.")
     for i, redf in enumerate(reduced_L):
