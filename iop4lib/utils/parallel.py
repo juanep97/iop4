@@ -13,6 +13,7 @@ import time
 import time
 import signal
 from logging.handlers import QueueHandler
+import traceback
 
 # iop4lib imports
 from iop4lib.utils import  get_mem_parent_from_child, get_total_mem_from_child, get_mem_current, get_mem_children
@@ -129,7 +130,7 @@ def _epoch_bulkreduce_multiprocessing_worker_timeout_handler(signum, frame):
 
 
 
-def _epoch_bulkreduce_multiprocessing_worker(reduced_fit):
+def _epoch_bulkreduce_multiprocessing_worker(reduced_fit: 'ReducedFit'):
     """ helper func to invoke .build() method of ReducedFit on instances from a multiprocessing pool. 
 
     It needs to be a top-level function, not a method of the class, so it can be pickled and sent to 
@@ -149,12 +150,13 @@ def _epoch_bulkreduce_multiprocessing_worker(reduced_fit):
         reduced_fit.build_file()
         signal.alarm(0) # cancel the alarm
     except Exception as e:
-        logger.error(f"Epoch {reduced_fit.epoch.id}, child pid {os.getpid()}, ReducedFit {reduced_fit.id}: ERROR. Exception was: {e}")
+        logger.error(f"Epoch {reduced_fit.epoch.id}, child pid {os.getpid()}, ReducedFit {reduced_fit.id}: ERROR. Exception was: {e}. Traceback: {traceback.format_exc()}")
     else:
+        with _counter.get_lock():
+            _counter.value += 1
         logger.debug(f"Epoch {reduced_fit.epoch.id}, child pid {os.getpid()}, ReducedFit {reduced_fit.id}: finished building file {_counter.value} / {_Nredf} ({100*_counter.value/_Nredf:.0f}%).")
 
-    with _counter.get_lock():
-        _counter.value += 1
+
 
 
 
