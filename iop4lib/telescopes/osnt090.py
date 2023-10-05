@@ -153,6 +153,10 @@ class OSNT090(Telescope, metaclass=ABCMeta):
     def classify_imgtype_rawfit(cls, rawfit):
         """
         OSN-T090 fits has IMAGETYP keyword: FLAT, BIAS, LIGHT
+
+        .. note::
+        **Sometimes, the IMAGETYP keyword is wrong**, it has LIGHT on it but the filename and the OBJECT keyword contain the word "Flat". In those ocassions, it should be classified as
+        a FLAT.
         """
         from iop4lib.db.rawfit import RawFit
         import astropy.io.fits as fits
@@ -164,6 +168,11 @@ class OSNT090(Telescope, metaclass=ABCMeta):
                 rawfit.imgtype = IMGTYPES.BIAS
             elif hdul[0].header['IMAGETYP'] == 'LIGHT':
                 rawfit.imgtype = IMGTYPES.LIGHT
+                # workarounds for wrong keyword in OSN (see note in docstring)
+                if "FLAT" in hdul[0].header["OBJECT"].upper() and "FLAT" in rawfit.filename.upper():
+                    rawfit.imgtype = IMGTYPES.FLAT
+                elif "BIAS" in hdul[0].header["OBJECT"].upper() and "BIAS" in rawfit.filename.upper():
+                    rawfit.imgtype = IMGTYPES.BIAS
             else:
                 logger.error(f"Unknown image type for {rawfit.fileloc}.")
                 rawfit.imgtype = IMGTYPES.ERROR
@@ -205,7 +214,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
 
         The values for angles are -45, 0, 45 and 90.
 
-        Lately we have seeb "R-45" instead of "R_45", so we have to take care of that too.
+        Lately we have seen "R-45" instead of "R_45", so we have to take care of that too.
         """
 
         from iop4lib.db.rawfit import RawFit
