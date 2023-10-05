@@ -206,7 +206,7 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
             rawfit.rotangle = float(rawfit.header['INSPOROT'])
 
             if rawfit.imgtype == IMGTYPES.BIAS:
-                logger.debug(f"Probabbly not important, but {rawfit.fileloc} is BIAS but has polarimetry keywords, does it makes sense?")
+                logger.debug(f"Probably not important, but {rawfit.fileloc} is BIAS but has polarimetry keywords, does it makes sense?")
         else:
             logger.error("Not implemented, please check the code.")
 
