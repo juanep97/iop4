@@ -97,10 +97,6 @@ def test_build_single_proc(load_test_catalog):
 
     iop4conf.max_concurrent_threads = 1
 
-    from django.db import connection
-    with connection.cursor() as cursor:
-        cursor.execute('PRAGMA journal_mode=WAL;')
-
     epoch.reduce()
 
     assert (ReducedFit.objects.filter(epoch=epoch).count() == 5)
