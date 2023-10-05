@@ -40,4 +40,4 @@ osn_source_list_path: null # <path/to/osn/source/list>
 osn_fnames_patterns: # List of regex patterns. Files matching any of these patterns will be downloaded from OSN. For example, (^BLLac.*\.fits?$) will match file names starting with BLLac and ending in .fit or .fits. You can include your initials here, if you want to download only your files and the observers include it in the file name, e.g. (.*mfz.*\.fits?$) for files containing mfz in the name could belong to Menganito Fulano Zutano.
 - (^Flat.*\.fits?$)
 - (^Bias.*\.fits?$)
-osn_download_all_then_check_owner: null # <str> Alternatively, for OSN, just download all files (^.*\.fits?$) and then remove those that contain this word in the OBSERVER keyword in the header (except for files that contain 'bias' or 'flat' in the name). Leave null for default behaviour.
+# osn_download_all_then_check_owner: null # <str> Alternatively, for OSN, just download all files (^.*\.fits?$) and then remove those that contain this word in the OBSERVER keyword in the header (except for files that contain 'bias' or 'flat' in the name). Leave null for default behaviour.

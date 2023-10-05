@@ -90,11 +90,13 @@ class OSNT090(Telescope, metaclass=ABCMeta):
 
             logger.debug(f"Total of {len(remote_fnameL_all)} files in OSN {epoch.epochname}: {remote_fnameL_all}.")
 
-            if iop4conf.osn_download_all_then_check_owner:                
-                remote_fnameL = remote_fnameL_all
-            else:
-                remote_fnameL = [s for s in remote_fnameL_all if re.compile('|'.join(iop4conf.osn_fnames_patterns)).search(s)] # Filter by filename pattern (get only our files)
-            
+            # if iop4conf.osn_download_all_then_check_owner:                
+            #     remote_fnameL = remote_fnameL_all
+            # else:
+            #     remote_fnameL = [s for s in remote_fnameL_all if re.compile('|'.join(iop4conf.osn_fnames_patterns)).search(s)] # Filter by filename pattern (get only our files)
+
+            remote_fnameL = [s for s in remote_fnameL_all if re.compile('|'.join(iop4conf.osn_fnames_patterns)).search(s)] # Filter by filename pattern (get only our files)
+
             logger.debug(f"Filtered to {len(remote_fnameL)} files in OSN {epoch.epochname}.")
 
             return remote_fnameL
@@ -127,13 +129,13 @@ class OSNT090(Telescope, metaclass=ABCMeta):
     @classmethod
     def classify_rawfit(cls, rawfit):
 
-        if iop4conf.osn_download_all_then_check_owner:
-            import astropy.io.fits as fits
-            with fits.open(rawfit.filepath) as hdul:
-                if iop4conf.osn_download_all_then_check_owner not in hdul[0].header['OBSERVER'] and 'BIAS' not in rawfit.filepath.upper() and 'FLAT' not in rawfit.filepath.upper():
-                    logger.debug(f"File {rawfit.fileloc} is not ours, deleting.")
-                    os.unlink(rawfit.filepath)
-                    rawfit.delete()
+        # if iop4conf.osn_download_all_then_check_owner:
+        #     import astropy.io.fits as fits
+        #     with fits.open(rawfit.filepath) as hdul:
+        #         if iop4conf.osn_download_all_then_check_owner not in hdul[0].header['OBSERVER'] and 'BIAS' not in rawfit.filepath.upper() and 'FLAT' not in rawfit.filepath.upper():
+        #             logger.debug(f"File {rawfit.fileloc} is not ours, deleting.")
+        #             os.unlink(rawfit.filepath)
+        #             rawfit.delete()
 
         super().classify_rawfit(rawfit)
 
