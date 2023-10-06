@@ -1,9 +1,6 @@
 name: CI external server
 
-on:
-  push:
-    branches:
-      - main
+on: [push]
 
 jobs:
   deploy:
