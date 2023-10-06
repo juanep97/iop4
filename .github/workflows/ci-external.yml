@@ -1,16 +1,36 @@
-name: remote ssh command
-on: [push]
-jobs:
+name: CI external server
 
-    build:
-      name: Build
-      runs-on: ubuntu-latest
-      steps:
-      - name: executing remote ssh commands using key
-        uses: appleboy/ssh-action@v1.0.0
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install OpenVPN
+        run: |
+          sudo apt update
+          sudo apt install -y openvpn openvpn-systemd-resolved
+
+      - name: Connect to VPN
+        uses: "kota65535/github-openvpn-connect-action@v2"
         with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.KEY }}
-          port: ${{ secrets.PORT }}
-          script: whoami
+          config_file: .github/workflows/client.ovpn
+          username: ${{ secrets.OVPN_USERNAME }}
+          password: ${{ secrets.OVPN_PASSWORD }}
+          client_key: ${{ secrets.USER_KEY }}
+
+      - name: Use SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with: 
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd go/to/directory
+            git pull
