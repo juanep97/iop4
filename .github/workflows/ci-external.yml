@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install OpenVPN
         run: |
           sudo apt update
@@ -26,11 +26,10 @@ jobs:
           client_key: ${{ secrets.USER_KEY }}
 
       - name: Use SSH
-        uses: appleboy/ssh-action@v1.0.0
+        uses: appleboy/ssh-action@v1
         with: 
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd go/to/directory
-            git pull
+            whoami
