@@ -52,7 +52,7 @@ function load_source_plot(form_element) {
     request.onreadystatechange = function (response) {
         if (request.readyState === 4) {
             if (request.status === 200) {
-                vueApp.addLogEntry("Plot - Resonse OK", "");
+                vueApp.addLogEntry(null, "", "Plot - Resonse OK");
                 // embed plot and the legend, 
                 plotData = JSON.parse(request.responseText);
 
@@ -80,11 +80,10 @@ function load_source_plot(form_element) {
                 // window.addEventListener('resize', check_plot_layout);
 
                 vueApp.$data.showPlot = true;
-                vueApp.$data.C2selectedTab = 'plot';
-                vueApp.addLogEntry("Plot - Info", "Plotted " + plotData.n_points + " points");
+                vueApp.addLogEntry("Plotted " + plotData.n_points + " points", "Plotted " + plotData.n_points + " points", "Plot - Info");
             } else {
-                vueApp.addLogEntry("Plot - Error", request.responseText);
-                vueApp.$data.C2selectedTab = 'log';
+                vueApp.addLogEntry("Error loading plot", request.responseText, "Plot - Error");
+                vueApp.$data.showPlot = false;
             }
         }
     }
@@ -103,13 +102,11 @@ function load_source_datatable(form_element) {
     request.onreadystatechange = function (response) {
         if (request.readyState === 4) {
             if (request.status === 200) {
-                vueApp.addLogEntry("Query - Resonse OK", "");
+                vueApp.addLogEntry(null, "", "Query - Resonse OK");
                 make_nice_table(JSON.parse(request.responseText));
-                vueApp.$data.C2selectedTab = 'data';
                 vueApp.$data.showDataTable = true;
             } else {
-                vueApp.addLogEntry("Query - Error", request.responseText);
-                vueApp.$data.C2selectedTab = 'log';                
+                vueApp.addLogEntry("Error loading data", request.responseText, "Query - Error");
             }
         }
     }
@@ -314,11 +311,96 @@ function load_catalog() {
                                                         style: 'min-width: min-content;',
                                                     }));
             } else {
-                alert("Error loading catalog");
+                Quasar.Notify.create("Error loading catalog");
             }
         }
     }
 
     request.open('GET', "/iop4/api/catalog/", true);
     request.send();
+}
+
+
+function load_pipeline_log() {
+    const decoder = new TextDecoder('utf-8');
+    
+    let output = '';
+
+    fetch('/iop4/api/log/')
+        .then(response => {
+            vueApp.$data.pipeline_log.isLoaded = false;
+            const reader = response.body.getReader();
+            return new ReadableStream({
+                start(controller) {
+                function push() {
+                    reader.read().then(({ done, value }) => {
+                        if (done) {
+                            controller.close();
+                            vueApp.$data.pipeline_log.isLoaded = true;
+                            vueApp.$data.pipeline_log.data = output;
+                            show_pipeline_log();
+                            return;
+                        }
+                        output += decoder.decode(value);
+                        push();
+                    });
+                }
+                push();
+            }
+        });
+    });
+}
+
+function extractTextFromHTML(html) {
+    let parser = new DOMParser();
+    let doc = parser.parseFromString(html, 'text/html');
+    return doc.body.textContent || "";
+}
+
+highlight_parser = new DOMParser();
+
+function highlightTextInHTML(html, re_expr) {
+    let doc = highlight_parser.parseFromString(html, 'text/html');
+
+    //if (re_expr.test(doc.textContent)) {
+        doc.body.querySelectorAll('*').forEach(el => {
+            // Check if it's a innermost text node
+            if (el.childNodes.length === 1 && el.firstChild.nodeType === 3) { 
+                el.innerHTML = el.innerHTML.replaceAll(re_expr, function(match) {
+                    return `<span class="highlight">${match}</span>`;
+                });
+            }
+        });
+    //}
+
+    return doc.body.innerHTML;
+}
+
+function highlightTextInHTML2(html, re_expr) {
+    return html.replaceAll(re_expr, function(match) {
+        return `<span class="highlight">${match}</span>`;
+    });
+}
+
+function show_pipeline_log() {
+    vueApp.$data.pipeline_log.items = vueApp.$data.pipeline_log.data.split('\n').filter((txt) => {
+        // if the filter text is not empty, hide lines that do not contain it
+        if ((vueApp.$data.pipeline_log_options.filter_text != null) && (vueApp.$data.pipeline_log_options.filter_text != '') && (vueApp.$data.pipeline_log_options.filter_text.length > 2)) {
+            if (!extractTextFromHTML(txt).toUpperCase().includes(vueApp.$data.pipeline_log_options.filter_text.toUpperCase())) { return false; }
+        }
+        // show only lines of the selected logging levels
+        if ((txt.includes('ERROR')) && (vueApp.$data.pipeline_log_options.errors)){ return true; }
+        if ((txt.includes('WARNING')) && (vueApp.$data.pipeline_log_options.warnings)){ return true; }
+        if ((txt.includes('INFO')) && (vueApp.$data.pipeline_log_options.info)){ return true; }
+        if ((txt.includes('DEBUG')) && (vueApp.$data.pipeline_log_options.debug)){ return true; }
+        return false
+    });
+    
+    // if the filter text is not empty, highlight the text
+    if ((vueApp.$data.pipeline_log_options.filter_text != null) && (vueApp.$data.pipeline_log_options.filter_text != '' && vueApp.$data.pipeline_log_options.filter_text.length > 2)) {
+        re_expr = new RegExp(vueApp.$data.pipeline_log_options.filter_text, 'gi');
+        for (let i = 0; i < vueApp.$data.pipeline_log.items.length; i++) {
+            vueApp.$data.pipeline_log.items[i] = highlightTextInHTML2(vueApp.$data.pipeline_log.items[i], re_expr);
+        }
+    }
 }

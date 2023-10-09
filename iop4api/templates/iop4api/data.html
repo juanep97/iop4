@@ -1,0 +1,25 @@
+<form id="data_astrosource_form" class="centered styled-box"  style="padding:16px;" onsubmit="load_source_datatable(this); return false;">
+    {% csrf_token %}
+    <div class="form-row wrappable">
+        <label>Select a source from the catalog:</label>
+        <div class="f-row">
+            <input v-model="input_astrosource"  type="text" name="source_name" list="source_name_list" placeholder="source (↓ to list)" title="Select a source from the catalog" required>
+            <input class="button inline" type="button" value="query" onclick="load_source_datatable(this.form);">
+        </div>
+    </div>
+</form>
+<div v-show="showDataTable" id="tableControlsContainer">
+    <button class="button" id="download-csv">Download as csv</button>
+    <button class="button" id="download-pdf">Download as pdf</button>
+    <button class="button" id="column-visibilities" onclick="show_column_visibility_modal_form()">Toggle columns</button>
+    <!-- Column modal form -->
+    <div id="column_visibility_modal_form" class="modal">
+        <div class="modal-content">
+            <div class="modal_header"><span class="close" onclick="close_column_visibility_modal_form()">&times; Close</span></div>
+            <div class="modal_body"><p>modal body</p></div>
+            <div class="modal_footer"></div>
+        </div>
+    </div>
+    <!-- ################## -->
+</div>
+<div v-show="showDataTable" id="tableContainerDiv"><div id="tableDiv"></div></div>

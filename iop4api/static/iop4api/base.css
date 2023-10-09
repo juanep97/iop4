@@ -30,6 +30,9 @@ html, body, h1, h2, h3, h4, h5, h6, p, button, img, input, code, article, legend
     /* General styles */
     --font-family: Arial, sans-serif;
     --font-size: 16px;
+
+    /* Plot (and main content nice height) */
+    --nice-height: max(500px, calc(100vh - var(--navbar-scrolled-height) - 2 * var(--tab-content-padding) - 1px))
 }
 
 @media (max-width: 800px) {
@@ -425,6 +428,19 @@ form label {
     font-size: smaller;
 }
 
+.pipeline-log-entry {
+    line-height: 12px !important;
+    padding: 2px !important;
+    font-size: 10px !important;
+}
+.pipeline-log-entry .highlight {
+    background-color: rgba(204, 240, 40, 0.919);
+}
+
+#log-file-content {
+    height: calc(var(--nice-height) - 4em);
+}
+
 /* PLOT TAB */
 
 #plot-tab {
@@ -534,8 +550,8 @@ form label {
 }
 
 #plotContainerDiv {
-    min-height: max(500px, calc(100vh - var(--navbar-scrolled-height) - 2 * var(--tab-content-padding) - 1px));
-    max-height: max(500px, calc(100vh - var(--navbar-scrolled-height) - 2 * var(--tab-content-padding) - 1px));
+    min-height: var(--nice-height);
+    max-height: var(--nice-height);
     margin-bottom: 0;
     padding: 16px 16px 16px 4px;
     /* visibility: hidden; */

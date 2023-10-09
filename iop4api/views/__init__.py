@@ -13,8 +13,9 @@ from ..models import *
 
 # IOP4API 
 
-from .others import index, login_view, logout_view, catalog, data
+from .index import index
 from .plot import plot
-
-# IOP4ADMIN VIEWs
-
+from .catalog import catalog
+from .data import data
+from .auth import login_view, logout_view
+from .log import log

@@ -104,12 +104,15 @@
                     enable_full_lc: false,
                     enable_iop3: false,
                     enable_errorbars: false,
-                    // data,
+                    // data
                     showDataTable: false,
                     // catalog
                     catalog: null,
-                    // query,
+                    // query
                     input_astrosource: '',
+                    // logs
+                    pipeline_log: {'isLoaded': false, 'data': null, items:[]},
+                    pipeline_log_options: {'errors':true, 'warnings':true, 'info':true, 'debug':false, 'filter_text': null},
                 }
             },
             watch: {
@@ -128,23 +131,21 @@
                         if ((this.catalog == null) & (newVal == 'catalog')) {
                                 load_catalog();
                         }
+                        if ((this.pipeline_log.data == null) & (newVal == 'logs')) {
+                                load_pipeline_log();
+                        }
                     },
                     immediate: true
                 },
-                {% comment %} // plot_config_fast
-                plot_config_fast(newVal, oldVal) {
-                    if (newVal) {
-                        document.querySelectorAll('#plot_config_fast_checkboxes input[type="checkbox"]').forEach((checkbox) => {
-                            checkbox.checked = false;
-                            checkbox.disabled = true;
-                        });
-                    } else {
-                        document.querySelectorAll('#plot_config_fast_checkboxes input[type="checkbox"]').forEach((checkbox) => {
-                            checkbox.checked = true;
-                            checkbox.disabled = false;
-                        });
-                    }
-                } {% endcomment %}
+                pipeline_log_options: {
+                    handler(newValue, oldValue) {
+                        if (this.pipeline_log.isLoaded) {
+                            show_pipeline_log();
+                        }
+                        this.pipeline_log_options.filter_timeout = null;
+                    },
+                    deep: true
+                },
             },
             methods: {
                 // Update the URL based on the selected tabs
@@ -160,9 +161,12 @@
                     window.history.pushState({}, '', newURL);
                 },
                 // Add a new entry to the log
-                addLogEntry(title, content) {
+                addLogEntry(title, content, log_title=null) {
+                    if (title != null) {
+                        Quasar.Notify.create(title);
+                    }
                     this.logEntries.push({
-                        title: title,
+                        title: (log_title != null)? log_title : title,
                         dateTime: getCurrentDateTime(),
                         content: content,
                     });
@@ -174,7 +178,7 @@
             },
         }).use(Quasar).mount('#app')
 
-        Quasar.iconSet.set(Quasar.iconSet.materialIconsOutlined);
+        //Quasar.iconSet.set(Quasar.iconSet.materialIconsOutlined);
 
     </script>
 
