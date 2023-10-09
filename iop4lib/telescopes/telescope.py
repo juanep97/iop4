@@ -375,6 +375,11 @@ class Telescope(metaclass=ABCMeta):
 
             # logger.debug(f"{self}: {result.flux_counts=}")
 
+            if result.flux_counts is None:
+                logger.error(f"{redf}: during relative photometry, encountered flux_counts=None for source {astrosource.name}, aperphotresult {aperphotresult.id}!!!")
+                result.flux_counts = np.nan
+                result.flux_counts_err = np.nan
+
             if result.flux_counts <= 0.0:
                 logger.warning(f"{redf}: negative flux counts encountered while relative photometry for {astrosource=} ??!! They will be nans, but maybe we should look into this...")
 
