@@ -31,7 +31,7 @@ COPY . /iop4
 WORKDIR /iop4
 
 # Install IOP4
-RUN pip install .
+RUN pip install .[test]
 
 # Run tests
 RUN make test
