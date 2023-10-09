@@ -5,19 +5,16 @@ iop4conf = iop4lib.Config(config_db=False)
 
 
 # django imports
-from django.shortcuts import render
 from django.http import JsonResponse, HttpResponseBadRequest
-from django.shortcuts import render
 from django.contrib.auth.decorators import permission_required
 
 # iop4lib imports
-from ..models import *
+from iop4lib.db import PhotoPolResult, AstroSource
 from iop4lib.utils import get_column_values
 
 # other imports
 import os
 import numpy as np
-import scipy as sp
 import pandas as pd
 from astropy.time import Time
 

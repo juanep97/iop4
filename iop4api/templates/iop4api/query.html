@@ -1,0 +1,15 @@
+<form id="query_astrosource_form" class="styled-box centered"  onsubmit="load_source_plot(this); load_source_datatable(this); return false;">
+    {% csrf_token %}
+    <div>
+        <div class="form-block">
+            <label>Select a source from the catalog:</label>
+            <input v-model="input_astrosource" type="text" name="source_name" list="source_name_list" placeholder="source (↓ to list)" title="Select a source from the catalog" required>
+        </div>
+        <div class="form-block">
+            <div class="form-row">
+                <input class="button" type="button" value="plot" onclick="load_source_plot(this.form);">
+                <input class="button" type="button" value="query" onclick="load_source_datatable(this.form);">
+            </div>
+        </div>
+    </div>
+</form>

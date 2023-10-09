@@ -75,7 +75,7 @@ class AstroSource(models.Model):
     class Meta:
         app_label = 'iop4api'
         verbose_name = "AstroSource"
-        verbose_name_plural = "Catalog"
+        verbose_name_plural = "AstroSources"
     
     # repr and str
 

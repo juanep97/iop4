@@ -1,0 +1,63 @@
+<div class="f-row wrappable">
+    <div class="f-row wrappable smallest nice-width centered">
+        <div class="f-row wrappable column-at-top row-at-center">
+            <div class="f-row">
+                <form id="plot_astrosource_form" class="f-cell fit centered styled-box"  onsubmit="load_source_plot(this); return false;">
+                    {% csrf_token %}
+                    <div class="form-block">
+                        <div class="form-row">
+                            <label>Select a source from the catalog:</label>
+                        </div>
+                        <div class="form-row">
+                            <input v-model="input_astrosource" type="text" name="source_name" list="source_name_list" placeholder="source (↓ to list)" title="Select a source from the catalog" required>
+                            <input class="button" type="button" :value="[[ showPlot ? 'again' : 'plot' ]]" onclick="load_source_plot(this.form);">
+                        </div>
+                        <div class="form-row wrappable">
+                            <input v-model="input_date_start" type="text" name="date_start" placeholder="From..." title="Select a start date (yyyy-mm-dd HH:MM)">
+                            <input v-model="input_date_end" type="text" name="date_end" placeholder="To..." title="Select an end date (yyyy-mm-dd HH:MM)">
+
+                            <label><q-toggle v-model="plot_config_fast" color="blue"/><span>fast</span></label>
+                            <input type="checkbox" style="display:none" name="plot_config_fast" v-model="plot_config_fast" hidden />
+                        </div>
+                        <q-list padding bordered class="rounded-borders">
+                            <q-expansion-item
+                              dense
+                              header-style="height: 1.5em; min-height: 1em !important;"
+                              icon="settings"
+                              label="Other settings"
+                            >
+                              <q-card>
+                                <q-card-section style="padding: 8px 16px 0 16px;">
+                                    <div class="form-row wrappable" id="plot_config_fast_checkboxes">
+                                        <div><label><input type="checkbox" name="enable_full_lc" v-model="enable_full_lc" :disabled="plot_config_fast"/><span style="margin-left: 0.8em;">Full curve</span></label></div>
+                                        <div><label><input type="checkbox" name="enable_errorbars" v-model="enable_errorbars" :disabled="plot_config_fast"/><span style="margin-left: 0.8em;">Errorbars</span></label></div>
+                                        <div><label><input type="checkbox" name="enable_iop3" v-model="enable_iop3" :disabled="plot_config_fast"/><span style="margin-left: 0.8em;">IOP3</span></label></div>
+                                    </div>
+                                </q-card-section>
+                              </q-card>
+                            </q-expansion-item>
+                        </q-list>
+                        <input type="submit" style="display:none" hidden />
+                    </div>
+                </form>
+            </div> 
+            <div v-show="showPlot" class="f-row">
+                <div v-show="showPlot" id="plotControlsContainerDiv" class="f-cell fit centered styled-box" style="display: none;">
+                    <div id="controls" style="margin-bottom: 16px;"><label>Toggle errorbars <input onclick="plot_update_errorbars_status();" id="cbox_errorbars" type="checkbox" :disabled="!(enable_errorbars)" checked/></label></div>
+                    <p>Click on an instrument or flag label to hide it in the plot.</p>
+                    <div id="legendDiv"></div>
+                </div>
+            </div>
+            <div v-show="showPlot" class="f-row centered">
+                <div v-show="showPlot" id="plotTableContainerDiv" class="f-cell styled-box">
+                    <div id="tablePlotDiv"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div v-show="showPlot" class="f-row nice-width centered">
+        <div v-show="showPlot" id="plotContainerDiv" class="f-cell styled-box">
+            <div id="plotDiv"></div>
+        </div>
+    </div>
+</div>
