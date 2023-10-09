@@ -18,15 +18,15 @@ jobs:
         uses: "kota65535/github-openvpn-connect-action@v2"
         with:
           config_file: .github/workflows/client.ovpn
-          username: ${{ secrets.OVPN_USERNAME }}
-          password: ${{ secrets.OVPN_PASSWORD }}
-          client_key: ${{ secrets.USER_KEY }}
+          username: ${{ secrets.VPN_USERNAME }}
+          password: ${{ secrets.VPN_PASSWORD }}
 
       - name: Use SSH
         uses: appleboy/ssh-action@v1.0.0
         with: 
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.KEY }}
+          port: ${{ secrets.PORT }}
           script: |
             whoami
