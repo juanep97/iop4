@@ -7,6 +7,7 @@ from iop4api.models import *
 class IOP4AdminSite(admin.AdminSite):
     site_title = "IOP4 admin"
     site_header = 'IOP4 admin site'
+    site_url = "/iop4/"
     index_title = 'Welcome to IOP4 admin site'
     
 iop4admin_site = IOP4AdminSite(name='iop4admin')
