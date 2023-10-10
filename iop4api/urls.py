@@ -26,5 +26,6 @@ urlpatterns = [
     path('api/data/', views.data, name='data'),
     path('api/catalog/', views.catalog, name='catalog'),
     path('api/log/', views.log, name='log'),
+    path('api/test/', views.test, name='test'),  # make the view accessible in some url 
     path('<tabs:tabs>/', views.index, name='index'),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
