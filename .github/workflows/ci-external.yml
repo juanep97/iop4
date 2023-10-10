@@ -9,24 +9,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Install OpenVPN
+      - name: Run API endpoint test
         run: |
-          sudo apt update
-          sudo apt install -y openvpn openvpn-systemd-resolved
-
-      - name: Connect to VPN
-        uses: "kota65535/github-openvpn-connect-action@v2"
-        with:
-          config_file: .github/workflows/client.ovpn
-          username: ${{ secrets.VPN_USERNAME }}
-          password: ${{ secrets.VPN_PASSWORD }}
-
-      - name: Use SSH
-        uses: appleboy/ssh-action@v1.0.0
-        with: 
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.KEY }}
-          port: ${{ secrets.PORT }}
-          script: |
-            whoami
+          curl -i -s -H "Content-type: application/json" -H "Accept: application/json" 'http://localhost:8000/iop4/api/test/'
