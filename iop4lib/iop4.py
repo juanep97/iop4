@@ -68,7 +68,7 @@ def process_epochs(epochname_list, force_rebuild, check_remote_list):
 
 def discover_new_epochs(add_local_epochs_to_list=False):
 
-    new_epochnames = set()   
+    new_epochnames_all = set()   
 
     for tel_cls in Telescope.get_known():
         print(f"Listing remote epochs for {tel_cls.name}...")
@@ -83,12 +83,14 @@ def discover_new_epochs(add_local_epochs_to_list=False):
 
         print(f"Found {len(local_epochnames)} epochs for {tel_cls.name} in local raw archive.")
 
-        new_epochnames = set(remote_epochnames).difference(local_epochnames)
+        if not add_local_epochs_to_list:
+            new_epochnames = set(remote_epochnames).difference(local_epochnames)
+            
         print(f"New epochs discovered in {tel_cls.name} (n={len(new_epochnames)}): {new_epochnames}")
 
-        new_epochnames = new_epochnames.union(new_epochnames)
+        new_epochnames_all = new_epochnames_all.union(new_epochnames)
     
-    return new_epochnames
+    return new_epochnames_all
 
 
 
