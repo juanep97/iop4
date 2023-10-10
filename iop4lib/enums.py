@@ -43,6 +43,7 @@ class INSTRUMENTS(models.TextChoices):
     CAFOS = 'CAFOS2.2', "CAFOS2.2"
     AndorT90 = 'AndorT90', "AndorT90"
     AndorT150 = 'AndorT150', "AndorT150"
+    DIPOL1 = 'DIPOL-1', "DIPOL-1"
 
 class TELESCOPES(models.TextChoices):
     """
