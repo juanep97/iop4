@@ -33,8 +33,6 @@ class AdminReducedFit(AdminFitFile):
         "band",
         "imgsize",
     )
-
-
     
     @admin.display(description='OPTIONS')
     def options(self, obj):
@@ -42,18 +40,6 @@ class AdminReducedFit(AdminFitFile):
         url_details = reverse('iop4admin:iop4api_reducedfit_details', args=[obj.id])
         url_viewer= reverse('iop4admin:iop4api_reducedfit_viewer', args=[obj.id])
         return format_html(rf'<a href="{url_rawfit}">raw</a> / <a href="{url_details}">details</a> / <a href="{url_viewer}">advanced viewer</a>')
-    
-    @admin.display(description='TELESCOPE')
-    def telescope(self, obj):
-        return obj.epoch.telescope
-    
-    @admin.display(description='NIGHT')
-    def night(self, obj):
-        return obj.epoch.night
-    
-    @admin.display(description='FILENAME')
-    def filename(self, obj):
-        return obj.filename
     
     @admin.display(description='IMGSIZE')
     def imgsize(self, obj):
@@ -74,10 +60,6 @@ class AdminReducedFit(AdminFitFile):
     @admin.display(description='EXPTIME')
     def exptime(self, obj):
         return obj.exptime
-
-    @admin.display(description='STATUS')
-    def status(self, obj):
-        return ", ".join(obj.flag_labels)
     
     @admin.display(description='SRCS IN FIELD')
     def get_targets_in_field(self, obj):
