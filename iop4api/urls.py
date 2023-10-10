@@ -6,7 +6,6 @@ from . import views
 
 app_name = "iop4api"
 
-
 class TabsConverter:
     regex = '.*'
 
@@ -26,5 +25,6 @@ urlpatterns = [
     path('api/plot/', views.plot, name='plot'),
     path('api/data/', views.data, name='data'),
     path('api/catalog/', views.catalog, name='catalog'),
+    path('api/log/', views.log, name='log'),
     path('<tabs:tabs>/', views.index, name='index'),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

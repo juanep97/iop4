@@ -7,7 +7,7 @@ from django.db.models import Count, Q
 from django.db.models.functions import Concat
 
 # other imports
-
+from collections.abc import Sequence
 import re
 import os
 import datetime
@@ -395,9 +395,7 @@ class Epoch(models.Model):
 
             for rawfit in rawfits:
                 rawfit.procure_local_file()
-                rawfit.classify()
 
-            self.rawfits.set(rawfits)
         else:
             logger.error("Epoch not listed, not linking rawfits.")
 
@@ -408,7 +406,7 @@ class Epoch(models.Model):
 
     def get_summary_rawfits_status(self):
         """
-            Returns Flag() object if common to all fits
+            Returns list of flags present in the rawfits of this epoch.
         """
         from iop4lib.db import RawFit
 
@@ -683,7 +681,7 @@ class Epoch(models.Model):
 
 # BULK REDUCTION ONE BY ONE
 
-def epoch_bulkreduce_onebyone(reduced_L, epoch=None):
+def epoch_bulkreduce_onebyone(reduced_L: Sequence['ReducedFit'], epoch: Epoch = None) -> None:
     """ Reduces a list of ReducedFit instances one by one."""
     logger.info(f"{epoch}: building {len(reduced_L)} reduced files one by one. This may take a while.")
     for i, redf in enumerate(reduced_L):

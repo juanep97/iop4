@@ -9,6 +9,7 @@ import psutil
 import numpy as np
 import scipy as sp
 import scipy.stats 
+import math
 
 import logging
 logger = logging.getLogger(__name__)
@@ -110,7 +111,7 @@ def get_total_mem_from_child():
 
 # Function to get target FWHM
 
-def get_target_fwhm_aperpix(redfL):
+def get_target_fwhm_aperpix(redfL, reductionmethod=None):
     r"""estimate an appropriate common aperture for a list of reduced fits.
     
     It fits the target source profile in the fields and returns some multiples of the fwhm which are used as the aperture and as the inner and outer radius of the annulus for local bkg estimation).
@@ -138,29 +139,46 @@ def get_target_fwhm_aperpix(redfL):
     fwhm_L = list()
 
     for redf in redfL:
-        xycen = centroid_quadratic(redf.mdata, *target.coord.to_pixel(redf.wcs), (15,15), search_boxsize=(5,5))
+        try:
+            xycen = centroid_quadratic(redf.mdata, *target.coord.to_pixel(redf.wcs), (15,15), search_boxsize=(5,5))
+        except Exception as e:
+            logger.warning(f"ReducedFit {redf.id} {target.name}: centroid_quadatric failed, using target.coord.to_pixel(redf.wcs), probably wrong")
+            xycen = target.coord.to_pixel(redf.wcs)
+
         if not all(np.isfinite(xycen)):
             xycen = target.coord.to_pixel(redf.wcs)
 
-        pxs = np.arange(30)
+        try:
+            pxs = np.arange(30)
 
-        rp = RadialProfile(redf.mdata, xycen, pxs)
+            rp = RadialProfile(redf.mdata, xycen, pxs)
 
-        fit = fitting.LevMarLSQFitter()
+            fit = fitting.LevMarLSQFitter()
 
-        # moffat = Moffat1D(x_0=0, amplitude=max(rp.profile)) + Const1D(min(rp.profile))
-        # moffat[0].x_0.fixed = True
-        # moffat_fit = fit(moffat, rp.radius, rp.profile)
+            # moffat = Moffat1D(x_0=0, amplitude=max(rp.profile)) + Const1D(min(rp.profile))
+            # moffat[0].x_0.fixed = True
+            # moffat_fit = fit(moffat, rp.radius, rp.profile)
 
-        gaussian = Gaussian1D(amplitude=max(rp.profile), mean=0, stddev=1) + Const1D(min(rp.profile))
-        gaussian[0].mean.fixed = True
-        gaussian_fit = fit(gaussian, rp.radius, rp.profile)
+            gaussian = Gaussian1D(amplitude=max(rp.profile), mean=0, stddev=1) + Const1D(min(rp.profile))
+            gaussian[0].mean.fixed = True
+            gaussian_fit = fit(gaussian, rp.radius, rp.profile)
 
-        logger.debug(f"{target.name}: Gaussian FWHM: {gaussian_fit[0].fwhm:.1f} px")
-        # logger.debug(f"{target.name}: Moffat FWHM: {moffat_fit[0].fwhm:.1f} px")
+            logger.debug(f"{target.name}: Gaussian FWHM: {gaussian_fit[0].fwhm:.1f} px")
+            # logger.debug(f"{target.name}: Moffat FWHM: {moffat_fit[0].fwhm:.1f} px")
 
-        # list.append(fwhm_L, (moffat_fit[0].fwhm+gaussian_fit[0].fwhm)/2)
+            # list.append(fwhm_L, (moffat_fit[0].fwhm+gaussian_fit[0].fwhm)/2)
 
-        fwhm_L.append(gaussian_fit[0].fwhm)
+            fwhm_L.append(gaussian_fit[0].fwhm)
+        except Exception as e:
+            logger.warning(f"ReducedFit {redf.id} {target.name}: error in gaussian fit, skipping this reduced fit")
 
-    return np.mean(fwhm_L), 3.0*np.mean(fwhm_L), 6.0*np.mean(fwhm_L), 9.0*np.mean(fwhm_L)
+    if len(fwhm_L) > 0:
+        mean_fwhm = np.mean(fwhm_L)
+    else:
+        logger.error(f"Could not find an appropriate aperture for Reduced Fits {[redf.id for redf in redfL]}, using standard fwhm of 3.5px")
+        mean_fwhm = 3.5
+
+    sigma = mean_fwhm / (2*np.sqrt(2*math.log(2)))
+    r = sigma
+    
+    return mean_fwhm, 5.0*r, 15.0*r, 20.0*r

@@ -12,7 +12,7 @@ from pathlib import Path
 
 TEST_CONFIG = str(Path(iop4conf.datadir) / "config.tests.yaml")
 TESTDATA_FPATH = str(Path("~/iop4testdata.tar.gz").expanduser())
-TESTDATA_MD5SUM = '2ee0de4eda7494b472d8223024bdf369'
+TESTDATA_MD5SUM = '2c6986919012bd4c8ccf99e3a058855e'
 TEST_DATADIR = str(Path(iop4conf.datadir) / "iop4testdata")
 TEST_DB_PATH = str(Path(iop4conf.db_path).expanduser().parent / ("test_" + str(Path(iop4conf.db_path).name)))
 
@@ -71,7 +71,7 @@ def setUpClass():
             f.write(yaml.safe_dump(dict(iop4conf)))
     except Exception as e:
         raise Exception(f"Error creating test config file: {e}")
-    
+
     # check if test data dir is the right one, else exist inmediately (to avoid deleting wrong dir)
     if Path(iop4conf.datadir).name != "iop4testdata":
         print("DANGER!")
