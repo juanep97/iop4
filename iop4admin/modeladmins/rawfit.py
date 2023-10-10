@@ -31,17 +31,6 @@ class AdminRawFit(AdminFitFile):
             "imgsize",
         )
     
-
-    
-    def telescope(self, obj):
-        return obj.epoch.telescope
-    
-    def night(self, obj):
-        return obj.epoch.night
-    
-    @admin.display(description='STATUS')
-    def status(self, obj):
-        return ", ".join(obj.flag_labels)
     
     @admin.display(description='OPTIONS')
     def options(self, obj):

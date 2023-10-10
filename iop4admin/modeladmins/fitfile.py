@@ -24,6 +24,22 @@ logger = logging.getLogger(__name__)
     
 class AdminFitFile(admin.ModelAdmin):
     
+    @admin.display(description='TELESCOPE', ordering='epoch__telescope')
+    def telescope(self, obj):
+        return obj.epoch.telescope
+    
+    @admin.display(description='NIGHT', ordering='epoch__night')
+    def night(self, obj):
+        return obj.epoch.night
+    
+    @admin.display(description='FILENAME', ordering='filename')
+    def filename(self, obj):
+        return obj.filename
+
+    @admin.display(description='STATUS')
+    def status(self, obj):
+        return ", ".join(obj.flag_labels)
+    
     def get_urls(self):
         urls = super().get_urls()
         my_urls = [
