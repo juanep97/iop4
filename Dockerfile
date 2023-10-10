@@ -18,7 +18,7 @@ RUN . /opt/conda/etc/profile.d/conda.sh \
 ENV HOME /home/testuser
 
 # Location of astrometry files
-VOLUME $HOME/iop4
+VOLUME $HOME/.astrometry_cache/
 
 # Copy IOP4 test dataset
 COPY iop4testdata.tar.gz $HOME/iop4testdata.tar.gz
@@ -28,7 +28,7 @@ COPY . /app
 WORKDIR /app
 
 # Install IOP4
-RUN pip install .[test]
+RUN pip install -e .[test]
 
 # Run tests
 ENTRYPOINT ["pytest"]
