@@ -1,23 +1,12 @@
-FROM condaforge/miniforge3:latest
+FROM condaforge/miniforge3:latest as base
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Basic packages
 RUN apt-get update && apt-get upgrade -y && apt-get install -y \
-    apt-utils gcc g++ openssh-server cmake build-essential
+    build-essential && apt-get clean
 
-RUN apt-get install -y bzip2 wget gnupg dirmngr apt-transport-https \
-	ca-certificates openssh-server && \
-    apt-get clean
-
-#setup ssh
-RUN mkdir /var/run/sshd && \
-    echo 'root:root_pwd' |chpasswd && \
-    sed -ri 's/^#?PermitRootLogin\s+.*/PermitRootLogin yes/' \
-    /etc/ssh/sshd_config && \
-    sed -ri 's/UsePAM yes/#UsePAM yes/g' /etc/ssh/sshd_config && \
-    mkdir /root/.ssh
-
-#remove setup leftovers
+# Remove setup leftovers
 RUN rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # IOP4 setup for testing
@@ -25,13 +14,21 @@ RUN . /opt/conda/etc/profile.d/conda.sh \
     && mamba create -n iop4-test python=3.10 \
     && conda activate iop4-test
 
-# Clone the repository and checkout to the branch of current PR
-COPY . /iop4
+# Define $HOME as required by IOP4 tests
+ENV HOME /home/testuser
 
-WORKDIR /iop4
+# Location of astrometry files
+VOLUME $HOME/iop4
+
+# Copy IOP4 test dataset
+COPY iop4testdata.tar.gz $HOME/iop4testdata.tar.gz
+
+# Copy current branch
+COPY . /app
+WORKDIR /app
 
 # Install IOP4
 RUN pip install .[test]
 
 # Run tests
-RUN make test
+ENTRYPOINT ["pytest"]
