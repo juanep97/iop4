@@ -71,22 +71,22 @@ def discover_new_epochs(add_local_epochs_to_list=False):
     new_epochnames_all = set()   
 
     for tel_cls in Telescope.get_known():
-        print(f"Listing remote epochs for {tel_cls.name}...")
+        logger.info(f"Listing remote epochs for {tel_cls.name}...")
         
         remote_epochnames = tel_cls.list_remote_epochnames()
-        print(f"Found {len(remote_epochnames)} remote epochs for {tel_cls.name}.")
+        logger.info(f"Found {len(remote_epochnames)} remote epochs for {tel_cls.name}.")
 
         if os.path.isdir(f"{iop4conf.datadir}/raw/{tel_cls.name}/"):
             local_epochnames = [f"{tel_cls.name}/{night}" for night in os.listdir(f"{iop4conf.datadir}/raw/{tel_cls.name}/")]
         else:
             local_epochnames = list()
 
-        print(f"Found {len(local_epochnames)} epochs for {tel_cls.name} in local raw archive.")
+        logger.info(f"Found {len(local_epochnames)} epochs for {tel_cls.name} in local raw archive.")
 
         if not add_local_epochs_to_list:
             new_epochnames = set(remote_epochnames).difference(local_epochnames)
             
-        print(f"New epochs discovered in {tel_cls.name} (n={len(new_epochnames)}): {new_epochnames}")
+        logger.info(f"New epochs discovered in {tel_cls.name} (n={len(new_epochnames)}): {new_epochnames}")
 
         new_epochnames_all = new_epochnames_all.union(new_epochnames)
     
@@ -107,10 +107,10 @@ def discover_local_epochs():
 
 def retry_failed_files():
     qs = ReducedFit.objects.filter(flags__has=ReducedFit.FLAGS.ERROR_ASTROMETRY).all()
-    print(f"Retrying {qs.count()} failed reduced fits.")
+    logger.info(f"Retrying {qs.count()} failed reduced fits.")
     Epoch.reduce_reducedfits(qs)
     qs2 = ReducedFit.objects.filter(flags__has=ReducedFit.FLAGS.ERROR_ASTROMETRY).all()
-    print(f"Fixed {qs.count()-qs2.count()} out of {qs.count()} failed reduced fits.")
+    logger.info(f"Fixed {qs.count()-qs2.count()} out of {qs.count()} failed reduced fits.")
 
 
 
@@ -196,8 +196,8 @@ def main():
     if len(epochs_to_process) > 0 and not args.list_only:
         process_epochs(epochs_to_process, args.force_rebuild, check_remote_list=~args.skip_remote_file_list)
     else:
-        print("Invoked with --list-only:")
-        print(f"{epochs_to_process=}")
+        logger.info("Invoked with --list-only:")
+        logger.info(f"{epochs_to_process=}")
 
     # Retry failed files if indicated
 
@@ -207,7 +207,7 @@ def main():
     # Start interactive shell if indicated
 
     if args.interactive:
-        print("Jumping to IPython shell.")
+        logger.info("Jumping to IPython shell.")
         import IPython
         IPython.embed(header="Start IOP4ing!", module=sys.modules['__main__'])
 
