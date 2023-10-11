@@ -127,6 +127,21 @@ class OSNT090(Telescope, metaclass=ABCMeta):
             raise Exception(f"Error downloading file {rawfit.filename}: {e}.")
 
     @classmethod
+    def check_telescop_kw(cls, rawfit):
+        r""" Subclassed to account for DIPOL files, that have empty TELESCOPE keyword as of 2023-10-11 
+        
+        TODO: this kw should not be empty.
+
+        If it is empty, check first the instrument, and if it is DIPOL, then continue.
+        """
+        if rawfit.header["TELESCOPE"] == "":
+            cls.classify_instrument_kw(rawfit)
+            if rawfit.instrument == INSTRUMENTS.DIPOL1:
+                return
+            
+        super().check_telescop_kw(rawfit)
+
+    @classmethod
     def classify_rawfit(cls, rawfit):
 
         # if iop4conf.osn_download_all_then_check_owner:
