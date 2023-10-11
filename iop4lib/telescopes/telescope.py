@@ -375,7 +375,7 @@ class Telescope(metaclass=ABCMeta):
 
             # logger.debug(f"{self}: {result.flux_counts=}")
 
-            if result.flux_counts is None:
+            if result.flux_counts is None: # when does this happen? when there is a source whose apertue falls partially outside the image? https://github.com/juanep97/iop4/issues/24
                 logger.error(f"{redf}: during relative photometry, encountered flux_counts=None for source {astrosource.name}, aperphotresult {aperphotresult.id}!!!")
                 result.flux_counts = np.nan
                 result.flux_counts_err = np.nan
