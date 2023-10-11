@@ -142,20 +142,6 @@ class OSNT090(Telescope, metaclass=ABCMeta):
         super().check_telescop_kw(rawfit)
 
     @classmethod
-    def classify_rawfit(cls, rawfit):
-
-        # if iop4conf.osn_download_all_then_check_owner:
-        #     import astropy.io.fits as fits
-        #     with fits.open(rawfit.filepath) as hdul:
-        #         if iop4conf.osn_download_all_then_check_owner not in hdul[0].header['OBSERVER'] and 'BIAS' not in rawfit.filepath.upper() and 'FLAT' not in rawfit.filepath.upper():
-        #             logger.debug(f"File {rawfit.fileloc} is not ours, deleting.")
-        #             os.unlink(rawfit.filepath)
-        #             rawfit.delete()
-
-        super().classify_rawfit(rawfit)
-
-
-    @classmethod
     def classify_juliandate_rawfit(cls, rawfit):
         """
         OSN-T090 fits has JD keyword
