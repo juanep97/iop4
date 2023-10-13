@@ -416,7 +416,7 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
             if flux_mean <= 0.0:
                 logger.warning(f"{polarimetry_group=}: negative flux mean encountered while relative polarimetry for {astrosource=} ??!! It will be nan, but maybe we should look into this...")
 
-            mag_inst = -2.5 * math.log10(flux_mean)
+            mag_inst = -2.5 * np.log10(flux_mean) # slower than math.log10 but returns nan when flux < 0 instead of throwing error (see https://github.com/juanep97/iop4/issues/24)
             mag_inst_err = math.fabs(2.5 / math.log(10) * flux_err / flux_mean)
 
             # if the source is a calibrator, compute also the zero point
