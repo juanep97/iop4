@@ -33,6 +33,8 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
     {yymmdd}_CAFOS/
     where CAFOS refers to the polarimeter
     and inside each folder there are the files for that day.
+
+    Currently only one instrument, CAFOS.
     """
 
     # telescope identification
@@ -41,10 +43,10 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
     abbrv = "T220"
     telescop_kw = "CA-2.2"
 
-    # telescope specific properties
+    # telescope / instrument specific properties
 
-    arcsec_per_pix = 0.530
-    gain_e_adu = 1.45
+    cafos_arcsec_per_pix = 0.530
+    cafos_gain_e_adu = 1.45
 
     # telescope specific methods
 
@@ -244,7 +246,11 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
         indicates it is a cut
         """
         
-        return astrometry.SizeHint(lower_arcsec_per_pixel=0.95*cls.arcsec_per_pix,  upper_arcsec_per_pixel=1.05*cls.arcsec_per_pix)
+        return astrometry.SizeHint(lower_arcsec_per_pixel=0.95*cls.cafos_arcsec_per_pix,  upper_arcsec_per_pixel=1.05*cls.cafos_arcsec_per_pix)
+
+    @classmethod
+    def get_gain_e_adu(cls, rawfit):
+        return cls.cafos_gain_e_adu
 
     @classmethod
     def compute_relative_polarimetry(cls, polarimetry_group):
