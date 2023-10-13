@@ -51,6 +51,8 @@ class Telescope(metaclass=ABCMeta):
 
     # Abstract attributes
 
+    # these attributes must be implemented in the subclass
+
     # telescope identification
 
     @property
@@ -63,19 +65,17 @@ class Telescope(metaclass=ABCMeta):
     def abbrv(self):
         pass
 
+    # telescope / instrument specific properties
+
     @property
     @abstractmethod
     def telescop_kw(self):
         pass
 
-    # telescope properties
-
-    @property
-    @abstractmethod
-    def gain_e_adu(self):
-        pass
 
     # Abstract methods
+
+    # This methods must be implemented in the subclass
 
     @classmethod
     @abstractmethod
@@ -127,6 +127,11 @@ class Telescope(metaclass=ABCMeta):
     def get_astrometry_size_hint(cls, rawfit):
         pass
 
+    @classmethod
+    @abstractmethod
+    def get_gain_e_adu(cls, rawfit):
+        pass
+
     # Not Implemented Methods (skeleton)
 
     # @classmethod
@@ -141,7 +146,7 @@ class Telescope(metaclass=ABCMeta):
     def compute_relative_polarimetry(cls):
         raise NotImplementedError
 
-    # Class methods (usable)
+    # Class methods (you should be using these only from this Telescope class, not from subclasses)
     
     @classmethod
     def get_known(cls):
@@ -170,6 +175,9 @@ class Telescope(metaclass=ABCMeta):
         """
         return (name in [tel.name for tel in Telescope.get_known()]) or (name in [tel.abbrv for tel in Telescope.get_known()])
     
+    # telescope independent functionality
+    # you should be using these from the subclasses already
+    # these don't need to be overriden in subclasses, but they can be (e.g. OSN-T090 overrides check_telescop_kw)
 
     @classmethod
     def classify_rawfit(cls, rawfit: 'RawFit'):
@@ -181,9 +189,6 @@ class Telescope(metaclass=ABCMeta):
         cls.classify_obsmode_rawfit(rawfit)
         cls.classify_imgsize(rawfit)
         cls.classify_exptime(rawfit)
-
-    # telescope independent functionality (they don't need to be overriden in subclasses)
-
 
     @classmethod
     def check_telescop_kw(cls, rawfit):
@@ -261,7 +266,10 @@ class Telescope(metaclass=ABCMeta):
 
 
 
-    # should not depend on the telescope
+    # these implemente more complex functionality related to data reduction
+    # the ones implemented should not depend on the telescope
+    # but again can be overriden to customize them
+    # other reduction procedure like must necessarily be implemented in the subclass (like polarimetry)
 
     @classmethod
     def compute_aperture_photometry(cls, redf, aperpix, r_in, r_out):
@@ -306,7 +314,7 @@ class Telescope(metaclass=ABCMeta):
             logger.debug(f"{redf}: {np.sum(img_bkg_sub <= 0.0)} px < 0 ({math.sqrt(np.sum(img_bkg_sub <= 0.0)):.0f} px2) in BKG-SUBSTRACTED IMG, after masking.")
 
 
-        error = calc_total_error(img_bkg_sub, bkg.background_rms, cls.gain_e_adu)
+        error = calc_total_error(img_bkg_sub, bkg.background_rms, cls.get_gain_e_adu(redf))
 
         for astrosource in redf.sources_in_field.all():
             for pairs, wcs in (('O', redf.wcs1), ('E', redf.wcs2)) if redf.with_pairs else (('O',redf.wcs),):

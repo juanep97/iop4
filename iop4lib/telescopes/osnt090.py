@@ -33,11 +33,11 @@ class OSNT090(Telescope, metaclass=ABCMeta):
     abbrv = "T090"
     telescop_kw = "T90-OSN"
 
-    # telescope specific properties
+    # telescope / instrument specific properties
 
-    field_width_arcmin = 13.2 
-    arcsec_per_pix = 0.387
-    gain_e_adu = 4.5
+    andort90_field_width_arcmin = 13.2 
+    andort90_arcsec_per_pix = 0.387
+    andort90_gain_e_adu = 4.5
 
     ftp_address = iop4conf.osn_t090_address
     ftp_user = iop4conf.osn_t090_user
@@ -128,13 +128,13 @@ class OSNT090(Telescope, metaclass=ABCMeta):
 
     @classmethod
     def check_telescop_kw(cls, rawfit):
-        r""" Subclassed to account for DIPOL files, that have empty TELESCOPE keyword as of 2023-10-11 
+        r""" Subclassed to account for DIPOL files, that have empty TELESCOP keyword as of 2023-10-11 
         
         TODO: this kw should not be empty.
 
         If it is empty, check first the instrument, and if it is DIPOL, then continue.
         """
-        if rawfit.header["TELESCOPE"] == "":
+        if rawfit.header["TELESCOP"] == "":
             cls.classify_instrument_kw(rawfit)
             if rawfit.instrument == INSTRUMENTS.DIPOL1:
                 return
@@ -268,7 +268,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
         if allsky:
             hintsep = 180.0
         else:
-            hintsep = (n_field_width * cls.field_width_arcmin*u.Unit("arcmin")).to_value(u.deg)
+            hintsep = (n_field_width * cls.andort90_field_width_arcmin*u.Unit("arcmin")).to_value(u.deg)
 
         return astrometry.PositionHint(ra_deg=hintcoord.ra.deg, dec_deg=hintcoord.dec.deg, radius_deg=hintsep)
     
@@ -280,17 +280,42 @@ class OSNT090(Telescope, metaclass=ABCMeta):
             the camera pixels are 0.387as/px and it has a field of view of 13,20' x 13,20'. So we provide close values 
             for the hint. If the files are 1x1 it will be 0.387as/px, if 2x2 it will be twice.
 
-            For OSN T150 camera pixels are 0.232as/px and it has a field of view of 7.92' x 7.92'.
+            For DIPOL-1 in OSN-T090, according to preliminary investigation of OSN crew is:
+                Las posiciones que he tomado y el ángulo de rotación en cada caso son estos:
+                Dec= -10º HA=+3h  rotación=-177.3º
+                Zenit rotación=-177.3º
+                Dec=+60º HA=-6h rotación=-177.7º
+                Dec=+70º HA=+5h rotación=-177.2º
+
+                El campo es de 9.22 x 6.28 arcmin y el tamaño de pixel de 0.134"/pix
+
+                El ángulo de la imagen cambia muy poco entre las posiciones muy separadas del telescopio, y es de 177.5º ± 0.3º
+                Así que como mucho se produce un error de ± 0.3º en las imágenes, y el punto cero es de 2.5º.
         """
 
-        if rawfit.header['NAXIS1'] == 2048:
-            return astrometry.SizeHint(lower_arcsec_per_pixel=0.95*cls.arcsec_per_pix, upper_arcsec_per_pixel=1.05*cls.arcsec_per_pix)
-        elif rawfit.header['NAXIS1'] == 1024:
-            return astrometry.SizeHint(lower_arcsec_per_pixel=2*0.95*cls.arcsec_per_pix, upper_arcsec_per_pixel=2*1.05*cls.arcsec_per_pix)
+        if rawfit.instrument == INSTRUMENTS.DIPOL1:
+
+            return astrometry.SizeHint(lower_arcsec_per_pixel=0.95*0.134, upper_arcsec_per_pixel=1.05*0.134)
+        
+        elif rawfit.instrument == INSTRUMENTS.AndorT90:
+
+            if rawfit.header['NAXIS1'] == 2048:
+                return astrometry.SizeHint(lower_arcsec_per_pixel=0.95*cls.andort90_arcsec_per_pix, upper_arcsec_per_pixel=1.05*cls.andort90_arcsec_per_pix)
+            elif rawfit.header['NAXIS1'] == 1024:
+                return astrometry.SizeHint(lower_arcsec_per_pixel=2*0.95*cls.andort90_arcsec_per_pix, upper_arcsec_per_pixel=2*1.05*cls.andort90_arcsec_per_pix)
+            
+        else:
+            raise ValueError("Unexpected or unknown instrument for OSN-T090")
         
 
 
-
+    @classmethod
+    def get_gain_e_adu(cls, rawfit):
+        if rawfit.instrument == INSTRUMENTS.AndorT90:
+            return cls.andort90_gain_e_adu
+        elif rawfit.instrument == INSTRUMENTS.DIPOL1:
+            logger.error("DIPOL-1 gain not implemented yet... returning 1.0")
+            return 1.0
 
     @classmethod
     def compute_relative_polarimetry(cls, polarimetry_group):

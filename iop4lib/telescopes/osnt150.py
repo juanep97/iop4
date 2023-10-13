@@ -35,17 +35,32 @@ class OSNT150(OSNT090, Telescope, metaclass=ABCMeta):
     abbrv = "T150"
     telescop_kw = "T150-OSN"
 
-    # telescope specific properties
+    # telescope / instrument specific properties
 
-    arcsec_per_pix = 0.232
-    gain_e_adu = 4.5
-    field_width_arcmin = 7.92
+    andort150_arcsec_per_pix = 0.232
+    andort150_gain_e_adu = 4.5
+    andort150_field_width_arcmin = 7.92
 
     ftp_address = iop4conf.osn_t150_address
     ftp_user = iop4conf.osn_t150_user
     ftp_password = iop4conf.osn_t150_password
 
     # telescope specific methods
+
+    @classmethod
+    def get_astrometry_size_hint(cls, rawfit):
+        r""" Get the size hint for this telescope / rawfit.
+
+            According to OSN T0150 camera information (https://www.osn.iaa.csic.es/page/camaras-ccdt150-y-ccdt90) 
+            camera pixels are 0.232as/px and it has a field of view of 7.92' x 7.92'.
+            If the files are 1x1 it will be that, if they are 2x2 it will be twice.
+        """
+
+        if rawfit.header['NAXIS1'] == 2048:
+            return astrometry.SizeHint(lower_arcsec_per_pixel=0.95*cls.andort150_arcsec_per_pix, upper_arcsec_per_pixel=1.05*cls.andort150_arcsec_per_pix)
+        elif rawfit.header['NAXIS1'] == 1024:
+            return astrometry.SizeHint(lower_arcsec_per_pixel=2*0.95*cls.andort150_arcsec_per_pix, upper_arcsec_per_pixel=2*1.05*cls.andort150_arcsec_per_pix)
+        
 
     @classmethod
     def compute_relative_photometry(cls, rawfit):
