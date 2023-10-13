@@ -210,7 +210,7 @@ class ReducedFit(RawFit):
             sources_in_field = AstroSource.get_sources_in_field(fit=self)
             
             logger.debug(f"{self}: found {len(sources_in_field)} sources in field.")
-            self.sources_in_field.set(sources_in_field)
+            self.sources_in_field.set(sources_in_field, clear=True)
                 
             self.set_flag(ReducedFit.FLAGS.BUILT_REDUCED)
 

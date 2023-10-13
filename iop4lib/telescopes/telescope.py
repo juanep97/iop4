@@ -24,6 +24,10 @@ from iop4lib.enums import *
 import logging
 logger = logging.getLogger(__name__)
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from iop4lib.db import RawFit, ReducedFit
+
 class Telescope(metaclass=ABCMeta):
     """
         Inherit this class to provide telescope specific functionality and
@@ -147,7 +151,7 @@ class Telescope(metaclass=ABCMeta):
         return [CAHAT220, OSNT090, OSNT150]
     
     @classmethod
-    def by_name(cls, name):
+    def by_name(cls, name: str) -> 'Telescope':
         """
         Try to get telescope by name, then abbreviation, else raise Exception.
         """
@@ -166,6 +170,17 @@ class Telescope(metaclass=ABCMeta):
         """
         return (name in [tel.name for tel in Telescope.get_known()]) or (name in [tel.abbrv for tel in Telescope.get_known()])
     
+
+    @classmethod
+    def classify_rawfit(cls, rawfit: 'RawFit'):
+        cls.check_telescop_kw(rawfit)
+        cls.classify_instrument_kw(rawfit)
+        cls.classify_juliandate_rawfit(rawfit)
+        cls.classify_imgtype_rawfit(rawfit)
+        cls.classify_band_rawfit(rawfit)
+        cls.classify_obsmode_rawfit(rawfit)
+        cls.classify_imgsize(rawfit)
+        cls.classify_exptime(rawfit)
 
     # telescope independent functionality (they don't need to be overriden in subclasses)
 
@@ -268,28 +283,28 @@ class Telescope(metaclass=ABCMeta):
             bkg_box_size = redf.mdata.shape[0]//10
 
         bkg = get_bkg(redf.mdata, filter_size=1, box_size=bkg_box_size)
-        img_bkg_sub = redf.mdata - bkg.background
+        # img_bkg_sub = redf.mdata - bkg.background
+        img_bkg_sub = redf.mdata
 
         if np.sum(redf.mdata <= 0.0) >= 1:
-            logger.debug(f"{redf}: {np.sum(redf.mdata <= 0.0)} px < 0  ({math.sqrt(np.sum(redf.mdata <= 0.0)):0f} px2) in IMAGE.")
+            logger.debug(f"{redf}: {np.sum(redf.mdata <= 0.0):.0f} px < 0  ({math.sqrt(np.sum(redf.mdata <= 0.0)):.0f} px2) in IMAGE.")
 
-        if np.sum(img_bkg_sub <= 0.0) >= 1:
-            try:
-                logger.debug(f"{redf}: {np.sum(img_bkg_sub <= 0.0)} px < 0 ({math.sqrt(np.sum(img_bkg_sub <= 0.0)):.0f} px2) in BKG-SUBSTRACTED IMG. Check the bkg-substraction method, I'm going to try to mask sources...")
-                seg_threshold = 3.0 * bkg.background_rms # safer to ensure they are sources
-                segment_map, convolved_data = get_segmentation(img_bkg_sub, threshold=seg_threshold, fwhm=1, kernel_size=None, npixels=16, deblend=True)
-                mask = segment_map.make_source_mask(footprint=circular_footprint(radius=6))
-                bkg = get_bkg(redf.mdata, filter_size=1, box_size=bkg_box_size, mask=mask)
-                img_bkg_sub = redf.mdata - bkg.background
-            except Exception as e:
-                logger.debug(f"{redf}: can not mask sources here... {e}")
+        # if np.sum(img_bkg_sub <= 0.0) >= 1:
+        #     try:
+        #         logger.debug(f"{redf}: {np.sum(img_bkg_sub <= 0.0)} px < 0 ({math.sqrt(np.sum(img_bkg_sub <= 0.0)):.0f} px2) in BKG-SUBSTRACTED IMG. Check the bkg-substraction method, I'm going to try to mask sources...")
+        #         seg_threshold = 3.0 * bkg.background_rms # safer to ensure they are sources
+        #         segment_map, convolved_data = get_segmentation(img_bkg_sub, threshold=seg_threshold, fwhm=1, kernel_size=None, npixels=16, deblend=True)
+        #         mask = segment_map.make_source_mask(footprint=circular_footprint(radius=6))
+        #         bkg = get_bkg(redf.mdata, filter_size=1, box_size=bkg_box_size, mask=mask)
+        #         img_bkg_sub = redf.mdata - bkg.background
+        #     except Exception as e:
+        #         logger.debug(f"{redf}: can not mask sources here... {e}")
         
         if np.sum(img_bkg_sub <= 0.0) >= 1:
             logger.debug(f"{redf}: {np.sum(img_bkg_sub <= 0.0)} px < 0 ({math.sqrt(np.sum(img_bkg_sub <= 0.0)):.0f} px2) in BKG-SUBSTRACTED IMG, after masking.")
 
 
-        effective_gain = cls.gain_e_adu
-        error = calc_total_error(img_bkg_sub, bkg.background_rms, effective_gain)
+        error = calc_total_error(img_bkg_sub, bkg.background_rms, cls.gain_e_adu)
 
         for astrosource in redf.sources_in_field.all():
             for pairs, wcs in (('O', redf.wcs1), ('E', redf.wcs2)) if redf.with_pairs else (('O',redf.wcs),):
@@ -298,7 +313,7 @@ class Telescope(metaclass=ABCMeta):
                 annulus = CircularAnnulus(astrosource.coord.to_pixel(wcs), r_in=r_in, r_out=r_out)
 
                 annulus_stats = ApertureStats(redf.mdata, annulus, error=error, sigma_clip=SigmaClip(sigma=5.0, maxiters=10))
-                bkg_stats = ApertureStats(bkg.background, ap, error=error)
+                # bkg_stats = ApertureStats(bkg.background, ap, error=error)
                 ap_stats = ApertureStats(redf.mdata, ap, error=error)
 
                 # bkg_flux_counts = bkg_stats.sum
@@ -318,7 +333,7 @@ class Telescope(metaclass=ABCMeta):
     
 
     @classmethod
-    def compute_relative_photometry(cls, redf, aperpix=None):
+    def compute_relative_photometry(cls, redf: 'ReducedFit') -> None:
         
         from iop4lib.db.aperphotresult import AperPhotResult
         from iop4lib.db.photopolresult import PhotoPolResult
@@ -327,8 +342,11 @@ class Telescope(metaclass=ABCMeta):
         if redf.obsmode != OBSMODES.PHOTOMETRY:
             raise Exception(f"{redf}: this method is only for plain photometry images.")
         
-        if aperpix is None:
-            target_fwhm, aperpix, r_in, r_out = get_target_fwhm_aperpix([redf])
+        target_fwhm, aperpix, r_in, r_out = get_target_fwhm_aperpix([redf], reductionmethod=REDUCTIONMETHODS.RELPHOT)
+
+        if target_fwhm is None:
+            logger.error("Could not estimate a target FWHM, aborting relative photometry.")
+            return
 
         # 1. Compute all aperture photometries
 
@@ -356,6 +374,11 @@ class Telescope(metaclass=ABCMeta):
             result.flux_counts_err = aperphotresult.flux_counts_err
 
             # logger.debug(f"{self}: {result.flux_counts=}")
+
+            if result.flux_counts is None:
+                logger.error(f"{redf}: during relative photometry, encountered flux_counts=None for source {astrosource.name}, aperphotresult {aperphotresult.id}!!!")
+                result.flux_counts = np.nan
+                result.flux_counts_err = np.nan
 
             if result.flux_counts <= 0.0:
                 logger.warning(f"{redf}: negative flux counts encountered while relative photometry for {astrosource=} ??!! They will be nans, but maybe we should look into this...")

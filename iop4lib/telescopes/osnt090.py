@@ -6,6 +6,7 @@ iop4conf = iop4lib.Config(config_db=False)
 from abc import ABCMeta, abstractmethod
 
 # other imports
+import os
 import re
 import ftplib
 import logging
@@ -89,8 +90,13 @@ class OSNT090(Telescope, metaclass=ABCMeta):
 
             logger.debug(f"Total of {len(remote_fnameL_all)} files in OSN {epoch.epochname}: {remote_fnameL_all}.")
 
+            # if iop4conf.osn_download_all_then_check_owner:                
+            #     remote_fnameL = remote_fnameL_all
+            # else:
+            #     remote_fnameL = [s for s in remote_fnameL_all if re.compile('|'.join(iop4conf.osn_fnames_patterns)).search(s)] # Filter by filename pattern (get only our files)
+
             remote_fnameL = [s for s in remote_fnameL_all if re.compile('|'.join(iop4conf.osn_fnames_patterns)).search(s)] # Filter by filename pattern (get only our files)
-            
+
             logger.debug(f"Filtered to {len(remote_fnameL)} files in OSN {epoch.epochname}.")
 
             return remote_fnameL
@@ -121,6 +127,20 @@ class OSNT090(Telescope, metaclass=ABCMeta):
             raise Exception(f"Error downloading file {rawfit.filename}: {e}.")
 
     @classmethod
+    def classify_rawfit(cls, rawfit):
+
+        # if iop4conf.osn_download_all_then_check_owner:
+        #     import astropy.io.fits as fits
+        #     with fits.open(rawfit.filepath) as hdul:
+        #         if iop4conf.osn_download_all_then_check_owner not in hdul[0].header['OBSERVER'] and 'BIAS' not in rawfit.filepath.upper() and 'FLAT' not in rawfit.filepath.upper():
+        #             logger.debug(f"File {rawfit.fileloc} is not ours, deleting.")
+        #             os.unlink(rawfit.filepath)
+        #             rawfit.delete()
+
+        super().classify_rawfit(rawfit)
+
+
+    @classmethod
     def classify_juliandate_rawfit(cls, rawfit):
         """
         OSN-T090 fits has JD keyword
@@ -133,6 +153,10 @@ class OSNT090(Telescope, metaclass=ABCMeta):
     def classify_imgtype_rawfit(cls, rawfit):
         """
         OSN-T090 fits has IMAGETYP keyword: FLAT, BIAS, LIGHT
+
+        .. note::
+        **Sometimes, the IMAGETYP keyword is wrong**, it has LIGHT on it but the filename and the OBJECT keyword contain the word "Flat". In those ocassions, it should be classified as
+        a FLAT.
         """
         from iop4lib.db.rawfit import RawFit
         import astropy.io.fits as fits
@@ -144,6 +168,11 @@ class OSNT090(Telescope, metaclass=ABCMeta):
                 rawfit.imgtype = IMGTYPES.BIAS
             elif hdul[0].header['IMAGETYP'] == 'LIGHT':
                 rawfit.imgtype = IMGTYPES.LIGHT
+                # workarounds for wrong keyword in OSN (see note in docstring)
+                if "FLAT" in hdul[0].header["OBJECT"].upper() and "FLAT" in rawfit.filename.upper():
+                    rawfit.imgtype = IMGTYPES.FLAT
+                elif "BIAS" in hdul[0].header["OBJECT"].upper() and "BIAS" in rawfit.filename.upper():
+                    rawfit.imgtype = IMGTYPES.BIAS
             else:
                 logger.error(f"Unknown image type for {rawfit.fileloc}.")
                 rawfit.imgtype = IMGTYPES.ERROR
@@ -185,7 +214,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
 
         The values for angles are -45, 0, 45 and 90.
 
-        Lately we have seeb "R-45" instead of "R_45", so we have to take care of that too.
+        Lately we have seen "R-45" instead of "R_45", so we have to take care of that too.
         """
 
         from iop4lib.db.rawfit import RawFit
@@ -263,7 +292,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
 
 
     @classmethod
-    def compute_relative_polarimetry(cls, polarimetry_group, aperpix=None):
+    def compute_relative_polarimetry(cls, polarimetry_group):
         """ Computes the relative polarimetry for a polarimetry group for OSNT090 observations.
 
         .. note:: 
@@ -333,13 +362,12 @@ class OSNT090(Telescope, metaclass=ABCMeta):
 
         # 1. Compute all aperture photometries
 
-        if aperpix is None:
-            target_fwhm, aperpix, r_in, r_out = get_target_fwhm_aperpix(polarimetry_group, r_in, r_out)
+        target_fwhm, aperpix, r_in, r_out = get_target_fwhm_aperpix(polarimetry_group, reductionmethod=REDUCTIONMETHODS.RELPOL)
 
         logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group with target {aperpix:.1f}.")
 
         for reducedfit in polarimetry_group:
-            reducedfit.compute_aperture_photometry(aperpix)
+            reducedfit.compute_aperture_photometry(aperpix, r_in, r_out)
 
         # 2. Compute relative polarimetry for each source (uses the computed aperture photometries)
 
@@ -365,7 +393,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
 
             fluxes = np.array([flux_0, flux_45, flux_90, flux_n45])
             flux_mean = fluxes.mean()
-            flux_std = fluxes.std()
+            flux_err = fluxes.std() / math.sqrt(len(fluxes))
             
             qraw = (flux_0 - flux_90) / (flux_0 + flux_90)
             uraw = (flux_45 - flux_n45) / (flux_45 + flux_n45)
@@ -417,7 +445,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
                 logger.warning(f"{polarimetry_group=}: negative flux mean encountered while relative polarimetry for {astrosource=} ??!! It will be nan, but maybe we should look into this...")
 
             mag_inst = -2.5 * np.log10(flux_mean)
-            mag_inst_err = math.fabs(2.5 / math.log(10) * flux_std / flux_mean)
+            mag_inst_err = math.fabs(2.5 / math.log(10) * flux_err / flux_mean)
 
             # if the source is a calibrator, compute also the zero point
 

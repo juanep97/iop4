@@ -1,0 +1,14 @@
+name: CI external server
+
+on: [push]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run API endpoint test
+        run: |
+          curl -i -s -H "Content-type: application/json" -H "Accept: application/json" 'http://localhost:8000/iop4/api/test/'

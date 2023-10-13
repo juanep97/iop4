@@ -5,18 +5,17 @@ iop4conf = iop4lib.Config(config_db=False)
 
 
 # django imports
-from django.shortcuts import render
 from django.http import JsonResponse, HttpResponseBadRequest
-from django.shortcuts import render
 from django.contrib.auth.decorators import permission_required
 
 # iop4lib imports
-from ..models import *
+from iop4lib.db import PhotoPolResult, AstroSource
 from iop4lib.utils import get_column_values
 
 # other imports
 import os
 import numpy as np
+import pandas as pd
 from astropy.time import Time
 
 #logging
@@ -29,7 +28,16 @@ def plot(request):
 
     source_name = request.POST.get("source_name", None)
     band = request.POST.get("band", "R")
-    fmt = request.POST.get("fmt", "json")
+    fmt = request.POST.get("fmt", "items") 
+    date_start = request.POST.get("date_start", None)
+    date_start = None if date_start == "" else date_start
+    date_end = request.POST.get("date_end", None)
+    date_end = None if date_end == "" else date_end
+
+    enable_iop3 = request.POST.get("enable_iop3", False)
+    enable_full_lc = request.POST.get("enable_full_lc", False)
+    enable_errorbars = request.POST.get("enable_errorbars", False)
+
 
     # comment these lines to allow for empty plot
     if not AstroSource.objects.filter(name=source_name).exists(): 
@@ -38,11 +46,15 @@ def plot(request):
     # build plot
 
     import bokeh.colors
+    from bokeh.document import Document
     from bokeh.transform import factor_cmap
     from bokeh.layouts import column, gridplot
-    from bokeh.models import CategoricalColorMapper, LinearColorMapper, RangeTool, Range1d, LinearAxis, CustomJS, ColumnDataSource, Whisker, DatetimeAxis, DatetimeTickFormatter, Scatter, Segment, CDSView, GroupFilter, AllIndices
+    from bokeh.models import CategoricalColorMapper, LinearColorMapper, RangeTool, Range1d, LinearAxis, CustomJS, ColumnDataSource, Whisker, DatetimeAxis, DatetimeTickFormatter, Scatter, Segment, CDSView, GroupFilter, AllIndices, HoverTool, NumeralTickFormatter, BoxZoomTool, DataTable, TableColumn
     from bokeh.plotting import figure, show
     from bokeh.embed import components, json_item
+    from bokeh.models import Div, Circle, Column, Row
+    from bokeh.plotting import figure
+    from bokeh.models import ColumnDataSource, Styles, InlineStyleSheet, GlobalInlineStyleSheet
 
     lod_threshold = 2000
     lod_factor = 10
@@ -57,25 +69,46 @@ def plot(request):
     column_names = ['id', 'juliandate', 'band', 'instrument', 'mag', 'mag_err', 'p', 'p_err', 'chi', 'chi_err']
     qs = PhotoPolResult.objects.filter(astrosource__name=source_name, band=band).all()
 
+    if date_start is not None:
+        qs = qs.filter(juliandate__gte=Time(date_start).jd)
+
+    if date_end is not None:
+        qs = qs.filter(juliandate__lte=Time(date_end).jd)
+
     # iop3? 
-    import pandas as pd
-    iop3_df = pd.read_csv(os.path.expanduser("~/iop3_results.csv"))
-    iop3_idx = (iop3_df["name_IAU"] == source_name) & (iop3_df["filter"] == "R")
-    iop3_df = iop3_df.loc[iop3_idx]
+    if enable_iop3:
+        iop3_df = pd.read_csv(os.path.expanduser("~/iop3_results.csv"))
+        iop3_idx = (iop3_df["name_IAU"] == source_name) & (iop3_df["filter"] == "R")
+        if date_start is not None:
+            iop3_idx = iop3_idx & (iop3_df["mjd_obs"] >= Time(date_start).mjd)
+        if date_end is not None:
+            iop3_idx = iop3_idx & (iop3_df["mjd_obs"] <= Time(date_end).mjd)
+        iop3_df = iop3_df.loc[iop3_idx]
     
     # choose  the x and y
     if qs.count() > 0:
         vals = get_column_values(qs, column_names)
 
-        vals["instrument"] = np.append(vals["instrument"], list(map(lambda x: "IOP3-"+x, iop3_df["Telescope"])))
-        vals["id"] = np.append(vals["id"], -np.arange(len(iop3_df)))
-        vals["juliandate"] = np.append(vals["juliandate"], Time(iop3_df["mjd_obs"], format="mjd").jd)
-        vals["mag"] = np.append(vals["mag"],  iop3_df['Mag'])
-        vals["mag_err"] = np.append(vals["mag_err"], iop3_df['dMag'])
-        vals["p"] = np.append(vals["p"], iop3_df['P']/100)
-        vals["p_err"] = np.append(vals["p_err"], iop3_df['dP']/100)
-        vals["chi"] = np.append(vals["chi"], iop3_df['Theta'])
-        vals["chi_err"] = np.append(vals["chi_err"], iop3_df['dTheta'])
+        vals["instrument"] = np.array(vals["instrument"])
+        vals["id"] = np.array(vals["id"])
+        vals["juliandate"] = np.array(vals["juliandate"])
+        vals["mag"] = np.array(vals["mag"])
+        vals["mag_err"] = np.array(vals["mag_err"])
+        vals["p"] = np.array(vals["p"])
+        vals["p_err"] = np.array(vals["p_err"])
+        vals["chi"] = np.array(vals["chi"])
+        vals["chi_err"] = np.array(vals["chi_err"])
+
+        if enable_iop3:
+            vals["instrument"] = np.append(vals["instrument"], list(map(lambda x: "IOP3-"+x, iop3_df["Telescope"])))
+            vals["id"] = np.append(vals["id"], -np.arange(len(iop3_df)))
+            vals["juliandate"] = np.append(vals["juliandate"], Time(iop3_df["mjd_obs"], format="mjd").jd)
+            vals["mag"] = np.append(vals["mag"],  iop3_df['Mag'])
+            vals["mag_err"] = np.append(vals["mag_err"], iop3_df['dMag'])
+            vals["p"] = np.append(vals["p"], iop3_df['P']/100)
+            vals["p_err"] = np.append(vals["p_err"], iop3_df['dP']/100)
+            vals["chi"] = np.append(vals["chi"], iop3_df['Theta'])
+            vals["chi_err"] = np.append(vals["chi_err"], iop3_df['dTheta'])
 
         pks = vals['id']
         x1 = Time(vals['juliandate'], format='jd').mjd
@@ -90,30 +123,30 @@ def plot(request):
 
     # Instruments and colors (auto)
     instruments_L = sorted(list(set(vals['instrument'])), reverse=True)
-    instrument_color_L = [bokeh.palettes.TolRainbow[len(instruments_L)][i % len(instruments_L)] for i in range(len(instruments_L))] #Bright
-    palette_dark = [bokeh.colors.RGB.from_hex_string(color).darken(0.1) for color in instrument_color_L]
-    palette_light = [bokeh.colors.RGB.from_hex_string(color).lighten(0.3) for color in instrument_color_L]
+    instrument_color_L = [bokeh.palettes.TolRainbow[max(3,len(instruments_L))][i % len(instruments_L)] for i in range(len(instruments_L))]
 
-    # Instruments and colors (manual)
+    rgb_L = [bokeh.colors.RGB.from_hex_string(hexcolor) for hexcolor in instrument_color_L]
 
-    # instruments_L = ["CAFOS2.2", "AndorT90", "AndorT150"]
+    hsl_L_nonselected = [rgb.to_hsl() for rgb in rgb_L]
+    hsl_L_selected= [rgb.to_hsl() for rgb in rgb_L]
 
-    # instrument_color_L = [bokeh.colors.named.navy, bokeh.colors.named.seagreen, bokeh.colors.named.crimson]
+    for hsl in hsl_L_nonselected:
+        # make non-selected colors lighter and more gray
+        hsl.l = 0.8
+        hsl.s = 0.5
+
+    for hsl in hsl_L_selected:
+        hsl.l = 0.5
     
-    # palette_dark = [bokeh.colors.named.navy.darken(0),
-    #            bokeh.colors.named.green.darken(0),
-    #            bokeh.colors.named.crimson.darken(0.2)]
+    palette_selected = [bokeh.colors.RGB.from_hsl(hsl) for hsl in hsl_L_selected]
+    palette_nonselected = [bokeh.colors.RGB.from_hsl(hsl) for hsl in hsl_L_nonselected]
     
-    # palette_light = [bokeh.colors.named.navy.lighten(0.6), 
-    #                  bokeh.colors.named.green.lighten(0.6), 
-    #                  bokeh.colors.named.crimson.lighten(0.4)]
-    
-    index_cmap = factor_cmap('instrument', 
-                             palette=palette_dark, 
+    index_cmap_selected = factor_cmap('instrument', 
+                             palette=palette_selected, 
                              factors=instruments_L)
     
-    index_cmap_light = factor_cmap('instrument', 
-                                   palette=palette_light, 
+    index_cmap_nonselected = factor_cmap('instrument', 
+                                   palette=palette_nonselected, 
                                    factors=instruments_L)
     
     source = ColumnDataSource(data=dict(pk = pks,
@@ -128,7 +161,8 @@ def plot(request):
                                         y2_max = vals['p']+vals['p_err'],
                                         y3 = vals['chi'], 
                                         y3_min = vals['chi']-vals['chi_err'],
-                                        y3_max = vals['chi']+vals['chi_err']))
+                                        y3_max = vals['chi']+vals['chi_err']),
+                                name="source")
 
     view = CDSView(filter=AllIndices(), name="plot_view")
 
@@ -156,42 +190,61 @@ def plot(request):
 
     # Create RangeTool and Selected_range
     selected_range = Range1d(*x1_range)
-    range_tool = RangeTool(x_range=selected_range)
-    range_tool.overlay.fill_color = "navy"
-    range_tool.overlay.fill_alpha = 0.2
 
+    if enable_full_lc:
+        range_tool = RangeTool(x_range=selected_range)
+        range_tool.overlay.fill_color = "navy"
+        range_tool.overlay.fill_alpha = 0.2
+
+    # Create a hover tool with custom JS callback
+    hover = HoverTool(renderers=[])
+    hover.callback = CustomJS(args = dict(source = source, hover = hover), code = '''
+                if (cb_data.index.indices.length > 0) { 
+                    let index = cb_data.index.indices[0];
+                    let p = source.data.y2[index];
+
+                    if (isFinite(p)) {
+                        hover.tooltips = [["id", "@pk"], ["instrument", "@instrument"], ["mag", "@y1"], ["p", "@y2{0.0 %}"], ["chi", "@y3"]];                                       
+                    } else {
+                        hover.tooltips = [["id", "@pk"], ["instrument", "@instrument"], ["mag", "@y1"]];
+                    }
+                } ''')
+    
     # other tools
 
-    tools = ["fullscreen", "reset", "save", "pan", "auto_box_zoom", "wheel_zoom", "box_select", "lasso_select"]
+    #tools = ["fullscreen", "reset", "save", "pan", "auto_box_zoom", "wheel_zoom", "box_select", "lasso_select"]
+    tools = ["fullscreen", "reset", "save", "pan", "wheel_zoom", "box_select", "lasso_select"]
+    box_zoom_tool = BoxZoomTool(dimensions="auto")
 
-    # Create the main plot with range slider and secondary x-axis, fixed styles of markers
+    if enable_full_lc:
+        # Create the main plot with range slider and secondary x-axis, fixed styles of markers
 
-    # alternatively: # figure(sizing_mode="stretch", width=800, height=200,
-    p_main = figure(x_range=x1_lims, tools="", lod_threshold=lod_threshold, lod_factor=lod_factor, lod_timeout=lod_timeout, output_backend="webgl")  
-    p_main.circle(x='x1', y='y1', source=source, view=view,
-                  size=3, 
-                  line_color=bokeh.colors.named.navy, 
-                  fill_color=bokeh.colors.named.navy, 
-                  selection_line_color=bokeh.colors.named.navy.darken(0.1), 
-                  nonselection_line_color=bokeh.colors.named.navy.lighten(0.55), 
-                  selection_fill_color=bokeh.colors.named.navy.darken(0.1), 
-                  nonselection_fill_color=bokeh.colors.named.navy.lighten(0.55), 
-                  selection_fill_alpha=0.5, 
-                  nonselection_fill_alpha=0.5, 
-                  selection_line_alpha=0.5, 
-                  nonselection_line_alpha=0.5)
+        # alternatively: # figure(sizing_mode="stretch", width=800, height=200,
+        p_main = figure(x_range=x1_lims, tools="", lod_threshold=lod_threshold, lod_factor=lod_factor, lod_timeout=lod_timeout, output_backend="webgl")  
+        p_main.circle(x='x1', y='y1', source=source, view=view,
+                    size=3, 
+                    line_color=bokeh.colors.named.navy, 
+                    fill_color=bokeh.colors.named.navy, 
+                    selection_line_color=bokeh.colors.named.navy.darken(0.1), 
+                    nonselection_line_color=bokeh.colors.named.navy.lighten(0.55), 
+                    selection_fill_color=bokeh.colors.named.navy.darken(0.1), 
+                    nonselection_fill_color=bokeh.colors.named.navy.lighten(0.55), 
+                    selection_fill_alpha=0.5, 
+                    nonselection_fill_alpha=0.5, 
+                    selection_line_alpha=0.5, 
+                    nonselection_line_alpha=0.5)
 
-    p_main.y_range = Range1d(*y1_lims)
+        p_main.y_range = Range1d(*y1_lims)
 
-    p_main.extra_x_ranges["secondary"] = Range1d(*x2_lims)
-    p_main_ax_x2 = DatetimeAxis(x_range_name="secondary", axis_label="Date")
-    p_main_ax_x2.formatter = DatetimeTickFormatter(months=r"%Y/%m/%d",
-                                               days=r"%Y/%m/%d %H:%M",
-                                               hours=r"%Y/%m/%d %H:%M",
-                                               minutes=r"%Y/%m/%d %H:%M")
-    p_main.add_layout(p_main_ax_x2, 'above')
+        p_main.extra_x_ranges["secondary"] = Range1d(*x2_lims)
+        p_main_ax_x2 = DatetimeAxis(x_range_name="secondary", axis_label="Date")
+        p_main_ax_x2.formatter = DatetimeTickFormatter(months=r"%Y/%m/%d",
+                                                days=r"%Y/%m/%d %H:%M",
+                                                hours=r"%Y/%m/%d %H:%M",
+                                                minutes=r"%Y/%m/%d %H:%M")
+        p_main.add_layout(p_main_ax_x2, 'above')
 
-    p_main.add_tools(range_tool)
+        p_main.add_tools(range_tool)
 
     # Create three subplots that show data in the selected range tool of the main plot
 
@@ -202,10 +255,10 @@ def plot(request):
                                 "y_label": "mag",
                                 "err": ["y1_min", "y1_max"],                                  
                                 "marker":"circle",
-                                "size": 3,
-                                "color": index_cmap,
-                                "selected_color": index_cmap,
-                                "nonselected_color": index_cmap_light,
+                                "size": 5,
+                                "color": index_cmap_selected,
+                                "selected_color": index_cmap_selected,
+                                "nonselected_color": index_cmap_nonselected,
                                 "alpha": 0.5,
                                 "selected_alpha": 0.5,
                                 "nonselected_alpha": 0.5,
@@ -213,13 +266,13 @@ def plot(request):
                     'ax2':  {
                                 'x':"x1", 
                                 'y':"y2", 
-                                "y_label": "p",
-                                "err": ["y3_min", "y3_max"],
+                                "y_label": "p [%]",
+                                "err": ["y2_min", "y2_max"],
                                 "marker":"circle",
-                                "size": 3,
-                                "color": index_cmap,
-                                "selected_color": index_cmap,
-                                "nonselected_color": index_cmap_light,
+                                "size": 5,
+                                "color": index_cmap_selected,
+                                "selected_color": index_cmap_selected,
+                                "nonselected_color": index_cmap_nonselected,
                                 "alpha": 0.5,
                                 "selected_alpha": 0.5,
                                 "nonselected_alpha": 0.5,
@@ -227,13 +280,13 @@ def plot(request):
                     'ax3':  {
                                 'x':"x1", 
                                 'y':"y3", 
-                                "y_label": "chi",
+                                "y_label": "chi [º]",
                                 "err": ["y3_min", "y3_max"],                                  
                                 "marker":"circle",
-                                "size": 3,
-                                "color": index_cmap,
-                                "selected_color": index_cmap,
-                                "nonselected_color": index_cmap_light,
+                                "size": 5,
+                                "color": index_cmap_selected,
+                                "selected_color": index_cmap_selected,
+                                "nonselected_color": index_cmap_nonselected,
                                 "alpha": 0.5,
                                 "selected_alpha": 0.5,
                                 "nonselected_alpha": 0.5,
@@ -247,9 +300,9 @@ def plot(request):
         scatter_initial = Scatter(x=axDict['x'], y=axDict['y'], size=axDict["size"], fill_color=axDict["color"], line_color=axDict["color"], marker=axDict["marker"], fill_alpha=axDict["alpha"], line_alpha=axDict["alpha"])
         # scatter_selected = Scatter(x=axDict['x'], y=axDict['y'], size=axDict["size"], fill_color=axDict["selected_color"], line_color=axDict["selected_color"], marker=axDict["marker"], fill_alpha=axDict["selected_alpha"], line_alpha=axDict["selected_alpha"])
         scatter_nonselected = Scatter(x=axDict['x'], y=axDict['y'], size=axDict["size"], fill_color=axDict["nonselected_color"], line_color=axDict["nonselected_color"], marker=axDict["marker"], fill_alpha=axDict["nonselected_alpha"], line_alpha=axDict["nonselected_alpha"])
-        p.add_glyph(source, scatter_initial, selection_glyph=scatter_initial, nonselection_glyph=scatter_nonselected, view=view, name=f"{axLabel}_scatter_renderer")
+        pt_renderers = p.add_glyph(source, scatter_initial, selection_glyph=scatter_initial, nonselection_glyph=scatter_nonselected, view=view, name=f"{axLabel}_scatter_renderer")
 
-        if axDict["err"] is not None:
+        if enable_errorbars and axDict["err"] is not None:
             segs_initial = Segment(x0=axDict['x'], y0=axDict["err"][0], x1=axDict['x'], y1=axDict["err"][1], line_color=axDict["color"], line_alpha=axDict["alpha"])
             # segs_selected = Segment(x0=axDict['x'], y0=axDict["err"][0], x1=axDict['x'], y1=axDict["err"][1], line_color=axDict["selected_color"], line_alpha=axDict["selected_alpha"])
             segs_nonselected = Segment(x0=axDict['x'], y0=axDict["err"][0], x1=axDict['x'], y1=axDict["err"][1], line_color=axDict["nonselected_color"], line_alpha=axDict["nonselected_alpha"])
@@ -259,10 +312,10 @@ def plot(request):
         if axLabel == "ax1":
             p.extra_x_ranges["secondary"] = Range1d(*x2_range)
             p_ax_x2 = DatetimeAxis(x_range_name="secondary")
-            p_ax_x2.formatter = DatetimeTickFormatter(months=r"%Y/%m/%d", 
-                                                      days=r"%Y/%m/%d %H:%M", 
-                                                      hours=r"%Y/%m/%d %H:%M", 
-                                                      minutes=r"%Y/%m/%d %H:%M")
+            p_ax_x2.formatter = DatetimeTickFormatter(months=r"%Y/%m/%d",
+                                                days=r"%Y/%m/%d %H:%M",
+                                                hours=r"%Y/%m/%d %H:%M",
+                                                minutes=r"%Y/%m/%d %H:%M")
             p.add_layout(p_ax_x2, 'above')
 
         if axLabel == "ax3":
@@ -275,6 +328,22 @@ def plot(request):
             p.below[0].major_tick_line_color = None  # turn off x-axis major ticks
             p.below[0].minor_tick_line_color = None  # turn off x-axis minor ticks
             p.below[0].major_label_text_font_size = '0pt'  # turn off x-axis tick labels
+
+        if axLabel == "ax2":
+            p.yaxis.formatter = NumeralTickFormatter(format=' 0.0 %')
+            #p.y_range.start = -0.01
+
+        p.yaxis.axis_label = axDict["y_label"]
+        p.title = axDict["y_label"]
+        p.title.visible = False
+
+        # Add common hover tool with custom JS callback
+        hover.renderers += [pt_renderers] # it has no renderers, append the scatter
+        p.add_tools(hover)
+
+        # make box_zoom the default active tool
+        p.add_tools(box_zoom_tool)
+        p.toolbar.active_drag = box_zoom_tool
 
         axDict["p"] = p
 
@@ -293,30 +362,52 @@ def plot(request):
 
     # Combine plots in a column layout
 
-    layout = gridplot([[p_main], [pltDict["ax1"]["p"]], [pltDict["ax2"]["p"]], [pltDict["ax3"]["p"]]], merge_tools=True, toolbar_location="right", sizing_mode='stretch_both')
+    if enable_full_lc:
+        plot_layout = gridplot([[p_main], [pltDict["ax1"]["p"]], [pltDict["ax2"]["p"]], [pltDict["ax3"]["p"]]], merge_tools=True, toolbar_location="right", sizing_mode='stretch_both')
+    else:
+        plot_layout = gridplot([[pltDict["ax1"]["p"]], [pltDict["ax2"]["p"]], [pltDict["ax3"]["p"]]], merge_tools=True, toolbar_location="right", sizing_mode='stretch_both')
+
+    ##############
+    # Data table #
+    ##############
+    from bokeh.models.widgets import HTMLTemplateFormatter
+    table_link_formatter = HTMLTemplateFormatter(template="""<a href="/iop4/admin/iop4api/photopolresult/?id=<%= value %>"><%= value %></a>""")
+    table_columns = [   TableColumn(field="pk", title="id", formatter=table_link_formatter),
+                        TableColumn(field="instrument", title="instrument"),
+                        TableColumn(field="x1", title="mjd"),
+                        TableColumn(field="y1", title="mag"),
+                        TableColumn(field="y1_err", title="dmag"),
+                        TableColumn(field="y2", title="p"),
+                        TableColumn(field="y2_err", title="dp"),
+                        TableColumn(field="y3", title="chi"),
+                        TableColumn(field="y3_err", title="dchi")]
+               
+    data_table = DataTable(source=source, view=view, columns=table_columns, index_position=None,
+                           sortable=True, reorderable=True, scroll_to_selection=True, 
+                           stylesheets=[InlineStyleSheet(css=""".slick-cell.selected { background-color: #d2eaff; }""")])
 
     # Add a callback to hide errorbars when panning (it makes the plot smoother)
 
     from bokeh.events import Event, PanStart, PanEnd, Press, PressUp, RangesUpdate
 
-    cb_hide_errorbars = """window.were_errorbars_active = document.querySelector('#cbox_errobars').checked; plot_hide_errorbars();"""
-    cb_restore_errorbars = """if (window.were_errorbars_active) {plot_show_errorbars();}"""
-    p_main.js_on_event(PanStart, CustomJS(code=cb_hide_errorbars))
-    p_main.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
-    p1.js_on_event(PanStart, CustomJS(code=cb_hide_errorbars))
-    p1.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
-    p2.js_on_event(PanStart, CustomJS(code=cb_hide_errorbars))
-    p2.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
-    p3.js_on_event(PanStart, CustomJS(code=cb_hide_errorbars))
-    p3.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
+    if enable_errorbars:
+        cb_hide_errorbars = """window.were_errorbars_active = document.querySelector('#cbox_errorbars').checked; plot_hide_errorbars();"""
+        cb_restore_errorbars = """if (window.were_errorbars_active) {plot_show_errorbars();}"""
+
+        if enable_full_lc:
+            p_main.js_on_event(PanStart, CustomJS(code=cb_hide_errorbars))
+            p_main.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
+
+        p1.js_on_event(PanStart, CustomJS(code=cb_hide_errorbars))
+        p1.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
+        p2.js_on_event(PanStart, CustomJS(code=cb_hide_errorbars))
+        p2.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
+        p3.js_on_event(PanStart, CustomJS(code=cb_hide_errorbars))
+        p3.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
 
     #################################################
     # Create a legend (it will be a different plot) #
     #################################################
-
-    from bokeh.models import Div, Circle, Column, Row
-    from bokeh.plotting import figure
-    from bokeh.models import ColumnDataSource, Styles, InlineStyleSheet, GlobalInlineStyleSheet
 
     # Create a ColumnDataSource with data for Circle and Star glyphs
     legend_source = ColumnDataSource(data=dict(x=[0], y=[0]))
@@ -377,24 +468,50 @@ def plot(request):
 
 
 
+
     # Get the components to embed in the Django template
 
-    if fmt == "html":
-        script, div = components(layout)
-
-        context = {
-            'plot': {'script': script,
-                    'div': div
-            },
-        }
-        
-        return render(request, 'iop4api/plot.html', context)
-
-    elif fmt == "json":
-
-        return JsonResponse({'item':json_item(layout), 
+    doc = Document()
+    doc.add_root(plot_layout)
+    doc.add_root(data_table)
+    doc.add_root(legend_layout)
+    
+    if fmt == "components":
+        # these can be loaded independently in the template and will be connected, but no control on the load process
+        script, (div_plot, div_table, div_legend) = components([plot_layout, data_table, legend_layout], wrap_script=False)
+        return JsonResponse({
+                                'plot': {
+                                        'script': script,
+                                        'div_plot': div_plot,
+                                        'div_table': div_table,
+                                        'div_legend': div_legend,
+                                    }, 
+                                'n_points':len(x1),
+                                'enable_full_lc': enable_full_lc,
+                                'enable_iop3': enable_iop3,
+                                'enable_errorbars': enable_errorbars,
+                            })
+    
+    elif fmt == "json_item":
+        # this will make them indepenedent, so table wont be connected to plot
+        return JsonResponse({'plot':json_item(plot_layout), 
                              'legend':json_item(legend_layout),
-                             'n_points':len(x1)})
+                             'table':json_item(data_table),
+                             'n_points':len(x1),
+                             'enable_full_lc': enable_full_lc,
+                             'enable_iop3': enable_iop3,
+                             'enable_errorbars': enable_errorbars})
+    
+    elif fmt == "items":
+        # to implement my own load process
+        from bokeh.embed.util import standalone_docs_json_and_render_items
+        doc, render_items = standalone_docs_json_and_render_items([plot_layout, data_table, legend_layout])
+        return JsonResponse({'doc':doc,
+                            'render_items':[item.to_json() for item in render_items],
+                            'n_points':len(x1),
+                            'enable_full_lc': enable_full_lc,
+                            'enable_iop3': enable_iop3,
+                            'enable_errorbars': enable_errorbars})
     
     else:
 

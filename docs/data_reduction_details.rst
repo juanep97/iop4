@@ -50,9 +50,14 @@ CAHA T220 Information
 OSN T090 Information
 --------------------
 
+AndorT90 instrument (photometry, polarimetry with filters):
+
 * Information about the telescope: https://www.osn.iaa.csic.es/page/telescopio-90-cm
 * Information about the camera: https://www.osn.iaa.csic.es/page/camaras-ccdt150-y-ccdt90
 * Old camera: https://www.osn.iaa.csic.es/page/camara-versarray-t90-retirada
+
+DIPOL polarimeter: :cite:t:`dipol:2020`.
+
 
 OSN T150 Information
 --------------------

@@ -1,0 +1,66 @@
+<div id="logs-tab-content">
+    <q-list padding bordered class="rounded-borders">
+        <q-expansion-item
+          dense
+          icon="settings"
+          label="Web application log"
+        >
+            <q-card>
+                <q-card-section style="padding: 8px 16px 0 16px;">
+                    <div id="webapp-log-content">
+                        <div class="log-entry" v-for="entry in logEntries">
+                            <span class="log-entry-title">[[ entry.title ]]</span>
+                            <span class="log-entry-datetime">[[ entry.dateTime ]]</span>
+                            <pre class="log-entry-content">[[ entry.content ]]</pre>
+                        </div>
+                    </div>
+                </q-card-section>
+            </q-card>
+        </q-expansion-item>
+    </q-list>
+
+    <q-list padding bordered class="rounded-borders">
+        <q-expansion-item
+          dense
+          icon="settings"
+          label="Pipeline log"
+          default-opened
+        >
+            <q-card>
+                <q-card-section style="padding: 8px 16px 0 16px;">
+                    <div>
+                        <q-chip v-model:selected="pipeline_log_options.errors" color="red" text-color="white" icon="error" :outline="!pipeline_log_options.errors">
+                         errors
+                        </q-chip>
+                        <q-chip v-model:selected="pipeline_log_options.warnings" color="orange" text-color="white" icon="warning" :outline="!pipeline_log_options.warnings">
+                          warning
+                        </q-chip>
+                        <q-chip v-model:selected="pipeline_log_options.info" color="darkgray" text-color="black" icon="info" :outline="!pipeline_log_options.info">
+                          info
+                        </q-chip>
+                        <q-chip v-model:selected="pipeline_log_options.debug" color="green" text-color="white" icon="code" :outline="!pipeline_log_options.debug">
+                            debug
+                        </q-chip>
+                        <input type="text" v-model="pipeline_log_options.filter_text" placeholder="filter text" class="q-chip row inline no-wrap items-center text-black q-chip--colored q-chip--outline" style="outline: none;">
+                    </div>
+                    <div id="pipeline-logs-tab-content">
+                        <div id="log-file-content">
+                            <q-virtual-scroll :items="pipeline_log.items" style="height: 100%;" virtual-scroll-item-size="14" separator v-slot="{ item, index }">
+                                <q-item :key="index" dense class="pipeline-log-entry">
+                                    <q-item-section  class="pipeline-log-entry">
+                                        <q-item-label class="pipeline-log-entry">
+                                            <span class="pipeline-log-entry" v-html="item"></span>
+                                        </q-item-label>
+                                        </q-item-section>
+                                    </q-item>
+                            </q-virtual-scroll>   
+                        </div>
+                    </div>
+                </q-card-section>
+            </q-card>
+        </q-expansion-item>
+    </q-list>
+
+
+</div>
+

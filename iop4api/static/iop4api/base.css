@@ -30,6 +30,9 @@ html, body, h1, h2, h3, h4, h5, h6, p, button, img, input, code, article, legend
     /* General styles */
     --font-family: Arial, sans-serif;
     --font-size: 16px;
+
+    /* Plot (and main content nice height) */
+    --nice-height: max(500px, calc(100vh - var(--navbar-scrolled-height) - 2 * var(--tab-content-padding) - 1px))
 }
 
 @media (max-width: 800px) {
@@ -253,6 +256,7 @@ form .form-row {
     display: flex;
     flex-direction: row;
     column-gap: 20px;
+    row-gap: 10px;
 }
 
 form .form-row.wrappable {
@@ -263,6 +267,7 @@ form .form-block {
     display: flex;
     flex-direction: column;
     flex-grow: 1;
+    gap: 10px;
 }
 
 form .form-block+.form-block {
@@ -275,7 +280,7 @@ form label, form input {
 
 form label {
     flex-grow: 1;
-    line-height: 2.0em;
+    /* line-height: 2.0em; */
 }
 
 form input {
@@ -423,6 +428,19 @@ form label {
     font-size: smaller;
 }
 
+.pipeline-log-entry {
+    line-height: 12px !important;
+    padding: 2px !important;
+    font-size: 10px !important;
+}
+.pipeline-log-entry .highlight {
+    background-color: rgba(204, 240, 40, 0.919);
+}
+
+#log-file-content {
+    height: calc(var(--nice-height) - 4em);
+}
+
 /* PLOT TAB */
 
 #plot-tab {
@@ -446,6 +464,10 @@ form label {
     min-width: 300px;
     max-width: min(95vw, 1000px);
     width: 100vw;
+}
+
+.smallest * {
+    max-width: 100%;
 }
 
 @media (max-width: 800px) {  
@@ -528,7 +550,8 @@ form label {
 }
 
 #plotContainerDiv {
-    min-height: max(500px, calc(100vh - var(--navbar-scrolled-height) - 2 * var(--tab-content-padding) - 1px));
+    min-height: var(--nice-height);
+    max-height: var(--nice-height);
     margin-bottom: 0;
     padding: 16px 16px 16px 4px;
     /* visibility: hidden; */
@@ -538,6 +561,16 @@ form label {
 #plotDiv {
     /* height: 100%; */
     width: 100%;
+}
+
+#tablePlotDiv {
+    border-radius: 4px;
+    max-height: 15em;
+    overflow-y: scroll;
+}
+
+#tablePlotDiv * {
+    z-index: 0 !important;
 }
 
 /* DATA TABLE TAB */
@@ -556,10 +589,6 @@ form label {
     padding: 10px 0;
 }
 
-#tableDiv {
-    border-radius: 4px;
-}
-
 #tableControlsContainer {
     display: flex;
     flex-direction: row;
@@ -568,6 +597,11 @@ form label {
     padding:10px;
 }
 
+#legendDiv .bk-Column {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
 
 
 
