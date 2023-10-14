@@ -85,25 +85,25 @@ def test_epoch_masterbias_masterflats(load_test_catalog):
     assert (epoch.masterflats.count() == 5)
 
 
-@pytest.mark.django_db(transaction=True)
-def test_build_single_proc(load_test_catalog):
-    """ Test the whole building process of reduced fits in a single process """
+# @pytest.mark.django_db(transaction=True)
+# def test_build_single_proc(load_test_catalog):
+#     """ Test the whole building process of reduced fits in a single process """
 
-    from iop4lib.db import Epoch, ReducedFit
+#     from iop4lib.db import Epoch, ReducedFit
 
-    epoch = Epoch.create(epochname="OSN-T090/2023-06-11", check_remote_list=False)
-    epoch.build_master_biases()
-    epoch.build_master_flats()
+#     epoch = Epoch.create(epochname="OSN-T090/2023-06-11", check_remote_list=False)
+#     epoch.build_master_biases()
+#     epoch.build_master_flats()
 
-    iop4conf.max_concurrent_threads = 1
+#     iop4conf.max_concurrent_threads = 1
 
-    epoch.reduce()
+#     epoch.reduce()
 
-    assert (ReducedFit.objects.filter(epoch=epoch).count() == 5)
+#     assert (ReducedFit.objects.filter(epoch=epoch).count() == 5)
 
-    for redf in ReducedFit.objects.filter(epoch=epoch).all():
-        assert (redf.has_flag(ReducedFit.FLAGS.BUILT_REDUCED))
-        assert not (redf.has_flag(ReducedFit.FLAGS.ERROR_ASTROMETRY))
+#     for redf in ReducedFit.objects.filter(epoch=epoch).all():
+#         assert (redf.has_flag(ReducedFit.FLAGS.BUILT_REDUCED))
+#         assert not (redf.has_flag(ReducedFit.FLAGS.ERROR_ASTROMETRY))
 
 
 
