@@ -140,4 +140,6 @@ To build and show the documentation, run
 
 ## Contribute
 
+Status (main branch) [![CI](https://github.com/juanep97/iop4/actions/workflows/ci.yml/badge.svg)](https://github.com/juanep97/iop4/actions/workflows/ci.yml)
+
 You are welcome to contribute to IOP4. Fork and create a PR!

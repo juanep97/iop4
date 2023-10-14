@@ -80,7 +80,9 @@ jobs:
       - name: Run tests (with -o log_cli=true -o log_cli_level=DEBUG to debug CI actions)
         run: pytest -o log_cli=true -o log_cli_level=DEBUG -vxs tests
 
-
+      - name: Output some info for debugging
+        run: |
+          du -sh $HOME/.cache/httpdirfs/
 
 
 
