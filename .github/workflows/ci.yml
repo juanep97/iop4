@@ -77,8 +77,8 @@ jobs:
           TEST_DATA_PASSWORD: ${{ secrets.test_data_password }}
         run:  wget --post-data "pass=$TEST_DATA_PASSWORD" 'https://vhega.iaa.es/iop4/iop4testdata.tar.gz' -O $HOME/iop4testdata.tar.gz
       
-      - name: Run tests (with log_cli=true to debug CI actions)
-        run: pytest -o log_cli=true -vxs tests
+      - name: Run tests (with -o log_cli=true -o log_cli_level=DEBUG to debug CI actions)
+        run: pytest -o log_cli=true -o log_cli_level=DEBUG -vxs tests
 
 
 
