@@ -63,14 +63,14 @@ jobs:
       - name: Install the package in editable mode with all additional dependencies
         run: pip install --editable .[all]
 
-      - name: Install httpdirfs to access astrometry index files without downloading them
-        run: sudo apt install httpdirfs
+      # - name: Install httpdirfs to access astrometry index files without downloading them
+      #   run: sudo apt install httpdirfs
 
-      - name: Mount astrometry index file in default location
-        run: mkdir -p $HOME/.astrometry_cache/5200 && httpdirfs --cache 'https://portal.nersc.gov/project/cosmo/temp/dstn/index-5200/LITE/' $HOME/.astrometry_cache/5200/
+      # - name: Mount astrometry index file in default location
+      #   run: mkdir -p $HOME/.astrometry_cache/5200 && httpdirfs --cache 'https://portal.nersc.gov/project/cosmo/temp/dstn/index-5200/LITE/' $HOME/.astrometry_cache/5200/
 
-      - name: Check that it was correctly mounted
-        run: ls $HOME/.astrometry_cache/5200/index-5200-00.fits
+      # - name: Check that it was correctly mounted
+      #   run: ls $HOME/.astrometry_cache/5200/index-5200-00.fits
 
       - name: Download test data
         env:
@@ -80,9 +80,10 @@ jobs:
       - name: Run tests (with -o log_cli=true -o log_cli_level=DEBUG to debug CI actions)
         run: pytest -o log_cli=true -o log_cli_level=DEBUG -vxs tests
 
-      - name: Output some info for debugging
-        run: |
-          du -sh $HOME/.cache/httpdirfs/
+      # - name: Output some info for debugging
+      #   run: |
+      #     python --version
+      #     du -sh $HOME/.cache/httpdirfs/
 
 
 
