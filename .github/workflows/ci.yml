@@ -67,7 +67,7 @@ jobs:
         run: sudo apt install httpdirfs
 
       - name: Mount astrometry index file in default location
-        run: httpdirfs 'https://portal.nersc.gov/project/cosmo/temp/dstn/index-5200/LITE/' $HOME/.astrometry_cache_path/
+        run: $HOME/.astrometry_cache_path && httpdirfs 'https://portal.nersc.gov/project/cosmo/temp/dstn/index-5200/LITE/' $HOME/.astrometry_cache_path/
 
       - name: Check that it was correcly mounted
         run: ls $HOME/.astrometry_cache_path/index-5200-00.fits
