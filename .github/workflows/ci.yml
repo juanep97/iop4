@@ -67,10 +67,10 @@ jobs:
         run: sudo apt install httpdirfs
 
       - name: Mount astrometry index file in default location
-        run: mkdir $HOME/.astrometry_cache_path && httpdirfs 'https://portal.nersc.gov/project/cosmo/temp/dstn/index-5200/LITE/' $HOME/.astrometry_cache_path/
+        run: mkdir -p $HOME/.astrometry_cache_path/5200 && httpdirfs 'https://portal.nersc.gov/project/cosmo/temp/dstn/index-5200/LITE/' $HOME/.astrometry_cache_path/5200/
 
       - name: Check that it was correcly mounted
-        run: ls $HOME/.astrometry_cache_path/index-5200-00.fits
+        run: ls $HOME/.astrometry_cache_path/5200/index-5200-00.fits
 
       - name: Download test data
         run: wget 'https://vhega.iaa.es/iop4/iop4testdata.tar.gz?pass=${{ secrets.test_data_password }}' -O $HOME/iop4testdata.tar.gz
