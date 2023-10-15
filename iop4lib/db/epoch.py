@@ -35,49 +35,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class HybridProperty():
-    def __init__(self, fget=None, fset=None, fexp=None):
-        self.fget = fget
-        self.fset = fset
-        self.fexp = fexp
-
-    def getter(self, fget):
-        return type(self)(fget=fget, fset=self.fset, fexp=self.fexp)
-    
-    def setter(self, fset):
-        return type(self)(fget=self.fget, fset=fset, fexp=self.fexp)
-    
-    def expression(self, fexp):
-        return type(self)(fget=self.fget, fset=self.fset, fexp=fexp)
-    
-    def __get__(self, instance, owner):
-        if instance is None:
-            return self
-        return self.fget(instance)
-
-    def __set__(self, instance, value):
-        if self.fset is not None:
-            self.fset(instance, value)
-        else:
-            raise AttributeError("Can't set attribute")
-
-def hybrid_property(fget):
-    res =  HybridProperty(fget=fget)
-    if fget.__name__ is not None:
-        res.__name__ = fget.__name__
-    return res
-
-
-class HybridManager(models.Manager):
-    def get_queryset(self):
-        qs = super().get_queryset()
-        print(f"get_queryset: {qs=}, {qs.model=}")
-        for name, value in vars(qs.model).items():
-            if isinstance(value, HybridProperty) and value.expression is not None:
-                print(f"Getting qs of {name} with {value=}")
-                qs = qs.annotate(**{name: value.fexp(qs.model)})
-                print("Got qs")
-        return qs
     
 class Epoch(models.Model):
     """A class representing an epoch.
@@ -87,18 +44,6 @@ class Epoch(models.Model):
     """
 
     objects = models.Manager()
-
-    custom = HybridManager()
-    @hybrid_property
-    def epochname_(self):
-        print(self)
-        return f"{self.telescope}/{self.night}"
-
-    @epochname_.expression
-    def cush(self):
-        return Concat('telescope', models.Value('/'), 'night', output_field=models.CharField())
-
-
 
     # Database fields and information
 
