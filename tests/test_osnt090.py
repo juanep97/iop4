@@ -112,6 +112,8 @@ def test_build_multi_proc(load_test_catalog):
 
     from iop4lib.db import PhotoPolResult, AstroSource
 
+    # 1. test relative photometry 
+
     epoch = Epoch.by_epochname("OSN-T090/2022-09-18")
 
     epoch.compute_relative_photometry()
@@ -128,3 +130,19 @@ def test_build_multi_proc(load_test_catalog):
 
     # check that uncertainty of the result is less than 0.08 mag
     assert res.mag_err < 0.08
+
+    # 2. test relative polarimetry
+
+    epoch = epoch.by_epochname("OSN-T090/2023-06-11")
+
+    epoch.compute_relative_polarimetry()
+
+    qs_res = PhotoPolResult.objects.filter(epoch=epoch).all()
+
+    # we expect only one polarimetry result target in this test dataset for this epoch
+    assert qs_res.exclude(astrosource__srctype=SRCTYPES.CALIBRATOR).count() == 1
+
+    res = qs_res[0]
+
+    # check that the result is correct to 1.5 sigma compared to IOP3
+    # TODO
