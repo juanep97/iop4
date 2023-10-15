@@ -45,31 +45,12 @@ or `pip install -e .` if you want to install it in developer mode.
 
 If you followed the steps in any of the two options above, you will have installed the module `iop4lib` and the `iop4` command, and the `iop4site` project. 
 
-After installation, take a look at the example configuration file (`config/config.example.yaml`), set the appropriate variables (path to the database, data directory, astrometry index files path, credentials, etc) and rename it to `config/config.yaml`.
-
 ## Configuration
 
-If no previous database exists, make sure to create it. You can do it automatically from the `iop4site/` directory by using
-```bash
-    $ python manage.py makemigrations
-    $ python manage.py migrate
-```
-Then, populate it with the necessary default data (a catalog, etc):
-```bash
-    $ python manage.py loaddata priv.dumps.yaml
-```
-An utility script, `iop4site/resetdb.py`, is provided which will completely reset the DB keeping catalog and users data. To manually back up all data from the DB, you can use
-```bash
-    $ python manage.py dumpdata --natural-primary --natural-foreign --format=yaml > priv.dumps.yaml
-```
-If no previous users have been loaded, create one with
-```bash
-    $ python manage.py createsuperuser
-```
-You can later use these credentials to login to the admin site.
+After installation, take a look at the example configuration file (`config/config.example.yaml`), set the appropriate variables (path to the database, data directory, astrometry index files path, credentials, etc) and rename it to `config/config.yaml`.
 
 ### Running Tests
-To run the tests, first follow the previous steps to configure IOP4. The tests use a different database and data directory (under `~/.iop4data/.iop4tests/`), but need the real database already created (the migration steps above). They will also need the location of the astrometry index files. At the moment, you will also need to download the `iop4testdata.tar.gz` file manually and place it under your home directory. Then, run
+To run the tests, first follow the previous steps to configure IOP4. At the moment, you will also need to download the `iop4testdata.tar.gz` file manually and place it under your home directory. Then, run
 ```bash
     $ pytest -vxs tests/
 ```
@@ -78,6 +59,28 @@ If it is the first time executing IOP4, the astrometry index files will be downl
 **Warning**: in some macOS systems, the process [might hang up](https://github.com/juanep97/iop4/issues/14#issuecomment-1748465276). Execute `export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES` or add that line to you shell init script.
 
 ## Usage
+
+If no previous database exists, make sure to create it. You can do it automatically from the `iop4site/` directory by using
+```bash
+    $ python manage.py makemigrations
+    $ python manage.py migrate
+```
+Then, create a user with
+```bash
+    $ python manage.py createsuperuser
+```
+You can later use these credentials to login to the admin site, where you will need to add any sources of interest to the empty catalog.
+
+To manually back up all data from the DB, you can use
+```bash
+    $ python manage.py dumpdata --natural-primary --natural-foreign --format=yaml > priv.dumps.yaml
+```
+This file can be used to reload the data to the DB with:
+```bash
+    $ python manage.py loaddata priv.dumps.yaml
+```
+An utility script, `iop4site/resetdb.py`, is provided which will completely reset the DB keeping catalog and users data.
+
 ### As A Program
 The pipeline script `iop4` can be invoked as
 ```bash
@@ -139,5 +142,7 @@ To build and show the documentation, run
 ````
 
 ## Contribute
+
+Status (main branch) [![CI](https://github.com/juanep97/iop4/actions/workflows/ci.yml/badge.svg)](https://github.com/juanep97/iop4/actions/workflows/ci.yml)
 
 You are welcome to contribute to IOP4. Fork and create a PR!
