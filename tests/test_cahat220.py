@@ -19,6 +19,36 @@ logger = logging.getLogger(__name__)
 from .fixtures import load_test_catalog
 
 
+@pytest.mark.skipif(os.getenv("CI") != "true", reason="only neccesary for actions CI as a workaround for httpdirfs")
+@pytest.mark.django_db(transaction=True)
+def test_build_single_proc(load_test_catalog):
+    """ Test the whole building process of reduced fits through multiprocessing """
+
+    from iop4lib.db import Epoch, RawFit, ReducedFit
+    from iop4lib.enums import IMGTYPES, SRCTYPES
+
+    epochname_L = ["CAHA-T220/2022-09-18", "CAHA-T220/2022-08-27"]
+
+    epoch_L = [Epoch.create(epochname=epochname, check_remote_list=False) for epochname in epochname_L]
+
+    for epoch in epoch_L:
+        epoch.build_master_biases()
+        epoch.build_master_flats()
+
+    iop4conf.max_concurrent_threads = 1
+
+    rawfits = RawFit.objects.filter(epoch__in=epoch_L, imgtype=IMGTYPES.LIGHT).all()
+    
+    Epoch.reduce_rawfits(rawfits)
+
+    assert (ReducedFit.objects.filter(epoch__in=epoch_L).count() == 4)
+
+    for redf in ReducedFit.objects.filter(epoch__in=epoch_L).all():
+        assert (redf.has_flag(ReducedFit.FLAGS.BUILT_REDUCED))
+        assert not (redf.has_flag(ReducedFit.FLAGS.ERROR_ASTROMETRY))
+
+
+
 @pytest.mark.django_db(transaction=True)
 def test_build_multi_proc(load_test_catalog):
     """ Test the whole building process of reduced fits through multiprocessing """
@@ -33,12 +63,6 @@ def test_build_multi_proc(load_test_catalog):
     for epoch in epoch_L:
         epoch.build_master_biases()
         epoch.build_master_flats()
-
-    # workaround for CI
-    # otherwise the attempt to access the httpdsdir-mounted files directly through multiprocessing will fail
-    if os.getenv("CI") == 'true':
-        iop4conf.max_concurrent_threads = 1
-        Epoch.reduce_rawfits([RawFit.objects.filter(epoch__in=epoch_L, imgtype=IMGTYPES.LIGHT).first()])
 
     iop4conf.max_concurrent_threads = 4
 
