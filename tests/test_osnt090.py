@@ -85,8 +85,13 @@ def test_build_single_proc(load_test_catalog):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_build_multi_proc(load_test_catalog):
-    """ Test the whole building process of reduced fits through multiprocessing """
+def test_build_multi_proc_photopol(load_test_catalog):
+    """ Test the whole building process of reduced fits through multiprocessing 
+    
+    Also tests here relative photometry and polarimetry results and their 
+    quality (value + uncertainties) (to avoud losing time reducing them
+    in another test function).
+    """
     from iop4lib.db import Epoch, RawFit, ReducedFit
     from iop4lib.enums import IMGTYPES, SRCTYPES
 
