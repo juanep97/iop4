@@ -85,6 +85,21 @@ def test_epoch_masterbias_masterflats(load_test_catalog):
     assert (epoch.masterflats.count() == 5)
 
 
+@pytest.mark.skip(reason="Not implemented yet")
+@pytest.mark.django_db(transaction=True)
+def test_polarimetry_groups(load_test_catalog):
+    r""" Tests the splitting of polarimetry observations into groups.
+    
+    Organizing observations into groups is essential to derive polarimetry results.
+
+    For OSN-T090 POLARIMETRY observations with AndorT090 instrument, four observations
+    are needed to derive a single polarimetry result, for the same source, same band and same exptime,
+    but different polarization angle.
+
+    """
+
+    assert False
+
 @pytest.mark.django_db(transaction=True)
 def test_build_single_proc(load_test_catalog):
     """ Test the whole building process of reduced fits in a single process """
@@ -104,7 +119,6 @@ def test_build_single_proc(load_test_catalog):
     for redf in ReducedFit.objects.filter(epoch=epoch).all():
         assert (redf.has_flag(ReducedFit.FLAGS.BUILT_REDUCED))
         assert not (redf.has_flag(ReducedFit.FLAGS.ERROR_ASTROMETRY))
-
 
 
 @pytest.mark.django_db(transaction=True)
