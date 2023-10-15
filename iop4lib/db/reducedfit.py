@@ -16,6 +16,7 @@ import astropy.io.fits as fits
 
 # iop4lib imports
 from iop4lib.telescopes import Telescope
+from iop4lib.instruments import Instrument
 from iop4lib.utils.filedproperty import FiledProperty
 from iop4lib.enums import *
 from .rawfit import RawFit
@@ -362,10 +363,10 @@ class ReducedFit(RawFit):
         return self.rawfit.header_objecthint
     
     def get_astrometry_position_hint(self, allsky=False, n_field_width=1.5):
-        return Telescope.by_name(self.telescope).get_astrometry_position_hint(self.rawfit, allsky=allsky,  n_field_width=n_field_width)
+        return Instrument.by_name(self.instrument).get_astrometry_position_hint(self.rawfit, allsky=allsky,  n_field_width=n_field_width)
     
     def get_astrometry_size_hint(self):
-        return Telescope.by_name(self.telescope).get_astrometry_size_hint(self.rawfit)
+        return Instrument.by_name(self.instrument).get_astrometry_size_hint(self.rawfit)
 
 
     # REDUCTION METHODS
@@ -373,10 +374,10 @@ class ReducedFit(RawFit):
     ## Delegated to telescopes
     
     def compute_aperture_photometry(self, *args, **kwargs):
-        return Telescope.by_name(self.telescope).compute_aperture_photometry(self, *args, **kwargs)
+        return Instrument.by_name(self.instrument).compute_aperture_photometry(self, *args, **kwargs)
 
     def compute_relative_photometry(self, *args, **kwargs):
-        return Telescope.by_name(self.telescope).compute_relative_photometry(self, *args, **kwargs)
+        return Instrument.by_name(self.instrument).compute_relative_photometry(self, *args, **kwargs)
     
     @classmethod
     def compute_relative_polarimetry(cls, polarimetry_group, *args, **kwargs):
@@ -384,4 +385,7 @@ class ReducedFit(RawFit):
         if not all([redf.telescope == polarimetry_group[0].telescope for redf in polarimetry_group]):
             raise Exception("All reduced fits in a polarimetry group must be from the same telescope")
         
-        return Telescope.by_name(polarimetry_group[0].telescope).compute_relative_polarimetry(polarimetry_group, *args, **kwargs)
+        if not all([redf.instrument == polarimetry_group[0].instrument for redf in polarimetry_group]):
+            raise Exception("All reduced fits in a polarimetry group must be from the same instrument")
+        
+        return Instrument.by_name(polarimetry_group[0].telescope).compute_relative_polarimetry(polarimetry_group, *args, **kwargs)

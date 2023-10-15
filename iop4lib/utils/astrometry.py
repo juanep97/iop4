@@ -369,7 +369,8 @@ def _build_wcs_params_shotgun_helper(redf, with_pairs=None,
     if bm is None:
         return {'success':False}
     else:
-        logger.debug(f"{redf}: {msg} worked")
+        logger.debug(f"{redf}: {msg} worked.")
+        logger.debug(f"{redf}: {bm.index_path=}")
         logger.debug(f"{redf}: {bm.center_ra_deg=}")
         logger.debug(f"{redf}: {bm.center_dec_deg=}")
         logger.debug(f"{redf}: {bm.scale_arcsec_per_pixel=}")

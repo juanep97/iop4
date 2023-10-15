@@ -1,26 +1,29 @@
+# iop4lib config
 import iop4lib.config
 iop4conf = iop4lib.Config(config_db=False)
 
+# django imports
 from django.db import models
 
-# other imports
+# iop4lib imports
+from ..enums import *
+from iop4lib.telescopes import Telescope
+from iop4lib.instruments import Instrument
+from .fitfilemodel import FitFileModel
+from .fields import FlagChoices, FlagBitField
 
+# other imports
 import re
 import os
 import stat
 import datetime
-
 import numpy as np
 
-from ..enums import *
-from iop4lib.telescopes import Telescope
-from .fitfilemodel import FitFileModel
-from .fields import FlagChoices, FlagBitField
-
 # logging 
-
 import logging
 logger = logging.getLogger(__name__)
+
+
 
 class RawFit(FitFileModel):
 
@@ -120,6 +123,8 @@ class RawFit(FitFileModel):
                 p.breakable()
                 p.text(f"filename: {self.filename},")
                 p.breakable()
+                p.text(f"instrument: {self.instrument},")
+                p.breakable()
                 p.text(f"imgtype: {self.imgtype},")
                 p.breakable()
                 p.text(f"size: {self.imgsize},")
@@ -139,6 +144,7 @@ class RawFit(FitFileModel):
                 f" - telescope: {self.epoch.telescope}<br>\n"
                 f" - night: {self.epoch.night}<br>\n"
                 f" - filename: {self.filename}<br>\n"
+                f" - instrument: {self.instrument}<br>\n"
                 f" - imgtype: {self.imgtype}<br>\n"
                 f" - size: {self.imgsize}<br>\n"
                 f" - obsmode: {self.obsmode}<br>\n"
@@ -383,12 +389,12 @@ class RawFit(FitFileModel):
     @property
     def header_hintcoord(self):
         """ Returns a SkyCoord according to the headers of the FITS file."""
-        return Telescope.by_name(self.epoch.telescope).get_header_hintcoord(self)
+        return Instrument.by_name(self.instrument).get_header_hintcoord(self)
 
     @property
     def header_objecthint(self):
         """ Returns the AstroSource according to the OBJECT keyword in the header of the FITS file. """
-        return Telescope.by_name(self.epoch.telescope).get_header_objecthint(self)
+        return Instrument.by_name(self.instrument).get_header_objecthint(self)
     
     # Class methods    
 
