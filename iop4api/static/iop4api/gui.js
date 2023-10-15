@@ -203,7 +203,7 @@ function plot_hide_instrument(e) {
 
     label = e.getAttribute('data-instrument');
 
-    console.log('Hiding instument: ' + label)
+    console.log('Hiding instrument: ' + label)
 
     if ( !('activeFilters' in plotData))  {
         plotData.activeFilters = [];

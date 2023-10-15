@@ -78,12 +78,12 @@ jobs:
         run:  wget --post-data "pass=$TEST_DATA_PASSWORD" 'https://vhega.iaa.es/iop4/iop4testdata.tar.gz' -O $HOME/iop4testdata.tar.gz
       
       - name: Run tests (with -o log_cli=true -o log_cli_level=DEBUG to debug CI actions)
-        run: pytest -o log_cli=true -o log_cli_level=DEBUG -vxs tests
+        run: pytest -o log_cli=true -o log_cli_level=DEBUG -vxs tests/
 
       - name: Output some info for debugging
         run: |
+          df -h
           du -sh $HOME/.cache/httpdirfs/
-
 
 
 
