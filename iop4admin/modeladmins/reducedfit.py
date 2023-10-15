@@ -28,6 +28,7 @@ class AdminReducedFit(AdminFitFile):
         RawFitTelescopeFilter,
         RawFitNightFilter,
         RawFitFilenameFilter,
+        RawFitInstrumentFilter,
         RawFitFlagFilter,
         "obsmode",
         "band",

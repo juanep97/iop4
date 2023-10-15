@@ -24,6 +24,7 @@ class AdminRawFit(AdminFitFile):
             RawFitTelescopeFilter,
             RawFitNightFilter,
             RawFitFilenameFilter,
+            RawFitInstrumentFilter,
             RawFitFlagFilter,
             "imgtype",
             "obsmode",
