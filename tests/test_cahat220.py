@@ -19,10 +19,17 @@ logger = logging.getLogger(__name__)
 from .fixtures import load_test_catalog
 
 
-@pytest.mark.skipif(os.getenv("CI") != "true", reason="only neccesary for actions CI as a workaround for httpdirfs")
+@pytest.mark.skipif(os.getenv("CI") != "true", reason="only for actions CI")
 @pytest.mark.django_db(transaction=True)
 def test_build_single_proc(load_test_catalog):
-    """ Test the whole building process of reduced fits through multiprocessing """
+    """ Test the whole building process of reduced fits in a single process
+
+        This test is not really necessary since single-process reduction is already tested
+        in OSN-T090, therefore it is skipped by default. However CI actions at the momemnt 
+        will fail without it, because if the astrometry index files are accessed by multiple 
+        processes at the same time before they are catched httpdirfs will fail. To run it 
+        locally set the environment variable CI=true.
+    """
 
     from iop4lib.db import Epoch, RawFit, ReducedFit
     from iop4lib.enums import IMGTYPES, SRCTYPES
@@ -50,8 +57,13 @@ def test_build_single_proc(load_test_catalog):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_build_multi_proc(load_test_catalog):
-    """ Test the whole building process of reduced fits through multiprocessing """
+def test_build_multi_proc_photopol(load_test_catalog):
+    """ Test the whole building process of reduced fits through multiprocessing 
+    
+    Also tests here relative photometry and polarimetry results and their 
+    quality (value + uncertainties) (to avoud losing time reducing them
+    in another test function).
+    """
 
     from iop4lib.db import Epoch, RawFit, ReducedFit
     from iop4lib.enums import IMGTYPES, SRCTYPES
