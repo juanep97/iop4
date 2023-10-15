@@ -606,6 +606,7 @@ class Epoch(models.Model):
             
             keys = (
                     ('kwobj', redf.rawfit.header['OBJECT'].split(" ")[0]), 
+                    ('instument', redf.instrument),
                     ('band', redf.band), 
                     ('exptime', redf.exptime)
             )
