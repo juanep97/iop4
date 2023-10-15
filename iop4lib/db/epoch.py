@@ -24,7 +24,7 @@ from astropy.time import Time
 
 from iop4lib.enums import *
 from iop4lib.telescopes import Telescope
-from .astrosource import AstroSource
+from iop4lib.instruments import Instrument
 from .fields import FlagChoices, FlagBitField
 from iop4lib.utils import  get_mem_parent_from_child, get_total_mem_from_child, get_mem_current, get_mem_children
 from iop4lib.utils.parallel import epoch_bulkreduce_multiprocesing, epoch_bulkreduce_ray
@@ -42,8 +42,6 @@ class Epoch(models.Model):
     Identified by the telescope and date of the night. Provides method for fetching the data
     from the telescope archives and reducing the data.
     """
-
-    objects = models.Manager()
 
     # Database fields and information
 
@@ -551,7 +549,7 @@ class Epoch(models.Model):
             
             keys = (
                     ('kwobj', redf.rawfit.header['OBJECT'].split(" ")[0]), 
-                    ('instument', redf.instrument),
+                    ('instrument', redf.instrument),
                     ('band', redf.band), 
                     ('exptime', redf.exptime)
             )
@@ -597,10 +595,10 @@ class Epoch(models.Model):
                 t1 = Time(min([redf.juliandate for redf in redf_L]), format="jd").datetime.strftime("%H:%M:%S")
                 t2 = Time(max([redf.juliandate for redf in redf_L]), format="jd").datetime.strftime("%H:%M:%S")
                 
-                print(f"{len(redf_L)=}; {key_D.values()}, {set([redf.rotangle for redf in redf_L])}   ({t1}, {t2})")
+                logging.debug(f"{len(redf_L)=}; {key_D.values()}, {set([redf.rotangle for redf in redf_L])}   ({t1}, {t2})")
                 
                 for redf in redf_L:
-                    print(f"     -> {redf.rotangle}: {Time(redf.juliandate, format='jd').datetime.strftime('%H:%M:%S')}")
+                    logging.debug(f"     -> {redf.rotangle}: {Time(redf.juliandate, format='jd').datetime.strftime('%H:%M:%S')}")
 
         # return the groups and their keys:
 
@@ -615,9 +613,9 @@ class Epoch(models.Model):
         logger.info(f"{self}: computing relative polarimetry over {len(groupkeys_L)} polarimetry groups.")
         logger.debug(f"{self}: {groupkeys_L=}")
 
-        f = lambda x: Telescope.by_name(self.telescope).compute_relative_polarimetry(x, *args, **kwargs)
-        
-        return list(map(f, clusters_L))
+        f = lambda x: Instrument.by_name(x[1]['instrument']).compute_relative_polarimetry(x[0], *args, **kwargs)
+
+        return list(map(f, zip(clusters_L, groupkeys_L)))
 
 
 

@@ -35,11 +35,7 @@ class OSNT150(OSNT090, Telescope, metaclass=ABCMeta):
     abbrv = "T150"
     telescop_kw = "T150-OSN"
 
-    # telescope / instrument specific properties
-
-    andort150_arcsec_per_pix = 0.232
-    andort150_gain_e_adu = 4.5
-    andort150_field_width_arcmin = 7.92
+    # telescope specific properties
 
     ftp_address = iop4conf.osn_t150_address
     ftp_user = iop4conf.osn_t150_user
