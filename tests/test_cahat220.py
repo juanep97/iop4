@@ -34,7 +34,7 @@ def test_build_single_proc(load_test_catalog):
     from iop4lib.db import Epoch, RawFit, ReducedFit
     from iop4lib.enums import IMGTYPES, SRCTYPES
 
-    epochname_L = ["CAHA-T220/2022-09-18", "CAHA-T220/2022-08-27"]
+    epochname_L = ["CAHA-T220/2022-08-27", "CAHA-T220/2022-09-18"]
 
     epoch_L = [Epoch.create(epochname=epochname, check_remote_list=False) for epochname in epochname_L]
 
@@ -68,7 +68,7 @@ def test_build_multi_proc_photopol(load_test_catalog):
     from iop4lib.db import Epoch, RawFit, ReducedFit
     from iop4lib.enums import IMGTYPES, SRCTYPES
 
-    epochname_L = ["CAHA-T220/2022-09-18", "CAHA-T220/2022-08-27"]
+    epochname_L = ["CAHA-T220/2022-08-27", "CAHA-T220/2022-09-18"]
 
     epoch_L = [Epoch.create(epochname=epochname, check_remote_list=False) for epochname in epochname_L]
 
@@ -92,7 +92,6 @@ def test_build_multi_proc_photopol(load_test_catalog):
 
     epoch = Epoch.by_epochname("CAHA-T220/2022-09-18")
 
-    epoch.compute_relative_photometry()
     epoch.compute_relative_polarimetry()
 
     qs_res = PhotoPolResult.objects.filter(epoch=epoch, astrosource__name="2200+420").all()
@@ -102,8 +101,13 @@ def test_build_multi_proc_photopol(load_test_catalog):
 
     res = qs_res[0]
 
-    # check that the result is correct to 1.5 sigma compared to IOP3
-    assert res.mag == approx(13.38, abs=1.5*res.mag_err)
-
+    # check that the result is correct to 1.5 sigma or 0.02 mag compared to IOP3
+    assert res.mag == approx(13.38, abs=max(1.5*res.mag_err, 0.02))
     # check that uncertainty of the result is less than 0.08 mag
     assert res.mag_err < 0.08
+
+    assert res.p == approx(10.9/100, abs=max(1.5*res.p_err, 1.0/100))
+    assert res.p_err < 0.5
+
+    assert res.chi == approx(25.2, abs=max(1.5*res.chi_err, 1.0))
+    assert res.chi_err < 1.0

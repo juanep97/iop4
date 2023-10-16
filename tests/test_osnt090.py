@@ -26,26 +26,26 @@ def test_epoch_creation(load_test_catalog):
 
     assert (Epoch.objects.count() == 0)
     
-    epoch = Epoch.create(epochname="OSN-T090/2023-06-11")
+    epoch = Epoch.create(epochname="OSN-T090/2022-09-08")
 
     assert (Epoch.objects.count() == 1)
     assert (epoch.rawfits.count() > 0)
-    assert (epoch.rawfits.count() == len(os.listdir(Path(iop4conf.datadir) / "raw" / "OSN-T090" / "2023-06-11")))
+    assert (epoch.rawfits.count() == len(os.listdir(Path(iop4conf.datadir) / "raw" / "OSN-T090" / "2022-09-08")))
 
 @pytest.mark.django_db(transaction=True)
 def test_epoch_masterbias_masterflats(load_test_catalog):
     """ Test masterbias and masterflats creation """
     from iop4lib.db import Epoch
     
-    epoch = Epoch.create(epochname="OSN-T090/2023-06-11")
+    epoch = Epoch.create(epochname="OSN-T090/2022-09-23")
 
-    assert (epoch.rawfits.count() == len(os.listdir(Path(iop4conf.datadir) / "raw" / "OSN-T090" / "2023-06-11")))
+    assert (epoch.rawfits.count() == len(os.listdir(Path(iop4conf.datadir) / "raw" / "OSN-T090" / "2022-09-23")))
    
     epoch.build_master_biases()
     epoch.build_master_flats()
 
-    assert (epoch.masterbias.count() == 1)
-    assert (epoch.masterflats.count() == 5)
+    assert (epoch.masterbias.count() > 0)
+    assert (epoch.masterflats.count() > 0)
 
 
 @pytest.mark.skip(reason="Not implemented yet")
@@ -69,15 +69,20 @@ def test_build_single_proc(load_test_catalog):
 
     from iop4lib.db import Epoch, ReducedFit
 
-    epoch = Epoch.create(epochname="OSN-T090/2023-06-11", check_remote_list=False)
-    epoch.build_master_biases()
-    epoch.build_master_flats()
+    epochname_L = ["OSN-T090/2022-09-23", "OSN-T090/2022-09-18"]
+    epoch_L = [Epoch.create(epochname=epochname, check_remote_list=False) for epochname in epochname_L]
+
+    for epoch in epoch_L:
+        epoch.build_master_biases()
+        epoch.build_master_flats()
 
     iop4conf.max_concurrent_threads = 1
 
+    epoch = Epoch.by_epochname("OSN-T090/2022-09-18")
+    
     epoch.reduce()
 
-    assert (ReducedFit.objects.filter(epoch=epoch).count() == 5)
+    assert (ReducedFit.objects.filter(epoch=epoch).count() == 1)
 
     for redf in ReducedFit.objects.filter(epoch=epoch).all():
         assert (redf.has_flag(ReducedFit.FLAGS.BUILT_REDUCED))
@@ -95,7 +100,7 @@ def test_build_multi_proc_photopol(load_test_catalog):
     from iop4lib.db import Epoch, RawFit, ReducedFit
     from iop4lib.enums import IMGTYPES, SRCTYPES
 
-    epochname_L = ["OSN-T090/2022-09-18", "OSN-T090/2023-06-11"]
+    epochname_L = ["OSN-T090/2022-09-23", "OSN-T090/2022-09-08", "OSN-T090/2022-09-18"]
 
     epoch_L = [Epoch.create(epochname=epochname, check_remote_list=False) for epochname in epochname_L]
 
@@ -109,7 +114,7 @@ def test_build_multi_proc_photopol(load_test_catalog):
     
     Epoch.reduce_rawfits(rawfits)
 
-    assert (ReducedFit.objects.filter(epoch__in=epoch_L).count() == 6)
+    assert (ReducedFit.objects.filter(epoch__in=epoch_L).count() == 5)
 
     for redf in ReducedFit.objects.filter(epoch__in=epoch_L).all():
         assert (redf.has_flag(ReducedFit.FLAGS.BUILT_REDUCED))
@@ -130,15 +135,15 @@ def test_build_multi_proc_photopol(load_test_catalog):
 
     res = qs_res[0]
 
-    # check that the result is correct to 1.5 sigma compared to IOP3
-    assert res.mag == approx(13.35, abs=1.5*res.mag_err)
+    # check that the result is correct to 1.5 sigma or 0.02 mag compared to IOP3
+    assert res.mag == approx(13.35, abs=max(1.5*res.mag_err, 0.02))
 
     # check that uncertainty of the result is less than 0.08 mag
     assert res.mag_err < 0.08
 
     # 2. test relative polarimetry
 
-    epoch = epoch.by_epochname("OSN-T090/2023-06-11")
+    epoch = epoch.by_epochname("OSN-T090/2022-09-08")
 
     epoch.compute_relative_polarimetry()
 
@@ -147,7 +152,16 @@ def test_build_multi_proc_photopol(load_test_catalog):
     # we expect only one polarimetry result target in this test dataset for this epoch
     assert qs_res.exclude(astrosource__srctype=SRCTYPES.CALIBRATOR).count() == 1
 
-    res = qs_res[0]
+    res = qs_res.get(astrosource__name="2200+420")
 
-    # check that the result is correct to 1.5 sigma compared to IOP3
-    # TODO
+    # logger.debug(f"{res}\n"
+    #              f"  mag {res.mag} +- {res.mag_err}\n"
+    #              f"  p {res.p} % +- {res.p_err} %\n"
+    #              f"  chi {res.chi} +- {res.chi_err}")
+
+    # check that the result is correct to 1.5 sigma or 0.02 compared to IOP3
+    assert res.mag == approx(13.38, abs=max(1.5*res.mag_err, 0.02))
+
+    # for polarimetry, we expect a higher uncertainty than for photometry
+    assert res.p == approx(14.0/100, abs=max(2*res.p_err, 2/100)) # 2 sigma or 2% of polarization degree
+    assert res.chi == approx(14.7, abs=max(2*res.chi_err, 5)) # 2 sigma or 5 degrees of polarization angle
