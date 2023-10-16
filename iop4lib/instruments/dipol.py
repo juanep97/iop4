@@ -92,7 +92,8 @@ class DIPOL(Instrument):
         from iop4lib.db.rawfit import RawFit
         import re
 
-        raise NotImplementedError("DIPOL obsmode not implemented yet")
+        # raise NotImplementedError("DIPOL obsmode not implemented yet")
+        logger.error(f"OSN DIPOL obsmode not implemented yet.")
 
     @classmethod
     def get_astrometry_size_hint(cls, rawfit):
