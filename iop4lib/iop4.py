@@ -143,6 +143,7 @@ def main():
     ## other options
     parser.add_argument('--retry-failed', dest='retry_failed', action='store_true', help='<Optional> Retry failed reduced fits', required=False)
     parser.add_argument('--skip-remote-file-list', dest='skip_remote_file_list', action='store_true', help='<Optional> Skip remote file list check', required=False)
+    parser.add_argument('--reclasify-rawfits', dest="reclassify_rawfits", action="store_true", help="<Optional> Re-classify rawfits", required=False)
     parser.add_argument("--force-rebuild", dest="force_rebuild", action="store_true", help="<Optional> Force re-building of files (pass force_rebuild=True)", required=False)
 
     args = parser.parse_args()
@@ -172,7 +173,7 @@ def main():
     ROOT_LOGGER.addHandler(logger_h1)
     ROOT_LOGGER.addHandler(logger_h2)
 
-    ## parallelization:
+    ## read cli config options
 
     if args.nthreads is not None:
         iop4conf.max_concurrent_threads = args.nthreads
@@ -198,6 +199,15 @@ def main():
     else:
         logger.info("Invoked with --list-only:")
         logger.info(f"{epochs_to_process=}")
+
+    # Classify rawfits if indicated
+
+    if args.reclassify_rawfits:
+        logger.info("Classifying rawfits.")
+        for epochname in epochs_to_process:
+            epoch = Epoch.by_epochname(epochname)
+            for rawfit in epoch.rawfits.all():
+                rawfit.classify()
 
     # Retry failed files if indicated
 
