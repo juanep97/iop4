@@ -70,7 +70,11 @@ class AdminReducedFit(AdminFitFile):
         if len(cat_targets) > 0:
             return cat_targets
         
-        kw_obj_val = obj.rawfit.header['OBJECT']
+        try:
+            kw_obj_val = obj.rawfit.header['OBJECT']
+        except FileNotFoundError:
+            return format_html(f"<i>rawfit not found</i>")
+        
         guessed_target = AstroSource.objects.filter(Q(name__icontains=kw_obj_val) | Q(other_name__icontains=kw_obj_val)).values_list('name', flat=True)
 
         if len(guessed_target) > 0:
