@@ -71,8 +71,9 @@ class Instrument(metaclass=ABCMeta):
     def get_known(cls):
         from .andor_cameras import AndorT90, AndorT150
         from .cafos import CAFOS
+        from .dipol import DIPOL
 
-        return [AndorT90, AndorT150, CAFOS]
+        return [AndorT90, AndorT150, CAFOS, DIPOL]
 
     @classmethod
     def by_name(cls, name: str) -> 'Instrument':
