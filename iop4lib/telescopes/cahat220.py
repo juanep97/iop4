@@ -24,6 +24,10 @@ from .telescope import Telescope
 import logging
 logger = logging.getLogger(__name__)
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from iop4lib.db import RawFit, ReducedFit, Epoch
+
 class CAHAT220(Telescope, metaclass=ABCMeta):
     """
     CAHA T220 telescope.
@@ -136,3 +140,39 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
             ftp.quit()
         except Exception as e:
             raise Exception(f"Error downloading {rawfits}: {e}.")
+
+    @classmethod
+    def list_remote_filelocs(cls, epochnames: list[str]) -> list[str]:
+        from iop4lib.db import Epoch
+
+        ftp =  ftplib.FTP(iop4conf.caha_address)
+        
+        ftp.login(iop4conf.caha_user, iop4conf.caha_password)
+
+        dirnames = ftp.nlst()
+
+        re_expr = re.compile(r".*\.fits?")
+
+        fileloc_list = list()
+
+        for epochname in epochnames:
+
+            tel, night = Epoch.epochname_to_tel_night(epochname)
+            yymmdd = night.strftime("%y%m%d")
+
+            if f"{yymmdd}_CAFOS" not in dirnames:
+                logger.error(f"CAHA remote dir {yymmdd}_CAFOS does not exist.")
+                continue
+
+            try:
+                ftp.cwd(f"/{yymmdd}_CAFOS")
+
+                fileloc_list.extend([f"{epochname}/{fname}" for fname in ftp.nlst() if re_expr.search(fname) and fname != '.' and fname != '..'])
+        
+
+            except Exception as e:
+                logger.error(f"Error listing CAHA remote dir for {epochname}: {e}.")
+            
+        ftp.quit()
+
+        return fileloc_list

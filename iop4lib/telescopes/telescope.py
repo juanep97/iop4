@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from iop4lib.db import RawFit, ReducedFit    
+    from iop4lib.db import RawFit, ReducedFit, Epoch    
 
 class Telescope(metaclass=ABCMeta):
     """ Base class for telescopes.
@@ -78,17 +78,22 @@ class Telescope(metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def list_remote_raw_fnames(cls, epoch):
+    def list_remote_raw_fnames(cls, epoch: 'Epoch') -> list[str] :
         pass
 
     @classmethod
     @abstractmethod
-    def download_rawfits(cls, epoch):
+    def download_rawfits(cls, epoch: 'Epoch') -> None :
         pass
 
     @classmethod
     @abstractmethod
-    def list_remote_epochnames(cls):
+    def list_remote_epochnames(cls) -> list[str] :
+        pass
+
+    @classmethod
+    @abstractmethod
+    def list_remote_filelocs(cls, epochnames: list[str]) -> list[str] :
         pass
 
     # Class methods (you should be using these only from this Telescope class, not from subclasses)

@@ -91,11 +91,6 @@ class OSNT090(Telescope, metaclass=ABCMeta):
 
             logger.debug(f"Total of {len(remote_fnameL_all)} files in OSN {epoch.epochname}: {remote_fnameL_all}.")
 
-            # if iop4conf.osn_download_all_then_check_owner:                
-            #     remote_fnameL = remote_fnameL_all
-            # else:
-            #     remote_fnameL = [s for s in remote_fnameL_all if re.compile('|'.join(iop4conf.osn_fnames_patterns)).search(s)] # Filter by filename pattern (get only our files)
-
             remote_fnameL = [s for s in remote_fnameL_all if re.compile('|'.join(iop4conf.osn_fnames_patterns)).search(s)] # Filter by filename pattern (get only our files)
 
             logger.debug(f"Filtered to {len(remote_fnameL)} files in OSN {epoch.epochname}.")
@@ -126,6 +121,39 @@ class OSNT090(Telescope, metaclass=ABCMeta):
 
         except Exception as e:
             raise Exception(f"Error downloading file {rawfit.filename}: {e}.")
+
+    @classmethod
+    def list_remote_filelocs(cls, epochnames: list[str]) -> list[str]:
+
+        from iop4lib.db import Epoch
+
+        ftp =  ftplib.FTP(cls.ftp_address, cls.ftp_user, cls.ftp_password, encoding='latin-1')
+
+        re_expr = re.compile('|'.join(iop4conf.osn_fnames_patterns))
+
+        dirnames = ftp.nlst()
+
+        fileloc_list = list()
+        
+        for epochname in epochnames:
+
+            tel, night = Epoch.epochname_to_tel_night(epochname)
+            yyyymmdd = night.strftime("%Y%m%d")
+
+            if yyyymmdd not in dirnames:
+                logger.warning(f"Could not find {yyyymmdd} in {cls.name} remote.")
+                continue
+
+            try:
+                
+                fileloc_list.extend([f"{epochname}/{fname}" for fname in ftp.nlst(yyyymmdd) if re_expr.search(fname) and fname != '.' and fname != '..'])
+                            
+            except Exception as e:
+                logger.error(f"Error listing OSN remote dir for {epochname}: {e}.")
+
+        ftp.quit()
+
+        return fileloc_list
 
     @classmethod
     def check_telescop_kw(cls, rawfit):
