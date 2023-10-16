@@ -158,12 +158,16 @@ class RawFit(FitFileModel):
     def fileloc_to_tel_night_filename(fileloc):
         """Parses a fileloc to telescope, night and filename."""
         from .epoch import Epoch
+
         matches = re.findall(r"(([a-zA-Z0-9]+)/([0-9]{2,4}-?[0-9]{2}-?[0-9]{2}))/([^/\\]+)$", fileloc)
+
         if len(matches) != 1:
             raise Exception(f"fileloc {fileloc} is not EPOCHNAME/filename")
         
         epochname = matches[0][0]
-        telescope, night = Epoch.epochname_to_tel_night(matches[0][0])
+
+        telescope, night = Epoch.epochname_to_tel_night(epochname)
+        
         filename = matches[0][-1]
 
         return telescope, night, filename
