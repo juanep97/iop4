@@ -271,7 +271,38 @@ class ReducedFit(RawFit):
             #data_new = (data/self.rawfit.exptime) / (mf_data)
             data_new = (data) / (mf_data)
 
-        fits.writeto(self.filepath, data_new, header=self.header, overwrite=True)
+
+        # Reduce precission
+
+        # Assuming data_new is your floating-point data array
+        data_max = data_new.max()
+        data_min = data_new.min()
+
+        # Calculate the scaling factor
+        int16_max = 32767
+        int16_min = -32768
+
+        # Apply the scaling factor and offset to the data
+        data_new = (data_new-data_min)/(data_max-data_min)*(int16_max-int16_min)+int16_min
+        #data_new = (int16_max - int16_min) / (data_max - data_min) * data_new - data_min * (int16_max-int16_min) / (data_max - data_min) + int16_min
+        
+        data_new = data_new.astype(np.int16)
+        
+        m = (int16_max - int16_min) / (data_max - data_min)
+        n = - data_min * (int16_max-int16_min) / (data_max - data_min) + int16_min
+
+        #y = mx+n
+        #x = (y-n)/m = y/m - n/m
+
+        bscale = 1/n
+        bzero = -1/m
+
+        header_new = fits.Header()
+
+        header_new['BSCALE'] = bscale
+        header_new['BZERO'] = bzero
+        
+        fits.writeto(self.filepath, data_new, header=header_new, overwrite=True)
 
     
     @property
