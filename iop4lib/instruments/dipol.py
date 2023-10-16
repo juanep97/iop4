@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 class DIPOL(Instrument):
 
-    name = "DIPOL-1"
+    name = "DIPOL"
     
     arcsec_per_pix = 0.134
 
@@ -26,7 +26,7 @@ class DIPOL(Instrument):
     def get_astrometry_size_hint(cls, rawfit):
         """ Get the size hint for this telescope / rawfit.
 
-            For DIPOL-1 in OSN-T090, according to preliminary investigation of OSN crew is:
+            For DIPOL in OSN-T090, according to preliminary investigation of OSN crew is:
                 Las posiciones que he tomado y el ángulo de rotación en cada caso son estos:
                 Dec= -10º HA=+3h  rotación=-177.3º
                 Zenit rotación=-177.3º

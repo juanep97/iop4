@@ -132,7 +132,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
         """
         if rawfit.header["TELESCOP"] == "":
             cls.classify_instrument_kw(rawfit)
-            if rawfit.instrument == INSTRUMENTS.DIPOL1:
+            if rawfit.instrument == INSTRUMENTS.DIPOL:
                 return
             
         super().check_telescop_kw(rawfit)
