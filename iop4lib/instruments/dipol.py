@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 class DIPOL(Instrument):
 
     name = "DIPOL"
+    instrument_kw = "ASI Camera (1)"
     
     arcsec_per_pix = 0.134
 
