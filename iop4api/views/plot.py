@@ -176,6 +176,12 @@ def plot(request):
         # and for the subplots
         x1_range = min(x1)-0.05*(max(x1)-min(x1)), max(x1)+0.05*(max(x1)-min(x1))
         x2_range = f_x1_to_x2(x1_range)
+    elif len(x1) == 1:
+        x1_lims = x1[0]-0.2, x1[0]+0.2
+        x2_lims = f_x1_to_x2(x1_lims)
+
+        x1_range = x1[0]-0.05, x1[0]+0.05
+        x2_range = f_x1_to_x2(x1_range)
     else:
         x1_lims = np.nan, np.nan
         x2_lims = np.nan, np.nan
@@ -185,6 +191,8 @@ def plot(request):
     # also the freeze y axis range of the main plot
     if len(y1) >= 2:
         y1_lims = np.nanmin(y1)-0.05*(np.nanmax(y1)-np.nanmin(y1)), np.nanmax(y1)+0.05*(np.nanmax(y1)-np.nanmin(y1))
+    elif len(y1) == 1:
+        y1_lims = y1[0]-0.05, y1[0]+0.05
     else:
         y1_lims = np.nan, np.nan
 
