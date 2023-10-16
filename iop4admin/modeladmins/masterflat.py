@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class AdminMasterFlat(AdminFitFile):
     model = MasterFlat
-    list_display = ['id', 'telescope', 'night', 'imgsize', 'band', 'obsmode', 'rotangle', 'exptime', 'masterbias', 'get_built_from', 'options']
+    list_display = ['id', 'telescope', 'night', 'imgsize', 'band', 'obsmode', 'rotangle', 'exptime', 'get_masterbias', 'get_built_from', 'options']
 
 
     
@@ -30,6 +30,14 @@ class AdminMasterFlat(AdminFitFile):
     @admin.display(description='Night')
     def night(self, obj):
         return obj.epoch.night
+    
+    @admin.display(description='MasterBias')
+    def get_masterbias(self, obj):
+        self.allow_tags = True
+        if obj.masterbias is None:
+            return "-"
+        url = reverse('iop4admin:%s_%s_changelist' % (MasterBias._meta.app_label, MasterBias._meta.model_name)) + f"?id={obj.masterbias.id}"
+        return mark_safe(rf'<a href="{url}">{obj.masterbias.id}</a>')
     
     @admin.display(description="Built from")
     def get_built_from(self, obj):
