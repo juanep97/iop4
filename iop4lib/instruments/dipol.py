@@ -24,6 +24,77 @@ class DIPOL(Instrument):
     arcsec_per_pix = 0.134
 
     @classmethod
+    def classify_juliandate_rawfit(cls, rawfit):
+        """
+        DIPOL files have JD keyword
+        """
+        import astropy.io.fits as fits
+        jd = fits.getheader(rawfit.filepath, ext=0)["JD"]
+        rawfit.juliandate = jd
+
+
+    @classmethod
+    def classify_imgtype_rawfit(cls, rawfit):
+        """
+        DIPOL files have IMAGETYP keyword: Light Frame, Bias Frame
+
+        """
+        from iop4lib.db.rawfit import RawFit
+        import astropy.io.fits as fits
+
+        with fits.open(rawfit.filepath) as hdul:
+            if hdul[0].header['IMAGETYP'] == 'Bias Frame':
+                rawfit.imgtype = IMGTYPES.BIAS
+            elif hdul[0].header['IMAGETYP'] == 'Light Frame':
+                rawfit.imgtype = IMGTYPES.LIGHT
+            else:
+                logger.error(f"Unknown image type for {rawfit.fileloc}.")
+                rawfit.imgtype = IMGTYPES.ERROR
+                raise ValueError
+
+    @classmethod
+    def classify_band_rawfit(cls, rawfit):
+        """
+            OSN Files have no FILTER keyword if they are BIAS, FILTER=Clear if they are FLAT, and FILTER=FilterName if they are LIGHT.
+            For our DB, we have R, U, ..., None, ERROR.
+
+            For polarimetry, which is done by taking four images with the R filter at different angles, we have R_45, R0, R45, R90.
+        """
+
+        from iop4lib.db.rawfit import RawFit
+
+        if 'FILTER' not in rawfit.header:
+            if rawfit.imgtype == IMGTYPES.BIAS:
+                rawfit.band = BANDS.NONE
+            else:
+                rawfit.band = BANDS.ERROR
+                raise ValueError(f"Missing FILTER keyword for {rawfit.fileloc} which is not a bias (it is a {rawfit.imgtype}).")
+        elif rawfit.header['FILTER'] == "Red":  
+            rawfit.band = BANDS.R
+        else:
+            rawfit.band = BANDS.ERROR
+            raise ValueError(f"Unknown FILTER keyword for {rawfit.fileloc}: {rawfit.header['FILTER']}.")
+    
+
+    @classmethod
+    def classify_obsmode_rawfit(cls, rawfit):
+        """
+        In OSN Andor Polarimetry, we only have polarimetry for filter R, and it is indicated as R_45, R0, R45, R90 (-45, 0, 45 and 90 degrees). They correspond
+        to the different angles of the polarimeter.
+
+        For photometry, the filter keyword willl be simply the letter R, U, etc.
+
+        The values for angles are -45, 0, 45 and 90.
+
+        Lately we have seen "R-45" instead of "R_45", so we have to take care of that too.
+        """
+
+        from iop4lib.db.rawfit import RawFit
+        import re
+
+        raise NotImplementedError("DIPOL obsmode not implemented yet")
+
+    @classmethod
     def get_astrometry_size_hint(cls, rawfit):
         """ Get the size hint for this telescope / rawfit.
 
