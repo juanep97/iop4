@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 class AdminMasterBias(AdminFitFile):
     model = MasterBias
-    list_display = ['id', 'telescope', 'night', 'imgsize', 'get_built_from', 'options']
+    list_display = ['id', 'telescope', 'night', 'instrument', 'imgsize', 'get_built_from', 'options']
 
 
     

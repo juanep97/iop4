@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class AdminRawFit(AdminFitFile):
     model = RawFit
-    list_display = ["id", 'filename', 'telescope', 'night', 'status', 'imgtype', 'imgsize', 'band', 'obsmode', 'rotangle', 'exptime', 'options']
+    list_display = ["id", 'filename', 'telescope', 'night', 'instrument', 'status', 'imgtype', 'imgsize', 'band', 'obsmode', 'rotangle', 'exptime', 'options']
     readonly_fields = [field.name for field in RawFit._meta.fields] 
     search_fields = ['id', 'filename', 'epoch__telescope', 'epoch__night'] 
     ordering = ['-epoch__night','-epoch__telescope']

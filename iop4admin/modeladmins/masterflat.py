@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class AdminMasterFlat(AdminFitFile):
     model = MasterFlat
-    list_display = ['id', 'telescope', 'night', 'imgsize', 'band', 'obsmode', 'rotangle', 'exptime', 'get_masterbias', 'get_built_from', 'options']
+    list_display = ['id', 'telescope', 'night', 'instrument', 'imgsize', 'band', 'obsmode', 'rotangle', 'exptime', 'get_masterbias', 'get_built_from', 'options']
 
 
     

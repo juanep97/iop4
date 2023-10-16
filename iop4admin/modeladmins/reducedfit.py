@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 class AdminReducedFit(AdminFitFile):
     model = ReducedFit
-    list_display = ["id", 'filename', 'telescope', 'night', 'status', 'imgtype', 'imgsize', 'band', 'obsmode', 'rotangle', 'exptime', 'get_targets_in_field', 'options', 'modified']
+    list_display = ["id", 'filename', 'telescope', 'night', 'instrument', 'status', 'imgtype', 'imgsize', 'band', 'obsmode', 'rotangle', 'exptime', 'get_targets_in_field', 'options', 'modified']
     readonly_fields = [field.name for field in ReducedFit._meta.fields]
     search_fields = ['id', 'filename', 'epoch__telescope', 'epoch__night', 'sources_in_field__name']
     ordering = ['-epoch__night', '-epoch__telescope', '-juliandate']
