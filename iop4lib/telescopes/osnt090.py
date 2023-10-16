@@ -25,6 +25,11 @@ from .telescope import Telescope
 import logging
 logger = logging.getLogger(__name__)
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from iop4lib.db import RawFit, ReducedFit, Epoch
+
+
 class OSNT090(Telescope, metaclass=ABCMeta):
     
     # telescope identification
