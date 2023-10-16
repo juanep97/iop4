@@ -279,32 +279,58 @@ class ReducedFit(RawFit):
         data_min = data_new.min()
 
         # Calculate the scaling factor
-        int16_max = 32767
-        int16_min = -32768
+        output_dtype = np.int16 # or np.int32
+
+        idtype_max = np.iinfo(output_dtype).max
+        idtype_min = np.iinfo(output_dtype).min
+
+        # either:
 
         # Apply the scaling factor and offset to the data
-        data_new = (data_new-data_min)/(data_max-data_min)*(int16_max-int16_min)+int16_min
-        #data_new = (int16_max - int16_min) / (data_max - data_min) * data_new - data_min * (int16_max-int16_min) / (data_max - data_min) + int16_min
+        m = (idtype_max - idtype_min) / (data_max - data_min)
+        n = - data_min * (idtype_max-idtype_min) / (data_max - data_min) + idtype_min
         
-        data_new = data_new.astype(np.int16)
+        bscale = 1/m
+        bzero = -n/m
+
+        # with fits.open(self.filepath, "update") as hdul:
+        #     hdul[0].data = ( m*data_new + n ).astype(output_dtype)
+        #     hdul[0].header.update({'BSCALE': bscale, 'BZERO': bzero})
+
+        # or:
+
+        hdu = fits.PrimaryHDU(data_new.copy(), header=fits.Header())
+        hdu.scale(np.dtype(output_dtype).name, bscale=bscale, bzero=bzero)
+        hdul = fits.HDUList([hdu])
+        hdul.writeto(self.filepath, overwrite=True)
+
+        # other methods like simple that access the data  fits.writeto(data, header=header) will mess again the type
+
+        logger.warning(f"{data_new.dtype=}, {self.header['BSCALE']=}, {self.header['BZERO']=}")
+        logger.warning(f"{self.data.dtype=}, {self.header['BSCALE']=}, {self.header['BZERO']=}")
+        diff = np.abs(data_new - self.data)
+
+        # logger.warning("Max value of the original fit: %f", data_new.mean())
+        # logger.warning("Max value of the reduced fit: %f", self.data.mean())
+        # logger.warning("Min value of the original fit: %f", data_new.min())
+        # logger.warning("Min value of the reduced fit: %f", self.data.min())
+        logger.error("Mean value of the original fit: %f", data_new.mean())
+        logger.error("Mean value of the reduced fit: %f", self.data.mean())
+
+        # logger.warning("Max difference between original and reduced fit: %f", diff.max())
+        # logger.warning("Min difference between original and reduced fit: %f", diff.min())
+        logger.error("Mean difference between original and reduced fit: %f", diff.mean())
+
+        # logger.warning(f"Max difference (relative) between original and reduced fit: {100*(diff/data_new).max():.2f} %")
+        # logger.warning(f"Min difference (relative) between original and reduced fit: {100*(diff/data_new).min():.2f} %")
+        logger.error(f"Mean difference (relative) between original and reduced fit: {100*(diff/data_new).mean():.2f} %")
+
+        if 'BSCALE' not in fits.getheader(self.filepath):
+            raise Exception(f"Could not write BSCALE to {self.filepath}")
         
-        m = (int16_max - int16_min) / (data_max - data_min)
-        n = - data_min * (int16_max-int16_min) / (data_max - data_min) + int16_min
+        logger.warning(f"Reduced {self.id} is {os.path.getsize(self.filepath)/1024/1024:.1f} MB vs {os.path.getsize(self.rawfit.filepath)/1024/1024:.1f} MB of rawfit")
 
-        #y = mx+n
-        #x = (y-n)/m = y/m - n/m
 
-        bscale = 1/n
-        bzero = -1/m
-
-        header_new = fits.Header()
-
-        header_new['BSCALE'] = bscale
-        header_new['BZERO'] = bzero
-        
-        fits.writeto(self.filepath, data_new, header=header_new, overwrite=True)
-
-    
     @property
     def with_pairs(self):
         """ Indicates whether both ordinary and extraordinary sources are present 
