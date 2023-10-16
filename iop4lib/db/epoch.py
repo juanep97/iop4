@@ -34,7 +34,9 @@ from iop4lib.utils.parallel import epoch_bulkreduce_multiprocesing, epoch_bulkre
 import logging
 logger = logging.getLogger(__name__)
 
-
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from iop4lib.db import RawFit, ReducedFit, Epoch
     
 class Epoch(models.Model):
     """A class representing an epoch.
@@ -185,9 +187,9 @@ class Epoch(models.Model):
     # creator
 
     @staticmethod
-    def epochname_to_tel_night(epochname):
+    def epochname_to_tel_night(epochname : str) -> tuple[str, datetime.date]:
         """Parses an epochname to a telescope and night."""
-
+        
         matches = re.findall(r"([a-zA-Z0-9]+)/([0-9]{2,4}-?[0-9]{2}-?[0-9]{2})$", epochname)
 
         if len(matches) != 1:
