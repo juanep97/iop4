@@ -51,7 +51,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
         try:
             logger.debug(f"Loging to {cls.name} FTP server")
 
-            ftp =  ftplib.FTP(cls.ftp_address)
+            ftp =  ftplib.FTP(cls.ftp_address, encoding='latin-1')
             ftp.login(cls.ftp_user, cls.ftp_password)
             remote_dirnameL_all = ftp.nlst()
             ftp.quit()
@@ -80,7 +80,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
         try:
             logger.debug(f"Loging to {cls.name} FTP server")
 
-            ftp =  ftplib.FTP(cls.ftp_address)
+            ftp =  ftplib.FTP(cls.ftp_address, encoding='latin-1')
             ftp.login(cls.ftp_user, cls.ftp_password)
 
             logger.debug(f"Changing to OSN dir {epoch.yyyymmdd}")
