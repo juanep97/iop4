@@ -49,6 +49,8 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
 
     # telescope specific properties
 
+    fnames_re_expr = re.compile(r".*\.fi?ts?", flags=re.IGNORECASE)
+
     # telescope specific methods
 
     @classmethod
@@ -109,7 +111,7 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
 
             logger.debug(f"Total of {len(remote_fnameL_all)} files in CAHA {epoch.epochname}.")
 
-            remote_fnameL = [s for s in remote_fnameL_all if re.compile(r".*\.fits?").search(s)] # Filter by filename pattern (get only our files)
+            remote_fnameL = [s for s in remote_fnameL_all if cls.fnames_re_expr.search(s)]
             
             logger.debug(f"Filtered to {len(remote_fnameL)} *.fit(s) files in CAHA {epoch.epochname}.")
 
@@ -151,8 +153,6 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
 
         dirnames = ftp.nlst()
 
-        re_expr = re.compile(r".*\.fits?")
-
         fileloc_list = list()
 
         for epochname in epochnames:
@@ -167,7 +167,7 @@ class CAHAT220(Telescope, metaclass=ABCMeta):
             try:
                 ftp.cwd(f"/{yymmdd}_CAFOS")
 
-                fileloc_list.extend([f"{epochname}/{fname}" for fname in ftp.nlst() if re_expr.search(fname) and fname != '.' and fname != '..'])
+                fileloc_list.extend([f"{epochname}/{fname}" for fname in ftp.nlst() if cls.fnames_re_expr.search(fname) and fname != '.' and fname != '..'])
         
 
             except Exception as e:

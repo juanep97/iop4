@@ -120,11 +120,11 @@ class Config(dict):
         if not os.path.exists(self.datadir):
             os.makedirs(self.datadir)
 
-        # Load OSN names from external file if indicated
+        # Load OSN names from external file if indicated, load them into patterns like name*.fit, name*.fits, or name*.fts.
 
         if self.osn_source_list_path is not None and os.path.exists(self.osn_source_list_path):
             with open(self.osn_source_list_path, 'r') as f:
-                self.osn_fnames_patterns += [fr"(^{s[:-1]}.*\.fits?$)" for s in f.readlines() if s[0] != '#']
+                self.osn_fnames_patterns += [fr"(^{s[:-1]}.*\.fi?ts?$)" for s in f.readlines() if s[0] != '#']
 
         if gonogui:
             matplotlib.use("Agg")

@@ -44,6 +44,8 @@ class OSNT090(Telescope, metaclass=ABCMeta):
     ftp_user = iop4conf.osn_t090_user
     ftp_password = iop4conf.osn_t090_password
 
+    fnames_re_expr = re.compile('|'.join(iop4conf.osn_fnames_patterns), flags=re.IGNORECASE)
+
     # telescope specific methods
 
     @classmethod
@@ -91,7 +93,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
 
             logger.debug(f"Total of {len(remote_fnameL_all)} files in OSN {epoch.epochname}: {remote_fnameL_all}.")
 
-            remote_fnameL = [s for s in remote_fnameL_all if re.compile('|'.join(iop4conf.osn_fnames_patterns)).search(s)] # Filter by filename pattern (get only our files)
+            remote_fnameL = [s for s in remote_fnameL_all if cls.fnames_re_expr.search(s)] # Filter by filename pattern (get only our files)
 
             logger.debug(f"Filtered to {len(remote_fnameL)} files in OSN {epoch.epochname}.")
 
@@ -129,8 +131,6 @@ class OSNT090(Telescope, metaclass=ABCMeta):
 
         ftp =  ftplib.FTP(cls.ftp_address, cls.ftp_user, cls.ftp_password, encoding='latin-1')
 
-        re_expr = re.compile('|'.join(iop4conf.osn_fnames_patterns))
-
         dirnames = ftp.nlst()
 
         fileloc_list = list()
@@ -146,7 +146,7 @@ class OSNT090(Telescope, metaclass=ABCMeta):
 
             try:
                 
-                fileloc_list.extend([f"{epochname}/{fname}" for fname in ftp.nlst(yyyymmdd) if re_expr.search(fname) and fname != '.' and fname != '..'])
+                fileloc_list.extend([f"{epochname}/{fname}" for fname in ftp.nlst(yyyymmdd) if cls.fnames_re_expr.search(fname) and fname != '.' and fname != '..'])
                             
             except Exception as e:
                 logger.error(f"Error listing OSN remote dir for {epochname}: {e}.")
