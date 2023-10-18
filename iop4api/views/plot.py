@@ -88,28 +88,21 @@ def plot(request):
     # choose  the x and y
     if qs.count() > 0:
         vals = get_column_values(qs, column_names)
+    else:
+        vals = {k:np.array([]) for k in column_names}
 
-        vals["instrument"] = np.array(vals["instrument"])
-        vals["id"] = np.array(vals["id"])
-        vals["juliandate"] = np.array(vals["juliandate"])
-        vals["mag"] = np.array(vals["mag"])
-        vals["mag_err"] = np.array(vals["mag_err"])
-        vals["p"] = np.array(vals["p"])
-        vals["p_err"] = np.array(vals["p_err"])
-        vals["chi"] = np.array(vals["chi"])
-        vals["chi_err"] = np.array(vals["chi_err"])
+    if enable_iop3:
+        vals["instrument"] = np.append(vals["instrument"], list(map(lambda x: "IOP3-"+x, iop3_df["Telescope"])))
+        vals["id"] = np.append(vals["id"], -np.arange(len(iop3_df)))
+        vals["juliandate"] = np.append(vals["juliandate"], Time(iop3_df["mjd_obs"], format="mjd").jd)
+        vals["mag"] = np.append(vals["mag"],  iop3_df['Mag'])
+        vals["mag_err"] = np.append(vals["mag_err"], iop3_df['dMag'])
+        vals["p"] = np.append(vals["p"], iop3_df['P']/100)
+        vals["p_err"] = np.append(vals["p_err"], iop3_df['dP']/100)
+        vals["chi"] = np.append(vals["chi"], iop3_df['Theta'])
+        vals["chi_err"] = np.append(vals["chi_err"], iop3_df['dTheta'])
 
-        if enable_iop3:
-            vals["instrument"] = np.append(vals["instrument"], list(map(lambda x: "IOP3-"+x, iop3_df["Telescope"])))
-            vals["id"] = np.append(vals["id"], -np.arange(len(iop3_df)))
-            vals["juliandate"] = np.append(vals["juliandate"], Time(iop3_df["mjd_obs"], format="mjd").jd)
-            vals["mag"] = np.append(vals["mag"],  iop3_df['Mag'])
-            vals["mag_err"] = np.append(vals["mag_err"], iop3_df['dMag'])
-            vals["p"] = np.append(vals["p"], iop3_df['P']/100)
-            vals["p_err"] = np.append(vals["p_err"], iop3_df['dP']/100)
-            vals["chi"] = np.append(vals["chi"], iop3_df['Theta'])
-            vals["chi_err"] = np.append(vals["chi_err"], iop3_df['dTheta'])
-
+    if len(vals['id']) > 0:
         pks = vals['id']
         x1 = Time(vals['juliandate'], format='jd').mjd
         x2 = f_x1_to_x2(x1)
