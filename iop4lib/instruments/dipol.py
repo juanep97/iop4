@@ -135,3 +135,18 @@ class DIPOL(Instrument):
         """
 
         return astrometry.SizeHint(lower_arcsec_per_pixel=0.95*cls.arcsec_per_pix, upper_arcsec_per_pixel=1.05*cls.arcsec_per_pix)
+    
+    @classmethod
+    def build_wcs(self, reducedfit: 'ReducedFit'):
+        """ Override Instrument build_wcs.
+        
+        While for PHOTOMETRY observations, DIPOL has a wide field which can be astrometrically calibrated, 
+        POLARIMETRY files are small with only the source field ordinary and extraordianty images in the center (to save up space).
+        In some ocassions, there might be some close source also in the field.
+
+        Therefore, to calibrate polarimetry files, we just give it a WCS centered on the source.
+        """
+        if reducedfit.obsmode == OBSMODES.PHOTOMETRY:
+            return super().build_wcs(reducedfit)
+        elif reducedfit.obsmode == OBSMODES.POLARIMETRY:
+            raise NotImplementedError("Polarimetry WCS not implemented yet for DIPOL")
