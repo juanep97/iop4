@@ -68,12 +68,10 @@ jobs:
 
       - name: Try to restore httpdirfs cache data 
         # this should make subsuquent commits in the same PR faster
-        uses: actions/cache@v3
+        uses: actions/cache@/restore@v3
         with:
           path: $HOME/.cache/httpdirfs/
-          key: httpdirfs-astrometry-5200-1-2-3-4-4
-          restore-keys: |
-            httpdirfs-astrometry-5200-1-2-3-4-4
+          key: httpdirfs-astrometry-5200-1-2-3-4
 
       - name: Mount astrometry index file in default location
         run: mkdir -p $HOME/.astrometry_cache/5200 && httpdirfs --cache 'https://portal.nersc.gov/project/cosmo/temp/dstn/index-5200/LITE/' $HOME/.astrometry_cache/5200/
@@ -98,10 +96,10 @@ jobs:
           du -sh $HOME/.cache/httpdirfs/ || true
 
       - name: Save httpdirfs cache data
-        uses: actions/cache@v3
+        uses: actions/cache/save@v3
         with:
           path: $HOME/.cache/httpdirfs/
-          key: httpdirfs-astrometry-5200-1-2-3-4-4
+          key: httpdirfs-astrometry-5200-1-2-3-4
 
 
 
