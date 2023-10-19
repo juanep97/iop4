@@ -29,6 +29,7 @@ class CAFOS(Instrument):
     arcsec_per_pix = 0.530
     gain_e_adu = 1.45
     field_width_arcmin = 34.0
+    field_height_arcmin = 34.0
 
 
     @classmethod
@@ -224,7 +225,7 @@ class CAFOS(Instrument):
         logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group with target aperpix {aperpix:.1f}.")
 
         for reducedfit in polarimetry_group:
-            reducedfit.compute_aperture_photometry(aperpix, r_in, r_out)
+            cls.compute_aperture_photometry(reducedfit, aperpix, r_in, r_out)
 
         # 2. Compute relative polarimetry for each source (uses the computed aperture photometries)
 

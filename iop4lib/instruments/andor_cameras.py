@@ -160,10 +160,13 @@ class Andor(Instrument, metaclass=ABCMeta):
     def get_astrometry_size_hint(cls, rawfit):
         """ Get the size hint for this telescope / rawfit.
 
-            According to OSN T090 cameras information (https://www.osn.iaa.csic.es/page/camaras-ccdt150-y-ccdt90) 
+            According to OSN T090 camera information (https://www.osn.iaa.csic.es/page/camaras-ccdt150-y-ccdt90) 
             the camera pixels are 0.387as/px and it has a field of view of 13,20' x 13,20'. So we provide close values 
             for the hint. If the files are 1x1 it will be 0.387as/px, if 2x2 it will be twice.
 
+            According to OSN T0150 camera information (https://www.osn.iaa.csic.es/page/camaras-ccdt150-y-ccdt90) 
+            camera pixels are 0.232as/px and it has a field of view of 7.92' x 7.92'.
+            If the files are 1x1 it will be that, if they are 2x2 it will be twice.
         """
 
         if rawfit.header['NAXIS1'] == 2048:
@@ -248,7 +251,7 @@ class Andor(Instrument, metaclass=ABCMeta):
         logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group with target {aperpix:.1f}.")
 
         for reducedfit in polarimetry_group:
-            reducedfit.compute_aperture_photometry(aperpix, r_in, r_out)
+            cls.compute_aperture_photometry(reducedfit, aperpix, r_in, r_out)
 
         # 2. Compute relative polarimetry for each source (uses the computed aperture photometries)
 
@@ -403,6 +406,7 @@ class AndorT90(Andor):
 
 
     field_width_arcmin = 13.2 
+    field_height_arcmin = 13.2
     arcsec_per_pix = 0.387
     gain_e_adu = 4.5
 
@@ -416,3 +420,4 @@ class AndorT150(Andor):
     arcsec_per_pix = 0.232
     gain_e_adu = 4.5
     field_width_arcmin = 7.92
+    field_height_arcmin = 7.92

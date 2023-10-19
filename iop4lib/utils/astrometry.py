@@ -133,7 +133,7 @@ def build_wcs_params_shotgun(redf, shotgun_params_kwargs=None, hard=False):
       - Implement a more robust way to choose the parameters for source extraction such that the astrometry solver works  with less 
       attempts.
       - Explore other detectors and solvers if necessary to improve speed, sucess rate and accuracy.
-
+      - Use pre-computed pair distances.
     """
 
     param_dicts_L = []

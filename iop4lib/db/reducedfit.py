@@ -287,9 +287,8 @@ class ReducedFit(RawFit):
         If the are both ordinary and extraordinary sources in the field, one WCS will be built for each,
         and the will be saved in the first and second extensions of the FITS file.
         """
-        from iop4lib.utils.astrometry import build_wcs
 
-        build_wcs_result = build_wcs(self)
+        build_wcs_result = Instrument.by_name(self.instrument).build_wcs(self)
 
         if build_wcs_result['success']:
 
@@ -362,25 +361,28 @@ class ReducedFit(RawFit):
     def header_objecthint(self):
         return self.rawfit.header_objecthint
     
+
+    # REDUCTION METHODS
+
+    ## Delegated to telescopes or instrument classes
+
     def get_astrometry_position_hint(self, allsky=False, n_field_width=1.5):
         return Instrument.by_name(self.instrument).get_astrometry_position_hint(self.rawfit, allsky=allsky,  n_field_width=n_field_width)
     
     def get_astrometry_size_hint(self):
         return Instrument.by_name(self.instrument).get_astrometry_size_hint(self.rawfit)
-
-
-    # REDUCTION METHODS
-
-    ## Delegated to telescopes
     
     def compute_aperture_photometry(self, *args, **kwargs):
+        """ Delegated to the instrument. """
         return Instrument.by_name(self.instrument).compute_aperture_photometry(self, *args, **kwargs)
 
     def compute_relative_photometry(self, *args, **kwargs):
+        """ Delegated to the instrument. """
         return Instrument.by_name(self.instrument).compute_relative_photometry(self, *args, **kwargs)
     
     @classmethod
     def compute_relative_polarimetry(cls, polarimetry_group, *args, **kwargs):
+        """ Delegated to the instrument. """
         
         if not all([redf.telescope == polarimetry_group[0].telescope for redf in polarimetry_group]):
             raise Exception("All reduced fits in a polarimetry group must be from the same telescope")

@@ -148,7 +148,29 @@ class Instrument(metaclass=ABCMeta):
             return AstroSource.objects.filter(name__contains=matchs[0]).first()
         else:
             return None
+    
+    @classmethod
+    @abstractmethod 
+    def get_astrometry_position_hint(cls, rawfit, allsky=False, n_field_width=1.5):
+        """ Get the position hint from the FITS header as an astrometry.PositionHint object. """        
+        pass
+
+    @classmethod
+    @abstractmethod 
+    def get_astrometry_size_hint(cls, rawfit):
+        """ Get the size hint for this telescope / rawfit."""
+        pass
+
+    @classmethod
+    def build_wcs(self, reducedfit: 'ReducedFit'):
+        """ Build a WCS for a reduced fit from this instrument. 
         
+        By default (Instrument class), this will just call the build_wcs from iop4lib.utils.astrometry.
+        """
+        from iop4lib.utils.astrometry import build_wcs
+        return build_wcs(reducedfit)
+
+
     @classmethod
     def compute_aperture_photometry(cls, redf, aperpix, r_in, r_out):
 
@@ -225,7 +247,7 @@ class Instrument(metaclass=ABCMeta):
 
         logger.debug(f"{redf}: computing aperture photometries for {redf}.")
 
-        redf.compute_aperture_photometry(aperpix, r_in, r_out)
+        cls.compute_aperture_photometry(redf, aperpix, r_in, r_out)
 
         # 2. Compute relative polarimetry for each source (uses the computed aperture photometries)
 
