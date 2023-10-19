@@ -5,6 +5,7 @@ iop4conf = iop4lib.Config(config_db=False)
 # django imports
 
 # other imports
+import re
 import astrometry
 
 # iop4lib imports
@@ -16,15 +17,21 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+import typing
+if typing.TYPE_CHECKING:
+    from iop4lib.db import RawFit, ReducedFit, Epoch
+
 class DIPOL(Instrument):
 
     name = "DIPOL"
     instrument_kw = "ASI Camera (1)"
     
     arcsec_per_pix = 0.134
+    field_width_arcmin = 9.22
+    field_height_arcmin = 6.28 
 
     @classmethod
-    def classify_juliandate_rawfit(cls, rawfit):
+    def classify_juliandate_rawfit(cls, rawfit: 'RawFit'):
         """
         DIPOL files have JD keyword
         """
@@ -34,7 +41,7 @@ class DIPOL(Instrument):
 
 
     @classmethod
-    def classify_imgtype_rawfit(cls, rawfit):
+    def classify_imgtype_rawfit(cls, rawfit: 'RawFit'):
         """
         DIPOL files have IMAGETYP keyword: Light Frame, Bias Frame
 
@@ -53,7 +60,7 @@ class DIPOL(Instrument):
                 raise ValueError
 
     @classmethod
-    def classify_band_rawfit(cls, rawfit):
+    def classify_band_rawfit(cls, rawfit: 'RawFit'):
         """
             OSN Files have no FILTER keyword if they are BIAS, FILTER=Clear if they are FLAT, and FILTER=FilterName if they are LIGHT.
             For our DB, we have R, U, ..., None, ERROR.
@@ -77,26 +84,41 @@ class DIPOL(Instrument):
     
 
     @classmethod
-    def classify_obsmode_rawfit(cls, rawfit):
+    def classify_obsmode_rawfit(cls, rawfit: 'RawFit'):
         """
-        In OSN Andor Polarimetry, we only have polarimetry for filter R, and it is indicated as R_45, R0, R45, R90 (-45, 0, 45 and 90 degrees). They correspond
-        to the different angles of the polarimeter.
-
-        For photometry, the filter keyword willl be simply the letter R, U, etc.
-
-        The values for angles are -45, 0, 45 and 90.
-
-        Lately we have seen "R-45" instead of "R_45", so we have to take care of that too.
+        As of 2023-10-28, DIPOL polarimetry files have NOTES keyword with the angle like 'xxxx deg',
+        photometry files have empty NOTES keyword.
         """
 
-        from iop4lib.db.rawfit import RawFit
-        import re
+        if 'NOTES' in rawfit.header and not 'deg' in rawfit.header['NOTES']:
+            rawfit.obsmode = OBSMODES.PHOTOMETRY
+        else:
+            rawfit.obsmode = OBSMODES.POLARIMETRY
+            try:
+                rawfit.rotangle = float(rawfit.header['NOTES'].split(' ')[0])
+            except Exception as e:
+                logger.error(f"Error parsing NOTES keyword for {rawfit.fileloc} as a float: {e}.")
 
-        # raise NotImplementedError("DIPOL obsmode not implemented yet")
-        logger.error(f"OSN DIPOL obsmode not implemented yet.")
+
 
     @classmethod
-    def get_astrometry_size_hint(cls, rawfit):
+    def get_header_objecthint(self, rawfit):
+        r""" Get a hint for the AstroSource in this image from the header. OBJECT is a standard keyword. Return None if none found. 
+        
+        Overriden for DIPOL, which are using the other_name field.
+        """
+        
+        from iop4lib.db import AstroSource
+
+        matchs = rawfit.header["OBJECT"].split('_')[0]
+        
+        if len(matchs) > 0:
+            return AstroSource.objects.filter(other_name__icontains=matchs[0]).first()
+        else:
+            return None
+        
+    @classmethod
+    def get_astrometry_size_hint(cls, rawfit: 'RawFit'):
         """ Get the size hint for this telescope / rawfit.
 
             For DIPOL in OSN-T090, according to preliminary investigation of OSN crew is:
