@@ -42,6 +42,7 @@ class ReducedFit(RawFit):
     # ReducedFit specific fields
     masterbias = models.ForeignKey('MasterBias', null=True, on_delete=models.CASCADE, related_name='reduced', help_text="MasterBias to be used for the reduction.")
     masterflat = models.ForeignKey('MasterFlat', null=True, on_delete=models.CASCADE, related_name='reduced', help_text="MasterFlat to be used for the reduction.")
+    masterdark = models.ForeignKey('MasterDark', null=True, on_delete=models.CASCADE, related_name='reduced', help_text="MasterDark to be used for the reduction.")
     sources_in_field = models.ManyToManyField('AstroSource', related_name='in_reducedfits', blank=True, help_text="Sources in the field of this FITS.")
     modified = models.DateTimeField(auto_now=True, help_text="Last time this entry was modified.")
 
@@ -187,11 +188,7 @@ class ReducedFit(RawFit):
 
         self.unset_flag(ReducedFit.FLAGS.BUILT_REDUCED)
 
-        logger.debug(f"{self}: applying masterbias {self.masterbias}")
-        self.apply_masterbias()
-
-        logger.debug(f"{self}: applying masterflat {self.masterflat}")
-        self.apply_masterflat()
+        self.apply_masters()
         
         logger.debug(f"{self}: performing astrometric calibration")
 
@@ -219,61 +216,31 @@ class ReducedFit(RawFit):
             self.save()
 
 
-    def apply_masterbias(self):
-        """ Applies the masterbias to the rawfit.
-
-        It starts from the RawFit FITS file. This creates the ReducedFit file for the first time.
-        """
-
+    def apply_masters(self):
         import astropy.io.fits as fits
+
+        logger.debug(f"{self}: applying masters")
 
         rf_data = fits.getdata(self.rawfit.filepath)
         mb_data = fits.getdata(self.masterbias.filepath)
+        mf_data = fits.getdata(self.masterflat.filepath)
 
-        data_new = rf_data - mb_data
+        if self.masterdark is not None:
+            md_dark = fits.getdata(self.masterdark.filepath)
+        else :
+            logger.warning(f"{self}: no masterdark found, assuming dark current = 0, is this a CCD camera and it's cold?")
+            md_dark = 0
+
+        data_new = (rf_data - mb_data - md_dark*self.rawfit.exptime) / (mf_data)
+
+        header_new = fits.Header()
 
         if not os.path.exists(os.path.dirname(self.filepath)):
             logger.debug(f"{self}: creating directory {os.path.dirname(self.filepath)}")
             os.makedirs(os.path.dirname(self.filepath))
-
-        # header_new = self.rawfit.header
-
-        # # remove blank keyword
-        # # unlinke the rawfit, the reduced fit now contains float values, so the blank keyword is non standard
-        # # and will cause warnings, we remove it from the rawfit header.
-        # if 'BLANK' in header_new:
-        #     del header_new['BLANK']
-
-        # better create a new header beacuse the previous one had bad keywords for wcs, they will give problems
-
-        header_new = fits.Header()
-
-        fits.writeto(self.filepath, data_new, header=header_new, overwrite=True)
-
-    def apply_masterflat(self):
-        """ Applies the masterflat to the rawfit.
         
-        Notes
-        -----
-        #no longer: - This normalizes by exposure time.
-        - self.apply_masterbias() must have been called before, as it creates the reduced FIT file.
-        """
-
-        import numpy as np
-        import astropy.io.fits as fits
-
-        data = fits.getdata(self.filepath)
-        mf_data = fits.getdata(self.masterflat.filepath)
-
-        import warnings
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            #data_new = (data/self.rawfit.exptime) / (mf_data)
-            data_new = (data) / (mf_data)
-
-        fits.writeto(self.filepath, data_new, header=self.header, overwrite=True)
-
-    
+        fits.writeto(self.filepath, data_new, header=header_new, overwrite=True)
+        
     @property
     def with_pairs(self):
         """ Indicates whether both ordinary and extraordinary sources are present 

@@ -100,6 +100,11 @@ class Epoch(models.Model):
         """Returns the path to the directory where the masterflat files of this epoch are stored."""
         return os.path.join(iop4conf.datadir, "masterflat", self.epochname)
 
+    @property 
+    def masterdarkdir(self):
+        """Returns the path to the directory where the masterdark files of this epoch are stored."""
+        return os.path.join(iop4conf.datadir, "masterdark", self.epochname)
+
     @property
     def yyyymmdd(self):
         """Returns the date of the epoch in the format YYYYMMDD."""
@@ -361,71 +366,47 @@ class Epoch(models.Model):
 
 
 
-    def build_master_biases(self, force_rebuild=False):
-        from iop4lib.db import RawFit, MasterBias
+    def build_masters(self, model, force_rebuild=False):
         import itertools
 
-        # define keywords to be used to build master biases
-        kw_L = MasterBias.mbargs_kwL
+        # define keywords to be used to build the master
+        kw_L = model.margs_kwL
 
         # for each keyword, get the set of values in the rawfits of this epoch
-        kw_set_D = {kw:set(self.rawfits.filter(imgtype=IMGTYPES.BIAS).values_list(kw, flat=True).distinct()) for kw in kw_L}
+        kw_set_D = {kw:set(self.rawfits.filter(imgtype=model.imgtype).values_list(kw, flat=True).distinct()) for kw in kw_L}
 
         # create a list of dictionaries with all the combinations of values for each keyword
-        mbargs_L = [dict(zip(kw_L, prod)) for prod in itertools.product(*kw_set_D.values())]
-        
-        # create master biases
-
-        try:
-            for mbargs in mbargs_L:
-                mbargs['epoch'] = self
-                logger.debug(f"{mbargs=}")
-                if self.rawfits.filter(imgtype=IMGTYPES.BIAS, **mbargs).count() > 0:
-                    logger.info(f"Building masterbias for {MasterBias.mbargs2str(mbargs)}.")
-                    MasterBias.create(**mbargs, force_rebuild=force_rebuild)
-                else:
-                    logger.debug(f"No masterbias will be built for this mbargs since there are no files for it.")
-        except Exception as e:
-            logger.error(f"Error building masterbias for {self.epochname}: {e}.")
-            self.set_flag(Epoch.FLAGS.ERROR)
-            
-        if self.auto_merge_to_db:
-            self.save()
-
-
-
-    def build_master_flats(self, force_rebuild=False):
-        from iop4lib.db import RawFit, MasterFlat
-        import itertools
-
-        # define keywords to be used to build master flats
-        kw_L = MasterFlat.mfargs_kwL
-
-        # for each keyword, get the set of values in the rawfits of this epoch
-        kw_set_D = {kw:set(self.rawfits.filter(imgtype=IMGTYPES.FLAT).values_list(kw, flat=True).distinct()) for kw in kw_L}
-
-        # create a list of dictionaries with all the combinations of values for each keyword
-        mfargs_L = [dict(zip(kw_L, prod)) for prod in itertools.product(*kw_set_D.values())]
+        margs_L = [dict(zip(kw_L, prod)) for prod in itertools.product(*kw_set_D.values())]
         
         # create master flats
 
         try:
-            for mfargs in mfargs_L:
-                mfargs['epoch'] = self
-                logger.debug(f"{mfargs=}")
-                if self.rawfits.filter(imgtype=IMGTYPES.FLAT, **mfargs).count() > 0:
-                    logger.info(f"Building masterflat for {MasterFlat.mfargs2str(mfargs)}.")
-                    MasterFlat.create(**mfargs, force_rebuild=force_rebuild)
+            for margs in margs_L:
+                margs['epoch'] = self
+                logger.debug(f"{margs=}")
+                if self.rawfits.filter(imgtype=model.imgtype, **margs).count() > 0:
+                    logger.info(f"Building {model._meta.verbose_name} for {model.margs2str(margs)}.")
+                    model.create(**margs, force_rebuild=force_rebuild)
                 else:
-                    logger.debug(f"No masterflat will be built for this mfargs since there are no files for it.")
+                    logger.debug(f"No {model._meta.verbose_name} will be built for this margs since there are no files for it.")
         except Exception as e:
-            logger.error(f"Error building masterflats for {self.epochname}: {e}.")
+            logger.error(f"Error building {model._meta.verbose_name} for {self.epochname}: {e}.")
             self.set_flag(Epoch.FLAGS.ERROR)
             
         if self.auto_merge_to_db:
-            self.save()
+            self.save() 
 
-
+    def build_master_biases(self, **kwargs):
+        from iop4lib.db import MasterBias
+        return self.build_masters(MasterBias, **kwargs)
+    
+    def build_master_flats(self, **kwargs):
+        from iop4lib.db import MasterFlat
+        return self.build_masters(MasterFlat, **kwargs)
+    
+    def build_master_darks(self, **kwargs):
+        from iop4lib.db import MasterDark
+        return self.build_masters(MasterDark, **kwargs)
 
     def reduce(self, force_rebuild=False):
         """ Reduces all (LIGHT) rawfits of this epoch. 

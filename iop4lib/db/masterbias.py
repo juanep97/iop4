@@ -18,12 +18,14 @@ logger = logging.getLogger(__name__)
 class MasterBias(FitFileModel):
     """A class representing a master bias for an epoch."""
 
-    mbargs_kwL = ['epoch', 'instrument', 'imgsize']
+    margs_kwL = ['epoch', 'instrument', 'imgsize']
+
+    imgtype = IMGTYPES.BIAS
 
     # Database fields
     rawfits = models.ManyToManyField('RawFit', related_name='built_masterbias')
 
-    # fields corresponding to MasterBias kw arguments (mbargs_kwL)
+    # fields corresponding to MasterBias kw arguments (margs_kwL)
     
     epoch = models.ForeignKey('Epoch', on_delete=models.CASCADE, related_name='masterbias') 
     instrument = models.CharField(max_length=20, choices=INSTRUMENTS.choices)
@@ -57,7 +59,7 @@ class MasterBias(FitFileModel):
                             self.__class__.__name__)
         
     @property
-    def mbargs(self):
+    def margs(self):
         """Return a dict of the arguments used to build this MasterFlat.
         """
 
@@ -66,17 +68,17 @@ class MasterBias(FitFileModel):
     # repr and str
 
     @classmethod
-    def mbargs2str(cls, mbargs):
+    def margs2str(cls, margs):
        """Class method to build a nice string rep of the arguments of a MasterFlat.
        """
 
-       return f"{mbargs['epoch'].epochname} | {mbargs['instrument']} | {mbargs['imgsize']}"
+       return f"{margs['epoch'].epochname} | {margs['instrument']} | {margs['imgsize']}"
 
     def __repr__(self):
         return f"MasterBias.objects.get(id={self.id!r})"
     
     def __str__(self):
-        return f"<MasterBias {self.id!r} | {MasterBias.mbargs2str(self.mbargs)}>"
+        return f"<MasterBias {self.id!r} | {MasterBias.margs2str(self.margs)}>"
     
     def _repr_pretty_(self, p, cycle):
         if cycle:
@@ -84,7 +86,7 @@ class MasterBias(FitFileModel):
         else:
             with p.group(4, f'<{self.__class__.__name__}(', ')>'):
                 p.text(f"id: {self.id},")
-                for k,v in self.mbargs.items():
+                for k,v in self.margs.items():
                     p.breakable()
                     p.text(f"{k}: {v}")
                 
@@ -118,19 +120,19 @@ class MasterBias(FitFileModel):
 
         """
 
-        mbargs = {k:kwargs[k] for k in MasterBias.mbargs_kwL if k in kwargs}
+        margs = {k:kwargs[k] for k in MasterBias.margs_kwL if k in kwargs}
 
         from iop4lib.db import RawFit
 
-        if (mb := MasterBias.objects.filter(**mbargs).first()) is not None:
+        if (mb := MasterBias.objects.filter(**margs).first()) is not None:
             logger.debug(f"DB entry for {mb} already exists, using it instead.")
         else:
-            logger.debug(f"A DB entry for MasterBias {MasterBias.mbargs2str(mbargs)} will be created.")
-            mb = cls(**mbargs)
+            logger.debug(f"A DB entry for MasterBias {MasterBias.margs2str(margs)} will be created.")
+            mb = cls(**margs)
             mb.save()
 
         if rawfits is None:
-            rawfits = RawFit.objects.filter(imgtype=IMGTYPES.BIAS, **mbargs)
+            rawfits = RawFit.objects.filter(imgtype=IMGTYPES.BIAS, **margs)
             logger.debug(f"Found {len(rawfits)} bias raw files for {mb}.")
         else:
             logger.debug(f"Using {len(rawfits)} bias raw files for {mb}.")
@@ -145,7 +147,7 @@ class MasterBias(FitFileModel):
             except Exception as e:
                 logger.error("An error occurred while building the masterbias, deleting it and raising Exception")
                 mb.delete()
-                raise Exception(f"An error occurred while building the MasterBias for {mbargs}: {e}")
+                raise Exception(f"An error occurred while building the MasterBias for {margs}: {e}")
             else:
                 logger.info("Built masterbias successfully")
 

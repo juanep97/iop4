@@ -17,6 +17,7 @@ iop4admin_site = IOP4AdminSite(name='iop4admin')
 from .modeladmins.epoch import AdminEpoch
 from .modeladmins.rawfit import AdminRawFit
 from .modeladmins.masterflat import AdminMasterFlat
+from .modeladmins.masterdark import AdminMasterDark
 from .modeladmins.masterbias import AdminMasterBias
 from .modeladmins.reducedfit import AdminReducedFit
 from .modeladmins.astrosource import AdminAstroSource
@@ -27,6 +28,7 @@ iop4admin_site.register(Epoch, AdminEpoch)
 iop4admin_site.register(RawFit, AdminRawFit)
 iop4admin_site.register(MasterBias, AdminMasterBias)
 iop4admin_site.register(MasterFlat, AdminMasterFlat)
+iop4admin_site.register(MasterDark, AdminMasterDark)
 iop4admin_site.register(ReducedFit, AdminReducedFit)
 iop4admin_site.register(AstroSource, AdminAstroSource)
 iop4admin_site.register(PhotoPolResult, AdminPhotoPolResult)

@@ -43,7 +43,7 @@ class DIPOL(Instrument):
     @classmethod
     def classify_imgtype_rawfit(cls, rawfit: 'RawFit'):
         """
-        DIPOL files have IMAGETYP keyword: Light Frame, Bias Frame
+        DIPOL files have IMAGETYP keyword: Light Frame (it can b, Bias Frame
 
         """
         from iop4lib.db.rawfit import RawFit
@@ -52,8 +52,13 @@ class DIPOL(Instrument):
         with fits.open(rawfit.filepath) as hdul:
             if hdul[0].header['IMAGETYP'] == 'Bias Frame':
                 rawfit.imgtype = IMGTYPES.BIAS
+            elif hdul[0].header['IMAGETYP'] == 'Dark Frame':
+                rawfit.imgtype = IMGTYPES.DARK
             elif hdul[0].header['IMAGETYP'] == 'Light Frame':
-                rawfit.imgtype = IMGTYPES.LIGHT
+                if 'skyflat' in rawfit.header['OBJECT'].lower():
+                    rawfit.imgtype = IMGTYPES.FLAT
+                else:
+                    rawfit.imgtype = IMGTYPES.LIGHT
             else:
                 logger.error(f"Unknown image type for {rawfit.fileloc}.")
                 rawfit.imgtype = IMGTYPES.ERROR
@@ -62,20 +67,18 @@ class DIPOL(Instrument):
     @classmethod
     def classify_band_rawfit(cls, rawfit: 'RawFit'):
         """
-            OSN Files have no FILTER keyword if they are BIAS, FILTER=Clear if they are FLAT, and FILTER=FilterName if they are LIGHT.
-            For our DB, we have R, U, ..., None, ERROR.
-
-            For polarimetry, which is done by taking four images with the R filter at different angles, we have R_45, R0, R45, R90.
+            .. warning: 
+                Red is in a differnt photometric system.
         """
 
         from iop4lib.db.rawfit import RawFit
 
         if 'FILTER' not in rawfit.header:
-            if rawfit.imgtype == IMGTYPES.BIAS:
+            if rawfit.imgtype == IMGTYPES.BIAS or rawfit.imgtype == IMGTYPES.DARK:
                 rawfit.band = BANDS.NONE
             else:
                 rawfit.band = BANDS.ERROR
-                raise ValueError(f"Missing FILTER keyword for {rawfit.fileloc} which is not a bias (it is a {rawfit.imgtype}).")
+                raise ValueError(f"Missing FILTER keyword for {rawfit.fileloc} which is not a bias or dark (it is a {rawfit.imgtype}).")
         elif rawfit.header['FILTER'] == "Red":  
             rawfit.band = BANDS.R
         else:

@@ -19,12 +19,14 @@ class MasterFlat(FitFileModel):
     A class representing a master flat for an epoch.
     """
 
-    mfargs_kwL = ['epoch', 'instrument', 'imgsize', 'band', 'obsmode', 'rotangle', 'exptime']
+    margs_kwL = ['epoch', 'instrument', 'imgsize', 'band', 'obsmode', 'rotangle', 'exptime']
 
+    imgtype = IMGTYPES.FLAT
+    
     # Database fields
     rawfits = models.ManyToManyField('RawFit', related_name='built_masterflats')
 
-    # fields corresponding to MasterFlat kw arguments (mfargs_kwL)
+    # fields corresponding to MasterFlat kw arguments (margs_kwL)
 
     epoch = models.ForeignKey('Epoch', on_delete=models.CASCADE, related_name='masterflats') 
     instrument = models.CharField(max_length=20, choices=INSTRUMENTS.choices)
@@ -66,7 +68,7 @@ class MasterFlat(FitFileModel):
     # some helper properties
 
     @property
-    def mfargs(self):
+    def margs(self):
         """
         Return a dict of the arguments used to build this MasterFlat.
         """
@@ -75,17 +77,17 @@ class MasterFlat(FitFileModel):
     # repr and str
 
     @classmethod
-    def mfargs2str(cls, mfargs):
+    def margs2str(cls, margs):
        """
        Class method to build a nice string rep of the arguments of a MasterFlat.
        """
-       return f"{mfargs['epoch'].epochname} | {mfargs['instrument']} | {mfargs['imgsize']} | {mfargs['band']} | {mfargs['obsmode']} | {mfargs['rotangle']} º | {mfargs['exptime']}s"
+       return f"{margs['epoch'].epochname} | {margs['instrument']} | {margs['imgsize']} | {margs['band']} | {margs['obsmode']} | {margs['rotangle']} º | {margs['exptime']}s"
 
     def __repr__(self):
         return f"MasterFlat.objects.get(id={self.id!r})"
     
     def __str__(self):
-        return f"<MasterFlat {self.id!r} | {MasterFlat.mfargs2str(self.mfargs)}>"
+        return f"<MasterFlat {self.id!r} | {MasterFlat.margs2str(self.margs)}>"
     
     def _repr_pretty_(self, p, cycle):
         if cycle:
@@ -93,7 +95,7 @@ class MasterFlat(FitFileModel):
         else:
             with p.group(4, f'<{self.__class__.__name__}(', ')>'):
                 p.text(f"id: {self.id},")
-                for k,v in self.mfargs.items():
+                for k,v in self.margs.items():
                     p.breakable()
                     p.text(f"{k}: {v}")
 
@@ -103,6 +105,7 @@ class MasterFlat(FitFileModel):
     def create(cls, 
                rawfits=None, 
                masterbias=None,
+               masterdark=None,
                auto_merge_to_db=True,
                force_rebuild=True,
                **kwargs):
@@ -126,21 +129,21 @@ class MasterFlat(FitFileModel):
             auto_merge_to_db: bool (optional) Default: True
         """
 
-        #mfargs = {k:kwargs[k] for k in MasterFlat.mfargs_kwL if k in kwargs}
-        mfargs = {k:kwargs[k] for k in MasterFlat.mfargs_kwL} # so it gives error if some mfargs kw missing
+        #margs = {k:kwargs[k] for k in MasterFlat.margs_kwL if k in kwargs}
+        margs = {k:kwargs[k] for k in MasterFlat.margs_kwL} # so it gives error if some margs kw missing
 
         from iop4lib.db import RawFit
 
-        if (mf := MasterFlat.objects.filter(**mfargs).first()) is not None:
+        if (mf := MasterFlat.objects.filter(**margs).first()) is not None:
             logger.info(f"{mf} exists, using it instead.")
         else:
-            logger.info(f"A MasterFlat entry for {MasterFlat.mfargs2str(mfargs)} will be created.")
-            mf = cls(**mfargs)
+            logger.info(f"A MasterFlat entry for {MasterFlat.margs2str(margs)} will be created.")
+            mf = cls(**margs)
             logger.debug("Saving MasterFlat to DB so that it has an id.")
             mf.save()
 
         if rawfits is None:
-            rawfits = RawFit.objects.filter(imgtype=IMGTYPES.FLAT, **mfargs)
+            rawfits = RawFit.objects.filter(imgtype=IMGTYPES.FLAT, **margs)
             logger.debug(f"Found {len(rawfits)} flat raw files for {mf}.")
         else:
             logger.debug(f"Using {len(rawfits)} flat raw files for {mf}.")
@@ -149,10 +152,17 @@ class MasterFlat(FitFileModel):
 
         if masterbias is None:
             from .masterbias import MasterBias
-            mbargs = {k:kwargs[k] for k in MasterBias.mbargs_kwL if k in kwargs}
-            masterbias = MasterBias.objects.filter(**mbargs).first()    
+            margs = {k:kwargs[k] for k in MasterBias.margs_kwL if k in kwargs}
+            masterbias = MasterBias.objects.filter(**margs).first()    
             logger.debug(f"Using {masterbias} as MasterBias for {mf}.")
             mf.masterbias = masterbias        
+
+        if masterdark is None:
+            from .masterdark import MasterDark
+            margs = {k:kwargs[k] for k in MasterDark.margs_kwL if k in kwargs}
+            masterdark = MasterDark.objects.filter(**margs).first()    
+            logger.debug(f"Using {masterdark} as MasterDark for {mf}.")
+            mf.masterdark = masterdark
 
         # Build the file
         if not mf.fileexists or force_rebuild:
@@ -162,7 +172,7 @@ class MasterFlat(FitFileModel):
             except Exception as e:
                 logger.error(f"An error ocurred while building the MasterFlat, deleting it and raising Exception.")
                 mf.delete()
-                raise Exception(f"An error ocurred while building the MasterFlat for {mfargs}: {e}")
+                raise Exception(f"An error ocurred while building the MasterFlat for {margs}: {e}")
             else:
                 logger.info("MasterFlat created successfully.")
 
@@ -188,7 +198,13 @@ class MasterFlat(FitFileModel):
         data_L = []
         for rf in self.rawfits.all():
             with fits.open(rf.filepath) as hdul:
-                data = (hdul[0].data - self.masterbias.data) 
+
+                if self.masterdark is not None:
+                    data = hdul[0].data - self.masterbias.data - self.masterdark.data * self.exptime
+                else:
+                    logger.warning(f"No MasterDark for {self}, is this a CCD and it is cold?")
+                    data = (hdul[0].data - self.masterbias.data) 
+                
                 data = data / np.nanmedian(data)
                 data_L.append(data)
 

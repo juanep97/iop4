@@ -308,87 +308,57 @@ class RawFit(FitFileModel):
         if self.auto_merge_to_db:
             self.save()
 
-
-
-    def request_masterbias(self, other_epochs=False):
-        """ Returns the master bias for this raw fit.
-
-        Notes
-        -----
-        See also iop4lib.db.MasterBias.request_masterbias().
-        """
-        from iop4lib.db import MasterBias
-
-        rf_vals = RawFit.objects.filter(id=self.id).values().get()
-        args = {k:rf_vals[k] for k in rf_vals if k in MasterBias.mbargs_kwL}
-        args["epoch"] = self.epoch # from values we only get epoch__id 
-
-        mb = MasterBias.objects.filter(**args).first()
-        
-        if mb is None and other_epochs == True:
-            args.pop("epoch")
-
-            mb_other_epochs = np.array(MasterBias.objects.filter(**args).all())
-
-            if len(mb_other_epochs) == 0:
-                logger.debug(f"No master bias for {args} in DB, None will be returned.")
-                return None
-
-            mb_other_epochs_jyear = np.array([mb.epoch.jyear for mb in mb_other_epochs])
-            mb = mb_other_epochs[np.argsort(np.abs(mb_other_epochs_jyear - self.epoch.jyear))[0]]
-
-            if (mb.epoch.jyear - self.epoch.jyear) > 7/365:
-                #logger.debug(f"Master bias from epoch {mb.epoch} is more than 1 week away from epoch {self.epoch}, None will be returned.")
-                #return None
-                logger.warning(f"Master bias from epoch {mb.epoch} is more than 1 week away from epoch {self.epoch}.")
-            
-        return mb
-
-
-
-    def request_masterflat(self, other_epochs=False):
-        """ Searchs in the DB and returns an appropiate masterflat for this rawfit. 
+    def request_master(self, model, other_epochs=False):
+        """ Searchs in the DB and returns an appropiate master bias / flat / dark for this rawfit. 
         
         Notes
         -----
-        It takes into account the parameters (band, size, etc) defined in MaserFlat.mfargs_kwL; except 
-        for exptime, which is not taken into account (flats with different extime can and must be used). 
-        By default, it looks for masterflats in the same epoch, but if other_epochs is set to True, it
-        will look for masterflats in other epochs. If more than one masterflat is found, it returns the
+        It takes into account the parameters (band, size, etc) defined in Master' margs_kwL; except 
+        for exptime, which is not taken into account. 
+        By default, it looks for masters in the same epoch, but if other_epochs is set to True, it
+        will look for masters in other epochs. If more than one master is found, it returns the
         one from the closest night. It will print a warning even with other_epochs if it is more than 1
         week away from the rawfit epoch.
         
-        If no masterflat is found, it returns None.
+        If no master is found, it returns None.
         """
 
-        from iop4lib.db import MasterFlat
-
         rf_vals = RawFit.objects.filter(id=self.id).values().get()
-        args = {k:rf_vals[k] for k in rf_vals if k in MasterFlat.mfargs_kwL}
+        args = {k:rf_vals[k] for k in rf_vals if k in model.margs_kwL}
         
-        args.pop("exptime", None)
-        args["epoch"] = self.epoch # from values we only get epoch__id 
+        args.pop("exptime", None) # exptime might be a building keywords (for flats and darks), but masters with different exptime can be applied
+        args["epoch"] = self.epoch # from .values() we only get epoch__id 
 
-        mf = MasterFlat.objects.filter(**args).first()
+        master = model.objects.filter(**args).first()
         
-        if mf is None and other_epochs == True:
+        if master is None and other_epochs == True:
             args.pop("epoch")
 
-            mf_other_epochs = np.array(MasterFlat.objects.filter(**args).all())
+            master_other_epochs = np.array(model.objects.filter(**args).all())
 
-            if len(mf_other_epochs) == 0:
-                logger.debug(f"No master flat for {args} in DB, None will be returned.")
+            if len(master_other_epochs) == 0:
+                logger.debug(f"No {model._meta.verbose_name} for {args} in DB, None will be returned.")
                 return None
             
-            mf_other_epochs_jyear = np.array([mf.epoch.jyear for mf in mf_other_epochs])
-            mf = mf_other_epochs[np.argsort(np.abs(mf_other_epochs_jyear - self.epoch.jyear))[0]]
+            master_other_epochs_jyear = np.array([md.epoch.jyear for md in master_other_epochs])
+            master = master_other_epochs[np.argsort(np.abs(master_other_epochs_jyear - self.epoch.jyear))[0]]
             
-            if (mf.epoch.jyear - self.epoch.jyear) > 7/365:
-                #logger.debug(f"Master flat from epoch {mf.epoch} is more than 1 week away from epoch {self.epoch}, None will be returned.")
-                #return None
-                logger.warning(f"Master flat from epoch {mf.epoch} is more than 1 week away from epoch {self.epoch}.")
+            if (master.epoch.jyear - self.epoch.jyear) > 7/365:
+                logger.warning(f"{model._meta.verbose_name} from epoch {master.epoch} is more than 1 week away from epoch {self.epoch}.")
                         
-        return mf
+        return master
+
+    def request_masterbias(self, *args, **kwargs):
+        from iop4lib.db import MasterBias
+        return self.request_master(MasterBias, *args, **kwargs)
+    
+    def request_masterflat(self, *args, **kwargs):
+        from iop4lib.db import MasterFlat
+        return self.request_master(MasterFlat, *args, **kwargs)
+    
+    def request_masterdark(self, *args, **kwargs):
+        from iop4lib.db import MasterDark
+        return self.request_master(MasterDark, *args, **kwargs)
 
     @property
     def header_hintcoord(self):

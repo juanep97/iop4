@@ -8,6 +8,7 @@ class IMGTYPES(models.TextChoices):
     NONE = None, "None"
     ERROR = "ERROR", "Error"
     FLAT = 'FLAT', "Flat"
+    DARK = 'DARK', "Dark"
     BIAS = 'BIAS', "Bias"
     LIGHT = 'LIGHT', "Light"
 

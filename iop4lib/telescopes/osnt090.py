@@ -16,6 +16,7 @@ from astropy.coordinates import Angle, SkyCoord
 import astrometry
 import numpy as np
 import math
+import datetime
 
 # iop4lib imports
 from iop4lib.enums import *
@@ -157,13 +158,13 @@ class OSNT090(Telescope, metaclass=ABCMeta):
 
     @classmethod
     def check_telescop_kw(cls, rawfit):
-        r""" Subclassed to account for DIPOL files, that have empty TELESCOP keyword as of 2023-10-11 
+        r""" Subclassed to account for DIPOL files, that may have empty TELESCOP keyword as of 2023-10-11 
         
-        TODO: this kw should not be empty.
+        If it is empty, check first the instrument, and if it is DIPOL and the night is before 2023-10-11, then continue.
 
-        If it is empty, check first the instrument, and if it is DIPOL, then continue.
+        Otherwise just call the parent method.
         """
-        if rawfit.header["TELESCOP"] == "":
+        if rawfit.header["TELESCOP"] == "" and rawfit.night < datetime.date(2023, 10, 11):
             cls.classify_instrument_kw(rawfit)
             if rawfit.instrument == INSTRUMENTS.DIPOL:
                 return

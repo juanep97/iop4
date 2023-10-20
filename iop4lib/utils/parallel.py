@@ -288,10 +288,9 @@ def epoch_bulkreduce_ray(reduced_L):
         
             if not redf.fileexists:
                 try:
-                    redf.apply_masterbias()
-                    redf.apply_masterflat()
+                    redf.apply_masters()
                 except Exception as e:
-                    logger.error(f"{redf}: exception during .apply_masterbias(), .apply_masterflat(): {e}")
+                    logger.error(f"{redf}: exception during .apply_masters(): {e}")
                     pass
             
             if success:
