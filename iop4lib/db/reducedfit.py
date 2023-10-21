@@ -69,6 +69,7 @@ class ReducedFit(RawFit):
     def create(cls, rawfit, 
                masterbias=None,
                masterflat=None,
+               masterdark=None,
                auto_build=False,
                force_rebuild=False,
                auto_merge_to_db=True):
@@ -122,35 +123,7 @@ class ReducedFit(RawFit):
         # instance only attributes
         reduced.auto_merge_to_db = auto_merge_to_db
 
-        # associate a masterbias to this reducedfit
-
-        if masterbias is not None:
-            reduced.masterbias = masterbias
-        else:
-            if (mb := rawfit.request_masterbias()) is not None:
-                reduced.masterbias = mb
-            else:
-                logger.warning(f"{reduced}: MasterBias in this epoch could not be found, attemptying adjacent epochs.")
-                if (mb := rawfit.request_masterbias(other_epochs=True)) is not None:
-                    reduced.masterbias = mb
-                else:
-                    logger.error(f"{reduced}: Could not find any MasterBias, not even in adjacent epochs.")
-                    reduced.set_flag(ReducedFit.FLAGS.ERROR)
-
-        # associate a masterflat to this reducedfit
-
-        if masterflat is not None:
-            reduced.masterflat = masterflat
-        else:
-            if (mf := rawfit.request_masterflat()) is not None:
-                reduced.masterflat = mf
-            else:
-                logger.warning(f"{reduced}: MasterFlat in this epoch could not be found, attemptying adjacent epochs.")
-                if (mf := rawfit.request_masterflat(other_epochs=True)) is not None:
-                    reduced.masterflat = mf
-                else:
-                    logger.error(f"{reduced}: Could not find any MasterFlat, not even in adjacent epochs.")
-                    reduced.set_flag(ReducedFit.FLAGS.ERROR)
+        reduced.associate_masters(masterbias=masterbias, masterdark=masterdark, masterflat=masterflat)
 
         # build file
 
@@ -170,121 +143,27 @@ class ReducedFit(RawFit):
         self.auto_merge_to_db = True
     
 
-    # Calibration methods
+    # REDUCTION METHODS
 
-    def build_file(self):
-        """ Builds the ReducedFit FITS file.
+    ## Delegated to telescopes or instrument classes
 
-        Notes
-        -----
-        The file is built by:
-        - applying masterbias..
-        - applying masterflat.
-        - try to astrometerically calibrate the reduced fit, giving it a WCS.
-        - find the catalog sources in the field.
-        """
-
-        logger.debug(f"{self}: building file")
-
-        self.unset_flag(ReducedFit.FLAGS.BUILT_REDUCED)
-
-        self.apply_masters()
-        
-        logger.debug(f"{self}: performing astrometric calibration")
-
-        try:
-            self.astrometric_calibration()
-        except Exception as e:
-            logger.error(f"{self}: could not perform astrometric calibration on {self}: {e}")
-            self.set_flag(ReducedFit.FLAGS.ERROR_ASTROMETRY)
-            if self.auto_merge_to_db:
-                self.save()
-            raise e
-        else:
-            logger.debug(f"{self}: astrometric calibration was successful.")
-            self.unset_flag(ReducedFit.FLAGS.ERROR_ASTROMETRY)
-
-            logger.debug(f"{self}: searching for sources in field...")
-            sources_in_field = AstroSource.get_sources_in_field(fit=self)
-            
-            logger.debug(f"{self}: found {len(sources_in_field)} sources in field.")
-            self.sources_in_field.set(sources_in_field, clear=True)
-                
-            self.set_flag(ReducedFit.FLAGS.BUILT_REDUCED)
-
-        if self.auto_merge_to_db:
-            self.save()
-
+    def associate_masters(self, *args, **kwargs):
+        return Instrument.by_name(self.instrument).associate_masters(self, *args, **kwargs)
 
     def apply_masters(self):
-        import astropy.io.fits as fits
+        return Instrument.by_name(self.instrument).apply_masters(self)
+    
+    def build_file(self):
+        return Instrument.by_name(self.instrument).build_file(self)
 
-        logger.debug(f"{self}: applying masters")
-
-        rf_data = fits.getdata(self.rawfit.filepath)
-        mb_data = fits.getdata(self.masterbias.filepath)
-        mf_data = fits.getdata(self.masterflat.filepath)
-
-        if self.masterdark is not None:
-            md_dark = fits.getdata(self.masterdark.filepath)
-        else :
-            logger.warning(f"{self}: no masterdark found, assuming dark current = 0, is this a CCD camera and it's cold?")
-            md_dark = 0
-
-        data_new = (rf_data - mb_data - md_dark*self.rawfit.exptime) / (mf_data)
-
-        header_new = fits.Header()
-
-        if not os.path.exists(os.path.dirname(self.filepath)):
-            logger.debug(f"{self}: creating directory {os.path.dirname(self.filepath)}")
-            os.makedirs(os.path.dirname(self.filepath))
-        
-        fits.writeto(self.filepath, data_new, header=header_new, overwrite=True)
-        
-    @property
-    def with_pairs(self):
-        """ Indicates whether both ordinary and extraordinary sources are present 
-        in the file. At the moment, this happens only for CAFOS polarimetry
-        """
-        return (self.rawfit.instrument == INSTRUMENTS.CAFOS and self.rawfit.obsmode == OBSMODES.POLARIMETRY)
-        
     def astrometric_calibration(self):
-        """ Performs astrometric calibration on the reduced fit, giving it the appropriate WCS.
+        return Instrument.by_name(self.instrument).astrometric_calibration(self)
 
-        If the are both ordinary and extraordinary sources in the field, one WCS will be built for each,
-        and the will be saved in the first and second extensions of the FITS file.
-        """
-
-        build_wcs_result = Instrument.by_name(self.instrument).build_wcs(self)
-
-        if build_wcs_result['success']:
-
-            logger.debug(f"{self}: saving WCSs to FITS header.")
-
-            wcs1 = build_wcs_result['wcslist'][0]
-
-            header = fits.Header()
-
-            header.update(wcs1.to_header(relax=True, key="A"))
-
-            if self.with_pairs:
-                wcs2 = build_wcs_result['wcslist'][1]
-                header.update(wcs2.to_header(relax=True, key="B"))
-
-            # if available, save also some info about the astrometry solution
-            if 'bm' in build_wcs_result['info']:
-                bm = build_wcs_result['info']['bm']
-                # adding HIERARCH avoids a warning, they can be accessed without HIERARCH
-                header['HIERARCH AS_ARCSEC_PER_PIX'] = bm.scale_arcsec_per_pixel
-                header['HIERARCH AS_CENTER_RA_DEG'] = bm.center_ra_deg
-                header['HIERARCH AS_CENTER_DEC_DEG'] = bm.center_dec_deg
-
-            with fits.open(self.filepath, 'update') as hdul:
-                hdul[0].header.update(header)
-
-        else:
-            raise Exception(f"Could not perform astrometric calibration on {self}: {build_wcs_result=}")
-
+    @property
+    def has_pairs(self):
+        """ Indicates whether both ordinary and extraordinary sources are present in the file. """
+        return Instrument.by_name(self.instrument).has_pairs(self)
+        
     @property
     def wcs(self):
         """ Returns the WCS of the reduced fit. """
@@ -327,11 +206,6 @@ class ReducedFit(RawFit):
     @property
     def header_objecthint(self):
         return self.rawfit.header_objecthint
-    
-
-    # REDUCTION METHODS
-
-    ## Delegated to telescopes or instrument classes
 
     def get_astrometry_position_hint(self, allsky=False, n_field_width=1.5):
         return Instrument.by_name(self.instrument).get_astrometry_position_hint(self.rawfit, allsky=allsky,  n_field_width=n_field_width)

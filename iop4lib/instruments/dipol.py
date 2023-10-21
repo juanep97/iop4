@@ -30,6 +30,8 @@ class DIPOL(Instrument):
     field_width_arcmin = 9.22
     field_height_arcmin = 6.28 
 
+    required_masters = ['masterbias', 'masterflat', 'masterdark']
+
     @classmethod
     def classify_juliandate_rawfit(cls, rawfit: 'RawFit'):
         """

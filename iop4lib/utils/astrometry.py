@@ -157,7 +157,7 @@ def build_wcs_params_shotgun(redf, shotgun_params_kwargs=None, hard=False):
 
     # FAST VERSION
 
-    if redf.with_pairs:
+    if redf.has_pairs:
         params["keep_n_seg"] = [300]
     else:
         params["keep_n_seg"] = [150]
@@ -268,7 +268,7 @@ def build_wcs_params_shotgun(redf, shotgun_params_kwargs=None, hard=False):
 
 
 
-def _build_wcs_params_shotgun_helper(redf, with_pairs=None,
+def _build_wcs_params_shotgun_helper(redf, has_pairs=None,
         bkg_filter_size = 11,
         bkg_box_size = 16,
         seg_kernel_size = None,
@@ -286,8 +286,8 @@ def _build_wcs_params_shotgun_helper(redf, with_pairs=None,
 
     imgdata = redf.mdata
 
-    if with_pairs is None:
-        with_pairs = redf.with_pairs
+    if has_pairs is None:
+        has_pairs = redf.has_pairs
 
     if size_hint is None:
         size_hint = redf.get_astrometry_size_hint()
@@ -295,7 +295,7 @@ def _build_wcs_params_shotgun_helper(redf, with_pairs=None,
     if position_hint is None:
         position_hint = redf.get_astrometry_position_hint(allsky=allsky)
 
-    if with_pairs:
+    if has_pairs:
         if bins is None:
             bins = int( 0.75 * max(imgdata.shape) )
         if hist_range is None:
@@ -329,7 +329,7 @@ def _build_wcs_params_shotgun_helper(redf, with_pairs=None,
 
     # Pair finding with results from image segmentation
     
-    if with_pairs:
+    if has_pairs:
         seg1, seg2, seg_d0, seg_disp_sign = get_pairs_d(pos_seg, d_eps=d_eps, bins=bins, hist_range=hist_range)
         logger.debug(f"{redf}: seg pairs -> {len(seg1)} ({len(seg1)/len(pos_seg)*100:.1f}%), seg_disp_sign={seg_disp_sign}")
         seg1_best, seg2_best, seg_disp_best, seg_disp_sign_best = get_best_pairs(seg1, seg2, seg_disp_sign)
@@ -343,7 +343,7 @@ def _build_wcs_params_shotgun_helper(redf, with_pairs=None,
 
     bm = None
 
-    if with_pairs: ## Attempt both with D pairs and XY pairs
+    if has_pairs: ## Attempt both with D pairs and XY pairs
         attempts = ((f"Seg Best XY Pairs (n={len(seg1xy_best)})", seg1xy_best, seg_disp_sign_xy_best),
                     (f"Seg Best D Pairs (n={len(seg1_best)})", seg1_best, seg_disp_sign_best),)
     else: ## Use the positions of the segments
@@ -380,7 +380,7 @@ def _build_wcs_params_shotgun_helper(redf, with_pairs=None,
 
     wcs1 = WCS(bm.wcs_fields)
 
-    if with_pairs:
+    if has_pairs:
         # Build WCS for pairs (just displace the center pixel by the disp_sign)
         wcs2 = wcs1.deepcopy()
         wcs2.wcs.crpix[0] += disp_sign[0]
@@ -389,7 +389,7 @@ def _build_wcs_params_shotgun_helper(redf, with_pairs=None,
     # save results and return
 
     return {'success':True,
-            'wcslist': [wcs1, wcs2] if with_pairs else [wcs1],
+            'wcslist': [wcs1, wcs2] if has_pairs else [wcs1],
             'info': _save_astrocalib_proc_vars(locals())}
 
 
@@ -401,7 +401,7 @@ def _save_astrocalib_proc_vars(locals_dict):
     astrocalib_proc_vars = dict()
 
     save_list = [
-        'with_pairs',
+        'has_pairs',
         'bkg_box_size', 'bkg_filter_size',
         'bkg',
         'imgdata_bkg_substracted',
@@ -411,7 +411,7 @@ def _save_astrocalib_proc_vars(locals_dict):
         'stars', 'disp_sign',
     ]
 
-    if locals_dict['with_pairs']:
+    if locals_dict['has_pairs']:
         save_list += [
         'wcs2',
         'hist_range', 'bins', 'd_eps',

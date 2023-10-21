@@ -31,6 +31,7 @@ class CAFOS(Instrument):
     field_width_arcmin = 34.0
     field_height_arcmin = 34.0
 
+    required_masters = ['masterbias', 'masterflat']
 
     @classmethod
     def classify_juliandate_rawfit(cls, rawfit):
@@ -139,6 +140,11 @@ class CAFOS(Instrument):
         """
         
         return astrometry.SizeHint(lower_arcsec_per_pixel=0.95*cls.arcsec_per_pix,  upper_arcsec_per_pixel=1.05*cls.arcsec_per_pix)
+
+    @classmethod
+    def has_pairs(cls, fit_instance):
+        """ At the moment, CAFOS polarimetry. """
+        return (fit_instance.obsmode == OBSMODES.POLARIMETRY)
 
     @classmethod
     def compute_relative_polarimetry(cls, polarimetry_group):

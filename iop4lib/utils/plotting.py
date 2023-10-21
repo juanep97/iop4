@@ -185,9 +185,9 @@ def plot_preview_astrometry(redf, with_simbad=False, legend=True, names_over=Fal
     else:
         wcs1 = redf.wcs1
 
-    with_pairs = astrocalib_proc_vars.pop('with_pairs', redf.with_pairs)
+    has_pairs = astrocalib_proc_vars.pop('has_pairs', redf.has_pairs)
     
-    if with_pairs:
+    if has_pairs:
         if 'wcs2' in astrocalib_proc_vars:
             wcs2 = astrocalib_proc_vars['wcs2']
         else:
@@ -260,7 +260,7 @@ def plot_preview_astrometry(redf, with_simbad=False, legend=True, names_over=Fal
         for i, source in enumerate(sources_in_field):
             ap = CircularAperture([*source.coord.to_pixel(wcs1)], r=20)
             h = ap.plot(color="r", lw=1, alpha=1, linestyle='-', ax=ax, label=f"{source.name}")
-            if with_pairs:
+            if has_pairs:
                 ax.plot(*source.coord.to_pixel(wcs2), 'rx', alpha=1)
             x, y = source.coord.to_pixel(wcs1)
             ax.annotate(text=source.name if names_over else f"{i}", 
@@ -511,7 +511,7 @@ def build_astrometry_summary_images(redf, astrocalib_proc_vars, summary_kwargs):
 
         logger.debug(f"{redf}: plotting astrometry summary image of segmentation results")
 
-        if astrocalib_proc_vars['with_pairs']:
+        if astrocalib_proc_vars['has_pairs']:
             fig = mplt.figure.Figure(figsize=(12,6), dpi=iop4conf.mplt_default_dpi)
             axs = fig.subplots(nrows=2, ncols=4)
 
@@ -562,7 +562,7 @@ def build_astrometry_summary_images(redf, astrocalib_proc_vars, summary_kwargs):
 
         logger.debug(f"{redf}: plotting astrometry summary image of daofind results")
 
-        if astrocalib_proc_vars['with_pairs']:
+        if astrocalib_proc_vars['has_pairs']:
             fig = mplt.figure.Figure(figsize=(12,6), dpi=iop4conf.mplt_default_dpi, layout="constrained")
             axs = fig.subplot_mosaic([["A", "B", "C", "D"], 
                                     ["A", "E", "F", "G"]])

@@ -7,9 +7,11 @@ iop4conf = iop4lib.Config(config_db=False)
 # other imports
 from abc import ABCMeta, abstractmethod
 
+import os
 import re
 import numpy as np
 import math
+import astropy.io.fits as fits
 
 # iop4lib imports
 from iop4lib.enums import *
@@ -20,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from iop4lib.db import ReducedFit
+    from iop4lib.db import RawFit, ReducedFit
 
 class Instrument(metaclass=ABCMeta):
     """ Base class for instruments.
@@ -62,6 +64,11 @@ class Instrument(metaclass=ABCMeta):
     @property
     @abstractmethod
     def gain_e_adu(self):
+        pass
+
+    @property
+    @abstractmethod
+    def required_masters(self):
         pass
 
     # Class methods (you should be using these from the Instrument class, not subclasses)
@@ -130,7 +137,6 @@ class Instrument(metaclass=ABCMeta):
         with fits.open(rawfit.filepath) as hdul:
             rawfit.exptime = hdul[0].header["EXPTIME"]
 
-
     @classmethod
     def get_header_objecthint(self, rawfit):
         r""" Get a hint for the AstroSource in this image from the header. OBJECT is a standard keyword. Return None if none found. 
@@ -162,6 +168,14 @@ class Instrument(metaclass=ABCMeta):
         pass
 
     @classmethod
+    @abstractmethod
+    def has_pairs(cls, fit_instance: 'ReducedFit' or 'RawFit') -> bool:
+        """ Indicates whether both ordinary and extraordinary sources are present 
+        in the file. At the moment, this happens only for CAFOS polarimetry
+        """
+        pass
+
+    @classmethod
     def build_wcs(self, reducedfit: 'ReducedFit'):
         """ Build a WCS for a reduced fit from this instrument. 
         
@@ -170,6 +184,139 @@ class Instrument(metaclass=ABCMeta):
         from iop4lib.utils.astrometry import build_wcs
         return build_wcs(reducedfit)
 
+
+    @classmethod
+    def associate_masters(cls, reducedfit, **masters_dict):
+        """ Associate a masterbias, masterdark and masterflat to this reducedfit."""
+
+        from iop4lib.db import MasterBias, MasterDark, MasterFlat
+
+        for (attrname, model) in zip(['masterbias', 'masterdark', 'masterflat'], [MasterBias, MasterDark, MasterFlat]):
+
+            if attrname not in cls.required_masters:
+                continue
+            
+            if masters_dict.pop(attrname) is not None:
+                setattr(reducedfit, attrname, masters_dict.pop(attrname))
+            else:
+                if (master := reducedfit.rawfit.request_master(model)) is not None:
+                    setattr(reducedfit, attrname, master)
+                else:
+                    logger.warning(f"{reducedfit}: {attrname} in this epoch could not be found, attemptying adjacent epochs.")
+                    if (master := reducedfit.rawfit.request_master(model, other_epochs=True)) is not None:
+                        setattr(reducedfit, attrname, master)
+                    else:
+                        logger.error(f"{reducedfit}: Could not find any {attrname}, not even in adjacent epochs.")
+                        reducedfit.set_flag(ReducedFit.FLAGS.ERROR)
+
+    @classmethod
+    def apply_masters(cls, reducedfit):
+        import astropy.io.fits as fits
+
+        logger.debug(f"{reducedfit}: applying masters")
+
+        rf_data = fits.getdata(reducedfit.rawfit.filepath)
+        mb_data = fits.getdata(reducedfit.masterbias.filepath)
+        mf_data = fits.getdata(reducedfit.masterflat.filepath)
+
+        if reducedfit.masterdark is not None:
+            md_dark = fits.getdata(reducedfit.masterdark.filepath)
+        else :
+            logger.warning(f"{reducedfit}: no masterdark found, assuming dark current = 0, is this a CCD camera and it's cold?")
+            md_dark = 0
+
+        data_new = (rf_data - mb_data - md_dark*reducedfit.rawfit.exptime) / (mf_data)
+
+        header_new = fits.Header()
+
+        if not os.path.exists(os.path.dirname(reducedfit.filepath)):
+            logger.debug(f"{reducedfit}: creating directory {os.path.dirname(reducedfit.filepath)}")
+            os.makedirs(os.path.dirname(reducedfit.filepath))
+        
+        fits.writeto(reducedfit.filepath, data_new, header=header_new, overwrite=True)
+
+    @classmethod
+    def astrometric_calibration(cls, reducedfit: 'ReducedFit'):
+        """ Performs astrometric calibration on the reduced fit, giving it the appropriate WCS.
+
+        If the are both ordinary and extraordinary sources in the field, one WCS will be built for each,
+        and the will be saved in the first and second extensions of the FITS file.
+        """
+
+        build_wcs_result = cls.build_wcs(reducedfit)
+
+        if build_wcs_result['success']:
+
+            logger.debug(f"{reducedfit}: saving WCSs to FITS header.")
+
+            wcs1 = build_wcs_result['wcslist'][0]
+
+            header = fits.Header()
+
+            header.update(wcs1.to_header(relax=True, key="A"))
+
+            if reducedfit.has_pairs:
+                wcs2 = build_wcs_result['wcslist'][1]
+                header.update(wcs2.to_header(relax=True, key="B"))
+
+            # if available, save also some info about the astrometry solution
+            if 'bm' in build_wcs_result['info']:
+                bm = build_wcs_result['info']['bm']
+                # adding HIERARCH avoids a warning, they can be accessed without HIERARCH
+                header['HIERARCH AS_ARCSEC_PER_PIX'] = bm.scale_arcsec_per_pixel
+                header['HIERARCH AS_CENTER_RA_DEG'] = bm.center_ra_deg
+                header['HIERARCH AS_CENTER_DEC_DEG'] = bm.center_dec_deg
+
+            with fits.open(reducedfit.filepath, 'update') as hdul:
+                hdul[0].header.update(header)
+
+        else:
+            raise Exception(f"Could not perform astrometric calibration on {reducedfit}: {build_wcs_result=}")
+
+    @classmethod
+    def build_file(cls, reducedfit: 'ReducedFit'):
+        """ Builds the ReducedFit FITS file.
+
+        Notes
+        -----
+        The file is built by:
+        - applying masters
+        - try to astrometerically calibrate the reduced fit, giving it a WCS.
+        - find the catalog sources in the field.
+        """
+
+        from iop4lib.db import AstroSource, ReducedFit
+
+        logger.debug(f"{reducedfit}: building file")
+
+        reducedfit.unset_flag(ReducedFit.FLAGS.BUILT_REDUCED)
+
+        reducedfit.apply_masters()
+        
+        logger.debug(f"{reducedfit}: performing astrometric calibration")
+
+        try:
+            reducedfit.astrometric_calibration()
+        except Exception as e:
+            logger.error(f"{reducedfit}: could not perform astrometric calibration on {reducedfit}: {e}")
+            reducedfit.set_flag(ReducedFit.FLAGS.ERROR_ASTROMETRY)
+            if reducedfit.auto_merge_to_db:
+                reducedfit.save()
+            raise e
+        else:
+            logger.debug(f"{reducedfit}: astrometric calibration was successful.")
+            reducedfit.unset_flag(ReducedFit.FLAGS.ERROR_ASTROMETRY)
+
+            logger.debug(f"{reducedfit}: searching for sources in field...")
+            sources_in_field = AstroSource.get_sources_in_field(fit=reducedfit)
+            
+            logger.debug(f"{reducedfit}: found {len(sources_in_field)} sources in field.")
+            reducedfit.sources_in_field.set(sources_in_field, clear=True)
+                
+            reducedfit.set_flag(ReducedFit.FLAGS.BUILT_REDUCED)
+
+        if reducedfit.auto_merge_to_db:
+            reducedfit.save()
 
     @classmethod
     def compute_aperture_photometry(cls, redf, aperpix, r_in, r_out):
@@ -204,7 +351,7 @@ class Instrument(metaclass=ABCMeta):
         error = calc_total_error(img, bkg.background_rms, cls.gain_e_adu)
 
         for astrosource in redf.sources_in_field.all():
-            for pairs, wcs in (('O', redf.wcs1), ('E', redf.wcs2)) if redf.with_pairs else (('O',redf.wcs),):
+            for pairs, wcs in (('O', redf.wcs1), ('E', redf.wcs2)) if redf.has_pairs else (('O',redf.wcs),):
 
                 ap = CircularAperture(astrosource.coord.to_pixel(wcs), r=aperpix)
                 annulus = CircularAnnulus(astrosource.coord.to_pixel(wcs), r_in=r_in, r_out=r_out)
@@ -225,7 +372,6 @@ class Instrument(metaclass=ABCMeta):
                                       bkg_flux_counts=bkg_flux_counts, bkg_flux_counts_err=bkg_flux_counts_err,
                                       flux_counts=flux_counts, flux_counts_err=flux_counts_err)
     
-
     @classmethod
     def compute_relative_photometry(cls, redf: 'ReducedFit') -> None:
         """ Common relative photometry method for all instruments. """

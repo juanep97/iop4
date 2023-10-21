@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 class Andor(Instrument, metaclass=ABCMeta):
     r""" Abstract class for OSN Andor cameras."""
 
+    required_masters = ['masterbias', 'masterflat']
+
     @classmethod
     def classify_juliandate_rawfit(cls, rawfit):
         """
@@ -174,6 +176,9 @@ class Andor(Instrument, metaclass=ABCMeta):
         elif rawfit.header['NAXIS1'] == 1024:
             return astrometry.SizeHint(lower_arcsec_per_pixel=2*0.95*cls.arcsec_per_pix, upper_arcsec_per_pixel=2*1.05*cls.arcsec_per_pix)
             
+    @classmethod
+    def has_pairs(cls, fit_instance):
+        return False
 
     @classmethod
     def compute_relative_polarimetry(cls, polarimetry_group):
