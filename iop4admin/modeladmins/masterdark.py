@@ -12,9 +12,20 @@ import logging
 logger = logging.getLogger(__name__)
 
 class AdminMasterDark(AdminFitFile):
+    
     model = MasterDark
+
     list_display = ['id', 'telescope', 'night', 'instrument', 'imgsize', 'exptime', 'get_masterbias', 'get_built_from', 'options']
     
+    list_filter = (
+            RawFitIdFilter,
+            RawFitTelescopeFilter,
+            RawFitNightFilter,
+            RawFitInstrumentFilter,
+            RawFitFlagFilter,
+            "imgsize",
+    )
+
     @admin.display(description='Options')
     def options(self, obj):
         url_details = reverse('iop4admin:iop4api_masterdark_details', args=[obj.id])
