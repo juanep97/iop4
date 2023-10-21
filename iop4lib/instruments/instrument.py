@@ -37,16 +37,19 @@ class Instrument(metaclass=ABCMeta):
     @property
     @abstractmethod
     def name(self):
+        """ The name of the instrument."""
         pass
 
     @property
     @abstractmethod
     def telescope(self):
+        """ The telescope this instrument is mounted on."""
         pass
 
     @property
     @abstractmethod
     def instrument_kw(self):
+        """ The keyword in the FITS header that identifies this instrument."""
         pass
 
     # Instrument specific properties (subclasses must implement these)
@@ -54,28 +57,36 @@ class Instrument(metaclass=ABCMeta):
     @property
     @abstractmethod
     def field_width_arcmin(self):
+        """ Field width in arcmin."""
         pass
 
     @property
     @abstractmethod
     def arcsec_per_pix(self):
+        """ Pixel size in arcseconds per pixel."""
         pass
 
     @property
     @abstractmethod
     def gain_e_adu(self):
+        """ Gain in e-/ADU. Used to compute the error in aperture photometry."""
         pass
 
     @property
     @abstractmethod
     def required_masters(self):
+        r""" List of calibration frames needed.
+
+            Cooled CCD cameras will only need `required_masters = ['masterbias', 'masterflat']` in the subclass, since dark current is close to zero. 
+            If dark current is not negligible, set `required_masters = ['masterbias', 'masterdark', 'masterflat']` in the subclass.
+        """
         pass
 
     # Class methods (you should be using these from the Instrument class, not subclasses)
 
     @classmethod
-    @abstractmethod
     def get_known(cls):
+        """ Return a list of all known instruments subclasses."""
         from .andor_cameras import AndorT90, AndorT150
         from .cafos import CAFOS
         from .dipol import DIPOL
@@ -85,7 +96,7 @@ class Instrument(metaclass=ABCMeta):
     @classmethod
     def by_name(cls, name: str) -> 'Instrument':
         """
-        Try to get instrument by name, else raise Exception.
+        Try to get instrument subclass by name, else raise Exception.
         """
         for instr in Instrument.get_known():
             if instr.name == name:
@@ -95,6 +106,8 @@ class Instrument(metaclass=ABCMeta):
     # Common instrument functionality
     # You should be using these from the subclasses already
     # these don't need to be overriden in subclasses, but they can be
+
+    # classification methods
 
     @classmethod
     def classify_rawfit(cls, rawfit):
@@ -114,6 +127,7 @@ class Instrument(metaclass=ABCMeta):
 
     @classmethod
     def classify_imgsize(cls, rawfit):
+        """ Read the size of the image from the FITS header, and save it in rawfit.imgsize."""
         import astropy.io.fits as fits
         from iop4lib.db import RawFit
 
@@ -136,6 +150,8 @@ class Instrument(metaclass=ABCMeta):
 
         with fits.open(rawfit.filepath) as hdul:
             rawfit.exptime = hdul[0].header["EXPTIME"]
+
+    # reduction methods
 
     @classmethod
     def get_header_objecthint(self, rawfit):
@@ -189,7 +205,7 @@ class Instrument(metaclass=ABCMeta):
     def associate_masters(cls, reducedfit, **masters_dict):
         """ Associate a masterbias, masterdark and masterflat to this reducedfit."""
 
-        from iop4lib.db import MasterBias, MasterDark, MasterFlat
+        from iop4lib.db import ReducedFit, MasterBias, MasterDark, MasterFlat
 
         for (attrname, model) in zip(['masterbias', 'masterdark', 'masterflat'], [MasterBias, MasterDark, MasterFlat]):
 
@@ -211,6 +227,7 @@ class Instrument(metaclass=ABCMeta):
 
     @classmethod
     def apply_masters(cls, reducedfit):
+        """ Apply the associated calibration frames to the raw fit to obtain the reduced fit."""
         import astropy.io.fits as fits
 
         logger.debug(f"{reducedfit}: applying masters")
@@ -280,8 +297,8 @@ class Instrument(metaclass=ABCMeta):
         Notes
         -----
         The file is built by:
-        - applying masters
-        - try to astrometerically calibrate the reduced fit, giving it a WCS.
+        - applying master calibration frames.
+        - astrometrically calibrate the reduced fit, giving it a WCS.
         - find the catalog sources in the field.
         """
 
@@ -320,6 +337,7 @@ class Instrument(metaclass=ABCMeta):
 
     @classmethod
     def compute_aperture_photometry(cls, redf, aperpix, r_in, r_out):
+        """ Common aperture photometry method for all instruments."""
 
         from iop4lib.db.aperphotresult import AperPhotResult
         from iop4lib.utils.sourcedetection import get_bkg, get_segmentation
