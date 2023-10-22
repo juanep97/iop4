@@ -204,7 +204,7 @@ class Epoch(models.Model):
         if Telescope.is_known(telescope):
             telescope = Telescope.by_name(telescope).name
         else:
-            raise Exception(f"Telescope {telescope} not known.")
+            raise Exception(f"Telescope {telescope} in epochname {epochname} not known.")
 
         if len(matches[0][1]) == 6: ## yymmdd
             logger.debug("Epoch name was specified in YYMMDD format, it will automatically casted to 20YYMMDD format.")
