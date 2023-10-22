@@ -91,14 +91,17 @@
 
         const tab_tree = JSON.parse('{{ tab_tree | escapejs }}');
         const { ref } = Vue
+        
+        C1selectedTab_0 = {% if 'C1selectedTab' in tabs %} "{{ tabs.C1selectedTab }}" {% else %} "about" {% endif %};
+        C2selectedTab_0 = {% if 'C2selectedTab' in tabs %} "{{ tabs.C2selectedTab }}" {% else %} "plot" {% endif %};
 
         vueApp = Vue.createApp({
             delimiters: ['[[', ']]'],
             data() {
                 return {
                     //tabs 
-                    C1selectedTab: {% if 'C1selectedTab' in tabs %} "{{ tabs.C1selectedTab }}" {% else %} "about" {% endif %},
-                    C2selectedTab: {% if 'C2selectedTab' in tabs %} "{{ tabs.C2selectedTab }}" {% else %} "plot" {% endif %},
+                    C1selectedTab: C1selectedTab_0,
+                    C2selectedTab: C2selectedTab_0,
                     // log
                     logEntries: [],
                     // plot
@@ -151,8 +154,8 @@
                 },
             },
             methods: {
-                // Update the URL based on the selected tabs
                 updateURL() {
+                    // Update the URL based on the selected tabs (called when C1selectedTab or C2selectedTab change)
                     let newURL = `/iop4/${this.C1selectedTab}/`
 
                     if (this.C1selectedTab in tab_tree) {
@@ -162,6 +165,30 @@
                     }
 
                     window.history.pushState({}, '', newURL);
+
+                    this.updateSelectedTabFromPath();
+                },
+                updateSelectedTabFromPath() { 
+                    // Called when the URL changes (e.g. back/forward button)
+                    const path = window.location.pathname;
+                    const segments = path.split('/').filter(Boolean);
+
+                    // Reset to default values
+                    this.C1selectedTab = C1selectedTab_0;
+                    this.C2selectedTab = C2selectedTab_0;
+
+                    if (segments.length >= 2) {
+                        this.C1selectedTab = segments[1];
+                    }
+                    if (segments.length >= 3) {
+                        this.C2selectedTab = segments[2];
+                    } else if (this.C1selectedTab) {
+                        // Set default second-level tab based on the first-level tab using tab_tree
+                        const subTabs = tab_tree[this.C1selectedTab];
+                        if (subTabs) {
+                            this.C2selectedTab = Object.keys(subTabs)[0];  // Set to the first key as the default
+                        }
+                    }
                 },
                 // Add a new entry to the log
                 addLogEntry(title, content, log_title=null) {
@@ -179,6 +206,14 @@
                     this.input_astrosource = row.name;
                 },
             },
+            beforeMount() {
+                this.updateSelectedTabFromPath();
+            },
+            mounted() {
+                window.addEventListener('popstate', () => {
+                    this.updateSelectedTabFromPath();
+                });
+            }
         }).use(Quasar).mount('#app')
 
         //Quasar.iconSet.set(Quasar.iconSet.materialIconsOutlined);
