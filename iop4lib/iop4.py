@@ -357,7 +357,7 @@ def main():
 
         if args.discover_missing_files and len(filelocs_missing) > 0:
             logger.info("Downloading missing files.")
-            for telname, filelocs in group_filelocs_by_telescope(filelocs_missing):
+            for telname, filelocs in group_filelocs_by_telescope(filelocs_missing).items():
                 Telescope.by_name(telname).download_rawfits(filelocs)
 
             for fileloc in filelocs_missing:
