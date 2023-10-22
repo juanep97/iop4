@@ -159,7 +159,7 @@ class MasterFlat(FitFileModel):
 
         if masterdark is None:
             from .masterdark import MasterDark
-            margs = {k:kwargs[k] for k in MasterDark.margs_kwL if k in kwargs}
+            margs = {k:kwargs[k] for k in MasterDark.margs_kwL if k in kwargs if k != 'exptime'} # exptime is a build parameter, but darks with different exptime can be used
             masterdark = MasterDark.objects.filter(**margs).first()    
             logger.debug(f"Using {masterdark} as MasterDark for {mf}.")
             mf.masterdark = masterdark

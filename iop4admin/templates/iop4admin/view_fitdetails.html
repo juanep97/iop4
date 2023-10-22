@@ -115,13 +115,16 @@
 
 
 
-		<h3>MasterBias and MasterFlat</h3>
+		<h3>Calibration Frames</h3>
 		<ul>
 		{% if object.masterbias %}
 			<li><a href="{% url 'iop4admin:iop4api_masterbias_changelist' %}?id={{ object.masterbias.id }}">MasterBias {{ object.masterbias.id }}</a></li>
 		{% endif %}
 		{% if object.masterflat %}
 			<li><a href="{% url 'iop4admin:iop4api_masterflat_changelist' %}?id={{ object.masterflat.id }}">MasterFlat {{ object.masterflat.id }}</a></li>
+		{% endif %}
+		{% if object.masterdark %}
+		<li><a href="{% url 'iop4admin:iop4api_masterdark_changelist' %}?id={{ object.masterdark.id }}">MasterDark {{ object.masterdark.id }}</a></li>
 		{% endif %}
 		</ul>
 

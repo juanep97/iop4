@@ -377,8 +377,11 @@ class Epoch(models.Model):
 
         # create a list of dictionaries with all the combinations of values for each keyword
         margs_L = [dict(zip(kw_L, prod)) for prod in itertools.product(*kw_set_D.values())]
+
+        if len(margs_L) == 0:
+            logger.error(f"No {model._meta.verbose_name} will be built for this epoch since there are no files for it.")
         
-        # create master flats
+        # create master 
 
         try:
             for margs in margs_L:

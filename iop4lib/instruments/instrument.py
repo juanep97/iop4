@@ -200,6 +200,51 @@ class Instrument(metaclass=ABCMeta):
         from iop4lib.utils.astrometry import build_wcs
         return build_wcs(reducedfit)
 
+    @classmethod
+    def request_master(cls, rawfit, model, other_epochs=False):
+        """ Searchs in the DB and returns an appropiate master bias / flat / dark for this rawfit. 
+        
+        Notes
+        -----
+
+        It takes into account the parameters (band, size, etc) defined in Master' margs_kwL; except 
+        for exptime, since master calibration frames with different exptime can be applied.
+
+        By default, it looks for masters in the same epoch, but if other_epochs is set to True, it
+        will look for masters in other epochs. If more than one master is found, it returns the
+        one from the closest night. It will print a warning even with other_epochs if it is more than 1
+        week away from the rawfit epoch.
+        
+        If no master is found, it returns None.
+        """
+
+        from iop4lib.db import RawFit
+
+        rf_vals = RawFit.objects.filter(id=rawfit.id).values().get()
+        args = {k:rf_vals[k] for k in rf_vals if k in model.margs_kwL}
+        
+        args.pop("exptime", None) # exptime might be a building keywords (for flats and darks), but masters with different exptime can be applied
+        args["epoch"] = rawfit.epoch # from .values() we only get epoch__id 
+
+        master = model.objects.filter(**args).first()
+        
+        if master is None and other_epochs == True:
+            args.pop("epoch")
+
+            master_other_epochs = np.array(model.objects.filter(**args).all())
+
+            if len(master_other_epochs) == 0:
+                logger.debug(f"No {model._meta.verbose_name} for {args} in DB, None will be returned.")
+                return None
+            
+            master_other_epochs_jyear = np.array([md.epoch.jyear for md in master_other_epochs])
+            master = master_other_epochs[np.argsort(np.abs(master_other_epochs_jyear - rawfit.epoch.jyear))[0]]
+            
+            if (master.epoch.jyear - rawfit.epoch.jyear) > 7/365:
+                logger.warning(f"{model._meta.verbose_name} from epoch {master.epoch} is more than 1 week away from epoch {rawfit.epoch}.")
+                        
+        return master
+
 
     @classmethod
     def associate_masters(cls, reducedfit, **masters_dict):
@@ -228,6 +273,7 @@ class Instrument(metaclass=ABCMeta):
     @classmethod
     def apply_masters(cls, reducedfit):
         """ Apply the associated calibration frames to the raw fit to obtain the reduced fit."""
+        
         import astropy.io.fits as fits
 
         logger.debug(f"{reducedfit}: applying masters")
