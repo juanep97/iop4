@@ -41,6 +41,9 @@
             <div id="site-header">
                 <h1><a href="https://vhega.iaa.es/iop4">IOP4</a></h1>
                 <h2><a href="https://vhega.iaa.es/">VHEGA@IAA-CSIC</a></h2>
+                {% if debug %}
+                    <span style="color: red;">DEBUG*</span>
+                {% endif %}
             </div>
             
             <q-tabs v-model="C1selectedTab" class="tab-navigator" id="site-nav" inline-label outside-arrows >

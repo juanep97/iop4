@@ -1,0 +1,8 @@
+{% extends "admin/base_site.html" %}
+
+{% if site_title == "IOP4 admin" %}
+    {% block branding %}
+        {{ block.super }}
+        {% if debug %} <span style="color: red;">DEBUG*</span>{% endif %}
+    {% endblock %}
+{% endif %}

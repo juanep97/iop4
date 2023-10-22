@@ -16,6 +16,12 @@
     <p class="styled-box">
         This site is currently running IOP4 <i>{{ git_branch }} @ <a href="https://github.com/juanep97/iop4/commit/{{ git_commit_hash }}">{{ git_describe }}</a> </i>.
     </p>
+    
+    {% if debug %}
+        <p class="styled-box">
+            It appears that you are running this site in the <span style="color: red;">DEBUG</span> server.
+        </p>
+    {% endif %}
 </div>
 <div class="footer">
     <p>Created by Juan Escudero Pedrosa for the VHEGA@IAA-CSIC group.</p>
