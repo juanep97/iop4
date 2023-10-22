@@ -5,8 +5,10 @@ iop4conf = iop4lib.Config(config_db=False)
 # django imports
 
 # other imports
+import os
 import re
 import astrometry
+import numpy as np
 
 # iop4lib imports
 from iop4lib.enums import *
@@ -105,13 +107,99 @@ class DIPOL(Instrument):
                 logger.error(f"Error parsing NOTES keyword for {rawfit.fileloc} as a float: {e}.")
 
 
+    @classmethod
+    def request_master(cls, rawfit, model, other_epochs=False):
+        r""" Overriden Instrument associate_masters.
+        
+        DIPOL POLARIMETRY files are a cut of the full field, so when associating master calibration files, it needs to search a different size of images.
+        For DIPOL PHOTOMETRY files, everything is the same as in the parent class.
+
+        The full field images are 4144x2822, polarimetry images are 1100x900, the cut 
+        position is saved in the images as 
+            XORGSUBF 	0
+            YORGSUBF 	0
+        """
+
+        if rawfit.obsmode == OBSMODES.PHOTOMETRY:
+            return super().request_master(rawfit, model, other_epochs=other_epochs)
+        
+        # POLARIMETRY (see docstring)
+        # everything should be the same as in the parent class except for the line changing args["imgsize"]
+
+        from iop4lib.db import RawFit
+
+        rf_vals = RawFit.objects.filter(id=rawfit.id).values().get()
+        args = {k:rf_vals[k] for k in rf_vals if k in model.margs_kwL}
+        
+        args.pop("exptime", None) # exptime might be a building keywords (for flats and darks), but masters with different exptime can be applied
+        args["epoch"] = rawfit.epoch # from .values() we only get epoch__id 
+
+        args["imgsize"] = "4144x2822" # search for full field calibration frames
+
+        master = model.objects.filter(**args).first()
+        
+        if master is None and other_epochs == True:
+            args.pop("epoch")
+
+            master_other_epochs = np.array(model.objects.filter(**args).all())
+
+            if len(master_other_epochs) == 0:
+                logger.debug(f"No {model._meta.verbose_name} for {args} in DB, None will be returned.")
+                return None
+            
+            master_other_epochs_jyear = np.array([md.epoch.jyear for md in master_other_epochs])
+            master = master_other_epochs[np.argsort(np.abs(master_other_epochs_jyear - rawfit.epoch.jyear))[0]]
+            
+            if (master.epoch.jyear - rawfit.epoch.jyear) > 7/365:
+                logger.warning(f"{model._meta.verbose_name} from epoch {master.epoch} is more than 1 week away from epoch {rawfit.epoch}.")
+                        
+        return master
+
+    @classmethod
+    def apply_masters(cls, reducedfit):
+        """ Overriden for DIPOL (see DIPOL.request_master).
+        
+        The cut position is saved in the raw fit header as:
+            XORGSUBF 	1500
+            YORGSUBF 	1000
+        """
+
+        x_start = reducedfit.rawfit.header['XORGSUBF']
+        y_start = reducedfit.rawfit.header['YORGSUBF']
+
+        x_end = x_start + reducedfit.rawfit.header['NAXIS1']
+        y_end = y_start + reducedfit.rawfit.header['NAXIS2']
+
+        idx = np.s_[y_start:y_end, x_start:x_end]
+
+        import astropy.io.fits as fits
+
+        logger.debug(f"{reducedfit}: applying masters")
+
+        rf_data = fits.getdata(reducedfit.rawfit.filepath)
+        mb_data = fits.getdata(reducedfit.masterbias.filepath)[idx]
+        mf_data = fits.getdata(reducedfit.masterflat.filepath)[idx]
+
+        if reducedfit.masterdark is not None:
+            md_dark = fits.getdata(reducedfit.masterdark.filepath)[idx]
+        else :
+            logger.warning(f"{reducedfit}: no masterdark found, assuming dark current = 0, is this a CCD camera and it's cold?")
+            md_dark = 0
+
+        data_new = (rf_data - mb_data - md_dark*reducedfit.rawfit.exptime) / (mf_data)
+
+        header_new = fits.Header()
+
+        if not os.path.exists(os.path.dirname(reducedfit.filepath)):
+            logger.debug(f"{reducedfit}: creating directory {os.path.dirname(reducedfit.filepath)}")
+            os.makedirs(os.path.dirname(reducedfit.filepath))
+        
+        fits.writeto(reducedfit.filepath, data_new, header=header_new, overwrite=True)
+
 
     @classmethod
     def get_header_objecthint(self, rawfit):
-        r""" Get a hint for the AstroSource in this image from the header. OBJECT is a standard keyword. Return None if none found. 
-        
-        Overriden for DIPOL, which are using the other_name field.
-        """
+        r""" Overriden for DIPOL, which are using the convention for the other_name field. """
         
         from iop4lib.db import AstroSource
 
@@ -124,7 +212,7 @@ class DIPOL(Instrument):
         
     @classmethod
     def get_astrometry_size_hint(cls, rawfit: 'RawFit'):
-        """ Get the size hint for this telescope / rawfit.
+        """ Implement Instrument.get_astrometry_size_hint for DIPOL.
 
             For DIPOL in OSN-T090, according to preliminary investigation of OSN crew is:
                 Las posiciones que he tomado y el ángulo de rotación en cada caso son estos:
@@ -143,7 +231,7 @@ class DIPOL(Instrument):
     
     @classmethod
     def build_wcs(self, reducedfit: 'ReducedFit'):
-        """ Override Instrument build_wcs.
+        """ Overriden Instrument build_wcs.
         
         While for PHOTOMETRY observations, DIPOL has a wide field which can be astrometrically calibrated, 
         POLARIMETRY files are small with only the source field ordinary and extraordianty images in the center (to save up space).
@@ -151,7 +239,11 @@ class DIPOL(Instrument):
 
         Therefore, to calibrate polarimetry files, we just give it a WCS centered on the source.
         """
+    
         if reducedfit.obsmode == OBSMODES.PHOTOMETRY:
             return super().build_wcs(reducedfit)
         elif reducedfit.obsmode == OBSMODES.POLARIMETRY:
-            raise NotImplementedError("Polarimetry WCS not implemented yet for DIPOL")
+            if ((src_header_obj := reducedfit.rawfit.header_objecthint) is None):
+                raise Exception(f"I dont know which object is this supposed to be.")
+            
+        
