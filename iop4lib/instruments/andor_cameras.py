@@ -419,7 +419,7 @@ class AndorT90(Andor):
 class AndorT150(Andor):
         
     name = "AndorT150"
-    instrument_kw = "AndorT150"
+    instrument_kw = "Andor"
     telescope = OSNT150.name
 
     arcsec_per_pix = 0.232
