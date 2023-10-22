@@ -110,16 +110,25 @@ body {
     }
 }
 
-#navbar > div {
+#site-header {
     display: flex;
     flex-direction: row;
     align-items: center;
 }
 
-#navbar h2 {
-    font-size: var(--navbar-h2-fontsize-initial);
+#site-header > div {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
     margin-left: var(--navbar-gaps-initial);
     margin-right: var(--navbar-gaps-initial);
+}
+
+#site-header > div h2, #site-header > div span {
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    font-size: var(--navbar-h2-fontsize-initial);
     transition: font-size 0.3s, margin-left 0.3s;
     white-space: nowrap;
 }

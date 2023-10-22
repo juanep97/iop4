@@ -40,10 +40,12 @@
         <div id="navbar">
             <div id="site-header">
                 <h1><a href="https://vhega.iaa.es/iop4">IOP4</a></h1>
-                <h2><a href="https://vhega.iaa.es/">VHEGA@IAA-CSIC</a></h2>
-                {% if debug and request.user.is_authenticated %}
-                    <span style="color: red;">DEBUG*</span>
-                {% endif %}
+                <div>
+                    <h2><a href="https://vhega.iaa.es/">VHEGA@IAA-CSIC</a></h2>
+                    {% if debug and request.user.is_authenticated %}
+                        <span style="color: red;">DEBUG*</span>
+                    {% endif %}
+                </div>
             </div>
             
             <q-tabs v-model="selectedTabs[0]" class="tab-navigator" id="site-nav" inline-label outside-arrows >
