@@ -83,7 +83,7 @@ class Telescope(metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def download_rawfits(cls, epoch: 'Epoch') -> None :
+    def download_rawfits(cls, rawfits: list['RawFit']) -> None :
         pass
 
     @classmethod
