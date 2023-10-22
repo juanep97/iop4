@@ -46,7 +46,7 @@
                 {% endif %}
             </div>
             
-            <q-tabs v-model="C1selectedTab" class="tab-navigator" id="site-nav" inline-label outside-arrows >
+            <q-tabs v-model="selectedTabs[0]" class="tab-navigator" id="site-nav" inline-label outside-arrows >
 
                 <q-tab name="about" label="about" icon="rocket_launch"></q-tab>
 
@@ -66,16 +66,16 @@
 
         <div id="appBody" class="tab-container">
             
-            <div v-show="C1selectedTab == 'about'" class="tab-content" id="about-tab"> 
+            <div v-show="selectedTabs[0] == 'about'" class="tab-content" id="about-tab"> 
                 {% include 'iop4api/about.html' %}
             </div>
 
-            <div v-show="C1selectedTab == 'login'" class="tab-content" id="login-tab"> 
+            <div v-show="selectedTabs[0] == 'login'" class="tab-content" id="login-tab"> 
                 {% include 'iop4api/login.html' %}
             </div>
 
             {% if request.user.is_authenticated %}
-                <div v-show="C1selectedTab == 'explore'" class="tab-content" id="explore-tab">
+                <div v-show="selectedTabs[0] == 'explore'" class="tab-content" id="explore-tab">
                     {% include 'iop4api/explore.html' %}
                 </div>
             {% endif %}
@@ -100,8 +100,7 @@
             data() {
                 return {
                     //tabs 
-                    C1selectedTab: C1selectedTab_0,
-                    C2selectedTab: C2selectedTab_0,
+                    selectedTabs: [C1selectedTab_0, C2selectedTab_0],
                     // log
                     logEntries: [],
                     // plot
@@ -122,26 +121,28 @@
                 }
             },
             watch: {
-                // Watch for changes in C1selectedTab
-                C1selectedTab(newVal, oldVal) {
-                    this.updateURL();
-                },
-                // Watch for changes in C2selectedTab
-                //C2selectedTab(newVal, oldVal) {
-                //    this.updateURL();
-                //},
-                // needed to load the catalog -only- if necessary
-                C2selectedTab: {
-                    handler(newVal) {
+                // Watch for changes in selectedTabs
+                selectedTabs: {
+                    handler(newTabs, oldTabs) {
                         this.updateURL();
-                        if ((this.catalog == null) & (newVal == 'catalog')) {
-                                load_catalog();
+
+                        // Handling specific cases based on the new tab selections
+                        if (newTabs.length > 0) {
+                            // first level tab
                         }
-                        if ((this.pipeline_log.data == null) & (newVal == 'logs')) {
+                        if (newTabs.length > 1) {
+                            const newVal = newTabs[1]; // second level tab
+
+                            if (this.catalog == null && newVal === 'catalog') {
+                                load_catalog();
+                            }
+                            if (this.pipeline_log.data == null && newVal === 'logs') {
                                 load_pipeline_log();
+                            }
                         }
                     },
-                    immediate: true
+                    deep: true,
+                    immediate: true,
                 },
                 pipeline_log_options: {
                     handler(newValue, oldValue) {
@@ -155,38 +156,46 @@
             },
             methods: {
                 updateURL() {
-                    // Update the URL based on the selected tabs (called when C1selectedTab or C2selectedTab change)
-                    let newURL = `/iop4/${this.C1selectedTab}/`
+                    // Start forming the new URL based on the selected tabs
+                    let newURL = '/iop4/';
 
-                    if (this.C1selectedTab in tab_tree) {
-                        if (this.C2selectedTab in tab_tree[this.C1selectedTab]) {
-                            newURL = newURL + `${this.C2selectedTab}/`;
+                    let currentTabTree = tab_tree;
+                    
+                    for (let i = 0; i < this.selectedTabs.length; i++) {
+                            const tab = this.selectedTabs[i];
+                            if (tab in currentTabTree) {
+                            newURL += `${tab}/`;
+                            currentTabTree = currentTabTree[tab];
+                        } else {
+                            // Set to the first key in the object as default if not matching
+                            if (Object.keys(currentTabTree).length > 0) {
+                                const defaultTab = Object.keys(currentTabTree)[0];
+                                newURL += `${defaultTab}/`;
+                                currentTabTree = currentTabTree[defaultTab];
+                                this.selectedTabs[i] = defaultTab;
+                            } else {
+                                // No sub-levels, so don't set anything
+                            }
                         }
                     }
 
                     window.history.pushState({}, '', newURL);
-
-                    this.updateSelectedTabFromPath();
                 },
                 updateSelectedTabFromPath() { 
                     // Called when the URL changes (e.g. back/forward button)
                     const path = window.location.pathname;
                     const segments = path.split('/').filter(Boolean);
+                    
+                    let currentTabTree = tab_tree;
 
-                    // Reset to default values
-                    this.C1selectedTab = C1selectedTab_0;
-                    this.C2selectedTab = C2selectedTab_0;
+                    // Skip the first segment if it's "iop4"
+                    const startIndex = segments[0] === 'iop4' ? 1 : 0;
 
-                    if (segments.length >= 2) {
-                        this.C1selectedTab = segments[1];
-                    }
-                    if (segments.length >= 3) {
-                        this.C2selectedTab = segments[2];
-                    } else if (this.C1selectedTab) {
-                        // Set default second-level tab based on the first-level tab using tab_tree
-                        const subTabs = tab_tree[this.C1selectedTab];
-                        if (subTabs) {
-                            this.C2selectedTab = Object.keys(subTabs)[0];  // Set to the first key as the default
+                    for (let index = startIndex; index < segments.length; index++) {
+                        const segment = segments[index];
+                        if (segment in currentTabTree) {
+                        this.selectedTabs[index - startIndex] = segment;
+                        currentTabTree = currentTabTree[segment];
                         }
                     }
                 },
