@@ -17,6 +17,10 @@ import scipy as sp
 import pandas as pd
 import matplotlib as mplt
 import matplotlib.pyplot as plt
+import itertools
+from astropy.time import Time
+import datetime
+import time
 
 # iop4lib imports
 from iop4lib.db import *
@@ -31,23 +35,28 @@ logger = logging.getLogger(__name__)
 
 def process_epochs(epochname_list, force_rebuild, check_remote_list):
 
-    epoch_L = list()
+    epoch_L  : list[Epoch] = list()
     
     logger.info("Epochs will be created.")
 
     for epochname in epochname_list:
-            epoch = Epoch.create(epochname=epochname, check_remote_list=check_remote_list)
-            epoch_L.append(epoch)
+        epoch = Epoch.create(epochname=epochname, check_remote_list=check_remote_list)
+        epoch_L.append(epoch)
 
-    logger.info("Creating Master Biases.")
+    logger.info("Creating Master Biases")
 
     for epoch in epoch_L:
-            epoch.build_master_biases(force_rebuild=force_rebuild)
+        
+        epoch.build_master_biases(force_rebuild=force_rebuild)
 
     logger.info("Creating Master Flats.")
 
     for epoch in epoch_L:
-            epoch.build_master_flats(force_rebuild=force_rebuild)
+        epoch.build_master_flats(force_rebuild=force_rebuild)
+
+    logger.info("Creating Master Darks.")
+    for epoch in epoch_L:
+        epoch.build_master_darks(force_rebuild=force_rebuild)
 
     logger.info("Science files will be reduced.")
 
@@ -65,44 +74,74 @@ def process_epochs(epochname_list, force_rebuild, check_remote_list):
             epoch.compute_relative_polarimetry()
 
 
+def list_local_epochnames():
+    """ List all local epochnames in local archives (by looking at the raw directory)."""
 
-def discover_new_epochs(add_local_epochs_to_list=False):
-
-    new_epochnames_all = set()   
+    local_epochnames = list()
 
     for tel_cls in Telescope.get_known():
-        logger.info(f"Listing remote epochs for {tel_cls.name}...")
-        
-        remote_epochnames = tel_cls.list_remote_epochnames()
-        logger.info(f"Found {len(remote_epochnames)} remote epochs for {tel_cls.name}.")
-
         if os.path.isdir(f"{iop4conf.datadir}/raw/{tel_cls.name}/"):
-            local_epochnames = [f"{tel_cls.name}/{night}" for night in os.listdir(f"{iop4conf.datadir}/raw/{tel_cls.name}/")]
-        else:
-            local_epochnames = list()
+            local_epochnames.extend([f"{tel_cls.name}/{night}" for night in os.listdir(f"{iop4conf.datadir}/raw/{tel_cls.name}/")])
 
-        logger.info(f"Found {len(local_epochnames)} epochs for {tel_cls.name} in local raw archive.")
-
-        if not add_local_epochs_to_list:
-            new_epochnames = set(remote_epochnames).difference(local_epochnames)
-            
-        logger.info(f"New epochs discovered in {tel_cls.name} (n={len(new_epochnames)}): {new_epochnames}")
-
-        new_epochnames_all = new_epochnames_all.union(new_epochnames)
+    return local_epochnames
     
-    return new_epochnames_all
-
-
-
-def discover_local_epochs():
-
-    local_epochs = set()
+def list_remote_epochnames():
+    """ List all remote epochnames in remote archives.
+    """
+    epochnames = list()
 
     for tel_cls in Telescope.get_known():
-        local_epochs = local_epochs.union([f"{tel_cls.name}/{night}" for night in os.listdir(f"{iop4conf.datadir}/raw/{tel_cls.name}/")])
+        epochnames.extend(tel_cls.list_remote_epochnames())
 
-    return local_epochs
+    return epochnames
 
+
+def discover_missing_epochs():
+    """ Discover missing epochs in remote archive."""
+    return list(set(list_remote_epochnames()).difference(list_local_epochnames()))    
+
+
+def list_remote_filelocs(epochnames: None | list[str] = None):
+    """ Discover files in remote archive for the given epochs.
+    
+    Use this function to list all files in the remote archive for the given epochs.
+    It avoids calling list_remote_raw_fnames() for each epoch.
+    """
+    
+    if epochnames is None:
+         epochnames = list_remote_epochnames()
+
+    grouped_epochnames = group_epochnames_by_telescope(epochnames)
+
+    filelocs = list()
+
+    for tel, epochnames in grouped_epochnames.items():
+        if len(epochnames) > 0:
+            filelocs.extend(Telescope.by_name(tel).list_remote_filelocs(epochnames))
+
+    return filelocs
+
+def list_local_filelocs():
+    """ Discover local filelocs in local archive."""
+
+    local_filelocs = list()
+
+    for tel_cls in Telescope.get_known():
+        if os.path.isdir(f"{iop4conf.datadir}/raw/{tel_cls.name}/"):
+            for d in os.scandir(f"{iop4conf.datadir}/raw/{tel_cls.name}/"):
+                local_filelocs.extend([f"{tel_cls.name}/{d.name}/{f.name}" for f in os.scandir(f"{iop4conf.datadir}/raw/{tel_cls.name}/{d.name}")])
+
+    return local_filelocs
+
+def discover_missing_filelocs():
+    """ Discover missing files in remote archive.
+
+    Compares the lists of remote files with the list of local files and returns the fileloc of the missing files.
+
+    If epochnames is None, all remote epochs will be checked.
+    """
+
+    return list(set(list_remote_filelocs()).difference(list_local_filelocs()))
 
 
 def retry_failed_files():
@@ -112,6 +151,47 @@ def retry_failed_files():
     qs2 = ReducedFit.objects.filter(flags__has=ReducedFit.FLAGS.ERROR_ASTROMETRY).all()
     logger.info(f"Fixed {qs.count()-qs2.count()} out of {qs.count()} failed reduced fits.")
 
+
+
+def filter_epochname_by_date(epochname_list, date_start=None, date_end=None):
+    if date_start is not None:
+        epochname_list = [epochname for epochname in epochname_list if Epoch.epochname_to_tel_night(epochname)[1] > datetime.date.fromisoformat(date_start)]
+    
+    if date_end is not None:
+        epochname_list = [epochname for epochname in epochname_list if Epoch.epochname_to_tel_night(epochname)[1] < datetime.date.fromisoformat(date_end)]
+    
+    return epochname_list
+
+def filter_filelocs_by_date(fileloc_list, date_start=None, date_end=None):
+
+    if date_start is not None:
+        fileloc_list = [fileloc for fileloc in fileloc_list if RawFit.fileloc_to_tel_night_filename(fileloc)[1] > datetime.date.fromisoformat(date_start)]
+    
+    if date_end is not None:
+        fileloc_list = [fileloc for fileloc in fileloc_list if RawFit.fileloc_to_tel_night_filename(fileloc)[1] < datetime.date.fromisoformat(date_end)]
+    
+    return fileloc_list
+
+
+def group_epochnames_by_telescope(epochnames):
+    
+        epochnames_by_telescope = {tel_cls.name:list() for tel_cls in Telescope.get_known()}
+    
+        for epochname in epochnames:
+            tel, night = Epoch.epochname_to_tel_night(epochname)
+            epochnames_by_telescope[tel].append(epochname)
+    
+        return epochnames_by_telescope
+
+def group_filelocs_by_telescope(filelocs):
+
+    filelocs_by_telescope = {tel_cls.name:list() for tel_cls in Telescope.get_known()}
+
+    for fileloc in filelocs:
+        tel, night, filename = RawFit.fileloc_to_tel_night_filename(fileloc)
+        filelocs_by_telescope[tel].append(fileloc)
+
+    return filelocs_by_telescope
 
 
 def main():
@@ -134,17 +214,30 @@ def main():
     parser.add_argument("--nthreads", dest="nthreads", type=int, default=None, help="<Optional> Number of threads to use when possible (default: %(default)s)", required=False)
     parser.add_argument("--use-ray-cluster", dest="ray_use_cluster", action="store_true", help="<Optional> Use ray for parallelization", required=False)
     
-    # processing options
-    parser.add_argument('-l', '--epoch-list', dest='epochname_list', nargs='+', help='<Optional> List of epochs (e.g: T090/230102 T090/230204)', required=False)
-    parser.add_argument('--discover-new', dest='discover_new', action='store_true', help='<Optional> Discover new epochs to process them', required=False)
-    parser.add_argument('--discover-local', dest='discover_local', action='store_true', help='<Optional> Discover local epochs to process them', required=False)
+    # epoch processing options
+    parser.add_argument('--epoch-list', dest='epochname_list', nargs='+', help='<Optional> List of epochs (e.g: T090/230102 T090/230204)', required=False)
+    parser.add_argument('--discover-missing', dest='discover_missing', action='store_true', help='<Optional> Discover new epochs to process them', required=False)
+    parser.add_argument('--list-local', dest='list_local', action='store_true', help='<Optional> Discover local epochs to process them', required=False)
     parser.add_argument('--list-only', dest='list_only', action='store_true', help='<Optional> If given, the built list of epochs will be printed but not processed', required=False)
+    parser.add_argument('--no-check-db', dest='keep_epochs_in_db', action='store_true', help='<Optional> Process discovered epochs even if they existed in archive', required=False)
 
-    ## other options
-    parser.add_argument('--retry-failed', dest='retry_failed', action='store_true', help='<Optional> Retry failed reduced fits', required=False)
+    ## file processing  options
+    parser.add_argument('--file-list', dest='fileloc_list', nargs='+', help='<Optional> List of files (e.g: tel/yyyy-mm-dd/name))', required=False)
+    parser.add_argument('--discover-missing-files', dest='discover_missing_files', action='store_true', help='<Optional> Discover files in remote archives that are not present in archive', required=False)
+    parser.add_argument('--list-local-files',  dest='list_local_files', action='store_true', help='<Optional> Discover local files to process them', required=False)
+    parser.add_argument('--list-files-only', dest='list_files_only', action='store_true', help='<Optional> If given, the built list of filelocs will be printed but not processed', required=False)
+    parser.add_argument('--no-check-db-files',  dest='keep_files_in_db', action='store_true', help='<Optional> Process discovered files even if they existed in archive', required=False)
+    
+
+    # other options
     parser.add_argument('--skip-remote-file-list', dest='skip_remote_file_list', action='store_true', help='<Optional> Skip remote file list check', required=False)
-    parser.add_argument('--reclasify-rawfits', dest="reclassify_rawfits", action="store_true", help="<Optional> Re-classify rawfits", required=False)
     parser.add_argument("--force-rebuild", dest="force_rebuild", action="store_true", help="<Optional> Force re-building of files (pass force_rebuild=True)", required=False)
+    parser.add_argument('--retry-failed', dest='retry_failed', action='store_true', help='<Optional> Retry failed reduced fits', required=False)
+    parser.add_argument('--reclassify-rawfits', dest="reclassify_rawfits", action="store_true", help="<Optional> Re-classify rawfits", required=False)
+
+    # range
+    parser.add_argument('--date_start', '-s', dest='date_start', type=str, default=None, help='<Optional> Start date (YYYY-MM-DD)', required=False)
+    parser.add_argument('--date_end', '-e', dest='date_end', type=str, default=None, help='<Optional> End date (YYYY-MM-DD)', required=False)
 
     args = parser.parse_args()
 
@@ -181,33 +274,116 @@ def main():
     if args.ray_use_cluster:
         iop4conf.ray_use_cluster = True
 
-    # Reduce indicated epochs
+    # Epochs
     
-    epochs_to_process = set()
+    epochnames_to_process = set()
 
-    if args.discover_new:   
-        epochs_to_process = epochs_to_process.union(discover_new_epochs())
+    if args.list_local:
+        logger.info("Listing local epochs...")
+        local_epochs = list_local_epochnames()
+        epochnames_to_process = epochnames_to_process.union(local_epochs)
+        logger.info(f"Listed {len(local_epochs)} local epochs.")
 
-    if args.discover_local:
-        epochs_to_process = epochs_to_process.union(discover_local_epochs())
+    if args.discover_missing:
+        logger.info("Discovering missing epochs...")
+        missing_epochs = discover_missing_epochs()
+        epochnames_to_process = epochnames_to_process.union(missing_epochs)
+        logger.info(f"Discovered {len(missing_epochs)} missing epochs.")
 
     if args.epochname_list is not None:
-         epochs_to_process = epochs_to_process.union(args.epochname_list)
+         logger.info("Adding epochs from command line...")
+         epochnames_to_process = epochnames_to_process.union(args.epochname_list)
+         logger.info(f"Added {len(args.epochname_list)} epochs from command line.")
 
-    if len(epochs_to_process) > 0 and not args.list_only:
-        process_epochs(epochs_to_process, args.force_rebuild, check_remote_list=~args.skip_remote_file_list)
+    if len(epochnames_to_process) > 0 and not args.keep_epochs_in_db:
+        logger.info("Removing epochs already in the DB...")
+        epochnames_in_db = set([epoch.epochname for epoch in Epoch.objects.all()])
+        epochnames_to_process = epochnames_to_process.difference(epochnames_in_db)
+        logger.info(f"Left {len(epochnames_to_process)} epochs to process.")
+
+    logger.info(f"Gathered {len(epochnames_to_process)} epochs to process between {args.date_start} and {args.date_end}.")
+
+    if args.date_start is not None or args.date_end is not None:
+        logger.info("Filtering epochs by date.")
+        epochnames_to_process = filter_epochname_by_date(epochnames_to_process, args.date_start, args.date_end)
+        logger.info(f"Filtered to {len(epochnames_to_process)} epochs to process between {args.date_start} and {args.date_end}.")
+
+    logger.debug(f"{epochnames_to_process=}")
+
+    if not args.list_only:
+        if len(epochnames_to_process) > 0:
+            logger.info("Processing epochs.")
+            process_epochs(epochnames_to_process, args.force_rebuild, check_remote_list=~args.skip_remote_file_list)
     else:
-        logger.info("Invoked with --list-only:")
-        logger.info(f"{epochs_to_process=}")
+        logger.info("Invoked with --list-only!")
+
+    # Files
+
+    filelocs_to_process = set()
+
+    if args.list_local_files:
+        logger.info("Listing local files...")
+        filelocs_local = list_local_filelocs()
+        filelocs_to_process = filelocs_to_process.union(filelocs_local)
+        logger.info(f"Listed {len(filelocs_local)} local files.")
+
+    if args.discover_missing_files:
+        logger.info("Discovering missing files...")
+        filelocs_missing = discover_missing_filelocs()
+        filelocs_to_process = filelocs_to_process.union(filelocs_missing)
+        logger.info(f"Discovered {len(filelocs_missing)} missing files.")
+
+    if args.fileloc_list is not None:
+        logger.info("Adding files from command line...")
+        filelocs_to_process = filelocs_to_process.union(args.file_list)
+        logger.info(f"Added {len(args.file_list)} files from command line.")
+
+    if len(filelocs_to_process) > 0 and not args.keep_files_in_db:
+        logger.info(f"Removing files already in the DB ({RawFit.objects.count()}).")
+        filelocs_in_db = set([rawfit.fileloc for rawfit in RawFit.objects.all()])
+        filelocs_to_process = filelocs_to_process.difference(filelocs_in_db)
+        logger.info(f"Left {len(filelocs_to_process)} files to process.")
+
+    logger.info(f"Gathered {len(filelocs_to_process)} files to process.")
+
+    if args.date_start is not None or args.date_end is not None:
+        logger.info("Filtering files by date...")
+        filelocs_to_process = filter_filelocs_by_date(filelocs_to_process, args.date_start, args.date_end)    
+        logger.info(f"Filtered to {len(filelocs_to_process)} filelocs_to_process  between {args.date_start} and {args.date_end}.")
+    
+    logger.debug(f"{filelocs_to_process=}")
+
+    if not args.list_files_only:
+
+        if args.discover_missing_files and len(filelocs_missing) > 0:
+            logger.info("Downloading missing files.")
+            for telname, filelocs in group_filelocs_by_telescope(filelocs_missing):
+                Telescope.by_name(telname).download_rawfits(filelocs)
+
+            for fileloc in filelocs_missing:
+                rawfit = RawFit.create(fileloc=fileloc)
+
+        if len(filelocs_to_process) > 0:
+            logger.info("Processing files.")
+            pass
+
+    else:
+        logger.info("Invoked with --list-files-only")
 
     # Classify rawfits if indicated
 
     if args.reclassify_rawfits:
+        
         logger.info("Classifying rawfits.")
-        for epochname in epochs_to_process:
+
+        for epochname in epochnames_to_process:
             epoch = Epoch.by_epochname(epochname)
             for rawfit in epoch.rawfits.all():
                 rawfit.classify()
+
+        for fileloc in filelocs_to_process:
+            rawfit = RawFit.by_fileloc(fileloc)
+            rawfit.classify()
 
     # Retry failed files if indicated
 
