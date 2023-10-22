@@ -219,7 +219,9 @@ def main():
     if args.interactive:
         logger.info("Jumping to IPython shell.")
         import IPython
-        IPython.embed(header="Start IOP4ing!", module=sys.modules['__main__'])
+        _ns = dict(globals())
+        _ns.update(locals())
+        IPython.embed(header="Start IOP4ing!", module=sys.modules['__main__'], user_ns=_ns)
 
     sys.exit(0)
 
