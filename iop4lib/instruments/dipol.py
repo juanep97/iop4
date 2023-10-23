@@ -58,6 +58,8 @@ class DIPOL(Instrument):
                 rawfit.imgtype = IMGTYPES.BIAS
             elif hdul[0].header['IMAGETYP'] == 'Dark Frame':
                 rawfit.imgtype = IMGTYPES.DARK
+            elif hdul[0].header['IMAGETYP'] == 'Flat Field':
+                rawfit.imgtype = IMGTYPES.FLAT
             elif hdul[0].header['IMAGETYP'] == 'Light Frame':
                 if 'skyflat' in rawfit.header['OBJECT'].lower():
                     rawfit.imgtype = IMGTYPES.FLAT
