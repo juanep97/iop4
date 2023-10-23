@@ -40,6 +40,7 @@ class OSNT150(OSNT090, Telescope, metaclass=ABCMeta):
     ftp_address = iop4conf.osn_t150_address
     ftp_user = iop4conf.osn_t150_user
     ftp_password = iop4conf.osn_t150_password
+    ftp_encoding = 'utf-8'
 
     # telescope specific methods
 
