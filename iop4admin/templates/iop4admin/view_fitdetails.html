@@ -89,18 +89,18 @@
 			<label style="grid-area: label1;">vmin:</label>
 			<input id="slider1" type="range" style="grid-area: slider1;" oninput="updateSliderValues()" step="any">
 			<input id="value1" name="vmin" type="hidden">
-			<label id="value1_label" style="grid-area: value1;"></label>
+			<pre id="value1_label" style="grid-area: value1;"></pre>
 
 			<label style="grid-area: label2;">vmax:</label>
 			<input id="slider2" type="range" style="grid-area: slider2;" oninput="updateSliderValues()" step="any">
 			<input id="value2" name="vmax" type="hidden">
-			<label id="value2_label" style="grid-area: value2;"></label>
+			<pre id="value2_label" style="grid-area: value2;"></pre>
 
 			<input type="submit" value="reload" style="grid-area: reload;">
 		</form>
 		
 		<div id="img_preview_image">
-			<img src='data:image/png;base64, {{ imgb64 }}' width='256' height='256'/>
+			<img src='data:image/png;base64, {{ imgb64 }}' height='256'/>
 		</div>
 	</div>
 
@@ -236,8 +236,8 @@
 		//console.log(value2.value)
 
 		// Update displayed values
-		value1_label.innerHTML = Number(value1.value).toFixed(5);
-		value2_label.innerHTML = Number(value2.value).toFixed(5);
+		value1_label.innerHTML = Number(value1.value).toFixed(4).padStart(Math.ceil(Math.log10(vabsmax))+7);
+		value2_label.innerHTML = Number(value2.value).toFixed(4).padStart(Math.ceil(Math.log10(vabsmax))+7);
 	}
 
 	a = 10
