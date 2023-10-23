@@ -325,7 +325,7 @@ def _build_wcs_params_shotgun_helper(redf, has_pairs=None,
 
     if border_margin_px is not None:
         logger.debug(f"{redf}: Removing segments within {border_margin_px} px from border.")
-        pos_seg = [pos for pos in pos_seg if ( (border_margin_px < pos[0] < imgdata.shape[0]-border_margin_px) and (border_margin_px < pos[1] < imgdata.shape[1]-border_margin_px))]
+        pos_seg = [pos for pos in pos_seg if ( (border_margin_px < pos[0] < imgdata.shape[1]-border_margin_px) and (border_margin_px < pos[1] < imgdata.shape[0]-border_margin_px))]
 
     # Pair finding with results from image segmentation
     
