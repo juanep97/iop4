@@ -2,7 +2,10 @@
 
 {% if site_title == "IOP4 admin" %}
     {% block branding %}
-        {{ block.super }}
-        {% if debug %} <span style="color: red;">DEBUG*</span>{% endif %}
+    <div id="site-name">
+        <h1><a href="{% url 'admin:index' %}">{{ site_header|default:_('Django administration') }}</a>
+        {% if debug %}<span style="color: red; font-size: 14px; padding-left: 1em; vertical-align: middle;">DEBUG*</span>{% endif %}
+        </h1>
+    </div>
     {% endblock %}
 {% endif %}
