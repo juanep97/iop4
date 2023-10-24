@@ -383,8 +383,8 @@ class Epoch(models.Model):
         
         # create master 
 
-        try:
-            for margs in margs_L:
+        for margs in margs_L:
+            try:
                 margs['epoch'] = self
                 logger.debug(f"{margs=}")
                 if self.rawfits.filter(imgtype=model.imgtype, **margs).count() > 0:
@@ -392,9 +392,9 @@ class Epoch(models.Model):
                     model.create(**margs, force_rebuild=force_rebuild)
                 else:
                     logger.debug(f"No {model._meta.verbose_name} will be built for this margs since there are no files for it.")
-        except Exception as e:
-            logger.error(f"Error building {model._meta.verbose_name} for {self.epochname}: {e}.")
-            self.set_flag(Epoch.FLAGS.ERROR)
+            except Exception as e:
+                logger.error(f"Error building {model._meta.verbose_name} for {self.epochname} with args {margs}: {e}.")
+                self.set_flag(Epoch.FLAGS.ERROR)
             
         if self.auto_merge_to_db:
             self.save() 
