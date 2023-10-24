@@ -21,6 +21,9 @@ from iop4lib.telescopes import OSNT090, OSNT150
 import logging
 logger = logging.getLogger(__name__)
 
+import typing
+if typing.TYPE_CHECKING:
+    from iop4lib.db.reducedfit import ReducedFit, RawFit
 
 class Andor(Instrument, metaclass=ABCMeta):
     r""" Abstract class for OSN Andor cameras."""
@@ -415,6 +418,22 @@ class AndorT90(Andor):
     arcsec_per_pix = 0.387
     gain_e_adu = 4.5
 
+    @classmethod
+    def build_wcs(self, reducedfit: 'ReducedFit', *args, **kwargs):
+        r""" Overriden for OSN-T090
+         
+        Overriden to account for HIP2838 U band images with exptime < 2.5, which are known to fail.
+        """
+        from iop4lib.utils.astrometry import BuildWCSResult
+
+        # OSN-T090 images of HIP2838 in band U with < 2.5s
+        # they can not get automatically calibrated because there are almost no sources visible, just return error so we dont loose time trying parameters.
+
+        if reducedfit.band == "U" and "HIP2838" in reducedfit.filename and reducedfit.exptime < 2.5:
+            logger.error("Skipping WCS build for HIP2838 U band image with exptime < 2.5 , as it is known to fail, and we will only lose time. Manual calibration is needed for this image. See build_wcs_for_HIP2838_U_band_images.ipynb for more info.")
+            return BuildWCSResult(success=False)
+        
+        return super().build_wcs(reducedfit, *args, **kwargs)
 
 class AndorT150(Andor):
         

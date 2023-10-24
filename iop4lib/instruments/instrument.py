@@ -12,6 +12,8 @@ import re
 import numpy as np
 import math
 import astropy.io.fits as fits
+import astropy.units as u
+import itertools
 
 # iop4lib imports
 from iop4lib.enums import *
@@ -23,6 +25,7 @@ logger = logging.getLogger(__name__)
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from iop4lib.db import RawFit, ReducedFit
+    from iop4lib.utils.astrometry import BuildWCSResult
 
 class Instrument(metaclass=ABCMeta):
     """ Base class for instruments.
@@ -192,13 +195,53 @@ class Instrument(metaclass=ABCMeta):
         pass
 
     @classmethod
-    def build_wcs(self, reducedfit: 'ReducedFit'):
+    def build_wcs(self, reducedfit: 'ReducedFit', shotgun_params_kwargs : dict =  dict(), build_summary_images : bool = True, summary_kwargs : dict = {'with_simbad':True}) -> 'BuildWCSResult':
         """ Build a WCS for a reduced fit from this instrument. 
         
-        By default (Instrument class), this will just call the build_wcs from iop4lib.utils.astrometry.
+        By default (Instrument class), this will just call the build_wcs_params_shotgun from iop4lib.utils.astrometry.
+
+        Keyword Arguments
+        -----------------
+        shotgun_params_kwargs : dict, optional
+            The parameters to pass to the shotgun_params function.
+        build_summary_images : bool, optional
+            Whether to build summary images of the process. Default is True.
+        summary_kwargs : dict, optional
+        with_simbad : bool, default True
+            Whether to query and plot a few Simbad sources in the image. Might be useful to 
+            check whether the found coordinates are correct. Default is True.
         """
-        from iop4lib.utils.astrometry import build_wcs
-        return build_wcs(reducedfit)
+        from iop4lib.utils.astrometry import build_wcs_params_shotgun
+        from iop4lib.utils.plotting import build_astrometry_summary_images
+
+        if reducedfit.header_objecthint is not None and 'allsky' not in shotgun_params_kwargs:
+            if reducedfit.header_objecthint.coord.separation(reducedfit.header_hintcoord) > u.Quantity("20 arcmin"):
+                logger.debug(f"{reducedfit}: large pointing mismatch detected, setting allsky = True for the position hint.")
+                shotgun_params_kwargs["allsky"] = [True]
+
+
+        build_wcs_result = build_wcs_params_shotgun(reducedfit, shotgun_params_kwargs)
+
+        if build_wcs_result.success and build_summary_images:
+            logger.debug(f"{reducedfit}: building summary images.")
+            build_astrometry_summary_images(reducedfit, build_wcs_result.info, summary_kwargs=summary_kwargs)
+
+        # Save only some variables and return
+
+        if build_wcs_result.success:
+            to_save_from_info_kw_L = ['params', 'bm', 'seg_d0', 'seg_disp_sign', 'seg_disp_xy', 'seg_disp_sign_xy', 'seg_disp_xy_best']
+            to_save = {k:build_wcs_result.info[k] for k in to_save_from_info_kw_L if k in build_wcs_result.info}
+            to_save['logodds'] = build_wcs_result.info['bm'].logodds
+            try:
+                # redf.astrometry_info = [to_save]
+                if isinstance(reducedfit.astrometry_info, list):
+                    reducedfit.astrometry_info = list(itertools.chain(reducedfit.astrometry_info, [to_save]))
+                else:
+                    reducedfit.astrometry_info = [to_save]
+            except NameError:
+                reducedfit.astrometry_info = [to_save]
+
+        return build_wcs_result
 
     @classmethod
     def request_master(cls, rawfit, model, other_epochs=False):
@@ -308,23 +351,23 @@ class Instrument(metaclass=ABCMeta):
 
         build_wcs_result = cls.build_wcs(reducedfit)
 
-        if build_wcs_result['success']:
+        if build_wcs_result.success:
 
             logger.debug(f"{reducedfit}: saving WCSs to FITS header.")
 
-            wcs1 = build_wcs_result['wcslist'][0]
+            wcs1 = build_wcs_result.wcslist[0]
 
             header = fits.Header()
 
             header.update(wcs1.to_header(relax=True, key="A"))
 
             if reducedfit.has_pairs:
-                wcs2 = build_wcs_result['wcslist'][1]
+                wcs2 = build_wcs_result.wcslist[1]
                 header.update(wcs2.to_header(relax=True, key="B"))
 
             # if available, save also some info about the astrometry solution
-            if 'bm' in build_wcs_result['info']:
-                bm = build_wcs_result['info']['bm']
+            if 'bm' in build_wcs_result.info:
+                bm = build_wcs_result.info['bm']
                 # adding HIERARCH avoids a warning, they can be accessed without HIERARCH
                 header['HIERARCH AS_ARCSEC_PER_PIX'] = bm.scale_arcsec_per_pixel
                 header['HIERARCH AS_CENTER_RA_DEG'] = bm.center_ra_deg
