@@ -12,7 +12,7 @@ from scipy.spatial import cKDTree
 
 
 
-def get_pairs_d(pos, d_eps=0.8, d_min=60, d0=None, bins=None, hist_range=None, redf=None, doplot=False, ax=None):
+def get_pairs_d(pos, d_eps=0.8, d_min=0, d_max=60, d0=None, bins=None, hist_range=None, redf=None, doplot=False, ax=None):
     """
     From a list of positions, finds the most common distance between them (d0),
     and pairs the points that are at such distance. If d0 is given, it is used instead of computing it.
@@ -42,7 +42,7 @@ def get_pairs_d(pos, d_eps=0.8, d_min=60, d0=None, bins=None, hist_range=None, r
         hist, edges = np.histogram(distances, bins=bins, range=hist_range)
         centers = (edges[:-1]+edges[1:])/2
 
-        idx = centers < d_min
+        idx = (d_min <= centers) & (centers <= d_max)
         idx_max = np.argmax(hist[idx])
         d0 = centers[idx][idx_max]
 
@@ -70,7 +70,7 @@ def get_pairs_d(pos, d_eps=0.8, d_min=60, d0=None, bins=None, hist_range=None, r
 
 
 
-def get_pairs_dxy(pos, d_eps=0.8, disp=None, d_min=60, bins=None, hist_range=None, redf=None, doplot=False, axs=None, fig=None):
+def get_pairs_dxy(pos, dx_eps=0.8, dy_eps=0.8, d_eps=None, disp=None, dx_min=0, dx_max=60, dy_min=0, dy_max=60, d_min=None, d_max=None, bins=None, hist_range=None, redf=None, doplot=False, axs=None, fig=None):
     """
     From a list of positions, finds the most common distances between them in both x and y axes (disp),
     and pairs the points that are at such distances.
@@ -96,25 +96,31 @@ def get_pairs_dxy(pos, d_eps=0.8, disp=None, d_min=60, bins=None, hist_range=Non
             hist_range = (0, min(redf.data.shape))
         else:
             raise ValueError("hist_range must be specified if redf is not given")
-        
-        
+
+    if d_min:
+        dx_min = dy_min = d_min
+    if d_max:
+        dx_max = dy_max = d_max
+    if d_eps:
+        dx_eps = dy_eps = d_eps
+
     pairs = list(itertools.combinations(pos, 2))
 
     if disp is None:
         disp = list()
-        for i in [0, 1]: # for each axis
+        for i, d_min, d_max in zip([0, 1], [dx_min, dy_min], [dx_max, dy_max]): # for each axis
             distances = [abs(p1[i]-p2[i]) for p1,p2 in pairs]
 
             hist, edges = np.histogram(distances, bins=bins, range=hist_range)
             centers = (edges[:-1]+edges[1:])/2
 
-            idx = centers < d_min
+            idx = (d_min <= centers) & (centers <= d_max)
             idx_max = np.argmax(hist[idx])
             d0 = centers[idx][idx_max]
-                
+
             disp.append(d0)
 
-    paired = [(p1,p2) for p1,p2 in pairs if ( abs( abs( p1[0] - p2[0] ) - disp[0] ) < d_eps and abs( (abs( p1[1] - p2[1] ) - disp[1] ) ) < d_eps )]
+    paired = [(p1,p2) for p1,p2 in pairs if ( abs( abs( p1[0] - p2[0] ) - disp[0] ) < dx_eps and abs( (abs( p1[1] - p2[1] ) - disp[1] ) ) < dy_eps )]
     paired = [[p1,p2]  if p1[0]>p2[0] else [p2,p1] for (p1,p2) in paired]
 
     if len(paired) == 0:
