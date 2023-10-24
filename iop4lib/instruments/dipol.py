@@ -294,9 +294,37 @@ class DIPOL(Instrument):
         In some ocassions, there might be some close source also in the field.
 
         Therefore, to calibrate polarimetry files, we just give it a WCS centered on the source.
+
+        For PHOTOMETRY files, we use the parent class method, but we set some custom shotgun_params_kwargs to account
+        for the low flux and big size of the images.
+
         """
     
         if reducedfit.obsmode == OBSMODES.PHOTOMETRY:
+
+            shotgun_params_kwargs = dict()
+
+            shotgun_params_kwargs["keep_n_seg"] = [300]
+            shotgun_params_kwargs["border_margin_px"] = [20]
+            shotgun_params_kwargs["output_logodds_threshold"] = [14]
+            shotgun_params_kwargs["n_rms_seg"] = [1.5, 1.2, 1.0]
+            shotgun_params_kwargs["bkg_filter_size"] = [11] 
+            shotgun_params_kwargs["bkg_box_size"] = [32]
+            shotgun_params_kwargs["seg_fwhm"] = [1.0]
+            shotgun_params_kwargs["npixels"] = [32, 8, 16]
+            shotgun_params_kwargs["allsky"] = [False]
+
+            shotgun_params_kwargs["d_eps"] = [1.2, 4.0]
+            shotgun_params_kwargs["dx_min"] = [150]
+            shotgun_params_kwargs["dx_max"] = [300]
+            shotgun_params_kwargs["dy_min"] = [0]
+            shotgun_params_kwargs["dy_max"] = [50]
+            shotgun_params_kwargs["bins"] = int(500)
+            shotgun_params_kwargs["hist_range"] = [(0,500)]
+
+            shotgun_params_kwargs["position_hint"] = [reducedfit.position_hint]
+            shotgun_params_kwargs["size_hint"] = [reducedfit.size_hint]
+
             return super().build_wcs(reducedfit)
         elif reducedfit.obsmode == OBSMODES.POLARIMETRY:
             if ((src_header_obj := reducedfit.rawfit.header_objecthint) is None):
