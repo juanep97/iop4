@@ -264,6 +264,23 @@ class DIPOL(Instrument):
         return astrometry.SizeHint(lower_arcsec_per_pixel=0.95*cls.arcsec_per_pix, upper_arcsec_per_pixel=1.05*cls.arcsec_per_pix)
     
     @classmethod
+    def get_astrometry_position_hint(cls, rawfit: 'RawFit', allsky=False, n_field_width=1.5):
+        """ Get the position hint from the FITS header as an astrometry.PositionHint."""        
+
+        hintcoord = cls.get_header_hintcoord(rawfit)
+
+        if rawfit.header["XBINNING"] != 2:
+            logger.error(f"Cannot compute astrometry for {rawfit} because of the binning: {rawfit.header['XBINNING']}.")
+            return None
+        
+        if allsky:
+            hintsep = 180.0
+        else:
+            hintsep = (n_field_width * cls.field_width_arcmin*u.Unit("arcmin")).to_value(u.deg)
+
+        return astrometry.PositionHint(ra_deg=hintcoord.ra.deg, dec_deg=hintcoord.dec.deg, radius_deg=hintsep)
+    
+    @classmethod
     def build_wcs(self, reducedfit: 'ReducedFit'):
         """ Overriden Instrument build_wcs.
         
