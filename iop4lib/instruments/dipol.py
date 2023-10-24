@@ -9,6 +9,7 @@ import os
 import re
 import astrometry
 import numpy as np
+import astropy.units as u
 
 # iop4lib imports
 from iop4lib.enums import *
@@ -201,16 +202,47 @@ class DIPOL(Instrument):
 
     @classmethod
     def get_header_objecthint(self, rawfit):
-        r""" Overriden for DIPOL, which are using the convention for the other_name field. """
+        r""" Overriden for DIPOL, which are using the convention for the other_name field. 
         
+        The regex used has been obtained from the notebook checking all keywords.
+        """
+        
+
         from iop4lib.db import AstroSource
 
-        matchs = rawfit.header["OBJECT"].split('_')[0]
+        catalog = AstroSource.objects.exclude(srctype=SRCTYPES.CALIBRATOR).values('name', 'other_name')
+
+        #pattern = re.compile(r"^([a-zA-Z0-9]{4,}|[a-zA-Z0-9]{1,3}(_[a-zA-Z0-9]+)?)(?=_|$)")
+        pattern = re.compile(r"^([a-zA-Z0-9]{1,3}_[a-zA-Z0-9]+|[a-zA-Z0-9]{4,})(?=_|$)")
         
-        if len(matchs) > 0:
-            return AstroSource.objects.filter(other_name__icontains=matchs[0]).first()
-        else:
-            return None
+        obj_kw = rawfit.header['OBJECT']
+        
+        match = pattern.match(obj_kw)
+
+        def get_invariable_str(s):
+            return s.replace(' ', '').replace('-','').replace('+','').replace('_','').upper()
+
+        if match:
+            
+            search_str = match.group(0)
+            
+            for source in catalog:
+                if not source['other_name']:
+                    continue
+                if get_invariable_str(search_str) in get_invariable_str(source['other_name']):
+                    return AstroSource.objects.get(name=source['name'])
+
+            for source in catalog:
+                if not source['other_name']:
+                    continue
+                if get_invariable_str(search_str) in get_invariable_str(source['name']):
+                    return AstroSource.objects.get(name=source['name'])
+                
+        return None
+                
+        
+                
+            
         
     @classmethod
     def get_astrometry_size_hint(cls, rawfit: 'RawFit'):
