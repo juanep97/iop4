@@ -311,21 +311,25 @@ class DIPOL(Instrument):
             shotgun_params_kwargs["bkg_filter_size"] = [11] 
             shotgun_params_kwargs["bkg_box_size"] = [32]
             shotgun_params_kwargs["seg_fwhm"] = [1.0]
-            shotgun_params_kwargs["npixels"] = [32, 8, 16]
+            shotgun_params_kwargs["npixels"] = [32, 8]
+            shotgun_params_kwargs["seg_kernel_size"] = [None]
             shotgun_params_kwargs["allsky"] = [False]
 
-            shotgun_params_kwargs["d_eps"] = [1.2, 4.0]
+            shotgun_params_kwargs["d_eps"] = [4.0]
+            shotgun_params_kwargs["dx_eps"] = [4.0]
+            shotgun_params_kwargs["dy_eps"] = [2.0]
             shotgun_params_kwargs["dx_min"] = [150]
             shotgun_params_kwargs["dx_max"] = [300]
             shotgun_params_kwargs["dy_min"] = [0]
             shotgun_params_kwargs["dy_max"] = [50]
-            shotgun_params_kwargs["bins"] = int(500)
+            shotgun_params_kwargs["bins"] = [400]
             shotgun_params_kwargs["hist_range"] = [(0,500)]
 
-            shotgun_params_kwargs["position_hint"] = [reducedfit.position_hint]
-            shotgun_params_kwargs["size_hint"] = [reducedfit.size_hint]
+            shotgun_params_kwargs["position_hint"] = [reducedfit.get_astrometry_position_hint(allsky=False)]
+            shotgun_params_kwargs["size_hint"] = [reducedfit.get_astrometry_size_hint()]
 
-            return super().build_wcs(reducedfit)
+            return super().build_wcs(reducedfit, shotgun_params_kwargs=shotgun_params_kwargs)
+        
         elif reducedfit.obsmode == OBSMODES.POLARIMETRY:
             if ((src_header_obj := reducedfit.rawfit.header_objecthint) is None):
                 raise Exception(f"I dont know which object is this supposed to be.")

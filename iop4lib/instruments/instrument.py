@@ -214,7 +214,7 @@ class Instrument(metaclass=ABCMeta):
         from iop4lib.utils.astrometry import build_wcs_params_shotgun
         from iop4lib.utils.plotting import build_astrometry_summary_images
 
-        if reducedfit.header_objecthint is not None and 'allsky' not in shotgun_params_kwargs:
+        if reducedfit.header_objecthint is not None and 'allsky' not in shotgun_params_kwargs and 'position_hint' not in shotgun_params_kwargs:
             if reducedfit.header_objecthint.coord.separation(reducedfit.header_hintcoord) > u.Quantity("20 arcmin"):
                 logger.debug(f"{reducedfit}: large pointing mismatch detected, setting allsky = True for the position hint.")
                 shotgun_params_kwargs["allsky"] = [True]
