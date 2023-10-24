@@ -47,7 +47,7 @@ def hist_data(data, log=True, ax=None):
 
     ax.xaxis.set_major_locator(mplt.ticker.MaxNLocator(4))
 
-def imshow_w_sources(imgdata, pos1=None, pos2=None, normtype="log", vmin=None, vmax=None, a=10, cmap=None, ax=None):
+def imshow_w_sources(imgdata, pos1=None, pos2=None, normtype="log", vmin=None, vmax=None, a=10, cmap=None, ax=None, r_aper=20):
     if ax is None:
         ax = plt.gca()
 
@@ -85,14 +85,14 @@ def imshow_w_sources(imgdata, pos1=None, pos2=None, normtype="log", vmin=None, v
     pos2_present = pos2 is not None and len(pos2) > 0
 
     if pos1_present and not pos2_present:
-        apertures1 = CircularAperture(pos1, r=20.0)
+        apertures1 = CircularAperture(pos1, r=r_aper)
         apertures1.plot(color="r", lw=1, alpha=0.9, linestyle='--', ax=ax)
             
     if pos1_present and pos2_present:
 
         if len(pos1) < 300:
-            apertures1 = CircularAperture(pos1, r=20.0)
-            apertures2 = CircularAperture(pos2, r=20.0)
+            apertures1 = CircularAperture(pos1, r=r_aper)
+            apertures2 = CircularAperture(pos2, r=r_aper)
             
             color_cycle = itertools.cycle(plt.rcParams['axes.prop_cycle'].by_key()['color'])
             colors = [next(color_cycle) for _ in range(len(apertures1))]
@@ -101,8 +101,8 @@ def imshow_w_sources(imgdata, pos1=None, pos2=None, normtype="log", vmin=None, v
                 ap1.plot(color=colors[i], lw=1, alpha=0.9, linestyle='--', ax=ax)
                 ap2.plot(color=colors[i], lw=1, alpha=0.9, linestyle='-', ax=ax)
         else:
-            apertures1 = CircularAperture(pos1, r=20.0)
-            apertures2 = CircularAperture(pos2, r=20.0)
+            apertures1 = CircularAperture(pos1, r=r_aper)
+            apertures2 = CircularAperture(pos2, r=r_aper)
             
             apertures1.plot(color="m", lw=1, alpha=0.9, linestyle='--', ax=ax)
             apertures2.plot(color="y", lw=1, alpha=0.9, linestyle='-', ax=ax)
