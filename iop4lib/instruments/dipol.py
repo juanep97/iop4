@@ -303,3 +303,11 @@ class DIPOL(Instrument):
                 raise Exception(f"I dont know which object is this supposed to be.")
             
         
+    @classmethod
+    def get_header_hintcoord(cls, rawfit):
+        """ Overriden for DIPOL
+
+        As of 2023-10-23, DIPOL does not inclide RA and DEC in the header, RA and DEC will be derived from the object name.
+        """     
+        
+        return rawfit.header_objecthint.coord
