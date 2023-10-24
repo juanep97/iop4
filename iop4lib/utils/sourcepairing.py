@@ -12,7 +12,9 @@ from scipy.spatial import cKDTree
 
 
 
-def get_pairs_d(pos, d_eps=0.8, d_min=0, d_max=60, d0=None, bins=None, hist_range=None, redf=None, doplot=False, ax=None):
+def get_pairs_d(pos, d0=None,
+                d_eps=None, d_min=None, d_max=None,
+                bins=None, hist_range=None, redf=None, doplot=False, ax=None):
     """
     From a list of positions, finds the most common distance between them (d0),
     and pairs the points that are at such distance. If d0 is given, it is used instead of computing it.
@@ -20,8 +22,9 @@ def get_pairs_d(pos, d_eps=0.8, d_min=0, d_max=60, d0=None, bins=None, hist_rang
     The pairs are ordered such that for pair (p1, p2), p1 is always to the left (smaller x value) than p2.
     """
 
-    if pos is None or len(pos) < 2:
-        return [], [], None, None
+    d_eps = d_eps or 0.8
+    d_min = d_min or 0
+    d_max = d_max or 60
 
     if bins is None:
         if redf is not None:
@@ -34,6 +37,9 @@ def get_pairs_d(pos, d_eps=0.8, d_min=0, d_max=60, d0=None, bins=None, hist_rang
             hist_range = (0, min(redf.data.shape))
         else:
             raise ValueError("hist_range must be specified if redf is not given")
+        
+    if pos is None or len(pos) < 2:
+        return [], [], None, None
 
     pairs = list(itertools.combinations(pos, 2))
     distances = [np.linalg.norm(p1-p2) for p1,p2 in pairs]
@@ -70,7 +76,9 @@ def get_pairs_d(pos, d_eps=0.8, d_min=0, d_max=60, d0=None, bins=None, hist_rang
 
 
 
-def get_pairs_dxy(pos, dx_eps=0.8, dy_eps=0.8, d_eps=None, disp=None, dx_min=0, dx_max=60, dy_min=0, dy_max=60, d_min=None, d_max=None, bins=None, hist_range=None, redf=None, doplot=False, axs=None, fig=None):
+def get_pairs_dxy(pos, disp=None, 
+                  dx_eps=None, dy_eps=None, d_eps=None, dx_min=None, dx_max=None, dy_min=None, dy_max=None, d_min=None,
+                  bins=None, hist_range=None, redf=None, doplot=False, axs=None, fig=None):
     """
     From a list of positions, finds the most common distances between them in both x and y axes (disp),
     and pairs the points that are at such distances.
@@ -82,8 +90,14 @@ def get_pairs_dxy(pos, dx_eps=0.8, dy_eps=0.8, d_eps=None, disp=None, dx_min=0, 
     Note: this function is similar to get_pairs_d(), but finds the most common distances both in x and y axes.
     """
     
-    if pos is None or len(pos) < 2:
-        return [], [], None, None
+    dx_eps = dx_eps or 0.8
+    dy_eps = dy_eps or 0.8
+    d_eps = d_eps or 0.8
+    dx_min = dx_min or 0
+    dx_max = dx_max or 60
+    dy_min = dy_min or 0
+    dy_max = dy_max or 60
+    d_min = d_min or 0
 
     if bins is None:
         if redf is not None:
@@ -96,14 +110,10 @@ def get_pairs_dxy(pos, dx_eps=0.8, dy_eps=0.8, d_eps=None, disp=None, dx_min=0, 
             hist_range = (0, min(redf.data.shape))
         else:
             raise ValueError("hist_range must be specified if redf is not given")
-
-    if d_min:
-        dx_min = dy_min = d_min
-    if d_max:
-        dx_max = dy_max = d_max
-    if d_eps:
-        dx_eps = dy_eps = d_eps
-
+        
+    if pos is None or len(pos) < 2:
+        return [], [], None, None
+    
     pairs = list(itertools.combinations(pos, 2))
 
     if disp is None:

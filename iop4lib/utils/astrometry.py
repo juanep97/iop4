@@ -203,7 +203,15 @@ def _build_wcs_params_shotgun_helper(redf, has_pairs=None,
         n_rms_seg = 1.0,
         keep_n_seg = 200,
         border_margin_px = 20,
-        d_eps=0.8,
+        dx_eps=None,
+        dy_eps=None,
+        d_eps=None,
+        dx_min=None,
+        dx_max=None,
+        dy_min=None,
+        dy_max=None,
+        d_min=None,
+        d_max=None,
         bins=None,
         hist_range=None,
         position_hint=None, size_hint=None, allsky=False,
@@ -256,11 +264,11 @@ def _build_wcs_params_shotgun_helper(redf, has_pairs=None,
     # Pair finding with results from image segmentation
     
     if has_pairs:
-        seg1, seg2, seg_d0, seg_disp_sign = get_pairs_d(pos_seg, d_eps=d_eps, bins=bins, hist_range=hist_range)
+        seg1, seg2, seg_d0, seg_disp_sign = get_pairs_d(pos_seg, bins=bins, hist_range=hist_range, d_min=d_min, d_eps=d_eps, d_max=d_max)
         logger.debug(f"{redf}: seg pairs -> {len(seg1)} ({len(seg1)/len(pos_seg)*100:.1f}%), seg_disp_sign={seg_disp_sign}")
         seg1_best, seg2_best, seg_disp_best, seg_disp_sign_best = get_best_pairs(seg1, seg2, seg_disp_sign)
         logger.debug(f"{redf}: seg pairs best -> {len(seg1_best)} ({len(seg1_best)/len(pos_seg)*100:.1f}%), seg_disp_sign_best={seg_disp_sign_best}")
-        seg1xy, seg2xy, seg_disp_xy, seg_disp_sign_xy = get_pairs_dxy(pos_seg, d_eps=d_eps, bins=bins, hist_range=hist_range)
+        seg1xy, seg2xy, seg_disp_xy, seg_disp_sign_xy = get_pairs_dxy(pos_seg, bins=bins, hist_range=hist_range, dx_min=dx_min, dx_max=dx_max, dy_min=dy_min, dy_max=dy_max, dx_eps=dx_eps, dy_eps=dy_eps)
         logger.debug(f"{redf}: seg pairs xy -> {len(seg1xy)}, disp_sign_xy={seg_disp_sign_xy}")
         seg1xy_best, seg2xy_best, seg_disp_xy_best, seg_disp_sign_xy_best = get_best_pairs(seg1xy, seg2xy, seg_disp_sign_xy)
         logger.debug(f"{redf}: seg pairs xy best -> {len(seg1xy_best)} ({len(seg1xy_best)/len(pos_seg)*100:.1f}%), seg_disp_sign_xy_best={seg_disp_sign_xy_best}")
