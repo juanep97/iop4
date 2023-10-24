@@ -281,6 +281,11 @@ class DIPOL(Instrument):
         return astrometry.PositionHint(ra_deg=hintcoord.ra.deg, dec_deg=hintcoord.dec.deg, radius_deg=hintsep)
     
     @classmethod
+    def has_pairs(cls, fit_instance: 'ReducedFit' or 'RawFit') -> bool:
+        """ DIPOL ALWAYS HAS PAIRS?!!!! """
+        return True
+
+    @classmethod
     def build_wcs(self, reducedfit: 'ReducedFit'):
         """ Overriden Instrument build_wcs.
         
