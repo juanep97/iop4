@@ -140,21 +140,26 @@ class FitFileModel(AbstractModel):
         When called with default arguments (no kwargs), if rebuilt, it will save the image to disk.
         """
 
-        width = kwargs.pop('width', 256)
-        height = kwargs.pop('height', 256)
-        normtype = kwargs.pop('norm', "log")
-        vmin = kwargs.pop('vmin', np.quantile(self.mdata.compressed(), 0.3))
-        vmax = kwargs.pop('vmax', np.quantile(self.mdata.compressed(), 0.99))
-        a = kwargs.pop('a', 10)
+        # logger.debug(f"Requested image preview for {self.fileloc}, {kwargs=}")
+                     
+        imgdata = self.mdata
+
+        width = kwargs.get('width', 256)
+        height = kwargs.get('height', 256)
+        normtype = kwargs.get('norm', "log")
+        vmin = kwargs.get('vmin', np.quantile(imgdata.compressed(), 0.3))
+        vmax = kwargs.get('vmax', np.quantile(imgdata.compressed(), 0.99))
+        a = kwargs.get('a', 10)
 
         fpath = os.path.join(self.filedpropdir, "img_preview_image.png")
 
         if len(kwargs) == 0 and not force_rebuild:
             if os.path.isfile(fpath):
+                # logger.debug(f"Loading image preview for {self.fileloc} from disk")
                 with open(fpath, 'rb') as f:
                     return f.read()
 
-        imgdata = self.mdata
+        # logger.debug(f"Building image preview for {self.fileloc}")
 
         cmap = plt.cm.gray.copy()
         cmap.set_bad(color='red')
@@ -176,15 +181,19 @@ class FitFileModel(AbstractModel):
         fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
         fig.clf()
 
+        # logger.debug(f"Image preview for {self.fileloc} built")
+
         buf.seek(0)
         imgbytes = buf.read()
 
         # if it was rebuilt, save it to disk if it is the default image settings.
         if len(kwargs) == 0:
-            if os.path.isfile(fpath):
-                with open(fpath, 'wb') as f:
-                    f.write(imgbytes)
-                
+            # logger.debug(f"Saving image preview for {self.fileloc} to disk")
+            if not os.path.exists(self.filedpropdir):
+                os.makedirs(self.filedpropdir)
+            with open(fpath, 'wb') as f:
+                f.write(imgbytes)
+
         return imgbytes
         
             
@@ -196,19 +205,24 @@ class FitFileModel(AbstractModel):
         When called with default arguments (no kwargs), if rebuilt, it will save the image to disk.
         """
 
-        width = kwargs.pop('width', 256)
-        height = kwargs.pop('height', 120)
-        xscale = kwargs.pop('xscale', "log")
-        yscale = kwargs.pop('yscale', "log")
-        a = kwargs.pop('a', 10)
+        # logger.debug(f"Requested preview histogram for {self.fileloc}, {kwargs=}")
+
+        width = kwargs.get('width', 256)
+        height = kwargs.get('height', 120)
+        xscale = kwargs.get('xscale', "log")
+        yscale = kwargs.get('yscale', "log")
+        a = kwargs.get('a', 10)
 
         fpath = os.path.join(self.filedpropdir, "img_preview_histogram.png")
 
         if len(kwargs) == 0 and not force_rebuild:
             if os.path.isfile(fpath):
+                logger.debug(f"Loading preview histogram for {self.fileloc} from disk")
                 with open(fpath, 'rb') as f:
                     return f.read()
          
+        # logger.debug(f"Building preview histogram for {self.fileloc}")
+
         imgdata = self.mdata.flatten()
 
         buf = io.BytesIO()
@@ -216,7 +230,7 @@ class FitFileModel(AbstractModel):
         fig = mplt.figure.Figure(figsize=(width/100, height/100), dpi=iop4conf.mplt_default_dpi)
         ax = fig.subplots()
 
-        ax.hist(imgdata, bins='sqrt', log=True)
+        ax.hist(imgdata, bins='sqrt', log=True, histtype='step')
 
         for q in np.quantile(imgdata, [0.5]):
             ax.axvline(x=q, color='r', linestyle="--", linewidth=1, label=f"{q:.2f}")
@@ -251,14 +265,18 @@ class FitFileModel(AbstractModel):
         fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
         fig.clf()
 
+        # logger.debug(f"Preview histogram for {self.fileloc} built")
+
         buf.seek(0)
         imgbytes = buf.read()
         
         # if it was rebuilt, save it to disk if it is the default image settings.
         if len(kwargs) == 0:
-            if os.path.isfile(fpath):
-                with open(fpath, 'wb') as f:
-                    f.write(imgbytes)
+            # logger.debug(f"Saving preview histogram for {self.fileloc} to disk")
+            if not os.path.exists(self.filedpropdir):
+                os.makedirs(self.filedpropdir)
+            with open(fpath, 'wb') as f:
+                f.write(imgbytes)
                     
         return imgbytes
         

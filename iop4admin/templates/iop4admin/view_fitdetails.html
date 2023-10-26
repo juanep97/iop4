@@ -61,14 +61,14 @@
 	<table>
 		<thead>
 		  <tr>
-			{% for key in object.stats %}
+			{% for key in stats %}
 			  <th>{{ key }}</th>
 			{% endfor %}
 		  </tr>
 		</thead>
 		<tbody>
 		  <tr>
-			{% for value in object.stats.values %}
+			{% for value in stats.values %}
 			  <td>{{ value | stringformat:".2g" }}</td>
 			{% endfor %}
 		  </tr>
@@ -132,6 +132,7 @@
 
 		<h3>Astrometric calibration</h3>
 
+		
 		{{ astrometry_info.working_msg }} <br>
 		{{ astrometry_info.bm }} <br>
 
@@ -147,7 +148,6 @@
 		</div>
 
 
-
 		<h3>Sources in the field</h3>
 		{% if sources_in_field_L %}
 			<ul>
@@ -157,7 +157,7 @@
 						{{ source.name }}
 						{% if source.other_name %} 
 							({{ source.other_name }}) 
-						{% endif %}.
+						{% endif %}
 						[{{ source.srctype | upper }}]
 					</a>
 				</li>
@@ -198,7 +198,6 @@
 			</table>  
 		</div>
 	{% endfor %}
-
 {% else %}
     <p>Local file does not exist, FIT can not be opened.</p>
 {% endif %}
@@ -210,8 +209,8 @@
 <script>
 	vmin = Number("{{ vmin }}");
 	vmax = Number("{{ vmax }}");
-	vabsmin = Number("{{ object.stats.min }}");
-	vabsmax = Number("{{ object.stats.max }}");
+	vabsmin = Number("{{ stats.min }}");
+	vabsmax = Number("{{ stats.max }}");
 
 	var slider1 = document.getElementById("slider1");
 	var slider2 = document.getElementById("slider2");
