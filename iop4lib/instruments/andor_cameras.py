@@ -198,7 +198,7 @@ class Andor(Instrument, metaclass=ABCMeta):
                 
         from iop4lib.db.aperphotresult import AperPhotResult
         from iop4lib.db.photopolresult import PhotoPolResult
-        from iop4lib.utils import get_target_fwhm_aperpix
+        from iop4lib.utils import estimate_common_apertures
 
         logger.debug("Computing %s relative polarimetry for group: %s", cls.name, "".join(map(str,polarimetry_group)))
 
@@ -254,7 +254,7 @@ class Andor(Instrument, metaclass=ABCMeta):
 
         # 1. Compute all aperture photometries
 
-        target_fwhm, aperpix, r_in, r_out = get_target_fwhm_aperpix(polarimetry_group, reductionmethod=REDUCTIONMETHODS.RELPOL)
+        target_fwhm, aperpix, r_in, r_out = estimate_common_apertures(polarimetry_group, reductionmethod=REDUCTIONMETHODS.RELPOL)
 
         logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group with target {aperpix:.1f}.")
 

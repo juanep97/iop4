@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from iop4lib.db import RawFit, ReducedFit
+    from iop4lib.db import AstroSource, RawFit, ReducedFit
     from iop4lib.utils.astrometry import BuildWCSResult
 
 class Instrument(metaclass=ABCMeta):
@@ -157,7 +157,7 @@ class Instrument(metaclass=ABCMeta):
     # reduction methods
 
     @classmethod
-    def get_header_objecthint(self, rawfit):
+    def get_header_hintobject(self, rawfit) -> 'AstroSource' or None:
         r""" Get a hint for the AstroSource in this image from the header. OBJECT is a standard keyword. Return None if none found. 
         
         At the moment his only tries to match sources
@@ -214,8 +214,8 @@ class Instrument(metaclass=ABCMeta):
         from iop4lib.utils.astrometry import build_wcs_params_shotgun
         from iop4lib.utils.plotting import build_astrometry_summary_images
 
-        if reducedfit.header_objecthint is not None and 'allsky' not in shotgun_params_kwargs and 'position_hint' not in shotgun_params_kwargs:
-            if reducedfit.header_objecthint.coord.separation(reducedfit.header_hintcoord) > u.Quantity("20 arcmin"):
+        if reducedfit.header_hintobject is not None and 'allsky' not in shotgun_params_kwargs and 'position_hint' not in shotgun_params_kwargs:
+            if reducedfit.header_hintobject.coord.separation(reducedfit.header_hintcoord) > u.Quantity("20 arcmin"):
                 logger.debug(f"{reducedfit}: large pointing mismatch detected, setting allsky = True for the position hint.")
                 shotgun_params_kwargs["allsky"] = [True]
 
@@ -434,7 +434,7 @@ class Instrument(metaclass=ABCMeta):
         from photutils.aperture import CircularAperture, CircularAnnulus, ApertureStats, aperture_photometry
         from photutils.utils import calc_total_error
         from astropy.stats import SigmaClip
-        from iop4lib.utils import get_target_fwhm_aperpix
+        from iop4lib.utils import estimate_common_apertures
 
         if redf.mdata.shape[0] == 1024:
             bkg_box_size = 128
@@ -469,7 +469,7 @@ class Instrument(metaclass=ABCMeta):
                 bkg_flux_counts = annulus_stats.median*ap_stats.sum_aper_area.value
                 bkg_flux_counts_err = annulus_stats.sum_err / annulus_stats.sum_aper_area.value * ap_stats.sum_aper_area.value
 
-                flux_counts = ap_stats.sum - annulus_stats.mean*ap_stats.sum_aper_area.value
+                flux_counts = ap_stats.sum - annulus_stats.mean*ap_stats.sum_aper_area.value # TODO: check if i should use mean!
                 flux_counts_err = ap_stats.sum_err
 
                 AperPhotResult.create(reducedfit=redf, 
@@ -485,12 +485,12 @@ class Instrument(metaclass=ABCMeta):
         
         from iop4lib.db.aperphotresult import AperPhotResult
         from iop4lib.db.photopolresult import PhotoPolResult
-        from iop4lib.utils import get_target_fwhm_aperpix
+        from iop4lib.utils import estimate_common_apertures
 
         if redf.obsmode != OBSMODES.PHOTOMETRY:
             raise Exception(f"{redf}: this method is only for plain photometry images.")
         
-        target_fwhm, aperpix, r_in, r_out = get_target_fwhm_aperpix([redf], reductionmethod=REDUCTIONMETHODS.RELPHOT)
+        target_fwhm, aperpix, r_in, r_out = estimate_common_apertures([redf], reductionmethod=REDUCTIONMETHODS.RELPHOT)
 
         if target_fwhm is None:
             logger.error("Could not estimate a target FWHM, aborting relative photometry.")

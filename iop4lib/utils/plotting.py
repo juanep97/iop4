@@ -39,7 +39,7 @@ def hist_data(data, log=True, ax=None):
         ax.set_xscale('log')
         ax.set_yscale('log')
 
-    ax.hist(data, bins="sqrt", log=log)
+    ax.hist(data, bins="sqrt", log=log, histtype='step')
     
     ax.axvline(x=np.quantile(data, 0.3), color="r")
     ax.axvline(x=np.quantile(data, 0.5), color="g")
@@ -213,7 +213,7 @@ def plot_preview_astrometry(redf, with_simbad=False, legend=True, names_over=Fal
         matched_stars = None
 
     ## get sources in field
-    sources_in_field = AstroSource.get_sources_in_field(wcs1, redf.mdata.shape[0], redf.mdata.shape[1])
+    sources_in_field = AstroSource.get_sources_in_field(wcs1, redf.width, redf.height)
     logger.debug(f"{redf}: found {len(sources_in_field)} catalog sources in field: {sources_in_field}")
 
 
@@ -333,8 +333,8 @@ def plot_preview_astrometry(redf, with_simbad=False, legend=True, names_over=Fal
 
     # Plot the displacement betwen pairs as scale, if specified
 
-    if astrocalib_proc_vars['disp_sign'] is not None:
-        ax.arrow(x=redf.mdata.shape[0]-20, y=20, dx=astrocalib_proc_vars['disp_sign'][0], dy=astrocalib_proc_vars['disp_sign'][1], color='red', lw=2, head_width=8, length_includes_head=True)
+    if (disp_sign := astrocalib_proc_vars.get('disp_sign', None)) is not None:
+        ax.arrow(x=redf.mdata.shape[0]-20, y=20, dx=disp_sign[0], dy=disp_sign[1], color='red', lw=2, head_width=8, length_includes_head=True)
 
     # set axes and legends
 

@@ -186,7 +186,7 @@ class CAFOS(Instrument):
         
         from iop4lib.db.aperphotresult import AperPhotResult
         from iop4lib.db.photopolresult import PhotoPolResult
-        from iop4lib.utils import get_target_fwhm_aperpix
+        from iop4lib.utils import estimate_common_apertures
 
         # Perform some checks on the group
 
@@ -226,7 +226,7 @@ class CAFOS(Instrument):
 
         # 1. Compute all aperture photometries
 
-        target_fwhm, aperpix, r_in, r_out = get_target_fwhm_aperpix(polarimetry_group, reductionmethod=REDUCTIONMETHODS.RELPOL)
+        target_fwhm, aperpix, r_in, r_out = estimate_common_apertures(polarimetry_group, reductionmethod=REDUCTIONMETHODS.RELPOL)
 
         logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group with target aperpix {aperpix:.1f}.")
 

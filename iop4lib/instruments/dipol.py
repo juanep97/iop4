@@ -201,7 +201,7 @@ class DIPOL(Instrument):
 
 
     @classmethod
-    def get_header_objecthint(self, rawfit):
+    def get_header_hintobject(self, rawfit):
         r""" Overriden for DIPOL, which are using the convention for the other_name field. 
         
         The regex used has been obtained from the notebook checking all keywords.
@@ -239,9 +239,16 @@ class DIPOL(Instrument):
                     return AstroSource.objects.get(name=source['name'])
                 
         return None
-                
+      
+    
+    @classmethod
+    def get_header_hintcoord(cls, rawfit):
+        """ Overriden for DIPOL
+
+        As of 2023-10-23, DIPOL does not inclide RA and DEC in the header, RA and DEC will be derived from the object name.
+        """     
         
-                
+        return rawfit.header_hintobject.coord            
             
         
     @classmethod
@@ -286,7 +293,7 @@ class DIPOL(Instrument):
         return True
 
     @classmethod
-    def build_wcs(self, reducedfit: 'ReducedFit'):
+    def build_wcs(cls, reducedfit: 'ReducedFit'):
         """ Overriden Instrument build_wcs.
         
         While for PHOTOMETRY observations, DIPOL has a wide field which can be astrometrically calibrated, 

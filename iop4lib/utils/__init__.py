@@ -14,6 +14,11 @@ import math
 import logging
 logger = logging.getLogger(__name__)
 
+import typing
+from numpy.typing import NDArray
+from typing import Sequence, Union, Tuple, Any
+if typing.TYPE_CHECKING:
+    from iop4lib.db import ReducedFit, AstroSource
 
 def get_column_values(qs, column_names):
     """ Given a queryset and a list of column names, return a dictionary with the values of each column as a numpy array
@@ -111,7 +116,7 @@ def get_total_mem_from_child():
 
 # Function to get target FWHM
 
-def get_target_fwhm_aperpix(redfL, reductionmethod=None):
+def estimate_common_apertures(redfL, reductionmethod=None):
     r"""estimate an appropriate common aperture for a list of reduced fits.
     
     It fits the target source profile in the fields and returns some multiples of the fwhm which are used as the aperture and as the inner and outer radius of the annulus for local bkg estimation).

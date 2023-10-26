@@ -329,9 +329,9 @@ class RawFit(FitFileModel):
         return Instrument.by_name(self.instrument).get_header_hintcoord(self)
 
     @property
-    def header_objecthint(self):
+    def header_hintobject(self):
         """ Returns the AstroSource according to the OBJECT keyword in the header of the FITS file. """
-        return Instrument.by_name(self.instrument).get_header_objecthint(self)
+        return Instrument.by_name(self.instrument).get_header_hintobject(self)
     
     # Class methods    
 
