@@ -98,6 +98,20 @@ class FitFileModel(AbstractModel):
         data = fits.getdata(self.filepath)
         return np.ma.array(data, mask=~np.isfinite(data))
 
+    @property
+    def width(self):
+        """
+        Returns the width of the image.
+        """
+        return self.header['NAXIS1']
+    
+    @property
+    def height(self):
+        """
+        Returns the height of the image.
+        """
+        return self.header['NAXIS2']
+
     # Common helper properties
 
     @property
