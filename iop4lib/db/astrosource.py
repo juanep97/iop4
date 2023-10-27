@@ -145,18 +145,25 @@ class AstroSource(models.Model):
         return catalog_dict
     
     @classmethod
-    def get_sources_in_field(cls, wcs=None, height=None, width=None, fit=None):
+    def get_sources_in_field(cls, wcs=None, width=None, height=None, fit=None, qs=None):
+        r""" Get the sources in the field of view of the image.
+
+        It accepts either a fit image or a wcs, height and width.
+        If no query set is given, it will search the whole catalog,
+        otherwise it will search the given query set.
+        """
+
         if fit is not None:
             wcs = fit.wcs
-            height, width = fit.data.shape
+            width, height = fit.width, fit.height
 
-        #catalog = cls.get_catalog(Q(srctype=SRCTYPES.BLAZAR) | Q(srctype=SRCTYPES.STAR))
-        objs = cls.objects.all()
+        if qs is None:
+            qs = cls.objects.all()
 
         sources_in_field = list()
 
         import warnings
-        for obj in objs:
+        for obj in qs:
             try:
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
