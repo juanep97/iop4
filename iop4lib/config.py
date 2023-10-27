@@ -79,7 +79,7 @@ class Config(dict):
         for k, v in iop4conf.items():
             setattr(self, k, v)
 
-    def configure(self, config_path=None, config_db=False, gonogui=True, jupytermode=False, **kwargs):
+    def configure(self, config_path=None, config_db=False, config_logging=True, gonogui=True, jupytermode=False, **kwargs):
     
         Config._configured = True
 
@@ -126,6 +126,9 @@ class Config(dict):
             with open(self.osn_source_list_path, 'r') as f:
                 self.osn_fnames_patterns += [fr"(^{s[:-1]}.*\.fi?ts?$)" for s in f.readlines() if s[0] != '#']
 
+        if config_logging:
+            self.configure_logging()
+            
         if gonogui:
             matplotlib.use("Agg")
 
@@ -168,3 +171,19 @@ class Config(dict):
         apps.populate(settings.INSTALLED_APPS)
     
         django.setup()
+
+
+    def configure_logging(self):
+        r""" Adds the '%(proc_memory)' field in the log record."""
+        old_factory = logging.getLogRecordFactory()
+
+        def record_factory_w_proc_memory(*args, **kwargs):
+            from iop4lib.utils import get_mem_current
+            record = old_factory(*args, **kwargs)
+            record.proc_memory = f"{get_mem_current()/1024**2:.0f} MB"
+            return record
+
+        if old_factory.__name__ == record_factory_w_proc_memory.__name__:
+            return
+        
+        logging.setLogRecordFactory(record_factory_w_proc_memory)
