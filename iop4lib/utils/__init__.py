@@ -67,7 +67,7 @@ def stats_dict(data):
 # Functions to get memory usage
 
 def get_mem_children():
-    """Return the sum of the memory usage of all children processes, from the parent process"""
+    """Return the sum of the memory usage of all children processes, from the parent process (in bytes)"""
     children = psutil.Process(os.getpid()).children(recursive=True)
     memory_usage = 0
     for child in children:
@@ -79,19 +79,19 @@ def get_mem_children():
     return memory_usage
 
 def get_mem_current():
-    """Return the memory usage of the current process"""
+    """Return the memory usage of the current process (in bytes)"""
     process = psutil.Process(os.getpid())
     mem_info = process.memory_info()
     return mem_info.rss
 
 def get_mem_parent_from_child():
-    """Return the memory usage of the parent process, from one of the child processes"""
+    """Return the memory usage of the parent process, from one of the child processes (in bytes)"""
     process = psutil.Process(os.getpid()).parent()
     mem_info = process.memory_info()
     return mem_info.rss
 
 def get_mem_children_from_child():
-    """Return the sum of the memory usage of all children processes, from one of the child processes"""
+    """Return the sum of the memory usage of all children processes, from one of the child processes (in bytes)"""
     parent = psutil.Process(os.getpid()).parent()
     children = parent.children(recursive=True)
     memory_usage = 0
@@ -104,7 +104,7 @@ def get_mem_children_from_child():
     return memory_usage
 
 def get_total_mem_from_child():
-    """Return the sum of the memory usage of all processes (parent and children) from one of the child processes"""
+    """Return the sum of the memory usage of all processes (parent and children) from one of the child processes (in bytes)"""
     return get_mem_parent_from_child() + get_mem_children_from_child()
 
 
