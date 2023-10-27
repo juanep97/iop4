@@ -99,6 +99,7 @@ def _epoch_bulkreduce_multiprocessing_init(counter, queue, Nredf, iop4conf):
 
     root = logging.getLogger()
     root.handlers.clear()
+    iop4conf.configure_logging() # force configure logging 
     root.addHandler(h)
     root.addFilter(logging.Filter("iop4lib"))
 
@@ -116,6 +117,7 @@ def _epoch_bulkreduce_multiprocessing_init(counter, queue, Nredf, iop4conf):
     if not settings.configured:
         iop4conf.configure_db()
 
+    # close existing connections to the DB
     from django import db
     db.connections.close_all()
 
