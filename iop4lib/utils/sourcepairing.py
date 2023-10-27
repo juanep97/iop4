@@ -99,17 +99,6 @@ def get_pairs_dxy(pos, disp=None,
     dy_max = dy_max or 60
     d_min = d_min or 0
 
-    if bins is None:
-        if redf is not None:
-            bins = int( 0.75 * max(redf.data.shape) )
-        else:
-            raise ValueError("bins must be specified if redf is not given")
-
-    if hist_range is None:
-        if redf is not None:
-            hist_range = (0, min(redf.data.shape))
-        else:
-            raise ValueError("hist_range must be specified if redf is not given")
         
     if pos is None or len(pos) < 2:
         return [], [], None, None
@@ -117,6 +106,19 @@ def get_pairs_dxy(pos, disp=None,
     pairs = list(itertools.combinations(pos, 2))
 
     if disp is None:
+
+        if bins is None:
+            if redf is not None:
+                bins = int( 0.75 * max(redf.data.shape) )
+            else:
+                raise ValueError("bins must be specified if redf is not given")
+
+        if hist_range is None:
+            if redf is not None:
+                hist_range = (0, min(redf.data.shape))
+            else:
+                raise ValueError("hist_range must be specified if redf is not given")
+        
         disp = list()
         for i, d_min, d_max in zip([0, 1], [dx_min, dy_min], [dx_max, dy_max]): # for each axis
             distances = [abs(p1[i]-p2[i]) for p1,p2 in pairs]
