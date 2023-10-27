@@ -154,10 +154,7 @@ def plot_preview_background_substraction(redf, bkg, axs=None, fig=None):
 def plot_preview_astrometry(redf, with_simbad=False, legend=True, names_over=False, ax=None, fig=None, **astrocalib_proc_vars):
 
     from iop4lib.db import AstroSource
-    from astroquery.simbad import Simbad
-    Simbad.ROW_LIMIT = 50
-    Simbad.add_votable_fields('otype')
-    #Simbad.add_votable_fields('flux(R)', 'flux(G)')
+    from iop4lib.utils import get_simbad_sources
 
     def get_matched_sources(match, pos, d_eps=1.412):
         """ Finds sources matching field stars within sqrt(2) pixels. """
@@ -213,7 +210,7 @@ def plot_preview_astrometry(redf, with_simbad=False, legend=True, names_over=Fal
         matched_stars = None
 
     ## get sources in field
-    sources_in_field = AstroSource.get_sources_in_field(wcs1, redf.width, redf.height)
+    sources_in_field = AstroSource.get_sources_in_field(wcs1, width=redf.width, height=redf.height)
     logger.debug(f"{redf}: found {len(sources_in_field)} catalog sources in field: {sources_in_field}")
 
 
@@ -286,47 +283,23 @@ def plot_preview_astrometry(redf, with_simbad=False, legend=True, names_over=Fal
         try:
             # known sources in this area of sky (Simbad)
             pixscale = np.mean(np.sqrt(np.sum(wcs1.pixel_scale_matrix**2, axis=0)))*u.Unit("deg/pix")
-            #radius = np.linalg.norm(redf.mdata.shape)//2 * u.Unit('pixel') * pixscale
-            radius = redf.mdata.shape[0]//2 * u.Unit('pixel') * pixscale
-
+            radius = redf.width * u.Unit('pixel') * pixscale
             centercoord = wcs1.pixel_to_world(redf.mdata.shape[0]//2, redf.mdata.shape[1]//2)
 
-            logger.debug(f"Querying Simbad for {centercoord=}, {pixscale.to('arcsec/pix')=}, {radius.to('arcmin')=}")
+            simbad_sources = get_simbad_sources(centercoord, radius, Nmax=6, exclude_self=False)
 
-            tb_simbad = Simbad.query_region(centercoord, radius=radius, epoch="J2000")
-
-
-            N_max_simbad = 4 if names_over else 10
-            idx = (tb_simbad['OTYPE'] == 'Star') | (tb_simbad['OTYPE'] == 'QSO') | (tb_simbad['OTYPE'] == 'BLLac')
-
-            # if sum(idx) >= N_max_simbad:
-            #     tb_simbad = tb_simbad[idx]
-            idx = np.argsort(idx)[::-1]
-            tb_simbad = tb_simbad[idx][:N_max_simbad] # this will get only N_max_simbad sources, starting from selected types
-
-            logger.debug(f"Simbad query returned {len(tb_simbad)}")
-
-            if len(tb_simbad) > N_max_simbad:
-                simbad_coords = SkyCoord(Angle(tb_simbad['RA'], unit=u.hourangle), Angle(tb_simbad['DEC'], unit=u.degree), frame='icrs')
-                simbad_pos_px = np.transpose(simbad_coords.to_pixel(wcs1))
-                simbad_selected_idx = np.array(select_points(simbad_pos_px, 5)[1])
-                tb_simbad = tb_simbad[simbad_selected_idx]
-
-            for i, row in enumerate(tb_simbad):
-                logger.debug(f"Plotting Simbad's {row['MAIN_ID']}")
-                c = SkyCoord(Angle(row['RA'], unit=u.hourangle), Angle(row['DEC'], unit=u.degree), frame='icrs')
-                x, y = c.to_pixel(wcs1)
-                ap = CircularAperture([*c.to_pixel(wcs1)], r=20)
-                h = ap.plot(color="yellow", lw=1, alpha=0.8, linestyle='--', ax=ax, label=f"{row['MAIN_ID']}")
-                ax.annotate(text=row['MAIN_ID'] if names_over else f"{i}", 
+            for i, src in enumerate(simbad_sources):
+                x, y = src.coord.to_pixel(wcs1)
+                ap = CircularAperture([x,y], r=20)
+                h = ap.plot(color="yellow", lw=1, alpha=0.8, linestyle='--', ax=ax, label=src.name)
+                ax.annotate(text=src.name if names_over else f"{i}", 
                             xy=(x+20, y) if names_over else (x-20, y), 
                             xytext=(40,-20) if names_over else (-15,0), 
                             verticalalignment="center",
                             textcoords="offset pixels", color="yellow", fontsize=10, weight="bold", arrowprops=dict(color='yellow', width=1.0, headwidth=1, headlength=3) if names_over else None)
-                
                 if not names_over:
                     legend_handles_L.append(h)
-                    legend_labels_L.append(f"{i}: {row['MAIN_ID']}")
+                    legend_labels_L.append(f"{i}: {src.name}")
        
         except Exception as e:
             logger.debug(f"Simbad query failed, ignoring: {e}")
