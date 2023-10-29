@@ -6,14 +6,30 @@ iop4conf = iop4lib.Config(config_db=False)
 
 # other imports
 import os
+from pathlib import Path
 import re
 import astrometry
 import numpy as np
+import matplotlib as mplt
+import matplotlib.pyplot as plt
 import astropy.units as u
+from astropy.stats import sigma_clipped_stats
+from photutils.aperture import CircularAperture
+from photutils.detection import DAOStarFinder
+from astropy.wcs import WCS
+from astropy.convolution import convolve
+from photutils.segmentation import make_2dgaussian_kernel
+from astropy.wcs.utils import fit_wcs_from_points
+from astropy.coordinates import Angle, SkyCoord
+import itertools
 
 # iop4lib imports
 from iop4lib.enums import *
 from .instrument import Instrument
+from iop4lib.utils import imshow_w_sources, get_candidate_rank_by_matchs, get_angle_from_history, build_wcs_centered_on, get_simbad_sources
+from iop4lib.utils.plotting import plot_preview_astrometry
+from iop4lib.utils.astrometry import BuildWCSResult
+
 
 # logging
 import logging
@@ -494,10 +510,239 @@ class DIPOL(Instrument):
 
 
     @classmethod
-    def get_header_hintcoord(cls, rawfit):
-        """ Overriden for DIPOL
+    def _build_wcs_for_polarimetry_images_catalog_matching(cls, redf: 'ReducedFit', build_summary_images : bool = True, summary_kwargs : dict = {'with_simbad':True}):
+        r""" Deprecated. Build WCS for DIPOL polarimetry images by matching the found sources positions with the catalog.
 
-        As of 2023-10-23, DIPOL does not inclide RA and DEC in the header, RA and DEC will be derived from the object name.
-        """     
+        .. warning::
+            This method is deprecated and will be removed in the future. It is kept here for reference. Do not use, unless you know what you are doing.
+
+            When there are some DB sources in the field it probably works, but when there are not, it might give a result that is centered on the wrong source!
         
-        return rawfit.header_objecthint.coord
+            It is safer to use the method _build_wcs_for_polarimetry_images_photo_quads, which uses the photometry field and quad matching to build the WCS.
+            
+        """
+
+        logger.debug(f"{redf}: building WCS for DIPOL polarimetry images.")
+        
+        from iop4lib.db import AstroSource
+
+        disp_sign_mean, disp_sign_std = np.array([-2.09032765e+02,  1.65384209e-02]), np.array([4.13289109, 0.66159702])
+        disp_mean, disp_std = np.abs(disp_sign_mean), disp_sign_std
+        
+        # define target astro source
+        target_src = redf.header_hintobject
+
+        if target_src is None:
+            raise Exception("No target source found in header, cannot build WCS.")
+
+        data = redf.mdata
+        cx, cy = data.shape[1]//2, data.shape[0]//2
+
+        # smooth the image to find the sources
+        fwhm = 8
+        kernel_size = 2*int(fwhm)+1
+        kernel = make_2dgaussian_kernel(fwhm, size=kernel_size)
+        data = convolve(data, kernel)
+
+        # find sources with DAOStarFinder
+        mean, median, std = sigma_clipped_stats(data, sigma=5.0)
+
+        daofind = DAOStarFinder(fwhm=30.0, threshold=3.*std)  
+        sources = daofind(data - median)
+        sources.sort('flux', reverse=True)
+
+        # Consider as candidates only the sources that are close to the center, and also only the brightest ones
+        # cut sources that are 1/3 of the image away from the image
+        idx = np.abs(sources['xcentroid']-cx) < 1/3 * redf.width
+        idx = idx & (np.abs(sources['ycentroid']-cy) < 1/3 * redf.height)
+        sources = sources[idx]
+        # if the are more than 100, work with only 100 brightest (they are already sorted by flux)
+        if len(sources) > 100:
+            sources = sources[:100]
+
+        # build the position [(x,y), ...)] array
+        positions = np.transpose((sources['xcentroid'], sources['ycentroid']))
+
+        if build_summary_images:
+            # plot summary of detected sources
+            fig = mplt.figure.Figure(figsize=(6,6), dpi=iop4conf.mplt_default_dpi)
+            ax = fig.subplots(nrows=1, ncols=1)
+            imshow_w_sources(data, pos1=positions, ax=ax)
+            candidates_aps = CircularAperture(positions[:2], r=10.0)
+            candidates_aps.plot(ax, color="b")
+            for i, (x,y) in enumerate(positions[:15]):
+                ax.text(x, y, f"{i}", color="orange", fontdict={"size":14, "weight":"bold"})#, verticalalignment="center", horizontalalignment="center") 
+            ax.plot([cx], [cy], '+', color='y', markersize=10)
+            ax.axhline(cy-1/3*redf.height, xmin=0, xmax=redf.width, color='y', linestyle='--')
+            ax.axhline(cy+1/3*redf.height, xmin=0, xmax=redf.width, color='y', linestyle='--')
+            ax.axvline(cx-1/3*redf.width, ymin=0, ymax=redf.height, color='y', linestyle='--')
+            ax.axvline(cx+1/3*redf.width, ymin=0, ymax=redf.height, color='y', linestyle='--')
+            fig.savefig(Path(redf.filedpropdir) / "astrometry_detected_sources.png", bbox_inches="tight")
+            fig.clear()
+            
+        #distances_to_center = [np.sqrt((x-cx)**2+(y-cy)**2) for x,y in positions]
+        # idx_sorted_by_distance = np.argsort(distances_to_center) # non stable sorting! use np.argsort(-array) better
+
+        angle_mean, angle_std = get_angle_from_history(redf, target_src)
+
+        # DIPOL polarimery images seem to be flipped vertically, which results in negative angle
+        # TODO: watch this FLIP thing, check that indeed this is the behaviour
+        if 'FLIPSTAT' in redf.rawfit.header and 'FLIP' in redf.rawfit.header['FLIPSTAT'].upper():
+            angle = - angle_mean
+        else:
+            angle = angle_mean
+        
+        # Now, if there is only two sources, they must be the ordinary and extraordinary images. We 
+        # use them, if they are not, the procedure failed, raise exception.
+
+        # Otherwise, they could correspond to the calibrators or other sources in the field.
+        # We can use catalog sources in the same field (calibrators) to ascertain which of the candidates are 
+        # the ordinary and extraordinary images, by matching the positions of sources in the field. 
+        # This requires at least one calibrator in the field. It can be checked with a initial approximated 
+        # WCS (pre_wcs below). If no calibrators in the DB is found we can try querying simbad, to see if 
+        # there is some known star close, and them use them.
+
+        # If also no SIMBAD sources are found, we can only constraint the distances as much as possible, 
+        # obtain a candidate, we can check that they are indeed pairs. But this is not a good solution.
+
+        pre_wcs = build_wcs_centered_on((cx,cy), redf=redf, angle=angle)
+
+        # get list if calibrators for this source in the DB expected to be inside the subframe
+        expected_sources_in_field = AstroSource.get_sources_in_field(
+            wcs=pre_wcs, 
+            width=redf.width, 
+            height=redf.height,
+            qs=AstroSource.objects.filter(calibrates__in=[target_src]).all())
+
+        if len(positions) == 2:
+            target_O, target_E = positions
+        else:
+            if len(expected_sources_in_field) == 0:
+                logger.warning(f"{redf}: No other DB sources in the field to check. Checking SIMBAD sources...")
+                simbad_search_radius = Angle(cls.arcsec_per_pix*redf.width/3600, unit="deg")
+                expected_sources_in_field = get_simbad_sources(target_src.coord, simbad_search_radius, 10, exclude_self=True)
+                expected_sources_in_field = [src for src in expected_sources_in_field if src.is_in_field(pre_wcs, redf.height, redf.width)]
+
+            if len(expected_sources_in_field) > 0:
+                # The function get_candidate_rank_by_matchs returns a rank for each candidate, the higher the rank, 
+                # the more likely it is to be the target source according to the matches with the catalog sources.
+
+                ranks, calibrators_fits = zip(*[get_candidate_rank_by_matchs(redf, pos, angle=angle, r_search=15, calibrators=expected_sources_in_field) for pos in positions[:6]])
+                ranks = np.array(ranks)
+
+                # idx_sorted_by_rank = np.argsort(ranks)[::-1] # non stable sort
+                idx_sort_by_rank = np.argsort(-ranks, kind="stable") # stable sort
+
+                sorted_fits_by_rank = [calibrators_fits[i] for i in idx_sort_by_rank]
+                sorted_positions_by_rank = positions[idx_sort_by_rank]
+
+                # If the procedure worked, the first two sources should be the 
+                # ordinary and extraordinary images, which should have the most similar
+                # fluxes, there fore check if they are next to each others.
+                # if they are not, the procedure might have failed, give a warning.
+
+                logger.debug(f"Ranks: {ranks}, {idx_sort_by_rank=}")
+                
+                if abs(idx_sort_by_rank[0] - idx_sort_by_rank[1]) != 1:
+                    logger.warning("These are not pairs, adyacent by rank flux mismatch detected")
+                    
+                # if the first higher ranks are not higher than the rest, it did not discriminate well, give a warning
+                if not np.all(min(ranks[idx_sort_by_rank][0:2]) > ranks[idx_sort_by_rank][2:]):
+                    logger.warning(f"Ranks did not discriminate well: {ranks=}. Using pairs.")
+                    target_O = sorted_positions_by_rank[0]
+                    err_pair = [np.sqrt((np.abs(target_O[0]-pos[0])-disp_mean[0])**2 +  (np.abs(target_O[1]-pos[1])-disp_mean[1])**2) for pos in sorted_positions_by_rank]
+                    target_E = sorted_positions_by_rank[np.argsort(err_pair)[0]]
+                    fits_O, fits_E = sorted_fits_by_rank[0], sorted_fits_by_rank[np.argsort(err_pair)[0]]
+                else:
+                    target_O, target_E = sorted_positions_by_rank[:2]
+                    fits_O, fits_E = sorted_fits_by_rank[0], sorted_fits_by_rank[1]
+                
+            else:
+                logger.error("No SIMBAD sources in the field to check. " 
+                                "The WCS will be built anyway, but it might be the wrong source! "
+                                "I will try to discriminate by using only the 8 brightest sources, "
+                                "finding the pairs in the image, and choosing "
+                                "the closest one to the center. CHECK THE RESULT!")
+                
+                raise Exception("No")
+
+                sources = sources[:6]
+                positions = positions[:6]
+
+                from iop4lib.utils.astrometry import get_pairs_dxy
+                list1, list2, disp, disp_sign = get_pairs_dxy(positions, dx_eps=60, dy_eps=60, disp=disp_mean)
+                logger.debug(f"{list1=}, {list2=}, {disp=}, {disp_sign=}")
+                if len(list1) == 0:
+                    raise Exception("No pairs found, aborting.")
+                elif len(list1) == 1:
+                    logger.info("Only one pair found, using it.")
+                    target_O, target_E = list1[0], list2[0]
+                else:
+                    logger.info("More than one pair found, using the closest to the center.")
+                    idx = np.argsort(np.sqrt((np.array(list1)[:,0]-cx)**2 + (np.array(list1)[:,1]-cy)**2))[0]
+                    target_O, target_E = list1[idx], list2[idx]
+
+
+        # Make the ordinary image the one ro the right always.
+
+        if target_O[0] < target_E[0]:
+            target_O, target_E = target_E, target_O
+
+        # from preliminary astrometry of photometry images
+        # pair distance should be [-2.09032765e+02,  1.65384209e-02] +- [4.13289109, 0.66159702]))
+        # tests for pairs +-30, should be more than enough
+        # if they are not pairs, the procedure definitely failed, raise exception
+
+        if not np.isclose(np.abs(target_E[0]-target_O[0]), disp_mean[0], atol=60):
+            fig, ax = plt.subplots()
+            imshow_w_sources(data, pos1=[target_O], pos2=[target_E], ax=ax)
+            plt.show()
+            raise Exception(f"These are not pairs, x mismatch detected according to hard-coded pair distance: err x = {np.abs(target_E[0]-target_O[0]):.0f} px")
+            
+        if not np.isclose(np.abs(target_E[1]-target_O[1]), disp_mean[1], atol=60):
+            raise Exception(f"These are not pairs, y mismatch detected according to hard-coded pair distance: err y = {np.abs(target_E[1]-target_O[1]):.0f} px")
+
+        # WCS for Ordinary and Extraordinary images
+
+        # Now that we have positions of the ordinary and extraordinary images, we can the WCS for each set of pairs.
+        # We could always use the pre-computed angles but there might be small variations -not so small- near the border.
+        # If there are enough calibrators, we might use their positions to fit a WCS object, which should be more precise.
+        # If there are not enough calibrators, we can use the pre-computed angles.
+
+        calibrators_in_field = [src for src in AstroSource.objects.filter(calibrates__in=[target_src]).all() if src.is_in_field(pre_wcs, redf.height, redf.width)]
+
+        if len(calibrators_in_field) <= 1:
+            logger.warning(f"{len(calibrators_in_field)} calibrators in field found for {target_src}, using pre-computed angles.")
+            wcslist = [build_wcs_centered_on(target_px, redf=redf, angle=angle) for target_px in [target_O, target_E]]
+        else:
+            logger.debug(f"Using {len(calibrators_in_field)} calibrators in field to fit WCS for {target_src}.")
+
+            wcslist = list()
+            for target_px, fits in zip([target_O, target_E], [fits_O, fits_E]):
+                known_pos_skycoord = [target_src.coord]
+                # fit[0] is the astro source fitted, fit[1] (fit[1][0] is the gaussian, fit[1][1] is the constant
+                known_pos_skycoord.extend([fit[0].coord for fit in fits])
+
+                known_pos_px = [target_px]
+                known_pos_px.extend([(fit[1][0].x_mean.value, fit[1][0].y_mean.value) for fit in fits])
+
+                logger.debug("Fitting " + ", ".join([f"ra {coord.ra.deg} dec {coord.dec.deg} to {pos}" for coord, pos in zip(known_pos_skycoord, known_pos_px)]))
+
+                wcs_fitted = fit_wcs_from_points(np.array(known_pos_px).T, SkyCoord(known_pos_skycoord), projection=build_wcs_centered_on(target_px, redf=redf, angle=angle))
+                wcslist.append(wcs_fitted)
+
+
+        if build_summary_images:
+            logger.debug(f"Building summary images for {redf}.")
+            # plot summary of astrometry
+            fig = mplt.figure.Figure(figsize=(6,6), dpi=iop4conf.mplt_default_dpi)
+            ax = fig.subplots(nrows=1, ncols=1, subplot_kw={'projection': wcslist[0]})
+            plot_preview_astrometry(redf, with_simbad=True, has_pairs=True, wcs1=wcslist[0], wcs2=wcslist[1], ax=ax, fig=fig) 
+            fig.savefig(Path(redf.filedpropdir) / "astrometry_summary.png", bbox_inches="tight")
+            fig.clear()
+            
+        import gc
+        gc.collect()
+
+        return BuildWCSResult(success=True, wcslist=wcslist, info=dict())
+    
