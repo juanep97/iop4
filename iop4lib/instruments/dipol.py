@@ -293,7 +293,7 @@ class DIPOL(Instrument):
         return True
 
     @classmethod
-    def build_wcs(cls, reducedfit: 'ReducedFit'):
+    def build_wcs(cls, reducedfit: 'ReducedFit', build_summary_images : bool = True, summary_kwargs : dict = {'with_simbad':True}):
         """ Overriden Instrument build_wcs.
         
         While for PHOTOMETRY observations, DIPOL has a wide field which can be astrometrically calibrated, 
@@ -308,40 +308,191 @@ class DIPOL(Instrument):
         """
     
         if reducedfit.obsmode == OBSMODES.PHOTOMETRY:
-
-            shotgun_params_kwargs = dict()
-
-            shotgun_params_kwargs["keep_n_seg"] = [300]
-            shotgun_params_kwargs["border_margin_px"] = [20]
-            shotgun_params_kwargs["output_logodds_threshold"] = [14]
-            shotgun_params_kwargs["n_rms_seg"] = [1.5, 1.2, 1.0]
-            shotgun_params_kwargs["bkg_filter_size"] = [11] 
-            shotgun_params_kwargs["bkg_box_size"] = [32]
-            shotgun_params_kwargs["seg_fwhm"] = [1.0]
-            shotgun_params_kwargs["npixels"] = [32, 8]
-            shotgun_params_kwargs["seg_kernel_size"] = [None]
-            shotgun_params_kwargs["allsky"] = [False]
-
-            shotgun_params_kwargs["d_eps"] = [4.0]
-            shotgun_params_kwargs["dx_eps"] = [4.0]
-            shotgun_params_kwargs["dy_eps"] = [2.0]
-            shotgun_params_kwargs["dx_min"] = [150]
-            shotgun_params_kwargs["dx_max"] = [300]
-            shotgun_params_kwargs["dy_min"] = [0]
-            shotgun_params_kwargs["dy_max"] = [50]
-            shotgun_params_kwargs["bins"] = [400]
-            shotgun_params_kwargs["hist_range"] = [(0,500)]
-
-            shotgun_params_kwargs["position_hint"] = [reducedfit.get_astrometry_position_hint(allsky=False)]
-            shotgun_params_kwargs["size_hint"] = [reducedfit.get_astrometry_size_hint()]
-
-            return super().build_wcs(reducedfit, shotgun_params_kwargs=shotgun_params_kwargs)
-        
+            return super().build_wcs(reducedfit, shotgun_params_kwargs=cls._build_shotgun_params(reducedfit), build_summary_images=build_summary_images, summary_kwargs=summary_kwargs)
         elif reducedfit.obsmode == OBSMODES.POLARIMETRY:
-            if ((src_header_obj := reducedfit.rawfit.header_objecthint) is None):
-                raise Exception(f"I dont know which object is this supposed to be.")
+            return cls._build_wcs_for_polarimetry_images_photo_quads(reducedfit, build_summary_images=build_summary_images, summary_kwargs=summary_kwargs)
+        else:
+            logger.error(f"Unknown obsmode {reducedfit.obsmode} for {reducedfit}.")
             
         
+    @classmethod
+    def _build_shotgun_params(cls, redf: 'ReducedFit'):
+        shotgun_params_kwargs = dict()
+
+        shotgun_params_kwargs["keep_n_seg"] = [300]
+        shotgun_params_kwargs["border_margin_px"] = [20]
+        shotgun_params_kwargs["output_logodds_threshold"] = [14]
+        shotgun_params_kwargs["n_rms_seg"] = [1.5, 1.2, 1.0]
+        shotgun_params_kwargs["bkg_filter_size"] = [11] 
+        shotgun_params_kwargs["bkg_box_size"] = [32]
+        shotgun_params_kwargs["seg_fwhm"] = [1.0]
+        shotgun_params_kwargs["npixels"] = [32, 8]
+        shotgun_params_kwargs["seg_kernel_size"] = [None]
+        shotgun_params_kwargs["allsky"] = [False]
+
+        shotgun_params_kwargs["d_eps"] = [4.0]
+        shotgun_params_kwargs["dx_eps"] = [4.0]
+        shotgun_params_kwargs["dy_eps"] = [2.0]
+        shotgun_params_kwargs["dx_min"] = [150]
+        shotgun_params_kwargs["dx_max"] = [300]
+        shotgun_params_kwargs["dy_min"] = [0]
+        shotgun_params_kwargs["dy_max"] = [50]
+        shotgun_params_kwargs["bins"] = [400]
+        shotgun_params_kwargs["hist_range"] = [(0,500)]
+
+        shotgun_params_kwargs["position_hint"] = [redf.get_astrometry_position_hint(allsky=False)]
+        shotgun_params_kwargs["size_hint"] = [redf.get_astrometry_size_hint()]
+
+        return shotgun_params_kwargs
+
+
+    @classmethod
+    def _build_wcs_for_polarimetry_images_photo_quads(cls, redf: 'ReducedFit', build_summary_images : bool = True, summary_kwargs : dict = {'with_simbad':True}):
+        
+        from iop4lib.db import ReducedFit
+
+        if (target_src := redf.header_hintobject) is None:
+            raise Exception("No target source found in header, cannot build WCS.")
+
+        # the polarimetry field
+
+        redf_pol = redf
+
+        # select an already solved photometry field
+
+        redf_phot = ReducedFit.objects.filter(instrument=redf_pol.instrument, 
+                                              sources_in_field__in=[target_src], 
+                                              obsmode=OBSMODES.PHOTOMETRY, 
+                                              flags__has=ReducedFit.FLAGS.BUILT_REDUCED).first()
+        
+        if redf_phot is None:
+            raise Exception(f"No astro-calibrated photometry field found for {redf_pol}.")
+
+        # get the subframe of the photometry field that corresponds to this polarimetry field, (approx)
+        x_start = redf_pol.rawfit.header['XORGSUBF']
+        y_start = redf_pol.rawfit.header['YORGSUBF']
+
+        x_end = x_start + redf_pol.rawfit.header['NAXIS1']
+        y_end = y_start + redf_pol.rawfit.header['NAXIS2']
+
+        idx = np.s_[y_start:y_end, x_start:x_end]
+
+        photdata_subframe = redf_phot.mdata[idx] # if we use the hash_juan_old, which is not invariant under fliiping, we need to flip the image in y (redf_phot.mdata[idx][::-1,:])
+
+        # find 10 brightest sources in each field
+
+        sets_L = list()
+
+        for data in [redf_pol.mdata, photdata_subframe]:
+
+            fwhm = 4
+            kernel_size = 2*int(fwhm)+1
+            kernel = make_2dgaussian_kernel(fwhm, size=kernel_size)
+            data = convolve(data, kernel)
+
+            mean, median, std = sigma_clipped_stats(data, sigma=5.0)
+
+            daofind = DAOStarFinder(fwhm=30.0, threshold=3*std, brightest=100)  
+            sources = daofind(data - median)
+            sources.sort('flux', reverse=True)
+
+            sources = sources[:10]
+            
+            positions = np.transpose((sources['xcentroid'], sources['ycentroid']))
+
+            sets_L.append(positions)
+
+        if build_summary_images:
+            fig = mplt.figure.Figure(figsize=(12,6), dpi=iop4conf.mplt_default_dpi)
+            axs = fig.subplots(nrows=1, ncols=2)
+
+            for ax, data, positions in zip(axs, [redf_pol.mdata, photdata_subframe], sets_L):
+                imshow_w_sources(data, pos1=positions, ax=ax)
+                candidates_aps = CircularAperture(positions[:2], r=10.0)
+                candidates_aps.plot(ax, color="b")
+                for i, (x,y) in enumerate(positions):
+                    ax.text(x, y, f"{i}", color="orange", fontdict={"size":14, "weight":"bold"})#, verticalalignment="center", horizontalalignment="center") 
+                ax.plot([data.shape[1]//2], [data.shape[0]//2], '+', color='y', markersize=10)
+                
+            axs[0].set_title("Polarimetry field")
+            axs[1].set_title("Photometry field")
+            fig.savefig(Path(redf.filedpropdir) / "astrometry_detected_sources.png", bbox_inches="tight")
+            fig.clf()
+
+        # Build the quads for each field
+        quads_1 = np.array(list(itertools.combinations(sets_L[0], 4)))
+        quads_2 = np.array(list(itertools.combinations(sets_L[1], 4)))
+
+        from iop4lib.utils.quadmatching import hash_juan, distance, order, qorder_juan
+        hash_func = hash_juan
+        hashes_1 = np.array([hash_func(quad) for quad in quads_1])
+        hashes_2 = np.array([hash_func(quad) for quad in quads_2])
+
+        all_indices = np.array(list(itertools.product(range(len(quads_1)),range(len(quads_2)))))
+        all_distances = np.array([distance(hashes_1[i], hashes_2[j]) for i,j in all_indices])
+
+        idx = np.argsort(all_distances)
+        all_indices = all_indices[idx]
+        all_distances = all_distances[idx]
+
+        if build_summary_images:
+            colors = [color for color in mplt.rcParams["axes.prop_cycle"].by_key()["color"]]
+
+            fig = mplt.figure.Figure(figsize=(12,6), dpi=iop4conf.mplt_default_dpi)
+            axs = fig.subplots(nrows=1, ncols=2)
+
+            for (i, j), color in list(zip(all_indices, colors))[:1]: 
+
+                for ax, data, quad, positions in zip(axs, [redf_pol.mdata, photdata_subframe], [quads_1[i], quads_2[j]], sets_L):
+                    imshow_w_sources(data, pos1=positions, ax=ax)
+                    x, y = np.array(order(quad)).T
+                    ax.fill(x, y, edgecolor='k', fill=True, facecolor=mplt.colors.to_rgba(color, alpha=0.2))
+                    for pi, p in enumerate(np.array((qorder_juan(quad)))):
+                        xp = p[0]
+                        yp = p[1]
+                        ax.text(xp, yp, f"{pi}", fontsize=16, color="y")
+
+                fig.suptitle(f"dist({i},{j})={distance(hash_func(quads_1[i]),hash_func(quads_2[j])):.3f}", y=0.83)
+
+            axs[0].set_title("Polarimetry")
+            axs[1].set_title("Photometry")
+            
+            fig.savefig(Path(redf.filedpropdir) / "astrometry_matched_quads.png", bbox_inches="tight")
+            fig.clf()
+
+        # Build the WCS
+        quads_1 = [qorder_juan(quad) for quad in quads_1]
+        quads_2 = [qorder_juan(quad) for quad in quads_2]
+
+        angle_mean, angle_std = get_angle_from_history(redf, target_src)
+        if 'FLIPSTAT' in redf.rawfit.header and 'FLIP' in redf.rawfit.header['FLIPSTAT'].upper():
+            angle = - angle_mean
+        else:
+            angle = angle_mean
+
+        best_i, best_j = all_indices[0]
+
+        pre_wcs = build_wcs_centered_on((redf_pol.width//2,redf_pol.height//2), redf=redf_phot, angle=angle)
+        
+        pix_array_1 = np.array(list(zip(*[(x,y) for x,y in quads_1[best_i]])))
+        pix_array_2 = np.array(list(zip(*[(x+x_start,y+y_start) for x,y in quads_2[best_j]])))
+
+        wcs1 = fit_wcs_from_points(pix_array_1,  redf_phot.wcs1.pixel_to_world(*pix_array_2), projection=pre_wcs)
+        wcs2 = fit_wcs_from_points(pix_array_1,  redf_phot.wcs2.pixel_to_world(*pix_array_2), projection=pre_wcs)
+
+        wcslist = [wcs1, wcs2]
+
+        if build_summary_images:
+            fig = mplt.figure.Figure(figsize=(6,6), dpi=iop4conf.mplt_default_dpi)
+            ax = fig.subplots(nrows=1, ncols=1, subplot_kw={'projection': wcslist[0]})
+            plot_preview_astrometry(redf_pol, with_simbad=True, has_pairs=True, wcs1=wcslist[0], wcs2=wcslist[1], ax=ax, fig=fig) 
+            fig.savefig(Path(redf_pol.filedpropdir) / "astrometry_summary.png", bbox_inches="tight")
+            fig.clear()            
+
+        return BuildWCSResult(success=True, wcslist=wcslist, info={'redf_phot__pk':redf_phot.pk, 'redf_phot__fileloc':redf_phot.fileloc})
+
+
+
     @classmethod
     def get_header_hintcoord(cls, rawfit):
         """ Overriden for DIPOL
