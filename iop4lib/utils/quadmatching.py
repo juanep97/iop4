@@ -134,7 +134,7 @@ def hash_juan(points):
     if C[1] > D[1]:
         M = FY @ M
 
-    B, C = [M @ P for P in [B,C]]
+    C, D = [M @ P for P in [C,D]]
 
     d1,d2,d3,d4 = map(np.linalg.norm, [C-A,B-C,D-B,A-D])
     
