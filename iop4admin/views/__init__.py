@@ -12,7 +12,7 @@ class AstroSourceDetailsView(SingleObjView):
         
         obj = self.get_object()
 
-        fields_and_values = [(field.name, field.value_to_string(obj)) for field in AstroSource._meta.fields if field.name != "comment" and getattr(obj, field.name) is not None]
+        fields_and_values = {field.name:field.value_to_string(obj) for field in AstroSource._meta.fields if field.name != "comment" and getattr(obj, field.name) is not None}
         context['fields_and_values'] = fields_and_values
 
         return context

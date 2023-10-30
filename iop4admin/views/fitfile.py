@@ -81,7 +81,8 @@ class FitDetailsView(SingleObjView):
             context['url_raw'] = reverse('iop4admin:%s_%s_changelist' % (obj._meta.app_label, obj.rawfit._meta.model_name)) + f"?id={obj.rawfit.id}"
 
         ## non-empty fields and values
-        fields_and_values = [(field.name, str(getattr(obj, field.name))) for field in obj._meta.fields if getattr(obj, field.name) is not None]
+        fields_and_values = {field.name:str(getattr(obj, field.name)) for field in obj._meta.fields if getattr(obj, field.name) is not None}
+        fields_and_values['flags'] = ", ".join(obj.flag_labels)
         context['fields_and_values'] = fields_and_values
 
         # If file does not exist, return early
