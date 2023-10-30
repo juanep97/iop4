@@ -154,3 +154,23 @@ def qorder_juan(points):
     (A,B,C,D), dL = zip(*sorted(zip([A,B,C,D], dL), key=lambda x:x[1]))
 
     return A,B,C,D
+
+
+def find_linear_transformation(P1, P2):
+    P1, P2 = np.array(P1), np.array(P2)
+    
+    # Center points
+    P1_mean, P2_mean = np.mean(P1, axis=0), np.mean(P2, axis=0)
+    P1_centered, P2_centered = P1 - P1_mean, P2 - P2_mean
+    
+    # SVD
+    H = P1_centered.T @ P2_centered
+    U, _, Vt = np.linalg.svd(H)
+    
+    # Rotation + Scaling Matrix
+    R = Vt.T @ U.T
+    
+    # Translation Vector
+    t = P2_mean - R @ P1_mean
+    
+    return R, t
