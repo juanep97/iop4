@@ -505,7 +505,20 @@ class DIPOL(Instrument):
             fig.savefig(Path(redf_pol.filedpropdir) / "astrometry_summary.png", bbox_inches="tight")
             fig.clear()            
 
-        return BuildWCSResult(success=True, wcslist=wcslist, info={'redf_phot__pk':redf_phot.pk, 'redf_phot__fileloc':redf_phot.fileloc})
+
+        result = BuildWCSResult(success=True, wcslist=wcslist, info={'redf_phot__pk':redf_phot.pk, 'redf_phot__fileloc':redf_phot.fileloc})
+
+        if result.success:
+            try:
+                # redf.astrometry_info = [to_save]
+                if isinstance(redf.astrometry_info, list):
+                    redf.astrometry_info = list(itertools.chain(redf.astrometry_info, [result.info]))
+                else:
+                    redf.astrometry_info = [result.info]
+            except NameError:
+                redf.astrometry_info = [result.info]
+
+        return result
 
 
 
