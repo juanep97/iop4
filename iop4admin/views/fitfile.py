@@ -127,7 +127,9 @@ class FitDetailsView(SingleObjView):
         ## astrometric calibration
         try:
             context["astrometry_info"] = obj.astrometry_info
+            #logger.debug(f"Loaded astrometry info for {obj.fileloc}: {context['astrometry_info']}")
         except:
+            #logger.debug(f"Failed to load astrometry info for {obj.fileloc}")
             pass
 
         #logger.debug(f"Loading astrometry images from disk for {obj.fileloc}")

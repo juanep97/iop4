@@ -131,12 +131,22 @@
 
 
 		<h3>Astrometric calibration</h3>
-
 		
-		{{ astrometry_info.working_msg }} <br>
-		{{ astrometry_info.bm }} <br>
+		<h4>Astrometry info:</h4>
+		<table>
+			<tbody>
+				{% for D in astrometry_info %}
+					{% for k,v in D.items %}
+					<tr>
+						<td>{{ k }}</td>
+						<td>{{ v }}</td>
+					</tr>
+					{% endfor %}
+				{% endfor %}
+			</tbody>
+		</table>
 
-		<small><i>(scroll horizontally)<i></small><br>
+		<h4>Summary images (scroll horizontally)</h4>
 
 		<div class="astrometry_summary_div">
 			{% for fname, imgb64 in astrometry_img_D.items reversed %}
@@ -178,7 +188,7 @@
 	<h2>FITS file headers: </h2>
 
 	{% for header in header_L %}
-		<h3>Header {{forloop.counter }}:</h3> <small><i>(scroll down)<i></small> <br>
+		<h3>Header {{forloop.counter }}:</h3> <small><i>(scroll down)</i></small> <br>
 		<div class="header_tb_wrapper">
 			<table>
 				<thead>
