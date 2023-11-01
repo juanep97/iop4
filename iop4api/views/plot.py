@@ -149,12 +149,16 @@ def plot(request):
                                         y1 = vals['mag'], 
                                         y1_min = vals['mag']-vals['mag_err'],
                                         y1_max = vals['mag']+vals['mag_err'],
+                                        y1_err = vals['mag_err'],
                                         y2 = vals['p'], 
                                         y2_min = vals['p']-vals['p_err'],
                                         y2_max = vals['p']+vals['p_err'],
+                                        y2_err = vals['p_err'],
                                         y3 = vals['chi'], 
                                         y3_min = vals['chi']-vals['chi_err'],
-                                        y3_max = vals['chi']+vals['chi_err']),
+                                        y3_max = vals['chi']+vals['chi_err'],
+                                        y3_err = vals['chi_err'],
+                                    ),
                                 name="source")
 
     view = CDSView(filter=AllIndices(), name="plot_view")
