@@ -214,11 +214,14 @@ def plot_preview_astrometry(redf, with_simbad=False, legend=True, names_over=Fal
     logger.debug(f"{redf}: found {len(sources_in_field)} catalog sources in field: {sources_in_field}")
 
 
-    if ax is None:
-        ax = plt.gca()
-
     if fig is None:
-        fig = ax.figure
+        fig = plt.gcf()
+
+    if ax is None:
+        if len(fig.axes) > 0:
+            ax = plt.gca()
+        else:
+            ax = fig.add_subplot(projection=redf.wcs)
 
     legend_handles_L = list()
     legend_labels_L = list()
