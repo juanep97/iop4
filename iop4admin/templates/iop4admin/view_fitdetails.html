@@ -139,7 +139,7 @@
 					{% for k,v in D.items %}
 					<tr>
 						<td>{{ k }}</td>
-						<td>{{ v }}</td>
+						<td>{{ v |truncatechars:400 }}</td>
 					</tr>
 					{% endfor %}
 				{% endfor %}
