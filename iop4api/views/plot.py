@@ -239,7 +239,7 @@ def plot(request):
                     selection_line_alpha=0.5, 
                     nonselection_line_alpha=0.5)
 
-        p_main.y_range = Range1d(*y1_lims)
+        p_main.y_range = Range1d(*y1_lims[::-1])
 
         p_main.extra_x_ranges["secondary"] = Range1d(*x2_lims)
         p_main_ax_x2 = DatetimeAxis(x_range_name="secondary", axis_label="Date")
@@ -315,6 +315,7 @@ def plot(request):
             errorbars_renderer.visible = True
 
         if axLabel == "ax1":
+            p.y_range.flipped = True
             p.extra_x_ranges["secondary"] = Range1d(*x2_range)
             p_ax_x2 = DatetimeAxis(x_range_name="secondary")
             p_ax_x2.formatter = DatetimeTickFormatter(months=r"%Y/%m/%d",
