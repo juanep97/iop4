@@ -239,8 +239,9 @@ def fit_gaussian(px_start, redf, sigma_start=7, r_max=90, r_search=None):
 
     mdata = redf.mdata
 
-    if r_max is None:
-        r_max = int((30*0.4) / Instrument.by_name(redf.instrument).arcsec_per_pix)
+    if r_max is None: 
+        # 0.4 arcsecs is excellent seeing
+        r_max = int((30*0.4) / Instrument.by_name(redf.instrument).arcsec_per_pix) 
 
     x_start, y_start = px_start
 
@@ -258,7 +259,7 @@ def fit_gaussian(px_start, redf, sigma_start=7, r_max=90, r_search=None):
     Z = mdata[idx_fit_region].compressed()
 
     fit = fitting.LevMarLSQFitter()
-    gaussian = Gaussian2D(amplitude=mdata[y_start, x_start], x_mean=x_start, y_mean=y_start, x_stddev=sigma_start, y_stddev=sigma_start) + Const2D(np.median(Z))
+    gaussian = Gaussian2D(amplitude=mdata[int(y_start), int(x_start)], x_mean=x_start, y_mean=y_start, x_stddev=sigma_start, y_stddev=sigma_start) + Const2D(np.median(Z))
     gaussian[0].x_stddev.tied = lambda model: model[0].y_stddev
     gaussian_fit = fit(gaussian, X, Y, Z)
 
@@ -563,3 +564,12 @@ def get_simbad_sources(center_coord, radius, Nmax=6, all_types=False, exclude_se
         simbad_sources = [simbad_source for simbad_source in simbad_sources if simbad_source.coord.separation(center_coord).arcsec > 1]
 
     return simbad_sources
+
+
+
+
+
+
+
+
+
