@@ -300,8 +300,8 @@ class Instrument(metaclass=ABCMeta):
             if attrname not in cls.required_masters:
                 continue
             
-            if masters_dict.pop(attrname) is not None:
-                setattr(reducedfit, attrname, masters_dict.pop(attrname))
+            if masters_dict.get(attrname, None) is not None:
+                setattr(reducedfit, attrname, masters_dict[attrname])
             else:
                 if (master := reducedfit.rawfit.request_master(model)) is not None:
                     setattr(reducedfit, attrname, master)
