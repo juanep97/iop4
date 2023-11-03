@@ -7,7 +7,7 @@
             {% if debug %}<span style="color: red; font-size: 14px; padding-left: 1em; vertical-align: middle;">DEBUG*</span>{% endif %}
             </h1>
         </div>
-    {% elseif %}
+    {% else %}
         {{ block.super }}
     {% endif %}
 {% endblock %}
