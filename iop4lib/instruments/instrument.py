@@ -648,6 +648,6 @@ class Instrument(metaclass=ABCMeta):
         sigma = mean_fwhm / (2*np.sqrt(2*math.log(2)))
         r = sigma
         
-        return mean_fwhm, 5.0*r, 15.0*r, 20.0*r
+        return mean_fwhm, 3.0*r, 7.0*r, 15.0*r
     
 
