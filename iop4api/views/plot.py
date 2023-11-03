@@ -389,7 +389,7 @@ def plot(request):
                         TableColumn(field="y3_err", title="dchi")]
                
     data_table = DataTable(source=source, view=view, columns=table_columns, index_position=None,
-                           sortable=True, reorderable=True, scroll_to_selection=True, 
+                           sortable=True, reorderable=True, scroll_to_selection=True, sizing_mode="stretch_width",
                            stylesheets=[InlineStyleSheet(css=""".slick-cell.selected { background-color: #d2eaff; }""")])
 
     # Add a callback to hide errorbars when panning (it makes the plot smoother)
