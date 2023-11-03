@@ -231,7 +231,7 @@ class FitFileModel(AbstractModel):
 
         if len(kwargs) == 0 and not force_rebuild:
             if os.path.isfile(fpath):
-                logger.debug(f"Loading preview histogram for {self.fileloc} from disk")
+                #logger.debug(f"Loading preview histogram for {self.fileloc} from disk")
                 with open(fpath, 'rb') as f:
                     return f.read()
          
