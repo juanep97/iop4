@@ -82,7 +82,8 @@ class FitDetailsView(SingleObjView):
 
         ## non-empty fields and values
         fields_and_values = {field.name:str(getattr(obj, field.name)) for field in obj._meta.fields if getattr(obj, field.name) is not None}
-        fields_and_values['flags'] = ", ".join(obj.flag_labels)
+        if hasattr(obj, 'flags'):
+            fields_and_values['flags'] = ", ".join(obj.flag_labels)
         context['fields_and_values'] = fields_and_values
 
         # If file does not exist, return early
@@ -128,9 +129,9 @@ class FitDetailsView(SingleObjView):
         ## astrometric calibration
         try:
             context["astrometry_info"] = obj.astrometry_info
-            #logger.debug(f"Loaded astrometry info for {obj.fileloc}: {context['astrometry_info']}")
-        except:
-            #logger.debug(f"Failed to load astrometry info for {obj.fileloc}")
+            # logger.debug(f"Loaded astrometry info for {obj}: {context['astrometry_info']}")
+        except Exception as e:
+            # logger.debug(f"Failed to load astrometry info for {obj}: {e}")
             pass
 
         #logger.debug(f"Loading astrometry images from disk for {obj.fileloc}")
