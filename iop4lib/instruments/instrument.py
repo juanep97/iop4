@@ -490,7 +490,7 @@ class Instrument(metaclass=ABCMeta):
         if redf.obsmode != OBSMODES.PHOTOMETRY:
             raise Exception(f"{redf}: this method is only for plain photometry images.")
         
-        target_fwhm, aperpix, r_in, r_out = estimate_common_apertures([redf], reductionmethod=REDUCTIONMETHODS.RELPHOT)
+        target_fwhm, aperpix, r_in, r_out = cls.estimate_common_apertures([redf], reductionmethod=REDUCTIONMETHODS.RELPHOT)
 
         if target_fwhm is None:
             logger.error("Could not estimate a target FWHM, aborting relative photometry.")
@@ -595,4 +595,59 @@ class Instrument(metaclass=ABCMeta):
 
         for result in photopolresult_L:
             result.save()
+
+
+
+
+
+
+
+    @classmethod
+    def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fit_boxsize=None, search_boxsize=(90,90)):
+        r"""estimate an appropriate common aperture for a list of reduced fits.
+        
+        It fits the target source profile in the fields and returns some multiples of the fwhm which are used as the aperture and as the inner and outer radius of the annulus for local bkg estimation).
+        """
+
+        from iop4lib.utils import fit_gaussian
+        from iop4lib.db import AstroSource
+
+        astrosource_S = set.union(*[set(redf.sources_in_field.all()) for redf in reducedfits])
+        target_L = [astrosource for astrosource in astrosource_S if astrosource.srctype != AstroSource.SRCTYPES.CALIBRATOR]
+
+        logger.debug(f"{astrosource_S=}")
+
+        if len(target_L) > 0:
+            target = target_L[0]
+        elif len(astrosource_S) > 0:
+            target = astrosource_S.pop()
+        else:
+            return np.nan, np.nan, np.nan, np.nan
+    
+        fwhm_L = list()
+
+        for redf in reducedfits:
+            try:
+                gaussian = fit_gaussian(px_start=redf.wcs.world_to_pixel(target.coord), redf=redf)
+                fwhm = (2*np.sqrt(2*math.log(2))) * np.sqrt(gaussian[0].x_stddev.value**2+gaussian[0].y_stddev.value**2)
+                if not (2 < fwhm < 50):
+                    logger.warning(f"ReducedFit {redf.id} {target.name}: fwhm = {fwhm} px, skipping this reduced fit")
+                    continue
+                logger.debug(f"{target.name}: Gaussian FWHM: {fwhm:.1f} px")
+                fwhm_L.append(fwhm)
+            except Exception as e:
+                logger.warning(f"ReducedFit {redf.id} {target.name}: error in gaussian fit, skipping this reduced fit ({e})")
+                continue
+
+        if len(fwhm_L) > 0:
+            mean_fwhm = np.mean(fwhm_L)
+        else:
+            logger.error(f"Could not find an appropriate aperture for Reduced Fits {[redf.id for redf in reducedfits]}, using standard fwhm of 3.5px")
+            mean_fwhm = 3.5
+
+        sigma = mean_fwhm / (2*np.sqrt(2*math.log(2)))
+        r = sigma
+        
+        return mean_fwhm, 5.0*r, 15.0*r, 20.0*r
+    
 
