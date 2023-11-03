@@ -17,6 +17,7 @@ class AdminEpoch(admin.ModelAdmin):
     search_fields = ['id', 'telescope', 'night']
     readonly_fields = [field.name for field in Epoch._meta.fields] 
     ordering = ['-night','-telescope']
+    list_filter = ['telescope', 'night']
 
 
 
