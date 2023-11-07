@@ -14,6 +14,8 @@ import math
 import astropy.io.fits as fits
 import astropy.units as u
 import itertools
+import datetime
+import glob
 
 # iop4lib imports
 from iop4lib.enums import *
@@ -195,7 +197,7 @@ class Instrument(metaclass=ABCMeta):
         pass
 
     @classmethod
-    def build_wcs(self, reducedfit: 'ReducedFit', shotgun_params_kwargs : dict =  dict(), build_summary_images : bool = True, summary_kwargs : dict = {'with_simbad':True}) -> 'BuildWCSResult':
+    def build_wcs(self, reducedfit: 'ReducedFit', shotgun_params_kwargs : dict =  dict(), summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}) -> 'BuildWCSResult':
         """ Build a WCS for a reduced fit from this instrument. 
         
         By default (Instrument class), this will just call the build_wcs_params_shotgun from iop4lib.utils.astrometry.
@@ -204,12 +206,12 @@ class Instrument(metaclass=ABCMeta):
         -----------------
         shotgun_params_kwargs : dict, optional
             The parameters to pass to the shotgun_params function.
-        build_summary_images : bool, optional
-            Whether to build summary images of the process. Default is True.
         summary_kwargs : dict, optional
-        with_simbad : bool, default True
-            Whether to query and plot a few Simbad sources in the image. Might be useful to 
-            check whether the found coordinates are correct. Default is True.
+            build_summary_images : bool, optional
+                Whether to build summary images of the process. Default is True.
+            with_simbad : bool, default True
+                Whether to query and plot a few Simbad sources in the image. Might be useful to 
+                check whether the found coordinates are correct. Default is True.
         """
         from iop4lib.utils.astrometry import build_wcs_params_shotgun
         from iop4lib.utils.plotting import build_astrometry_summary_images
@@ -220,26 +222,8 @@ class Instrument(metaclass=ABCMeta):
                 shotgun_params_kwargs["allsky"] = [True]
 
 
-        build_wcs_result = build_wcs_params_shotgun(reducedfit, shotgun_params_kwargs)
+        build_wcs_result = build_wcs_params_shotgun(reducedfit, shotgun_params_kwargs, summary_kwargs=summary_kwargs)
 
-        if build_wcs_result.success and build_summary_images:
-            logger.debug(f"{reducedfit}: building summary images.")
-            build_astrometry_summary_images(reducedfit, build_wcs_result.info, summary_kwargs=summary_kwargs)
-
-        # Save only some variables and return
-
-        if build_wcs_result.success:
-            to_save_from_info_kw_L = ['params', 'bm', 'seg_d0', 'seg_disp_sign', 'seg_disp_xy', 'seg_disp_sign_xy', 'seg_disp_xy_best']
-            to_save = {k:build_wcs_result.info[k] for k in to_save_from_info_kw_L if k in build_wcs_result.info}
-            to_save['logodds'] = build_wcs_result.info['bm'].logodds
-            try:
-                # redf.astrometry_info = [to_save]
-                if isinstance(reducedfit.astrometry_info, list):
-                    reducedfit.astrometry_info = list(itertools.chain(reducedfit.astrometry_info, [to_save]))
-                else:
-                    reducedfit.astrometry_info = [to_save]
-            except NameError:
-                reducedfit.astrometry_info = [to_save]
 
         return build_wcs_result
 
@@ -349,6 +333,11 @@ class Instrument(metaclass=ABCMeta):
         and the will be saved in the first and second extensions of the FITS file.
         """
 
+        # delete old astrometry info
+        for fpath in glob.iglob(os.path.join(reducedfit.filedpropdir, "astrometry_*")):
+            os.remove(fpath)
+
+        # build the WCS
         build_wcs_result = cls.build_wcs(reducedfit)
 
         if build_wcs_result.success:
@@ -373,8 +362,26 @@ class Instrument(metaclass=ABCMeta):
                 header['HIERARCH AS_CENTER_RA_DEG'] = bm.center_ra_deg
                 header['HIERARCH AS_CENTER_DEC_DEG'] = bm.center_dec_deg
 
+            # save the header to the file
+
             with fits.open(reducedfit.filepath, 'update') as hdul:
                 hdul[0].header.update(header)
+
+            # Save some extra info (not in the header)
+
+            try:
+                # redf.astrometry_info = [to_save]
+
+                if not 'date' in build_wcs_result.info:
+                    build_wcs_result.info['date'] = datetime.datetime.now()
+
+                if isinstance(reducedfit.astrometry_info, list):
+                    reducedfit.astrometry_info = list(itertools.chain(reducedfit.astrometry_info, [build_wcs_result.info]))
+                else:
+                    reducedfit.astrometry_info = [build_wcs_result.info]
+            except NameError:
+                logger.debug("Could not save astrometry info to filed property.")
+                reducedfit.astrometry_info = [build_wcs_result.info]
 
         else:
             raise Exception(f"Could not perform astrometric calibration on {reducedfit}: {build_wcs_result=}")

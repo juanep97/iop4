@@ -48,7 +48,7 @@ class BuildWCSResult():
     info: dict = dataclasses.field(default_factory=dict)    
 
 
-def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict() = None, hard : bool =False) -> BuildWCSResult:
+def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict() = None, hard : bool = False, summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}) -> BuildWCSResult:
     """ Build the appropiate WCSs for a ReducedFit image, trying different parameters. See `build_wcs` for more info.
 
     Note: at the moment, this function tries source extraction with different combination of parameters and thresholds for 
@@ -188,6 +188,17 @@ def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict() 
 
     # add the parameters that worked to the result
     build_wcs_result.info['params'] = params_dict
+
+    # build summary images
+    if summary_kwargs['build_summary_images']:
+        logger.debug(f"{redf}: building summary images.")
+        build_astrometry_summary_images(redf, build_wcs_result.info, summary_kwargs=summary_kwargs)
+
+    # to remove unwanted info from the result
+    to_save_from_info_kw_L = ['params', 'bm', 'seg_d0', 'seg_disp_sign', 'seg_disp_xy', 'seg_disp_sign_xy', 'seg_disp_xy_best']
+    build_wcs_result.info = {k:build_wcs_result.info[k] for k in to_save_from_info_kw_L if k in build_wcs_result.info}
+    build_wcs_result.info['logodds'] = build_wcs_result.info['bm'].logodds
+    build_wcs_result.info['method'] = 'shotgun'
 
     return build_wcs_result
 
