@@ -457,10 +457,7 @@ class Instrument(metaclass=ABCMeta):
         img = redf.mdata
 
         if np.sum(redf.mdata <= 0.0) >= 1:
-            logger.debug(f"{redf}: {np.sum(redf.mdata <= 0.0):.0f} px < 0  ({math.sqrt(np.sum(redf.mdata <= 0.0)):.0f} px2) in IMAGE.")
-        
-        if np.sum(img <= 0.0) >= 1:
-            logger.debug(f"{redf}: {np.sum(img <= 0.0)} px < 0 ({math.sqrt(np.sum(img <= 0.0)):.0f} px2) in BKG-SUBSTRACTED IMG, after masking.")
+            logger.debug(f"{redf}: {np.sum(img <= 0.0):.0f} px < 0  ({math.sqrt(np.sum(img <= 0.0)):.0f} px2) in image.")
 
         error = calc_total_error(img, bkg.background_rms, cls.gain_e_adu)
 
@@ -492,7 +489,6 @@ class Instrument(metaclass=ABCMeta):
         
         from iop4lib.db.aperphotresult import AperPhotResult
         from iop4lib.db.photopolresult import PhotoPolResult
-        from iop4lib.utils import estimate_common_apertures
 
         if redf.obsmode != OBSMODES.PHOTOMETRY:
             raise Exception(f"{redf}: this method is only for plain photometry images.")
