@@ -198,7 +198,6 @@ class Andor(Instrument, metaclass=ABCMeta):
                 
         from iop4lib.db.aperphotresult import AperPhotResult
         from iop4lib.db.photopolresult import PhotoPolResult
-        from iop4lib.utils import estimate_common_apertures
 
         logger.debug("Computing %s relative polarimetry for group: %s", cls.name, "".join(map(str,polarimetry_group)))
 
@@ -223,7 +222,7 @@ class Andor(Instrument, metaclass=ABCMeta):
 
         if len(set(bands)) == 1:
             band = bands[0]
-        else: # should not happens
+        else: # should not happen
             raise Exception(f"Can not compute relative polarimetry for a group with different bands: {bands}")
 
         ## check obsmodes
