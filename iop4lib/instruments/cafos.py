@@ -186,7 +186,6 @@ class CAFOS(Instrument):
         
         from iop4lib.db.aperphotresult import AperPhotResult
         from iop4lib.db.photopolresult import PhotoPolResult
-        from iop4lib.utils import estimate_common_apertures
 
         # Perform some checks on the group
 
@@ -196,7 +195,7 @@ class CAFOS(Instrument):
 
         if len(set(bands)) == 1:
             band = bands[0]
-        else: # should not happens
+        else: # should not happen
             raise Exception(f"Can not compute relative polarimetry for a group with different bands: {bands}")
 
         ## check obsmodes
