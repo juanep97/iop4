@@ -51,6 +51,8 @@ class DIPOL(Instrument):
     arcsec_per_pix = 0.134
     field_width_arcmin = 9.22
     field_height_arcmin = 6.28 
+    
+    gain_e_adu = 1
 
     required_masters = ['masterbias', 'masterflat', 'masterdark']
 
