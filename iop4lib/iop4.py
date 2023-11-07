@@ -326,12 +326,16 @@ def main():
         filelocs_local = list_local_filelocs()
         filelocs_to_process = filelocs_to_process.union(filelocs_local)
         logger.info(f"Listed {len(filelocs_local)} local files.")
+    else:
+        filelocs_local = set()
 
     if args.discover_missing_files:
         logger.info("Discovering missing files...")
         filelocs_missing = discover_missing_filelocs()
         filelocs_to_process = filelocs_to_process.union(filelocs_missing)
         logger.info(f"Discovered {len(filelocs_missing)} missing files.")
+    else:
+        filelocs_missing = set()
 
     if args.fileloc_list is not None:
         logger.info("Adding files from command line...")
@@ -350,7 +354,9 @@ def main():
         logger.info("Filtering files by date...")
         filelocs_to_process = filter_filelocs_by_date(filelocs_to_process, args.date_start, args.date_end)    
         logger.info(f"Filtered to {len(filelocs_to_process)} filelocs_to_process  between {args.date_start} and {args.date_end}.")
-    
+
+        filelocs_missing = set(filelocs_to_process).intersection(filelocs_missing)
+
     logger.debug(f"{filelocs_to_process=}")
 
     if not args.list_files_only:
