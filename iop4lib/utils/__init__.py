@@ -318,8 +318,11 @@ def get_angle_from_history(redf: 'ReducedFit' = None,
         pc_21, pc_22 = w.wcs.pc[1]
         
         # Calculate the rotation angle in degrees
-        angle = np.degrees(np.arctan2(pc_21, pc_11))
-    
+        angle = np.degrees(np.arctan2(pc_21, pc_11)) % 360 # wrap angles at 0,360 (-180 = 180)
+
+        if 'FLIPSTAT' in redf.rawfit.header:
+                angle = - angle
+
         angle_L.append(angle)
     
     angle_mean = np.mean(angle_L)

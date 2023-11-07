@@ -481,7 +481,9 @@ class DIPOL(Instrument):
         quads_2 = [qorder_juan(quad) for quad in quads_2]
 
         angle_mean, angle_std = get_angle_from_history(redf, target_src)
-        if 'FLIPSTAT' in redf.rawfit.header and 'FLIP' in redf.rawfit.header['FLIPSTAT'].upper():
+        if 'FLIPSTAT' in redf.rawfit.header: 
+            # TODO: check that indeed the mere presence of this keyword means that the image is flipped, without the need of checking the value. 
+            # FLIPSTAT is a MaximDL thing only, but it seems that the iamge is flipped whenever the keyword is present, regardless of the value.
             angle = - angle_mean
         else:
             angle = angle_mean
@@ -600,7 +602,7 @@ class DIPOL(Instrument):
 
         # DIPOL polarimery images seem to be flipped vertically, which results in negative angle
         # TODO: watch this FLIP thing, check that indeed this is the behaviour
-        if 'FLIPSTAT' in redf.rawfit.header and 'FLIP' in redf.rawfit.header['FLIPSTAT'].upper():
+        if 'FLIPSTAT' in redf.rawfit.header:
             angle = - angle_mean
         else:
             angle = angle_mean
