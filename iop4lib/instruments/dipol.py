@@ -22,11 +22,14 @@ from photutils.segmentation import make_2dgaussian_kernel
 from astropy.wcs.utils import fit_wcs_from_points
 from astropy.coordinates import Angle, SkyCoord
 import itertools
+import datetime
+import math
 
 # iop4lib imports
 from iop4lib.enums import *
 from .instrument import Instrument
 from iop4lib.utils import imshow_w_sources, get_candidate_rank_by_matchs, get_angle_from_history, build_wcs_centered_on, get_simbad_sources
+from iop4lib.utils.sourcedetection import get_sources_daofind, get_segmentation, get_cat_sources_from_segment_map
 from iop4lib.utils.plotting import plot_preview_astrometry
 from iop4lib.utils.astrometry import BuildWCSResult
 
@@ -963,3 +966,144 @@ class DIPOL(Instrument):
         return BuildWCSResult(success=True, wcslist=[wcs1,wcs2],  info={'n_bright_sources':len(positions)})
     
 
+  
+    @classmethod
+    def compute_relative_polarimetry(cls, polarimetry_group):
+        """ Computes the relative polarimetry for a polarimetry group for DIPOL
+        """
+        
+        from iop4lib.db.aperphotresult import AperPhotResult
+        from iop4lib.db.photopolresult import PhotoPolResult
+        from iop4lib.utils import get_column_values
+
+        # Perform some checks on the group
+
+        if not all([reducedfit.instrument == INSTRUMENTS.DIPOL for reducedfit in polarimetry_group]):
+            raise Exception(f"This method is only for DIPOL images.")
+
+        ## get the band of the group
+
+        bands = [reducedfit.band for reducedfit in polarimetry_group]
+
+        if len(set(bands)) == 1:
+            band = bands[0]
+        else: # should not happen
+            raise Exception(f"Can not compute relative polarimetry for a group with different bands: {bands}")
+
+        ## check obsmodes
+
+        if not all([reducedfit.obsmode == OBSMODES.POLARIMETRY for reducedfit in polarimetry_group]):
+            raise Exception(f"This method is only for polarimetry images.")
+        
+        ## check sources in the fields
+
+        sources_in_field_qs_list = [reducedfit.sources_in_field.all() for reducedfit in polarimetry_group]
+        group_sources = set.intersection(*map(set, sources_in_field_qs_list))
+
+        if len(group_sources) == 0:
+            logger.error("No common sources in field for all polarimetry groups.")
+            return
+        
+        if group_sources != set.union(*map(set, sources_in_field_qs_list)):
+            logger.warning(f"Sources in field do not match for all polarimetry groups: {set.difference(*map(set, sources_in_field_qs_list))}")
+
+        ## check rotation angles
+
+        rot_angles_available = set([redf.rotangle for redf in polarimetry_group])
+        rot_angles_required = {0.0, 22.5, 45.0, 67.5, 90.0, 112.5, 135.0, 157.5, 180.0, 202.5, 225.0, 247.5, 270.0, 292.5, 315.0, 337.5}
+
+        if not rot_angles_available.issubset(rot_angles_required):
+            logger.warning(f"Rotation angles missing: {rot_angles_required - rot_angles_available}")
+
+        if len(polarimetry_group) != 16:
+            raise Exception(f"Can not compute relative polarimetry for a group with {len(polarimetry_group)} reducedfits, it should be 16.")
+
+        # 1. Compute all aperture photometries
+
+        target_fwhm, aperpix, r_in, r_out = cls.estimate_common_apertures(polarimetry_group, reductionmethod=REDUCTIONMETHODS.RELPOL)
+
+        logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group with target aperpix {aperpix:.1f}.")
+
+        for reducedfit in polarimetry_group:
+            cls.compute_aperture_photometry(reducedfit, aperpix, r_in, r_out)
+
+        # 2. Compute relative polarimetry for each source (uses the computed aperture photometries)
+
+        logger.debug("Computing relative polarimetry.")
+
+        photopolresult_L = list()
+
+        for astrosource in group_sources:
+            logger.debug(f"Computing relative polarimetry for {astrosource}.")
+
+            # if any angle is missing for some pair, it uses the equivalent angle of the other pair
+
+            aperphotresults = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, flux_counts__isnull=False)
+
+            if len(aperphotresults) == 0:
+                logger.error(f"No aperphotresults found for {astrosource}")
+                continue
+
+            if len(aperphotresults) != 32:
+                logger.warning(f"There should be 32 aperphotresults for each astrosource in the group, there are {len(aperphotresults)}.")
+
+            values = get_column_values(aperphotresults, ['reducedfit__rotangle', 'flux_counts', 'flux_counts_err', 'pairs'])
+
+            angles_L = list(sorted(set(values['reducedfit__rotangle'])))
+            if len(angles_L) != 16:
+                logger.warning(f"There should be 16 different angles, there are {len(angles_L)}.")
+
+            fluxD = {}
+            for pair, angle, flux, flux_err in zip(values['pairs'], values['reducedfit__rotangle'], values['flux_counts'], values['flux_counts_err']):
+                if pair not in fluxD:
+                    fluxD[pair] = {}
+                fluxD[pair][angle] = (flux, flux_err)
+
+            F = np.array([(fluxD['O'][angle][0] - fluxD['E'][angle][0]) / (fluxD['O'][angle][0] + fluxD['E'][angle][0]) for angle in angles_L])
+            I = np.mean([(fluxD['O'][angle][0] + fluxD['E'][angle][0]) for angle in angles_L])
+
+            N = len(angles_L)
+
+            # Compute both the uncorrected and corrected values
+            Qr_uncorr = 2/N * np.sum([F[i]*np.cos(np.pi/2*i) for i in range(N)]) 
+            Qr = Qr_uncorr + 3.77/100 # TODO: check and derive this value 
+
+            Ur_uncorr = 2/N * np.sum([F[i]*np.sin(np.pi/2*i) for i in range(N)]) 
+            Ur = Ur_uncorr - 0.057/100 # TODO: check and derive this value
+
+
+            def _get_p_and_chi(Qr, Ur):
+                # linear polarization (0 to 1)
+                P = np.sqrt(Qr**2+Ur**2)
+                dP = None
+                # polarization angle (degrees)
+                Theta_0 = 0
+                if Qr >= 0:
+                    Theta_0 = math.pi 
+                    if Ur > 0:
+                        Theta_0 = -1 * math.pi
+                chi = - 0.5 * np.rad2deg(np.arctan(Qr/Ur) + Theta_0)
+                dchi = None
+
+                return P, dP, chi, dchi
+            
+            # linear polarization (0 to 1)
+            P_uncorr, dP_uncorr, chi_uncorr, dchi_uncorr = _get_p_and_chi(Qr_uncorr, Ur_uncorr)
+            P, dP, chi, dchi = _get_p_and_chi(Qr, Ur)
+
+            # No attempt to get magnitude from polarimetry fields in dipol, they have too low exposure, and many times there are no calibrators in the subframe.
+
+            # save the results
+                    
+            result = PhotoPolResult.create(reducedfits=polarimetry_group, 
+                                                            astrosource=astrosource, 
+                                                            reduction=REDUCTIONMETHODS.RELPOL, 
+                                                            p=P, p_err=dP, chi=chi, chi_err=dchi,
+                                                            _q_nocorr=Qr_uncorr, _u_nocorr=Ur_uncorr, _p_nocorr=P_uncorr, _chi_nocorr=chi_uncorr,
+                                                            aperpix=aperpix)
+            
+            photopolresult_L.append(result)
+
+        # 3. Save results
+        for result in photopolresult_L:
+            result.save()
