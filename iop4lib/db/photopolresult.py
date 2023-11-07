@@ -64,6 +64,8 @@ class PhotoPolResult(models.Model):
     astrosource = models.ForeignKey('AstroSource', null=True, on_delete=models.CASCADE, related_name='photopolresults', editable=False)
     reduction = models.CharField(null=True, max_length=20, choices=REDUCTIONMETHODS.choices, help_text="Reduction method used.", editable=False)
     juliandate = models.FloatField(null=True, help_text='Julian date of observation (mean of julian dates of all reducedfits). Automaticaly computed on save, do not edit.', editable=False)
+    juliandate_min = models.FloatField(null=True, help_text='Minimum julian date of observation (min of julian dates of all reducedfits). Automaticaly computed on save, do not edit.', editable=False)
+    juliandate_max = models.FloatField(null=True, help_text='Maximum julian date of observation (max of julian dates of all reducedfits). Automaticaly computed on save, do not edit.', editable=False)
     epoch = models.ForeignKey("Epoch", null=True, on_delete=models.CASCADE, help_text="Epoch of the observation.", editable=False)
     instrument = models.CharField(null=True, max_length=20, choices=INSTRUMENTS.choices, default=INSTRUMENTS.NONE, help_text="Instrument used for the observation.", editable=False)
     obsmode = models.CharField(null=True, max_length=20, choices=OBSMODES.choices, default=OBSMODES.NONE, help_text="Whether the observation was photometry or polarimetry.", editable=False)
@@ -204,6 +206,14 @@ class PhotoPolResult(models.Model):
     def get_juliandate_from_reducedfits(cls, reducedfits):
         return np.mean([reducedfit.juliandate for reducedfit in reducedfits])
     
+    @classmethod
+    def get_juliandate_min_from_reducedfits(cls, reducedfits):
+        return np.min([reducedfit.juliandate for reducedfit in reducedfits])
+    
+    @classmethod
+    def get_juliandate_max_from_reducedfits(cls, reducedfits):
+        return np.max([reducedfit.juliandate for reducedfit in reducedfits])
+    
     def get_astrosource(self):
         from .astrosource import AstroSource
         return AstroSource.objects.get(pk=self.reducedfits_relations.values_list('astrosource', flat=True).distinct().get())
@@ -213,6 +223,12 @@ class PhotoPolResult(models.Model):
     
     def get_juliandate(self):
         return PhotoPolResult.get_juliandate_from_reducedfits(self.reducedfits.all())
+    
+    def get_juliandate_min(self):
+        return PhotoPolResult.get_juliandate_min_from_reducedfits(self.reducedfits.all())
+    
+    def get_juliandate_max(self):
+        return PhotoPolResult.get_juliandate_max_from_reducedfits(self.reducedfits.all())
     
     def get_epoch(self):
         if not all([reducedfit.epoch == self.reducedfits.first().epoch for reducedfit in self.reducedfits.all()]):
@@ -243,6 +259,8 @@ class PhotoPolResult(models.Model):
         self.astrosource = self.get_astrosource()
         self.reduction = self.get_reduction()
         self.juliandate = self.get_juliandate()
+        self.juliandate_min = self.get_juliandate_min()
+        self.juliandate_max = self.get_juliandate_max()
         self.epoch = self.get_epoch()
         self.band = self.get_band()
         self.exptime = self.get_exptime()
