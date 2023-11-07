@@ -37,6 +37,7 @@ class MasterFlat(FitFileModel):
     exptime = models.FloatField(null=True)
 
     masterbias = models.ForeignKey('MasterBias', null=True, on_delete=models.CASCADE, related_name='masterflats')
+    masterdark = models.ForeignKey('MasterDark', null=True, on_delete=models.CASCADE, related_name='masterflats')
 
     class Meta:
         app_label = 'iop4api'
