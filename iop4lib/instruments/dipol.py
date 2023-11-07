@@ -363,7 +363,7 @@ class DIPOL(Instrument):
 
 
     @classmethod
-    def _build_wcs_for_polarimetry_images_photo_quads(cls, redf: 'ReducedFit', build_summary_images : bool = True, summary_kwargs : dict = {'with_simbad':True}):
+    def _build_wcs_for_polarimetry_images_photo_quads(cls, redf: 'ReducedFit', summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}, n_threshold=5.0, find_fwhm=30, smooth_fwhm=4):
         
         from iop4lib.db import ReducedFit
 
@@ -382,7 +382,8 @@ class DIPOL(Instrument):
                                               flags__has=ReducedFit.FLAGS.BUILT_REDUCED).first()
         
         if redf_phot is None:
-            raise Exception(f"No astro-calibrated photometry field found for {redf_pol}.")
+            logger.error(f"No astro-calibrated photometry field found for {redf_pol}.")
+            return BuildWCSResult(success=False)
 
         # get the subframe of the photometry field that corresponds to this polarimetry field, (approx)
         x_start = redf_pol.rawfit.header['XORGSUBF']
@@ -401,15 +402,19 @@ class DIPOL(Instrument):
 
         for data in [redf_pol.mdata, photdata_subframe]:
 
-            fwhm = 4
-            kernel_size = 2*int(fwhm)+1
-            kernel = make_2dgaussian_kernel(fwhm, size=kernel_size)
-            data = convolve(data, kernel)
+            if smooth_fwhm:
+                kernel_size = 2*int(smooth_fwhm)+1
+                kernel = make_2dgaussian_kernel(smooth_fwhm, size=kernel_size)
+                data = convolve(data, kernel)
 
             mean, median, std = sigma_clipped_stats(data, sigma=5.0)
 
-            daofind = DAOStarFinder(fwhm=30.0, threshold=3*std, brightest=100)  
+            daofind = DAOStarFinder(fwhm=find_fwhm, threshold=n_threshold*std, brightest=100, exclude_border=True)  
             sources = daofind(data - median)
+
+            if len(sources) < 4:
+                return BuildWCSResult(success=False)
+
             sources.sort('flux', reverse=True)
 
             sources = sources[:10]
@@ -418,7 +423,7 @@ class DIPOL(Instrument):
 
             sets_L.append(positions)
 
-        if build_summary_images:
+        if summary_kwargs['build_summary_images']:
             fig = mplt.figure.Figure(figsize=(12,6), dpi=iop4conf.mplt_default_dpi)
             axs = fig.subplots(nrows=1, ncols=2)
 
@@ -439,8 +444,9 @@ class DIPOL(Instrument):
         quads_1 = np.array(list(itertools.combinations(sets_L[0], 4)))
         quads_2 = np.array(list(itertools.combinations(sets_L[1], 4)))
 
-        from iop4lib.utils.quadmatching import hash_juan, distance, order, qorder_juan
-        hash_func = hash_juan
+        from iop4lib.utils.quadmatching import hash_juan, distance, order, qorder_juan, find_linear_transformation
+        hash_func, qorder = hash_juan, qorder_juan
+
         hashes_1 = np.array([hash_func(quad) for quad in quads_1])
         hashes_2 = np.array([hash_func(quad) for quad in quads_2])
 
@@ -451,19 +457,65 @@ class DIPOL(Instrument):
         all_indices = all_indices[idx]
         all_distances = all_distances[idx]
 
-        if build_summary_images:
+        # selected indices some nice indices
+
+        #best_i, best_j = all_indices[0]
+
+        # if (min_distance_found := distance(hash_func(quads_1[best_i]),hash_func(quads_2[best_j]))) > 4.0: # corresponds to more than 1px error per point in the quad
+        #     logger.error(f"Best quads i,j=[{best_i},{best_j}] matched has distance {min_distance_found:.3f} > 4.0, returning success = False.")
+        #     return BuildWCSResult(success=False, wcslist=None, info={'redf_phot__pk':redf_phot.pk, 'redf_phot__fileloc':redf_phot.fileloc})
+
+        # better this method:
+
+        # the best 5 that have less than 1px of error per quad (4 points)
+ 
+        idx_selected = np.where(all_distances < 4.0)[0] 
+        indices_selected = all_indices[idx_selected]
+        distances_selected = all_distances[idx_selected]
+        
+        if np.sum(idx_selected) == 0:
+            logger.error(f"No quads with distance < 4.0, returning success = False.")
+            return BuildWCSResult(success=False, wcslist=None, info={'redf_phot__pk':redf_phot.pk, 'redf_phot__fileloc':redf_phot.fileloc}) 
+        else:
+            idx_selected = np.argsort(distances_selected)[:5]
+            indices_selected = all_indices[idx_selected]
+            distances_selected = all_distances[idx_selected]
+
+        # get linear transforms
+        logger.debug(f"Selected {len(indices_selected)} quads with distance < 4.0. I will get the one with less deviation from the median linear transform.")
+
+        R_L, t_L = zip(*[find_linear_transformation(qorder(quads_1[i]), qorder(quads_2[j])) for i,j in indices_selected])
+        logger.debug(f"{t_L=}")
+        
+        # get the closest one to the t_L mean
+        median_t = np.median(t_L, axis=0)
+
+        logger.debug(f"{median_t=}")
+
+        delta_t = np.array([np.linalg.norm(t - median_t) for t in t_L])
+        indices_selected = indices_selected[np.argsort(delta_t)]
+        best_i, best_j = indices_selected[0]
+        
+        logger.debug(f"Selected the quads [{best_i},{best_j}]")
+
+        logger.debug(f"t = {t_L[np.argmin(delta_t)]}")
+
+        # build_summary_images, replace indices_selected by all_indices if no R,t filtering was done.
+        if summary_kwargs['build_summary_images']:
+            logger.debug(f"Building summary image for quad matching.")
+
             colors = [color for color in mplt.rcParams["axes.prop_cycle"].by_key()["color"]]
 
             fig = mplt.figure.Figure(figsize=(12,6), dpi=iop4conf.mplt_default_dpi)
             axs = fig.subplots(nrows=1, ncols=2)
 
-            for (i, j), color in list(zip(all_indices, colors))[:1]: 
+            for (i, j), color in list(zip(indices_selected, colors))[:1]: 
 
                 for ax, data, quad, positions in zip(axs, [redf_pol.mdata, photdata_subframe], [quads_1[i], quads_2[j]], sets_L):
                     imshow_w_sources(data, pos1=positions, ax=ax)
                     x, y = np.array(order(quad)).T
                     ax.fill(x, y, edgecolor='k', fill=True, facecolor=mplt.colors.to_rgba(color, alpha=0.2))
-                    for pi, p in enumerate(np.array((qorder_juan(quad)))):
+                    for pi, p in enumerate(np.array((qorder(quad)))):
                         xp = p[0]
                         yp = p[1]
                         ax.text(xp, yp, f"{pi}", fontsize=16, color="y")
@@ -477,8 +529,13 @@ class DIPOL(Instrument):
             fig.clf()
 
         # Build the WCS
+
+        # give an unique ordering to the quads
+
         quads_1 = [qorder_juan(quad) for quad in quads_1]
         quads_2 = [qorder_juan(quad) for quad in quads_2]
+
+        # get the pre wcs with the target in the center of the image
 
         angle_mean, angle_std = get_angle_from_history(redf, target_src)
         if 'FLIPSTAT' in redf.rawfit.header: 
@@ -488,19 +545,19 @@ class DIPOL(Instrument):
         else:
             angle = angle_mean
 
-        best_i, best_j = all_indices[0]
-
         pre_wcs = build_wcs_centered_on((redf_pol.width//2,redf_pol.height//2), redf=redf_phot, angle=angle)
         
+        # get the pixel arrays in the polarimetry field and in the FULL photometry field to relate them
         pix_array_1 = np.array(list(zip(*[(x,y) for x,y in quads_1[best_i]])))
         pix_array_2 = np.array(list(zip(*[(x+x_start,y+y_start) for x,y in quads_2[best_j]])))
 
+        # fit the WCS so the pixel arrays in 1 correspond to the ra/dec of the pixel array in 2
         wcs1 = fit_wcs_from_points(pix_array_1,  redf_phot.wcs1.pixel_to_world(*pix_array_2), projection=pre_wcs)
         wcs2 = fit_wcs_from_points(pix_array_1,  redf_phot.wcs2.pixel_to_world(*pix_array_2), projection=pre_wcs)
 
         wcslist = [wcs1, wcs2]
 
-        if build_summary_images:
+        if summary_kwargs['build_summary_images']:
             fig = mplt.figure.Figure(figsize=(6,6), dpi=iop4conf.mplt_default_dpi)
             ax = fig.subplots(nrows=1, ncols=1, subplot_kw={'projection': wcslist[0]})
             plot_preview_astrometry(redf_pol, with_simbad=True, has_pairs=True, wcs1=wcslist[0], wcs2=wcslist[1], ax=ax, fig=fig) 
@@ -508,17 +565,7 @@ class DIPOL(Instrument):
             fig.clear()            
 
 
-        result = BuildWCSResult(success=True, wcslist=wcslist, info={'redf_phot__pk':redf_phot.pk, 'redf_phot__fileloc':redf_phot.fileloc})
-
-        if result.success:
-            try:
-                # redf.astrometry_info = [to_save]
-                if isinstance(redf.astrometry_info, list):
-                    redf.astrometry_info = list(itertools.chain(redf.astrometry_info, [result.info]))
-                else:
-                    redf.astrometry_info = [result.info]
-            except NameError:
-                redf.astrometry_info = [result.info]
+        result = BuildWCSResult(success=True, wcslist=wcslist, info={'method':'_build_wcs_for_polarimetry_images_photo_quads', 'redf_phot__pk':redf_phot.pk, 'redf_phot__fileloc':redf_phot.fileloc, 'smooth_fwhm':smooth_fwhm, 'n_threshold':n_threshold, 'find_fwhm':find_fwhm})
 
         return result
 
