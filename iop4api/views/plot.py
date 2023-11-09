@@ -116,7 +116,9 @@ def plot(request):
 
     # Instruments and colors (auto)
     instruments_L = sorted(list(set(vals['instrument'])), reverse=True)
-    instrument_color_L = [bokeh.palettes.TolRainbow[max(3,len(instruments_L))][i % len(instruments_L)] for i in range(len(instruments_L))]
+
+    #instrument_color_L = [bokeh.palettes.TolRainbow[max(3,len(instruments_L))][i % len(instruments_L)] for i in range(len(instruments_L))]
+    instrument_color_L = [bokeh.palettes.Category10[max(3,len(instruments_L))][i % len(instruments_L)] for i in range(len(instruments_L))]
 
     rgb_L = [bokeh.colors.RGB.from_hex_string(hexcolor) for hexcolor in instrument_color_L]
 
