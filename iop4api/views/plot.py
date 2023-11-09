@@ -426,20 +426,21 @@ def plot(request):
                                             align-items: self-end;
                                             margin: 0;
                                             margin-left: 10px;
-                                            min-width: 8em;
-                                            max-width: 12em;
+                                            min-width: 6em;
+                                            /* max-width: 12em; */
                                         }
 
                                         label {
-                                            display: block;
+                                            display: flex;
                                             cursor: pointer; 
-                                            vertical-align: middle;
                                             font-weight: normal;
+                                            white-space: nowrap;
                                         }
 
                                         span {
-                                            display: inline-block;
-                                            min-width: 8em;
+                                            display: flex;
+                                            align-items: flex-end;
+                                            min-width: 4em;
                                         }
 
                                         input {
