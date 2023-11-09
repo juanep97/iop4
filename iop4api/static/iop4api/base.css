@@ -572,14 +572,21 @@ form label {
     width: 100%;
 }
 
-#tablePlotDiv {
-    border-radius: 4px;
-    max-height: 15em;
-    overflow-y: scroll;
+#plotTableContainerDiv {
+    display: flex;
+
 }
 
-#tablePlotDiv * {
+#tablePlotDiv {
+    border-radius: 4px;
+    overflow-y: scroll;
+    flex: 1;
+}
+
+#tablePlotDiv > * {
     z-index: 0 !important;
+    width: 100%;
+    padding: 3px;
 }
 
 /* DATA TABLE TAB */
