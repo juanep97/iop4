@@ -49,12 +49,13 @@ def plot(request):
     from bokeh.document import Document
     from bokeh.transform import factor_cmap
     from bokeh.layouts import column, gridplot
-    from bokeh.models import CategoricalColorMapper, LinearColorMapper, RangeTool, Range1d, LinearAxis, CustomJS, ColumnDataSource, Whisker, DatetimeAxis, DatetimeTickFormatter, Scatter, Segment, CDSView, GroupFilter, AllIndices, HoverTool, NumeralTickFormatter, BoxZoomTool, DataTable, TableColumn
+    from bokeh.models import CategoricalColorMapper, LinearColorMapper, RangeTool, Range1d, LinearAxis, CustomJS, ColumnDataSource, Whisker, DatetimeAxis, DatetimeTickFormatter, Scatter, Segment, CDSView, GroupFilter, AllIndices, HoverTool, NumeralTickFormatter, BoxZoomTool, DataTable, TableColumn, CategoricalMarkerMapper, CustomJSTransform
     from bokeh.plotting import figure, show
     from bokeh.embed import components, json_item
     from bokeh.models import Div, Circle, Column, Row
     from bokeh.plotting import figure
     from bokeh.models import ColumnDataSource, Styles, InlineStyleSheet, GlobalInlineStyleSheet
+    from bokeh.transform import factor_cmap, factor_mark, transform
 
     lod_threshold = 2000
     lod_factor = 10
@@ -66,7 +67,7 @@ def plot(request):
         return Time(x1_val, format='mjd').datetime
     
     # Get data from DB
-    column_names = ['id', 'juliandate', 'band', 'instrument', 'mag', 'mag_err', 'p', 'p_err', 'chi', 'chi_err']
+    column_names = ['id', 'juliandate', 'band', 'instrument', 'mag', 'mag_err', 'p', 'p_err', 'chi', 'chi_err', 'flags']
     qs = PhotoPolResult.objects.filter(astrosource__name=source_name, band=band).all()
 
     if date_start is not None:
@@ -101,6 +102,7 @@ def plot(request):
         vals["p_err"] = np.append(vals["p_err"], iop3_df['dP']/100)
         vals["chi"] = np.append(vals["chi"], iop3_df['Theta'])
         vals["chi_err"] = np.append(vals["chi_err"], iop3_df['dTheta'])
+        vals["flags"] = np.append(vals["flags"], np.full(len(iop3_df), 0)) # do not show flags for IOP3 data (0 means no flags)
 
     if len(vals['id']) > 0:
         pks = vals['id']
@@ -144,22 +146,53 @@ def plot(request):
                                    palette=palette_nonselected, 
                                    factors=instruments_L)
     
+    # # Flags and markers
+
+    markermap = transform("flags", CustomJSTransform(v_func="""
+            let markers = [];
+            
+            for (let i = 0; i < xs.length; i++) {
+                                                     
+                let marker = "circle";
+                                                                                          
+                if (xs[i] & (1 << 0)) { // bad photometry
+                    marker = "triangle";
+                } 
+
+                if (xs[i] & (1 << 1)) { // bad polarimetry
+                    marker = "inverted_triangle";
+                }
+
+                if ((xs[i] & (1 << 0)) && (xs[i] & (1 << 1))) { // bad photometry and polarimetry
+                    marker = "cross";                                 
+                }
+                                                                                                                       
+                markers.push(marker);
+            }   
+                                                     
+            return markers;"""))
+
+
+    # Define data sources
+
     source = ColumnDataSource(data=dict(pk = pks,
                                         instrument = vals['instrument'],
                                         x1 = x1, 
                                         x2 = x2, 
+                                        datestr = Time(vals["juliandate"],format="jd").strftime("%Y/%m/%d %H:%M"),
                                         y1 = vals['mag'], 
-                                        y1_min = vals['mag']-vals['mag_err'],
-                                        y1_max = vals['mag']+vals['mag_err'],
+                                        y1_min = vals['mag']-vals['mag_err'], # if not sent it is computed in JS in check_plot()
+                                        y1_max = vals['mag']+vals['mag_err'], # if not sent it is computed in JS in check_plot()
                                         y1_err = vals['mag_err'],
                                         y2 = vals['p'], 
-                                        y2_min = vals['p']-vals['p_err'],
-                                        y2_max = vals['p']+vals['p_err'],
+                                        y2_min = vals['p']-vals['p_err'], # if not sent it is computed in JS in check_plot()
+                                        y2_max = vals['p']+vals['p_err'], # if not sent it is computed in JS in check_plot()
                                         y2_err = vals['p_err'],
                                         y3 = vals['chi'], 
-                                        y3_min = vals['chi']-vals['chi_err'],
-                                        y3_max = vals['chi']+vals['chi_err'],
+                                        y3_min = vals['chi']-vals['chi_err'], # if not sent it is computed in JS in check_plot()
+                                        y3_max = vals['chi']+vals['chi_err'], # if not sent it is computed in JS in check_plot()
                                         y3_err = vals['chi_err'],
+                                        flags = vals['flags'],
                                     ),
                                 name="source")
 
@@ -209,18 +242,19 @@ def plot(request):
                 if (cb_data.index.indices.length > 0) { 
                     let index = cb_data.index.indices[0];
                     let p = source.data.y2[index];
+                    let flags = source.data.flags[index];
 
                     if (isFinite(p)) {
-                        hover.tooltips = [["id", "@pk"], ["instrument", "@instrument"], ["mag", "@y1"], ["p", "@y2{0.0 %}"], ["chi", "@y3"]];                                       
+                        hover.tooltips = [["id", "@pk"], ["instrument", "@instrument"], ["date", "@datestr"], ["mag", "@y1"], ["p", "@y2{0.0 %}"], ["chi", "@y3"], ["flags", flags_to_str(flags)]];                                       
                     } else {
-                        hover.tooltips = [["id", "@pk"], ["instrument", "@instrument"], ["mag", "@y1"]];
+                        hover.tooltips = [["id", "@pk"], ["instrument", "@instrument"], ["date", "@datestr"], ["mag", "@y1"], ["flags", flags_to_str(flags)]];
                     }
                 } ''')
     
     # other tools
 
     #tools = ["fullscreen", "reset", "save", "pan", "auto_box_zoom", "wheel_zoom", "box_select", "lasso_select"]
-    tools = ["fullscreen", "reset", "save", "pan", "wheel_zoom", "box_select", "lasso_select"]
+    tools = ["fullscreen", "reset", "save", "pan", "wheel_zoom", "box_select", "tap", "lasso_select"]
     box_zoom_tool = BoxZoomTool(dimensions="auto")
 
     if enable_full_lc:
@@ -261,7 +295,8 @@ def plot(request):
                                 'y':"y1", 
                                 "y_label": "mag",
                                 "err": ["y1_min", "y1_max"],                                  
-                                "marker":"circle",
+                                # "marker": "circle", # better done
+                                "marker": markermap,
                                 "size": 5,
                                 "color": index_cmap_selected,
                                 "selected_color": index_cmap_selected,
@@ -275,7 +310,8 @@ def plot(request):
                                 'y':"y2", 
                                 "y_label": "p [%]",
                                 "err": ["y2_min", "y2_max"],
-                                "marker":"circle",
+                                # "marker":"circle",
+                                "marker": markermap,
                                 "size": 5,
                                 "color": index_cmap_selected,
                                 "selected_color": index_cmap_selected,
@@ -289,7 +325,8 @@ def plot(request):
                                 'y':"y3", 
                                 "y_label": "chi [º]",
                                 "err": ["y3_min", "y3_max"],                                  
-                                "marker":"circle",
+                                # "marker":"circle",
+                                "marker": markermap,
                                 "size": 5,
                                 "color": index_cmap_selected,
                                 "selected_color": index_cmap_selected,
@@ -375,25 +412,6 @@ def plot(request):
     else:
         plot_layout = gridplot([[pltDict["ax1"]["p"]], [pltDict["ax2"]["p"]], [pltDict["ax3"]["p"]]], merge_tools=True, toolbar_location="right", sizing_mode='stretch_both')
 
-    ##############
-    # Data table #
-    ##############
-    from bokeh.models.widgets import HTMLTemplateFormatter
-    table_link_formatter = HTMLTemplateFormatter(template="""<a href="/iop4/admin/iop4api/photopolresult/?id=<%= value %>"><%= value %></a>""")
-    table_columns = [   TableColumn(field="pk", title="id", formatter=table_link_formatter),
-                        TableColumn(field="instrument", title="instrument"),
-                        TableColumn(field="x1", title="mjd"),
-                        TableColumn(field="y1", title="mag"),
-                        TableColumn(field="y1_err", title="dmag"),
-                        TableColumn(field="y2", title="p"),
-                        TableColumn(field="y2_err", title="dp"),
-                        TableColumn(field="y3", title="chi"),
-                        TableColumn(field="y3_err", title="dchi")]
-               
-    data_table = DataTable(source=source, view=view, columns=table_columns, index_position=None,
-                           sortable=True, reorderable=True, scroll_to_selection=True, sizing_mode="stretch_width",
-                           stylesheets=[InlineStyleSheet(css=""".slick-cell.selected { background-color: #d2eaff; }""")])
-
     # Add a callback to hide errorbars when panning (it makes the plot smoother)
 
     from bokeh.events import Event, PanStart, PanEnd, Press, PressUp, RangesUpdate
@@ -412,6 +430,43 @@ def plot(request):
         p2.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
         p3.js_on_event(PanStart, CustomJS(code=cb_hide_errorbars))
         p3.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
+        
+    # add a callback to anable flagging data
+    
+    cb_stage_to_flag = CustomJS(args=dict(source=source), code="""
+        vueApp.$data.selected_plot_idx = source.selected.indices;
+    """)
+    source.selected.js_on_change('indices', cb_stage_to_flag)
+
+    ##############
+    # Data table #
+    ##############
+    
+    from bokeh.models.widgets import HTMLTemplateFormatter, NumberFormatter
+    table_link_formatter = HTMLTemplateFormatter(template="""<a href="/iop4/admin/iop4api/photopolresult/?id=<%= value %>"><%= value %></a>""")
+    float_formatter = NumberFormatter(format='0.00')
+    percent_formatter = NumberFormatter(format='0.0 %')
+    flags_to_str_formatter = HTMLTemplateFormatter(template="""<span><%= flags_to_str(flags) %></span>""")
+    
+    table_columns = [   
+                        TableColumn(field="pk", title="id", formatter=table_link_formatter),
+                        TableColumn(field="instrument", title="instrument"),
+                        TableColumn(field="x1", title="mjd", formatter=float_formatter),
+                        TableColumn(field="y1", title="mag", formatter=float_formatter),
+                        TableColumn(field="y1_err", title="dmag", formatter=float_formatter),
+                        TableColumn(field="y2", title="p", formatter=percent_formatter),
+                        TableColumn(field="y2_err", title="dp", formatter=percent_formatter),
+                        TableColumn(field="y3", title="chi", formatter=float_formatter),
+                        TableColumn(field="y3_err", title="dchi", formatter=float_formatter),
+                        TableColumn(field="flags", title="flags", formatter=flags_to_str_formatter),
+                    ]
+               
+    # tb_full_height = 6 + 25 + 25*max(len(source.data['pk']),30) # css padding + header + rows (and a max)
+    data_table = DataTable(source=source, view=view, columns=table_columns, index_position=None,
+                           sortable=True, reorderable=True, scroll_to_selection=True, sizing_mode="stretch_width",
+                        #      min_height=tb_full_height,  height=tb_full_height, height_policy="fixed",
+                            stylesheets=[InlineStyleSheet(css=""".slick-cell.selected { background-color: #d2eaff; }""")]) 
+    # the last two commented rows make the table unusable, the page becomes too slow.
 
     #################################################
     # Create a legend (it will be a different plot) #
@@ -454,11 +509,36 @@ def plot(request):
                                         """)
 
     legend_row_L = list()
+
     for instrument, color in zip(instruments_L, instrument_color_L):
         # Create Div elements for labels
         label = Div(text=f"""<label><span>{instrument}</span><input onclick="plot_hide_instrument(this);" data-instrument="{instrument}" type="checkbox" checked/></label>""", height=21, stylesheets=[label_stylesheet])
         # Create glyphs
         circle_glyph = Circle(x='x', y='y', fill_color=color, line_color=color, size=8)
+        # Create plots to hold the glyphs
+        legend_p = figure(width=21, height=21, toolbar_location=None, min_border=0, tools="")
+        legend_p.add_glyph(legend_source, circle_glyph)
+        legend_p.axis.visible = False
+        legend_p.grid.visible = False
+        legend_p.background_fill_alpha = 0.0
+        legend_p.outline_line_alpha = 0.0
+
+        # Combine glyphs and labels into rows
+        legend_row = Row(children=[legend_p, label], align="center")
+
+        legend_row_L.append(legend_row)
+
+    for flag_value, flag_label, marker in zip([1,2,3], ["bad photometry", "bad polarimetry", "bad photometry and polarimetry"], ["triangle", "inverted_triangle", "cross"]):
+        # Create Div elements for labels
+        if flag_value in [1,2]:
+            cbox = f"""<input onclick="plot_hide_flag(this);" data-flag="{flag_value}" type="checkbox" checked/>"""
+            no_pointer = ""
+        else:
+            cbox = ""
+            no_pointer = """ style="cursor: default;" """
+        label = Div(text=f"""<label {no_pointer}><span>{flag_label}</span>{cbox}</label>""", height=21, stylesheets=[label_stylesheet])
+        # Create glyphs
+        circle_glyph = Scatter(x='x', y='y', fill_color="black", line_color="black", size=8, marker=marker)
         # Create plots to hold the glyphs
         legend_p = figure(width=21, height=21, toolbar_location=None, min_border=0, tools="")
         legend_p.add_glyph(legend_source, circle_glyph)
