@@ -15,6 +15,7 @@ from astropy.time import Time
 
 # iop4lib imports
 from iop4lib.enums import *
+from .fields import FlagChoices, FlagBitField
 
 # logging
 import logging
@@ -103,6 +104,14 @@ class PhotoPolResult(models.Model):
 
     chi = models.FloatField(null=True, help_text="Polarization angle of the source [deg], result of the reduction.")
     chi_err = models.FloatField(null=True, help_text="Error for chi.")
+
+    ## flags
+    
+    class FLAGS(FlagChoices):
+        BAD_PHOTOMETRY = 1 << 1
+        BAD_POLARIMETRY = 1 << 2
+
+    flags = FlagBitField(choices=FLAGS.choices(), default=0, help_text="Flags for the quality of the result.")
 
     ## extra fields
 
