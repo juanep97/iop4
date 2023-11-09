@@ -2,7 +2,7 @@
     <div class="f-row wrappable smallest nice-width centered">
         <div class="f-row wrappable column-at-top row-at-center">
             <div class="f-row">
-                <form id="plot_astrosource_form" class="f-cell fit centered styled-box"  onsubmit="load_source_plot(this); return false;">
+                <form id="plot_astrosource_form" class="f-cell fit centered styled-box" :style="showPlot ? { margin: '0 auto'  } : {}"  onsubmit="load_source_plot(this); return false;">
                     {% csrf_token %}
                     <div class="form-block">
                         <div class="form-row">
@@ -30,7 +30,7 @@
                                 <q-card-section style="padding: 8px 16px 0 16px;">
                                     <div class="form-row wrappable" id="plot_config_fast_checkboxes">
                                         <div><label><input type="checkbox" name="enable_full_lc" v-model="enable_full_lc" :disabled="plot_config_fast"/><span style="margin-left: 0.8em;">Full curve</span></label></div>
-                                        <div><label><input type="checkbox" name="enable_errorbars" v-model="enable_errorbars" :disabled="plot_config_fast"/><span style="margin-left: 0.8em;">Errorbars</span></label></div>
+                                        <div><label><input type="checkbox" name="enable_errorbars" v-model="enable_errorbars" :disabled="plot_config_fast"/><span style="margin-left: 0.8em;">Enable errorbars</span></label></div>
                                         <div><label><input type="checkbox" name="enable_iop3" v-model="enable_iop3" :disabled="plot_config_fast"/><span style="margin-left: 0.8em;">IOP3</span></label></div>
                                     </div>
                                 </q-card-section>
@@ -44,9 +44,62 @@
             <div v-show="showPlot" class="f-row">
                 <div v-show="showPlot" id="plotControlsContainerDiv" class="f-cell fit centered styled-box" style="display: none;">
                     <div id="controls" style="margin-bottom: 16px;"><label>Toggle errorbars <input onclick="plot_update_errorbars_status();" id="cbox_errorbars" type="checkbox" :disabled="!(enable_errorbars)" checked/></label></div>
-                    <p>Click on an instrument or flag label to hide it in the plot.</p>
                     <div id="legendDiv"></div>
                 </div>
+            </div>
+            <div v-show="showPlot" class="f-row centered">
+                <div v-show="showPlot" class="f-cell styled-box nice-width">
+                    <q-card class="my-card" flat bordered>
+                        <q-card-section class="row items-center q-gutter-sm" flat bordered>
+                            <div class="col-12 col-md-auto">
+                                <q-item-label>Flag GUI</q-item-label>
+                            </div>
+                            
+                            <div class="col-12 col-md-auto">
+                                <q-btn label="show selected points" color="primary" @click="show_selected_plot_pts = true" :disable="selected_plot_pts.length == 0" size="sm"></q-btn>
+                            </div>
+
+                            <div class="col-12 col-md-auto">
+                                <q-item-label>[[ selected_plot_pts.length ]] points selected</q-item-label>
+                            </div>
+                            
+                            <div class="col-12">
+                                <div class="row q-gutter-x-sm">
+                                    <q-checkbox v-model="selected_plot_pts_flagstate.bad_photometry" @click="set_flag(1<<0, selected_plot_pts, !!selected_plot_pts_flagstate.bad_photometry)" :disable="selected_plot_pts.length == 0" label="bad photometry" size="sm"></q-checkbox>
+                                    <q-checkbox v-model="selected_plot_pts_flagstate.bad_polarimetry"  @click="set_flag(1<<1, selected_plot_pts, !!selected_plot_pts_flagstate.bad_polarimetry)"  :disable="selected_plot_pts.length == 0" label="bad polarimetry" size="sm"></q-checkbox>
+                                </div>
+                            </div>
+                        </q-card-section>                          
+                    </q-card>
+                </div>
+                <q-dialog v-model="show_selected_plot_pts">
+                    <q-markup-table>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <!--<th>CDS index</th>-->
+                                    <th>pk</th>
+                                    <th>flag (int)</th>
+                                    <th>flags (str)</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(point, index) in selected_plot_pts" :key="index">
+                                    <!-- <td>[[ index ]]</td> -->
+                                    <td>[[ point.pk ]]</td>
+                                    <td>[[ point.flags ]]</td>
+                                    <td>[[ point.flagsstr ]]</td>
+                                    <td>
+                                        <q-chip :selected="(point.flag & (1<<0))" @click="toggle_flag(1<<0, [point])" color="black" text-color="white" :outline="!(point.flag & (1<<0))">bad photometry</q-chip>
+                                        <q-chip :selected="(point.flag & (1<<1))" @click="toggle_flag(1<<1, [point])" color="black" text-color="white" :outline="!(point.flag & (1<<1))">bad polarimetry</q-chip>
+                                    </td>
+                                </tr>
+                            </tbody>
+                            <!-- <q-table :rows="selected_plot_pts" columns="" row-key="pk"></q-table> -->
+                        </table>
+                    </q-markup-table>
+                </q-dialog>
             </div>
             <div v-show="showPlot" class="f-row centered">
                 <div v-show="showPlot" id="plotTableContainerDiv" class="f-cell styled-box nice-width">

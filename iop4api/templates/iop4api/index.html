@@ -22,6 +22,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js" integrity="sha512-SgWewGM3r8xXm8LNXt4ZHqKVKu/7eKrJ1aBCbMaX44xXXaCcIvCAvD2kj9qnC1lhyjAu04mcPiTzcc/CaACnUQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
+    <!-- jquery gui required for bokeh datatable reorder -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script> 
+    <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.2/themes/smoothness/jquery-ui.css"> 
+    <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js"></script> 
+
     <!-- Bokeh -->
     <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.2.2.min.js"></script>
     <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.2.2.min.js"></script>
@@ -30,6 +35,7 @@
     <script src="https://cdn.bokeh.org/bokeh/release/bokeh-gl-3.2.2.min.js"></script>
     <script src="https://cdn.bokeh.org/bokeh/release/bokeh-mathjax-3.2.2.min.js"></script>
 
+    <!-- CSS styles and JS -->
     <link rel="stylesheet" href="{% static "iop4api/base.css" %}?datetime={% now "Y-m-d-Hi" %}">
     <script src="{% static "iop4api/gui.js" %}?datetime={% now "Y-m-d-Hi" %}"></script>
 </head>
@@ -111,6 +117,9 @@
                     enable_full_lc: false,
                     enable_iop3: false,
                     enable_errorbars: false,
+                    selected_plot_idx: [],
+                    show_selected_plot_pts: false,
+                    selected_refresh: 0,
                     // data
                     showDataTable: false,
                     // catalog
@@ -120,6 +129,92 @@
                     // logs
                     pipeline_log: {'isLoaded': false, 'data': null, items:[]},
                     pipeline_log_options: {'errors':true, 'warnings':true, 'info':true, 'debug':false, 'filter_text': null},
+                }
+            },
+            computed: {
+                bokeh_document() {
+                    return Bokeh.documents.slice(-1)[0];
+                },
+                bokeh_source: {
+                    get() {
+                        if (this.bokeh_document == null) {
+                            return null;
+                        } else {
+                            return this.bokeh_document.get_model_by_name('source').data;
+                        }
+                    },
+                    set(newValue) {
+                        new Error('bokeh_source is read-only');
+                    }
+                },
+                selected_plot_pts() {
+
+                    console.log("Computing selected_plot_pts");
+
+                    this.selected_refresh++;
+                    // Ensure that selected_plot_idx is reactive and triggers this computed property
+                    const newIndices = this.selected_plot_idx;
+
+                    // Get the last document in the Bokeh documents array
+                    const bokehDocument = Bokeh.documents.slice(-1)[0];
+                    if (!bokehDocument) {
+                        return [];
+                    }
+
+                    // Get the data source from the Bokeh document by its name
+                    const dataSource = bokehDocument.get_model_by_name('source').data;
+                    if (!dataSource) {
+                        return [];
+                    }
+
+                    // Use map to transform the indices into an array of point data
+                    return newIndices.map(index => {
+                        let pointData = {};
+                        for (let field in dataSource) {
+                            if (dataSource.hasOwnProperty(field)) {
+                                pointData[field] = dataSource[field][index];
+                            }
+                        }
+
+                        // add fake but useful flag str representation field
+                        pointData['flagsstr'] = flags_to_str(pointData['flags']);
+
+                        return pointData;
+                    });
+
+                },
+                selected_plot_pts_flagstate() {
+                    if (this.selected_plot_pts.length == 0) {
+                        notset = null;
+                        bad_photometry = null;
+                        bad_polarimetry = null;
+                    } else {
+                        if (this.selected_plot_pts.every(pt => (pt['flags'] === 0))) {
+                            notset = true;
+                        } else if (this.selected_plot_pts.some(pt => (pt['flags'] === 0))) {
+                            notset = null;
+                        } else {
+                            notset = false;
+                        }
+
+                        if (this.selected_plot_pts.every(pt => (pt['flags'] & (1<<0)))) {
+                            bad_photometry = true;
+                        } else if (this.selected_plot_pts.some(pt => (pt['flags'] & (1<<0)))) {
+                            bad_photometry = null;
+                        } else {
+                            bad_photometry = false;
+                        }
+
+                        if (this.selected_plot_pts.every(pt => (pt['flags'] & (1<<1)))) {
+                            bad_polarimetry = true;
+                        } else if (this.selected_plot_pts.some(pt => (pt['flags'] & (1<<1)))) {
+                            bad_polarimetry = null;
+                        } else {
+                            bad_polarimetry = false;
+                        }
+                    }
+
+                    return {notset:notset, bad_photometry:bad_photometry, bad_polarimetry:bad_polarimetry};
                 }
             },
             watch: {
@@ -216,6 +311,9 @@
                 catalog_row_clicked(evt,row) {
                     this.input_astrosource = row.name;
                 },
+                // flagging
+                toggle_flag,
+                set_flag,
             },
             beforeMount() {
                 this.updateSelectedTabFromPath();
