@@ -42,11 +42,11 @@ class AdminPhotoPolResult(admin.ModelAdmin):
     @admin.display(description="ReducedFits")
     def get_reducedfits(self, obj):
         self.allow_tags = True
-        link_L = list()
-        for reducedfit in obj.reducedfits.all():
-            url = reverse('iop4admin:%s_%s_changelist' % (ReducedFit._meta.app_label, ReducedFit._meta.model_name)) + f"?id={reducedfit.id}"
-            link_L.append(rf'<a href="{url}">{reducedfit.id}</a>')
-        return mark_safe(", ".join(link_L))
+        
+        ids_str_L = [str(reducedfit.id) for reducedfit in obj.reducedfits.all()]
+        a_href = reverse('iop4admin:%s_%s_changelist' % (ReducedFit._meta.app_label, ReducedFit._meta.model_name)) + "?id__in=%s" % ",".join(ids_str_L)
+        a_text = ", ".join(ids_str_L)
+        return mark_safe(f'<a href="{a_href}">{a_text}</a>')
     
     @admin.display(description="JD")
     def get_juliandate(self, obj):
