@@ -16,7 +16,7 @@
                             <input v-model="input_date_start" type="text" name="date_start" placeholder="From..." title="Select a start date (yyyy-mm-dd HH:MM)">
                             <input v-model="input_date_end" type="text" name="date_end" placeholder="To..." title="Select an end date (yyyy-mm-dd HH:MM)">
 
-                            <label><q-toggle v-model="plot_config_fast" color="blue"/><span>fast</span></label>
+                            <label><q-toggle v-model="plot_config_fast" color="blue"></q-toggle><span>fast</span></label>
                             <input type="checkbox" style="display:none" name="plot_config_fast" v-model="plot_config_fast" hidden />
                         </div>
                         <q-list padding bordered class="rounded-borders">
@@ -48,11 +48,11 @@
                 </div>
             </div>
             <div v-show="showPlot" class="f-row centered">
-                <div v-show="showPlot" class="f-cell styled-box nice-width">
-                    <q-card class="my-card" flat bordered>
+                <div v-show="showPlot" class="f-cell styled-box nice-width" id="FlagGUI">
+                    <q-card flat bordered>
                         <q-card-section class="row items-center q-gutter-sm" flat bordered>
                             <div class="col-12 col-md-auto">
-                                <q-item-label>Flag GUI</q-item-label>
+                                <q-item-label>Flag GUI <q-toggle v-model="flag_gui_popup" color="blue"></q-toggle></q-item-label>
                             </div>
                             
                             <div class="col-12 col-md-auto">
@@ -65,34 +65,44 @@
                             
                             <div class="col-12">
                                 <div class="row q-gutter-x-sm">
-                                    <q-checkbox v-model="selected_plot_pts_flagstate.bad_photometry" @click="set_flag(1<<0, selected_plot_pts, !!selected_plot_pts_flagstate.bad_photometry)" :disable="selected_plot_pts.length == 0" label="bad photometry" size="sm"></q-checkbox>
-                                    <q-checkbox v-model="selected_plot_pts_flagstate.bad_polarimetry"  @click="set_flag(1<<1, selected_plot_pts, !!selected_plot_pts_flagstate.bad_polarimetry)"  :disable="selected_plot_pts.length == 0" label="bad polarimetry" size="sm"></q-checkbox>
+                                    <q-checkbox v-model="selected_plot_pts_flagsummary.bad_photometry" @click="set_flag(1<<0, selected_plot_pts, !!selected_plot_pts_flagsummary.bad_photometry)" :disable="selected_plot_pts.length == 0" label="bad photometry" size="sm"></q-checkbox>
+                                    <q-checkbox v-model="selected_plot_pts_flagsummary.bad_polarimetry"  @click="set_flag(1<<1, selected_plot_pts, !!selected_plot_pts_flagsummary.bad_polarimetry)"  :disable="selected_plot_pts.length == 0" label="bad polarimetry" size="sm"></q-checkbox>
                                 </div>
                             </div>
                         </q-card-section>                          
                     </q-card>
                 </div>
                 <q-dialog v-model="show_selected_plot_pts">
-                    <q-markup-table>
+                    <q-markup-table style="max-width: 95vw !important;">
                         <table>
                             <thead>
                                 <tr>
                                     <!--<th>CDS index</th>-->
                                     <th>pk</th>
+                                    <th>mjd</th>
+                                    <th>date</th>
+                                    <th>mag</th>
+                                    <th>p (%)</th>
+                                    <th>chi (º)</th>
                                     <th>flag (int)</th>
-                                    <th>flags (str)</th>
+                                    <!-- <th>flags (str)</th> -->
                                     <th></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr v-for="(point, index) in selected_plot_pts" :key="index">
                                     <!-- <td>[[ index ]]</td> -->
-                                    <td>[[ point.pk ]]</td>
+                                    <td><a v-bind:href="`/iop4/admin/iop4api/photopolresult/?id=${point.pk}`">[[ point.pk ]]</a></td>
+                                    <td>[[ formatFloat(point.x1,5) ]]</td>
+                                    <td>[[ point.datestr ]]</td>
+                                    <td v-if="!isNaN(point.y1)">[[ formatFloat(point.y1,3) ]] &#177; [[ formatFloat(point.y1_err,3) ]]</td><td v-else>-</td>
+                                    <td v-if="!isNaN(point.y2)">[[ formatFloat(100*point.y2,3) ]] &#177; [[ formatFloat(100*point.y2_err,3) ]]</td><td v-else>-</td>
+                                    <td v-if="!isNaN(point.y3)">[[ formatFloat(point.y3,3) ]] &#177; [[ formatFloat(point.y3_err,3) ]]</td><td v-else>-</td>
                                     <td>[[ point.flags ]]</td>
-                                    <td>[[ point.flagsstr ]]</td>
+                                    <!-- <td>[[ point.flagsstr ]]</td> -->
                                     <td>
-                                        <q-chip :selected="(point.flag & (1<<0))" @click="toggle_flag(1<<0, [point])" color="black" text-color="white" :outline="!(point.flag & (1<<0))">bad photometry</q-chip>
-                                        <q-chip :selected="(point.flag & (1<<1))" @click="toggle_flag(1<<1, [point])" color="black" text-color="white" :outline="!(point.flag & (1<<1))">bad polarimetry</q-chip>
+                                        <q-chip :selected="point.has_flag_bad_photometry" @click="toggle_flag(1<<0, [point])" color="black" text-color="white" :outline="!point.has_flag_bad_photometry">bad photometry</q-chip>
+                                        <q-chip :selected="point.has_flag_bad_polarimetry" @click="toggle_flag(1<<1, [point])" color="black" text-color="white" :outline="!point.has_flag_bad_polarimetry">bad polarimetry</q-chip>
                                     </td>
                                 </tr>
                             </tbody>

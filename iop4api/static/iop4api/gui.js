@@ -53,7 +53,29 @@ function load_source_datatable(form_element) {
         if (request.readyState === 4) {
             if (request.status === 200) {
                 vueApp.addLogEntry(null, "", "Query - Resonse OK");
-                make_nice_table(JSON.parse(request.responseText));
+                vueApp.$data.tableData = JSON.parse(request.responseText)
+                vueApp.$data.tableData.tabulatorjs_coldefs = vueApp.$data.tableData.columns.map(function(c) {
+                    cdef = {
+                                field: c.name,
+                                title: c.title, 
+                                visible: c.visible,
+                                headerTooltip: c.help,
+                            };
+
+                    if (c.type == 'float') {
+                        // if it is a general float field
+                        cdef['formatter'] = function(cell, formatterParams, onRendered) {
+                            val = cell.getValue();
+                            if (val == null) { 
+                                    return ""; 
+                            } else {
+                                return val.toFixed(3);
+                            }
+                        }
+                    }
+                    return cdef;
+                });
+                make_nice_table();
                 vueApp.$data.showDataTable = true;
             } else {
                 vueApp.addLogEntry("Error loading data", request.responseText, "Query - Error");
@@ -65,11 +87,27 @@ function load_source_datatable(form_element) {
     request.send(formdata); 
 }
 
-function make_nice_table(tableData) {
+// extend tabulator with custom filters
+Tabulator.extendModule("filter", "filters", {
+    "null":function(filterVal, rowVal){
+        return rowVal == null ? true : false;
+    },
+    "notnull":function(filterVal, rowVal){
+        return rowVal != null ? true : false;
+    },
+    "after":function(filterVal, rowVal){
+        return Date.parse(rowVal) > Date.parse(filterVal) ? true : false;
+    },
+    "before":function(filterVal, rowVal){
+        return Date.parse(rowVal) < Date.parse(filterVal) ? true : false;
+    }
+});
+
+function make_nice_table() {
     
     var table = new Tabulator("#tableDiv", {
-        data: tableData.data,
-        columns: tableData.columns,
+        data: vueApp.$data.tableData.data,
+        columns: vueApp.$data.tableData.tabulatorjs_coldefs,
         // autoColumns: true,
         layout: "fitDataFill", // "fitDataStretch",
         pagination: true, 
@@ -89,8 +127,8 @@ function make_nice_table(tableData) {
     });
 
     // link table controls to this table
-    document.getElementById("download-csv").onclick =  function() { table.download("csv", "data.csv"); };
-    document.getElementById("download-pdf").onclick = function() { table.download("pdf", "data.pdf", { orientation:"landscape",  title:"title", }); };
+    document.getElementById("download-csv").onclick =  function() { table.download("csv", `IOP4_data_${vueApp.$data.tableData.query.source_name}.csv`); };
+    document.getElementById("download-pdf").onclick = function() { table.download("pdf", `IOP4_data_${vueApp.$data.tableData.query.source_name}.pdf`, { orientation:"landscape",  title:"title", }); };
 
     //filters = array of filters currently applied, rows = array of row components that pass the filters
     table.on("dataFiltered", function(filters, rows){ 
@@ -372,8 +410,9 @@ function get_ymin_ymax(field_y, field_y_err) {
 
 function check_plot_layout() {
     console.log((new Date).toLocaleTimeString(), "Checking plot")
+    console.log("Is idle", Bokeh.documents.slice(-1)[0].is_idle)
 
-    // compute the y_min and y_max columns from the source data if not present
+    /* compute the y_min and y_max columns from the source data if not present */
 
     source = Bokeh.documents.slice(-1)[0].get_model_by_name('source')
 
@@ -400,7 +439,39 @@ function check_plot_layout() {
 
     // source.change.emit();
 
-    // check error bar status
+    /* reorder table and flag gui, we want the flag gui to be as closest as posible to the plot */
+
+    function _pos_at_center(element) {
+        const {top, left, width, height} = element.getBoundingClientRect();
+        return {
+          x: left + width / 2,
+          y: top + height / 2
+        };
+    }
+     
+    function _distance(a, b) {
+       const aPosition = _pos_at_center(a);
+       const bPosition = _pos_at_center(b);
+     
+       return Math.hypot(aPosition.x - bPosition.x, aPosition.y - bPosition.y);  
+    }
+
+    plotDiv = document.getElementById("plotDiv");
+    tb = document.getElementById("tablePlotDiv");
+    flaggui = document.getElementById("FlagGUI");
+
+    if (_distance(plotDiv, flaggui) > _distance(plotDiv, tb)) {
+        if (FlagGUI.parentElement.compareDocumentPosition(tb.parentElement.parentElement) & Node.DOCUMENT_POSITION_PRECEDING) {
+            FlagGUI.parentElement.after(tb.parentElement.parentElement);
+        } else {
+            FlagGUI.parentElement.before(tb.parentElement.parentElement);
+        }
+    }
+
+    // force table to redraw by emmitting the change
+    Bokeh.documents.slice(-1)[0]._roots[1].change.emit();
+
+    /* check error bar status */
 
     console.log("Checking errorbar status")
 
@@ -426,27 +497,53 @@ function check_plot_layout() {
 
     // emit all changes
 
-    for (let plot of Bokeh.documents.slice(-1)[0]._roots[0].children) {
-        plot[0].left[0].change.emit();
-        plot[0].title.change.emit();
+    function _check_plot_emit_changes() {
+        // emit changes on the altered elements so the redraw
+
+        for (let plot of Bokeh.documents.slice(-1)[0]._roots[0].children) {
+            plot[0].left[0].change.emit();
+            plot[0].title.change.emit();
+        }
+
+        Bokeh.documents.slice(-1)[0]._roots[0].children[0][0].above[0].change.emit();
     }
 
-    Bokeh.documents.slice(-1)[0]._roots[0].children[0][0].above[0].change.emit();
-    Bokeh.documents.slice(-1)[0]._roots[0].children[0][0].change.emit();
+    _check_plot_emit_changes();
+
+    // work around because some times the plot takes a bit longer to update
+    // there should be a function to just redraw or trigger the resize for
+    // but i can not find when its the right time. 200ms should be enough
+    // Basically repeats the above code after 200ms.
+    
+    setTimeout(() => { 
+        _check_plot_emit_changes();
+    }, 200);
+
+    // alternatively, emit resize event to force the plot to redraw
+    // but implement some flag to avoid infinite recursion (not done yet)
+    // window.dispatchEvent(new Event('resize'))
 
     /* plot table size */
+
     tb_container = document.getElementById("plotTableContainerDiv")
     tb_r = tb_container.parentElement
     tb_r.style.height = 0
     y = 0
     Array.from(tb_r.parentElement.children).forEach( x => { if (x != tb_r) { y += x.offsetHeight + 20; }}); // 20 is the gap
 
-    // let maxheight = clamp(tb_r.parentElement.offsetHeight - y, parseInt(getComputedStyle(tb_container)['min-height']), parseInt(getComputedStyle(tb_container)['max-height'])) + 'px';
     let maxHeight = parseInt(window.getComputedStyle(tb_r.parentElement).height) - y;
 
     tb_r.style.height = "";
 
-    tb_container.style.maxHeight = maxHeight + 'px';
+    if (maxHeight > 100) { // of it is = 0 it will wrapped in column, 100 as error margin
+        tb_container.style.maxHeight = maxHeight + 'px';
+    } else {
+        tb_container.style.maxHeight = "10 em";
+    }
+
+
+
+    console.log("Plot checked")
 }
 
 
@@ -566,13 +663,19 @@ function load_catalog() {
         if (request.readyState === 4) {
             if (request.status === 200) {
                 vueApp.$data.catalog = JSON.parse(request.responseText);
-                vueApp.$data.catalog.columns = vueApp.$data.catalog.columns.map((c) => ({
-                                                        name: c.name,
-                                                        align: 'left',
-                                                        label: c.title,
-                                                        field: c.field,
-                                                        style: 'min-width: min-content;',
-                                                    }));
+                // map the columns data provided by the api endpoint to the columns data required by the quasar table component
+                vueApp.$data.catalog.columns = vueApp.$data.catalog.columns.map(function(c) {
+                    cdef = {};
+                    cdef = Object.assign(c, c);
+                    cdef = Object.assign(cdef, {
+                                name: c.name,
+                                field: c.name,
+                                label: c.title,                                                        
+                                align: 'left',
+                                style: 'min-width: min-content;',
+                    });
+                    return cdef;
+                });
             } else {
                 Quasar.Notify.create("Error loading catalog");
             }
@@ -626,19 +729,23 @@ function extractTextFromHTML(html) {
 highlight_parser = new DOMParser();
 
 function highlightTextInHTML(html, re_expr) {
-    let doc = highlight_parser.parseFromString(html, 'text/html');
+    let parser = new DOMParser();
+    let doc = parser.parseFromString(html, 'text/html');
 
-    //if (re_expr.test(doc.textContent)) {
-        doc.body.querySelectorAll('*').forEach(el => {
-            // Check if it's a innermost text node
-            if (el.childNodes.length === 1 && el.firstChild.nodeType === 3) { 
-                el.innerHTML = el.innerHTML.replaceAll(re_expr, function(match) {
-                    return `<span class="highlight">${match}</span>`;
-                });
+    function processNode(node) {
+        if (node.nodeType === 3) { // Node.TEXT_NODE
+            const matches = node.nodeValue.match(re_expr);
+            if (matches) {
+                const span = document.createElement('span');
+                span.innerHTML = node.nodeValue.replaceAll(re_expr, '<span class="highlight">$&</span>');
+                node.parentNode.replaceChild(span, node);
             }
-        });
-    //}
+        } else if (node.nodeType === 1) { // Node.ELEMENT_NODE
+            Array.from(node.childNodes).forEach(processNode);
+        }
+    }
 
+    Array.from(doc.body.childNodes).forEach(processNode);
     return doc.body.innerHTML;
 }
 
@@ -649,9 +756,13 @@ function highlightTextInHTML2(html, re_expr) {
 }
 
 function show_pipeline_log() {
+
+    console.log("vueApp.$data.pipeline_log_options", vueApp.$data.pipeline_log_options)
+
+    // Filter the log lines
     vueApp.$data.pipeline_log.items = vueApp.$data.pipeline_log.data.split('\n').filter((txt) => {
         // if the filter text is not empty, hide lines that do not contain it
-        if ((vueApp.$data.pipeline_log_options.filter_text != null) && (vueApp.$data.pipeline_log_options.filter_text != '') && (vueApp.$data.pipeline_log_options.filter_text.length > 2)) {
+        if (!!(vueApp.$data.pipeline_log_options.filter_text) && (vueApp.$data.pipeline_log_options.filter_text.length > 0)) {
             if (!extractTextFromHTML(txt).toUpperCase().includes(vueApp.$data.pipeline_log_options.filter_text.toUpperCase())) { return false; }
         }
         // show only lines of the selected logging levels
@@ -662,11 +773,12 @@ function show_pipeline_log() {
         return false
     });
     
-    // if the filter text is not empty, highlight the text
-    if ((vueApp.$data.pipeline_log_options.filter_text != null) && (vueApp.$data.pipeline_log_options.filter_text != '' && vueApp.$data.pipeline_log_options.filter_text.length > 2)) {
+    // Highlight the searched text
+    if ((vueApp.$data.pipeline_log_options.filter_text != null) && (vueApp.$data.pipeline_log_options.filter_text != '' && vueApp.$data.pipeline_log_options.filter_text.length > 0)) {
         re_expr = new RegExp(vueApp.$data.pipeline_log_options.filter_text, 'gi');
         for (let i = 0; i < vueApp.$data.pipeline_log.items.length; i++) {
-            vueApp.$data.pipeline_log.items[i] = highlightTextInHTML2(vueApp.$data.pipeline_log.items[i], re_expr);
+            vueApp.$data.pipeline_log.items[i] = highlightTextInHTML(vueApp.$data.pipeline_log.items[i], re_expr);
         }
     }
+
 }

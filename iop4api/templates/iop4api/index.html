@@ -117,11 +117,16 @@
                     enable_full_lc: false,
                     enable_iop3: false,
                     enable_errorbars: false,
+                    // plot (flagging)
                     selected_plot_idx: [],
                     show_selected_plot_pts: false,
                     selected_refresh: 0,
+                    flag_gui_popup: false,
                     // data
                     showDataTable: false,
+                    showDataTableFilters: false,
+                    DataTableFilters: [],
+                    tableData: null,
                     // catalog
                     catalog: null,
                     // query
@@ -151,20 +156,28 @@
 
                     console.log("Computing selected_plot_pts");
 
-                    this.selected_refresh++;
+                    console.log("this.selected_refresh", this.selected_refresh++);
+
                     // Ensure that selected_plot_idx is reactive and triggers this computed property
                     const newIndices = this.selected_plot_idx;
 
                     // Get the last document in the Bokeh documents array
                     const bokehDocument = Bokeh.documents.slice(-1)[0];
                     if (!bokehDocument) {
+                        console.log("no bokeh document");
                         return [];
                     }
 
                     // Get the data source from the Bokeh document by its name
                     const dataSource = bokehDocument.get_model_by_name('source').data;
                     if (!dataSource) {
+                        console.log("no data source");
                         return [];
+                    }
+
+                    // If the flag GUI is activated, show the popup table
+                    if (this.flag_gui_popup) {
+                        this.show_selected_plot_pts = true;
                     }
 
                     // Use map to transform the indices into an array of point data
@@ -179,11 +192,14 @@
                         // add fake but useful flag str representation field
                         pointData['flagsstr'] = flags_to_str(pointData['flags']);
 
+                        // to make it easier
+                        pointData['has_flag_bad_photometry'] = (pointData['flags'] & (1<<0));
+                        pointData['has_flag_bad_polarimetry'] = (pointData['flags'] & (1<<1));
+
                         return pointData;
                     });
-
                 },
-                selected_plot_pts_flagstate() {
+                selected_plot_pts_flagsummary() {
                     if (this.selected_plot_pts.length == 0) {
                         notset = null;
                         bad_photometry = null;
@@ -241,12 +257,62 @@
                     deep: true,
                     immediate: true,
                 },
+                // log viewer gui
                 pipeline_log_options: {
                     handler(newValue, oldValue) {
                         if (this.pipeline_log.isLoaded) {
-                            show_pipeline_log();
+                            // filter on input with:
+                            //show_pipeline_log();
+                            // but this can be slow if the log is large and there's only 1 or 2 chars written
+                            // better filter on enter (implemented on the @change)
+                            // but if filter options are changed, we should trigger filter (done in @update:selected on the q-chips)
+                            // if the update is done here, remove those @events
                         }
                         this.pipeline_log_options.filter_timeout = null;
+                    },
+                    deep: true
+                },
+                // data table filters
+                DataTableFilters: {
+                    handler(newValue, oldValue) {
+                        // get only filters with non empty field and type
+                        let filter_array = newValue.filter(function (el) {
+                            return el.field != '' && el.type != '';
+                        });
+
+                        // interpret some filters
+                        filter_array = Array.from(filter_array).map(function (e) { 
+                            let field = e.field;
+                            let type = e.type;
+                            let value = e.value;
+
+                            // debug 
+                            console.log('input [field, type, value] = ' + [field, type, value]); // debug
+            
+                            if (value === '') { // if empty, null (works with = or != default filters)
+                                value = null;
+                            } else if (type != 'after') { // if values can be numbers, fix type
+                                if (!isNaN(value) && !isNaN(Number(value))) {
+                                    value = Number(value);
+                                }
+                            }
+
+                            // debug
+                            console.log(`was interpreted as [${field}, ${type}, ${value}] = [${field}, ${type}, ${value}] (${typeof value})`); // debug
+
+                            return {'field':field, 'type':type, 'value':value};
+                });
+
+                        // get tabulator table
+                        let table = Tabulator.findTable('#tableDiv')[0];
+
+                        // set new filters or clear them if there are none
+                        if (filter_array.length == 0) {
+                            table.clearFilter();
+                        } else {
+                            table.setFilter(filter_array);
+                        }
+
                     },
                     deep: true
                 },
@@ -311,9 +377,19 @@
                 catalog_row_clicked(evt,row) {
                     this.input_astrosource = row.name;
                 },
+                // also make some gui.js available inside vue
                 // flagging
                 toggle_flag,
                 set_flag,
+                // logs,
+                show_pipeline_log,
+                // to format floats to give precision or return nan
+                formatFloat(value, precision) {
+                    if (value === null || isNaN(Number(value))) {
+                        return 'NaN';
+                    }
+                    return Number(value).toFixed(precision);
+                },
             },
             beforeMount() {
                 this.updateSelectedTabFromPath();

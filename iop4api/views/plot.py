@@ -38,6 +38,7 @@ def plot(request):
     enable_full_lc = request.POST.get("enable_full_lc", False)
     enable_errorbars = request.POST.get("enable_errorbars", False)
 
+    save_filename = f"IOP4_{source_name}_{band}"
 
     # comment these lines to allow for empty plot
     if not AstroSource.objects.filter(name=source_name).exists(): 
@@ -49,13 +50,15 @@ def plot(request):
     from bokeh.document import Document
     from bokeh.transform import factor_cmap
     from bokeh.layouts import column, gridplot
-    from bokeh.models import CategoricalColorMapper, LinearColorMapper, RangeTool, Range1d, LinearAxis, CustomJS, ColumnDataSource, Whisker, DatetimeAxis, DatetimeTickFormatter, Scatter, Segment, CDSView, GroupFilter, AllIndices, HoverTool, NumeralTickFormatter, BoxZoomTool, DataTable, TableColumn, CategoricalMarkerMapper, CustomJSTransform
+    from bokeh.models import CategoricalColorMapper, LinearColorMapper, RangeTool, Range1d, LinearAxis, CustomJS, ColumnDataSource, Whisker, DatetimeAxis, DatetimeTickFormatter, Scatter, Segment, CDSView, GroupFilter, AllIndices, HoverTool, NumeralTickFormatter, BoxZoomTool, DataTable, TableColumn, CategoricalMarkerMapper, CustomJSTransform, CustomJSHover, SaveTool, Toolbar
     from bokeh.plotting import figure, show
     from bokeh.embed import components, json_item
     from bokeh.models import Div, Circle, Column, Row
     from bokeh.plotting import figure
     from bokeh.models import ColumnDataSource, Styles, InlineStyleSheet, GlobalInlineStyleSheet
     from bokeh.transform import factor_cmap, factor_mark, transform
+    from bokeh.events import Event, PanStart, PanEnd, Press, PressUp, RangesUpdate
+    from bokeh.models.widgets import HTMLTemplateFormatter, NumberFormatter
 
     lod_threshold = 2000
     lod_factor = 10
@@ -177,8 +180,8 @@ def plot(request):
 
     source = ColumnDataSource(data=dict(pk = pks,
                                         instrument = vals['instrument'],
-                                        x1 = x1, 
-                                        x2 = x2, 
+                                        x1 = x1, # mjd
+                                        x2 = x2, # datetime
                                         datestr = Time(vals["juliandate"],format="jd").strftime("%Y/%m/%d %H:%M"),
                                         y1 = vals['mag'], 
                                         y1_min = vals['mag']-vals['mag_err'], # if not sent it is computed in JS in check_plot()
@@ -237,25 +240,66 @@ def plot(request):
         range_tool.overlay.fill_alpha = 0.2
 
     # Create a hover tool with custom JS callback
-    hover = HoverTool(renderers=[])
-    hover.callback = CustomJS(args = dict(source = source, hover = hover), code = '''
-                if (cb_data.index.indices.length > 0) { 
-                    let index = cb_data.index.indices[0];
-                    let p = source.data.y2[index];
-                    let flags = source.data.flags[index];
 
-                    if (isFinite(p)) {
-                        hover.tooltips = [["id", "@pk"], ["instrument", "@instrument"], ["date", "@datestr"], ["mag", "@y1"], ["p", "@y2{0.0 %}"], ["chi", "@y3"], ["flags", flags_to_str(flags)]];                                       
-                    } else {
-                        hover.tooltips = [["id", "@pk"], ["instrument", "@instrument"], ["date", "@datestr"], ["mag", "@y1"], ["flags", flags_to_str(flags)]];
-                    }
-                } ''')
+    hover_formatter = CustomJSHover(args=dict(source=source), 
+                                    code="""
+                                        let idx = special_vars.index;
+
+                                        const [name, s1, s2] = format.split(',');
+                                        const y = source.data[s1][idx];
+                                        const dy = source.data[s2][idx];
+
+                                        if (name == "mag") {
+                                            return parseFloat(y).toFixed(2) + " ± " + parseFloat(dy).toFixed(2);
+                                        } else if ((name == "p")) {
+                                            return parseFloat(100*y).toFixed(2) + " ± " + parseFloat(100*dy).toFixed(2) + " %";
+                                        } else if ((name == "chi")) {
+                                            return parseFloat(y).toFixed(2) + " ± " + parseFloat(dy).toFixed(2) + " º";
+                                        }
+
+                                        return "error in hover formatter";
+                                        """)
+
+    hover_tool = HoverTool(renderers=[], formatters={"@pk":hover_formatter})
+
+    hover_tool.callback = CustomJS(args = dict(source = source, hover = hover_tool), code = '''
+            if (cb_data.index.indices.length > 0) { 
+                let index = cb_data.index.indices[0];
+                              
+                let mag = source.data.y1[index];
+                let p = source.data.y2[index];
+                let chi = source.data.y3[index];
+                let flags = source.data.flags[index];
+
+                let tooltips = [["id", "@pk"], ["instrument", "@instrument"], ["date", "@datestr"]]
+                              
+                if (isFinite(mag)) {
+                    //tooltips.push(["mag", "@y1"]);
+                    tooltips.push(["mag", "@pk{mag,y1,y1_err}"]);
+                }
+                             
+                if (isFinite(p)) {
+                    //tooltips.push(["mag", "@y2{0.0 %}"]);
+                    tooltips.push(["p", "@pk{p,y2,y2_err}"]);                                       
+                } 
+                              
+                if (isFinite(chi)) {
+                    //tooltips.push(["mag", "@y2"]);
+                    tooltips.push(["chi", "@pk{chi,y3,y3_err}"]);
+                }
+                    
+                tooltips.push(["flags", flags_to_str(flags)]);
+                              
+                hover.tooltips = tooltips
+                
+            } ''')
     
     # other tools
 
-    #tools = ["fullscreen", "reset", "save", "pan", "auto_box_zoom", "wheel_zoom", "box_select", "lasso_select"]
-    tools = ["fullscreen", "reset", "save", "pan", "wheel_zoom", "box_select", "tap", "lasso_select"]
-    box_zoom_tool = BoxZoomTool(dimensions="auto")
+    save_tool = SaveTool(filename=save_filename) # customize filename of saved plot
+    # tools = ["fullscreen", "reset", "pan", "wheel_zoom", "box_select", "tap", "lasso_select", save_tool, "auto_box_zoom"]
+    box_zoom_tool = BoxZoomTool(dimensions="auto") # added separately in each figure to make it the default active tool
+    tools = ["fullscreen", "reset", "pan", "wheel_zoom", "box_select", "tap", "lasso_select", save_tool]
 
     if enable_full_lc:
         # Create the main plot with range slider and secondary x-axis, fixed styles of markers
@@ -339,7 +383,7 @@ def plot(request):
                             
     for axLabel, axDict in pltDict.items():
 
-        p = figure(title=None, x_range=selected_range, toolbar_location=None, tools=tools, lod_threshold=lod_threshold, lod_factor=lod_factor, lod_timeout=lod_timeout, output_backend="webgl")
+        p = figure(title=None, x_range=selected_range, toolbar_location=None, tools=tools, lod_threshold=lod_threshold, lod_factor=lod_factor, lod_timeout=lod_timeout, output_backend="webgl", name=f"plot_{axLabel}")
 
         scatter_initial = Scatter(x=axDict['x'], y=axDict['y'], size=axDict["size"], fill_color=axDict["color"], line_color=axDict["color"], marker=axDict["marker"], fill_alpha=axDict["alpha"], line_alpha=axDict["alpha"])
         # scatter_selected = Scatter(x=axDict['x'], y=axDict['y'], size=axDict["size"], fill_color=axDict["selected_color"], line_color=axDict["selected_color"], marker=axDict["marker"], fill_alpha=axDict["selected_alpha"], line_alpha=axDict["selected_alpha"])
@@ -383,8 +427,8 @@ def plot(request):
         p.title.visible = False
 
         # Add common hover tool with custom JS callback
-        hover.renderers += [pt_renderers] # it has no renderers, append the scatter
-        p.add_tools(hover)
+        hover_tool.renderers += [pt_renderers] # it has no renderers, append the scatter
+        p.add_tools(hover_tool)
 
         # make box_zoom the default active tool
         p.add_tools(box_zoom_tool)
@@ -412,9 +456,16 @@ def plot(request):
     else:
         plot_layout = gridplot([[pltDict["ax1"]["p"]], [pltDict["ax2"]["p"]], [pltDict["ax3"]["p"]]], merge_tools=True, toolbar_location="right", sizing_mode='stretch_both')
 
-    # Add a callback to hide errorbars when panning (it makes the plot smoother)
+    plot_layout.name = "gridplot"
 
-    from bokeh.events import Event, PanStart, PanEnd, Press, PressUp, RangesUpdate
+    # this is a fix for the save tool of the gridplot not behaving as expected
+    # and having the filename of the configured plot
+    for tool in plot_layout.toolbar.tools:
+        if isinstance(tool, SaveTool):
+            tool.filename = save_filename
+            break
+
+    # Add a callback to hide errorbars when panning (it makes the plot smoother)
 
     if enable_errorbars:
         cb_hide_errorbars = """window.were_errorbars_active = document.querySelector('#cbox_errorbars').checked; plot_hide_errorbars();"""
@@ -442,7 +493,6 @@ def plot(request):
     # Data table #
     ##############
     
-    from bokeh.models.widgets import HTMLTemplateFormatter, NumberFormatter
     table_link_formatter = HTMLTemplateFormatter(template="""<a href="/iop4/admin/iop4api/photopolresult/?id=<%= value %>"><%= value %></a>""")
     float_formatter = NumberFormatter(format='0.00')
     percent_formatter = NumberFormatter(format='0.0 %')
@@ -461,12 +511,10 @@ def plot(request):
                         TableColumn(field="flags", title="flags", formatter=flags_to_str_formatter),
                     ]
                
-    # tb_full_height = 6 + 25 + 25*max(len(source.data['pk']),30) # css padding + header + rows (and a max)
     data_table = DataTable(source=source, view=view, columns=table_columns, index_position=None,
-                           sortable=True, reorderable=True, scroll_to_selection=True, sizing_mode="stretch_width",
-                        #      min_height=tb_full_height,  height=tb_full_height, height_policy="fixed",
+                           sortable=True, reorderable=True, scroll_to_selection=True, #sizing_mode="stretch_width", # this works and is fast
+                            sizing_mode="inherit", # this also works fast while respecting the container size
                             stylesheets=[InlineStyleSheet(css=""".slick-cell.selected { background-color: #d2eaff; }""")]) 
-    # the last two commented rows make the table unusable, the page becomes too slow.
 
     #################################################
     # Create a legend (it will be a different plot) #

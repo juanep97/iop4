@@ -6,10 +6,12 @@ iop4conf = iop4lib.Config(config_db=False)
 # django imports
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.contrib.auth.decorators import permission_required
+from django.db import models
 
 # iop4lib imports
 from iop4lib.db import AstroSource
 from iop4lib.enums import SRCTYPES
+from iop4lib.utils import qs_to_table
 
 # other imports
 
@@ -23,17 +25,8 @@ logger = logging.getLogger(__name__)
 
 @permission_required(["iop4api.view_astrosource"])
 def catalog(request):
-    qs = AstroSource.objects.exclude(srctype=SRCTYPES.CALIBRATOR).exclude(srctype=SRCTYPES.UNPOLARIZED_FIELD_STAR).values()
+    qs = AstroSource.objects.exclude(srctype=SRCTYPES.CALIBRATOR).exclude(srctype=SRCTYPES.UNPOLARIZED_FIELD_STAR)
 
-    data = list(qs)
+    all_column_names = [f.name for f in AstroSource._meta.get_fields() if hasattr(f, 'verbose_name')]
 
-    if len(data) > 0:
-        all_column_names = data[0].keys()
-        default_column_names = set(all_column_names)
-    else:
-        all_column_names = []
-        default_column_names = []
-
-    columns = [{"name": k, "title": AstroSource._meta.get_field(k).verbose_name, "field":k, "visible": (k in default_column_names)} for k in all_column_names]
-
-    return JsonResponse({'data': data, 'columns': columns})
+    return JsonResponse(qs_to_table(qs=qs, column_names=all_column_names))

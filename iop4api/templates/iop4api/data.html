@@ -12,6 +12,7 @@
     <button class="button" id="download-csv">Download as csv</button>
     <button class="button" id="download-pdf">Download as pdf</button>
     <button class="button" id="column-visibilities" onclick="show_column_visibility_modal_form()">Toggle columns</button>
+    <button class="button" id="column-visibilities" @click="showDataTableFilters=true;">Set filters</button>
     <!-- Column modal form -->
     <div id="column_visibility_modal_form" class="modal">
         <div class="modal-content">
@@ -21,5 +22,62 @@
         </div>
     </div>
     <!-- ################## -->
+    <!-- filter dialog -->
+    <q-dialog v-model="showDataTableFilters">
+        <q-card v-if="DataTableFilters.length == 0" flat bordered>
+            <q-card-section class="row items-center q-gutter-sm" flat bordered>
+                <q-item-label class="col-12 col-md-auto">No filters yet</q-item-label>
+                <q-btn label="add a new filter" color="primary" class="col-12 col-md-auto" @click="DataTableFilters.push({'field':'','type':'','value':''})"></q-btn>
+            </q-card-section>
+        </q-card>
+        <q-markup-table v-if="DataTableFilters.length != 0" style="max-width: 95vw !important;">
+            <table>
+                <thead>
+                    <tr>
+                        <!--<th>CDS index</th>-->
+                        <th>field</th>
+                        <th>type</th>
+                        <th>value</th>
+                        <th>action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="(filter, filter_idx) in DataTableFilters" :key="filter_idx">
+                        <!-- <td>[[ index ]]</td> -->
+                        <td>
+                            <select v-model="DataTableFilters[filter_idx].field" class="filter-field">
+                                <option v-for="(col, col_idx) in tableData.columns" :key="col_idx" :value="col.name">
+                                    [[ col.title ]]
+                                </option>
+                            </select>
+                        </td>
+                        <td>                                
+                            <select v-model="DataTableFilters[filter_idx].type" class="filter-type">
+                                <option value=""></option>
+                                <option value="=">=</option>
+                                <option value="<"><</option>
+                                <option value="<="><=</option>
+                                <option value=">">></option>
+                                <option value=">=">>=</option>
+                                <option value="!=">!=</option>
+                                <option value="like">like</option>
+                                <option value="after">after date</option>
+                                <option value="before">before date</option>
+                                <option value="null">null (input value ignored)</option>
+                                <option value="notnull">not null (input value ignored)</option>
+                            </select>
+                        </td>
+                        <td><input v-model="DataTableFilters[filter_idx].value" class="filter-value" type="text" placeholder="value to filter" title="Values will be interpreted as in the following order: &#10; 1) null if value is empty; &#10; 2) as a date if the type is 'after date' or 'before date' and the input is in the ISO 8601 date format (yyy/mm/dd); &#10; 3) as a number."></td>
+                        <td>
+                            <button class="filter-remove" @click="DataTableFilters.splice(filter_idx, 1, {'field':'','type':'','value':''})">&#8854;</button>
+                            <button class="filter-add" @click="DataTableFilters.splice(filter_idx, 0, {'field':'','type':'','value':''})">&#8853;</button>
+                        </td>
+                    </tr>
+                </tbody>
+                <!-- <q-table :rows="selected_plot_pts" columns="" row-key="pk"></q-table> -->
+            </table>
+        </q-markup-table>
+    </q-dialog>
+    <!-- ############# -->
 </div>
 <div v-show="showDataTable" id="tableContainerDiv"><div id="tableDiv"></div></div>

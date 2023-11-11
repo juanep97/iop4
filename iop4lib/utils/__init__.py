@@ -31,6 +31,38 @@ def get_column_values(qs, column_names):
     return {k: v for k, v in zip(column_names, map(np.array, values_lists))}
 
 
+def qs_to_table(qs=None, model=None, data=None, column_names=None, default_column_names=None):
+    """ Specify either queryset, or data and models."""
+
+    from django.db import models
+
+    if data is None or model is None:
+        if qs is None:
+            raise Exception("Either qs or data and model must be specified")
+        else:
+            model = qs.model
+            data = qs.values()
+
+    if column_names is None:
+        column_names = [f.name for f in model._meta.get_fields() if hasattr(f, 'name') and f.name in data[0].keys()]
+
+    if default_column_names is None:
+        default_column_names = column_names
+
+    columns = [{
+                    "name": k, 
+                    "title": model._meta.get_field(k).verbose_name, 
+                    "visible": (k in default_column_names),
+                    "type": "int" if isinstance(model._meta.get_field(k), models.IntegerField) else \
+                            "float" if isinstance(model._meta.get_field(k), models.FloatField) else \
+                            "str" if isinstance(model._meta.get_field(k), models.CharField) else \
+                            "str" if isinstance(model._meta.get_field(k), models.TextField) else \
+                            "date" if isinstance(model._meta.get_field(k), models.DateField) else \
+                            "unknown",
+                    "help": model._meta.get_field(k).help_text,
+                } for k in column_names]
+    
+    return {'data': list(data), 'columns': columns}
 
 def divisorGenerator(n):
     """Generator for divisors of n"""
