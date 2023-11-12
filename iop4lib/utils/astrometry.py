@@ -39,13 +39,21 @@ if typing.TYPE_CHECKING:
 @dataclasses.dataclass
 class BuildWCSResult():
     r"""
-        'success': bool, # whether the appropiate WCSs was built successfully
-        'wcslist': list # list of WCS objects built (usually one, two if there are extraordinary sources in the image)
-        'info': dict or None # dict with extra information about the process
+        'success': bool
+            whether the appropiate WCSs was built successfully
+        'wcslist': list 
+            list of WCS objects built (usually one, two if there are extraordinary sources in the image)
+        'info': dict or None 
+            dict with extra information about the process
+
+        Boolean evaluation of this object returns the value of 'success'.
     """
     success: bool
     wcslist: list[WCS] = dataclasses.field(default_factory=list)
-    info: dict = dataclasses.field(default_factory=dict)    
+    info: dict = dataclasses.field(default_factory=dict)   
+
+    def __bool__(self):
+        return self.success 
 
 
 def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict() = None, hard : bool = False, summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}) -> BuildWCSResult:
@@ -346,6 +354,7 @@ def _save_astrocalib_proc_vars(locals_dict):
     astrocalib_proc_vars = dict()
 
     save_list = [
+        'msg',
         'has_pairs',
         'bkg_box_size', 'bkg_filter_size',
         'bkg',
@@ -358,6 +367,7 @@ def _save_astrocalib_proc_vars(locals_dict):
 
     if locals_dict['has_pairs']:
         save_list += [
+        'msg',
         'wcs2',
         'hist_range', 'bins', 'd_eps',
         'seg1', 'seg2', 'seg_d0', 'seg_disp_sign',
