@@ -414,6 +414,8 @@ class DIPOL(Instrument):
         shotgun_params_kwargs["dx_max"] = [300]
         shotgun_params_kwargs["dy_min"] = [0]
         shotgun_params_kwargs["dy_max"] = [50]
+        shotgun_params_kwargs["d_min"] = [150]
+        shotgun_params_kwargs["d_max"] = [250]
         shotgun_params_kwargs["bins"] = [400]
         shotgun_params_kwargs["hist_range"] = [(0,500)]
 
