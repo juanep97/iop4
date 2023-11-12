@@ -548,7 +548,8 @@ class Epoch(models.Model):
         # output some debug info about the groups made
         for key_T, redf_L in groups_D.items():
             key_D = dict(key_T)
-            logger.debug(f"{len(redf_L)=}; {key_D.values()}, {set([redf.rotangle for redf in redf_L])}")
+            rotangles_S = sorted(set([redf.rotangle for redf in redf_L]))
+            logger.debug(f"{len(redf_L)=}; {key_D.values()}, {rotangles_S}")
     
         # split the groups into subgroups such that every subgroup has at most 4 elements and all rotangles are present in the subgroup
 
@@ -558,12 +559,12 @@ class Epoch(models.Model):
         for key_T, redf_L in groups_D.items():
             key_D = dict(key_T)
 
-            rotangles_S = set([redf.rotangle for redf in redf_L]) # rotangles available in the redf_L
+            rotangles_S = sorted(set([redf.rotangle for redf in redf_L])) # rotangles available in the redf_L
             
             split_rotangle_D = {rotangle:[redf for redf in redf_L if redf.rotangle==rotangle] for rotangle in rotangles_S}  # to access the redfs in the redfL by rotangle
             
             while any([len(split_rotangle_D[rotangle])>0 for rotangle in rotangles_S]): # while there are redfs for some rotangle, create groups by popping one of each rotangle
-                split_groups.append([split_rotangle_D[rotangle].pop() for rotangle in rotangles_S if len(split_rotangle_D[rotangle]) > 0])
+                split_groups.append([split_rotangle_D[rotangle].pop(0) for rotangle in rotangles_S if len(split_rotangle_D[rotangle]) > 0])
                 split_groups_keys.append(key_D)
 
         # sort the groups by min(juliandate)
@@ -581,7 +582,7 @@ class Epoch(models.Model):
                 t1 = Time(min([redf.juliandate for redf in redf_L]), format="jd").datetime.strftime("%H:%M:%S")
                 t2 = Time(max([redf.juliandate for redf in redf_L]), format="jd").datetime.strftime("%H:%M:%S")
                 
-                logging.debug(f"{len(redf_L)=}; {key_D.values()}, {set([redf.rotangle for redf in redf_L])}   ({t1}, {t2})")
+                logging.debug(f"Group {len(redf_L)=}; {key_D.values()}, {set([redf.rotangle for redf in redf_L])}   ({t1}, {t2})")
                 
                 for redf in redf_L:
                     logging.debug(f"     -> {redf.rotangle}: {Time(redf.juliandate, format='jd').datetime.strftime('%H:%M:%S')}")
