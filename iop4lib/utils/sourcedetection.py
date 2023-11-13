@@ -4,7 +4,7 @@ iop4conf = iop4lib.Config(config_db=False)
 import numpy as np
 
 from photutils.detection import DAOStarFinder
-from astropy.convolution import convolve
+from astropy.convolution import convolve, convolve_fft
 from photutils.segmentation import make_2dgaussian_kernel
 from astropy.stats import SigmaClip, sigma_clipped_stats
 from photutils.background import Background2D, MedianBackground, SExtractorBackground
@@ -30,8 +30,13 @@ def apply_gaussian_smooth(data, fwhm, kernel_size=None):
     if kernel_size is None:
         kernel_size = 2*int(fwhm)+1
 
+    if kernel_size < 30:
+        fconv = convolve
+    else:
+        fconv = convolve_fft
+
     kernel = make_2dgaussian_kernel(fwhm, size=kernel_size)
-    data = convolve(data, kernel)
+    data = fconv(data, kernel)
     return data
 
 def get_sources_daofind(data, threshold=None, fwhm=8.0, n_threshold=5.0, brightest=100, exclude_border=True):
@@ -84,8 +89,13 @@ def get_segmentation(imgdata_bkg_substracted, threshold, fwhm=1.0, kernel_size=N
     if kernel_size is None:
         kernel_size = 2*int(fwhm)+1
 
+    if kernel_size < 30:
+        fconv = convolve
+    else:
+        fconv = convolve_fft
+
     kernel = make_2dgaussian_kernel(fwhm, size=kernel_size)
-    convolved_data = convolve(imgdata_bkg_substracted, kernel)
+    convolved_data = fconv(imgdata_bkg_substracted, kernel)
 
     if deblend:
         finder = SourceFinder(npixels=npixels, deblend=deblend, progress_bar=False)
