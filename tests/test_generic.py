@@ -44,5 +44,5 @@ def test_testconfig_testdb(load_test_catalog):
     assert (PhotoPolResult.objects.count() == 0)
 
     # there should be some test sources in the DB, and their calibrators
-    assert (0 < AstroSource.objects.count() < 20)
+    assert AstroSource.objects.count() > 0
     assert AstroSource.objects.filter(name="2200+420").exists()

@@ -486,15 +486,15 @@ def get_candidate_rank_by_matchs(redf: 'ReducedFit',
         ap = CircularAperture(xycen, r=aperpix)
         annulus = CircularAnnulus(xycen, r_in=r_in, r_out=r_out)
 
-        annulus_stats = ApertureStats(redf.mdata, annulus, sigma_clip=SigmaClip(sigma=5.0, maxiters=10))
+        annulus_stats = ApertureStats(redf.mdata, annulus, sigma_clip=SigmaClip(sigma=5.0))
         ap_stats = ApertureStats(redf.mdata, ap)
         flux_counts = ap_stats.sum - annulus_stats.mean*ap_stats.sum_aper_area.value
 
         if not flux_counts > 0:
             continue
-        if not ap_stats.max > 3*annulus_stats.mean:
+        elif not ap_stats.max > 2*annulus_stats.std:
             continue
-        if not 2 < sigma < 50:
+        if not 8 < sigma < 60:
             continue
 
         calibrators_fluxes.append(flux_counts)
@@ -505,18 +505,13 @@ def get_candidate_rank_by_matchs(redf: 'ReducedFit',
         gc.collect()
 
     if len(calibrators_fluxes) > 0:
-        # this one is pretty nice, just look at how many matches with the calibs you find
+        # just look at how many matches with the calibs you find
         rank_1 = 1 - 0.5**np.sum(~np.isnan(calibrators_fluxes))
-        # but if you have one or tow calibrators, you might be unlucy, look at their brigtness
-        rank_2 = np.nansum(calibrators_fluxes) if np.sum(~np.isnan(calibrators_fluxes)) > 0 else 1
-        # however one single of thos brigh star can turn the rank to shit
 
         if not len(calibrators) > 0:
             logger.debug(f"No calibrators to rank, raising exception.")
             raise Exception
-        if len(calibrators) == 1:
-            rank = rank_1 * rank_2
-        elif len(calibrators) > 1:
+        else:
             rank = rank_1
     else: # if no calibrators could be fitted, return -np.inf 
         rank = -np.inf

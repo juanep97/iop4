@@ -602,7 +602,13 @@ class Epoch(models.Model):
 
         f = lambda x: Instrument.by_name(x[1]['instrument']).compute_relative_polarimetry(x[0], *args, **kwargs)
 
-        return list(map(f, zip(clusters_L, groupkeys_L)))
+        for i, (group, keys) in enumerate(zip(clusters_L, groupkeys_L)):
+            try:
+                Instrument.by_name(keys['instrument']).compute_relative_polarimetry(group, *args, **kwargs)
+            except Exception as e:
+                logger.error(f"{self}: error computing relative polarimetry for group n {i} {keys}: {e}")
+            finally:
+                logger.info(f"{self}: computed relative polarimetry for group n {i} {keys}.")
 
 
 

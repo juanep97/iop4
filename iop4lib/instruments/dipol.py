@@ -397,6 +397,7 @@ class DIPOL(Instrument):
 
             # log the variables above
 
+            logger.debug(f"{target_src.srctype=}")
             logger.debug(f"{n_estimate=}")
             logger.debug(f"{n_estimate_centered=}")
             logger.debug(f"{redf_phot=}")
@@ -406,13 +407,16 @@ class DIPOL(Instrument):
             def _try_EO_method():
 
                 if target_src.srctype == SRCTYPES.STAR:
-                    n_seg_threshold_L = [500, 300, 200, 100, 50]
-                    npixels_L = [64]
+                    n_seg_threshold_L = [700, 600, 500, 400, 300, 200, 100, 50]
+                    if reducedfit.exptime <= 5:
+                        npixels_L = [128, 256, 64]
+                    else:
+                        npixels_L = [64, 128]
                 else:
                     n_seg_threshold_L = [6.0, 3.0, 1.5, 1.0]
                     npixels_L = [64]
 
-                for npixels, n_seg_threshold in zip(npixels_L, n_seg_threshold_L):
+                for npixels, n_seg_threshold in itertools.product(npixels_L, n_seg_threshold_L):
                     if (build_wcs_result := cls._build_wcs_for_polarimetry_from_target_O_and_E(reducedfit, summary_kwargs=summary_kwargs, n_seg_threshold=n_seg_threshold, npixels=npixels)):
                         break
                 return build_wcs_result
@@ -421,7 +425,7 @@ class DIPOL(Instrument):
                 if redf_phot is not None:
                     
                     if target_src.srctype == SRCTYPES.STAR:
-                        n_threshold_L = [500, 300, 200, 100]
+                        n_threshold_L = [700, 600, 500, 400, 300, 200, 100]
                     else:
                         n_threshold_L = [15,5,3]
 
@@ -435,10 +439,10 @@ class DIPOL(Instrument):
             def _try_catalog_method():
 
                 if target_src.srctype == SRCTYPES.STAR:
-                    n_seg_threshold_L = [500, 300, 200, 100, 50]
-                    npixels_L = [64]
+                    n_seg_threshold_L = [700, 500, 400, 300, 200, 100, 50]
+                    npixels_L = [128, 64]
                 else:
-                    n_seg_threshold_L = [1.5, 1.0]
+                    n_seg_threshold_L = [1.0]
                     npixels_L = [64, 32]
             
                 if n_expected_calibrators > 0 or n_expected_simbad_sources > 0:
@@ -452,12 +456,13 @@ class DIPOL(Instrument):
 
             method_try_order = [_try_EO_method, _try_quad_method, _try_catalog_method]
 
-            if n_estimate_centered < 3:
+            if target_src.srctype == SRCTYPES.STAR:
                 method_try_order = [_try_EO_method, _try_quad_method, _try_catalog_method]
             else:
-                method_try_order = [_try_quad_method, _try_EO_method, _try_catalog_method]
+                method_try_order = [_try_quad_method, _try_catalog_method, _try_EO_method]
 
             for m in method_try_order:
+                logger.debug(f"Trying {m.__name__} for {reducedfit}.")
                 if (build_wcs := m()):
                     break
 
@@ -711,7 +716,7 @@ class DIPOL(Instrument):
 
 
     @classmethod
-    def _build_wcs_for_polarimetry_images_catalog_matching(cls, redf: 'ReducedFit', summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}):
+    def _build_wcs_for_polarimetry_images_catalog_matching(cls, redf: 'ReducedFit', summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}, n_seg_threshold=1.5, npixels=64):
         r""" Deprecated. Build WCS for DIPOL polarimetry images by matching the found sources positions with the catalog.
 
         .. warning::
@@ -723,12 +728,13 @@ class DIPOL(Instrument):
             
         """
 
+        # disp_allowed_err = 1.5*cls.disp_std 
+        disp_allowed_err =  np.array([30,30]) # most times, should be much smaller (1.5*std)
+        # but in bad cases, this is ~1 sigma of the gaussians
+
         logger.debug(f"{redf}: building WCS for DIPOL polarimetry images.")
         
         from iop4lib.db import AstroSource
-
-        disp_sign_mean, disp_sign_std = np.array([-2.09032765e+02,  1.65384209e-02]), np.array([4.13289109, 0.66159702])
-        disp_mean, disp_std = np.abs(disp_sign_mean), disp_sign_std
         
         # define target astro source
         target_src = redf.header_hintobject
@@ -737,22 +743,21 @@ class DIPOL(Instrument):
             raise Exception("No target source found in header, cannot build WCS.")
 
         data = redf.mdata
-        cx, cy = data.shape[1]//2, data.shape[0]//2
+        cx, cy = redf.width//2, redf.height//2
 
-        sources, _ = get_sources_daofind(data, fwhm=30.0, n_threshold=10, brightest=100)
+        positions = cls._estimate_positions_from_segments(redf, n_seg_threshold=n_seg_threshold, npixels=npixels, centered=True)
+        positions_non_centered = cls._estimate_positions_from_segments(redf, n_seg_threshold=n_seg_threshold, npixels=npixels, centered=False)
 
-        # Consider as candidates only the sources that are close to the center, and also only the brightest ones
-        # cut sources that are 1/3 of the image away from the image
-        idx = np.abs(sources['xcentroid']-cx) < 1/3 * redf.width
-        idx = idx & (np.abs(sources['ycentroid']-cy) < 1/3 * redf.height)
-        sources = sources[idx]
-
+        if len(positions) == 0:
+            logger.error(f"{redf}: Found no sources in the field, cannot build WCS.")
+            return BuildWCSResult(success=False)
+        else:
+            logger.debug(f"{redf}: Found {len(positions)} with {n_seg_threshold=} {npixels=} sources in the field.")
+        
         # if the are more than 100, work with only 20 brightest (they are already sorted by flux)
-        if len(sources) > 20:
-            sources = sources[:20]
 
-        # build the position [(x,y), ...)] array
-        positions = np.transpose((sources['xcentroid'], sources['ycentroid']))
+        if len(positions) > 20:
+            positions = positions[:20]
 
         if summary_kwargs['build_summary_images']:
             # plot summary of detected sources
@@ -768,11 +773,9 @@ class DIPOL(Instrument):
             ax.axhline(cy+1/3*redf.height, xmin=0, xmax=redf.width, color='y', linestyle='--')
             ax.axvline(cx-1/3*redf.width, ymin=0, ymax=redf.height, color='y', linestyle='--')
             ax.axvline(cx+1/3*redf.width, ymin=0, ymax=redf.height, color='y', linestyle='--')
+            ax.set_title(f"Detected sources {npixels=}, {n_seg_threshold=}")
             fig.savefig(Path(redf.filedpropdir) / "astrometry_detected_sources.png", bbox_inches="tight")
             fig.clear()
-            
-        #distances_to_center = [np.sqrt((x-cx)**2+(y-cy)**2) for x,y in positions]
-        # idx_sorted_by_distance = np.argsort(distances_to_center) # non stable sorting! use np.argsort(-array) better
 
         angle_mean, angle_std = get_angle_from_history(redf, target_src)
 
@@ -793,9 +796,6 @@ class DIPOL(Instrument):
         # WCS (pre_wcs below). If no calibrators in the DB is found we can try querying simbad, to see if 
         # there is some known star close, and them use them.
 
-        # If also no SIMBAD sources are found, we can only constraint the distances as much as possible, 
-        # obtain a candidate, we can check that they are indeed pairs. But this is not a good solution.
-
         pre_wcs = build_wcs_centered_on((cx,cy), redf=redf, angle=angle)
 
         # get list if calibrators for this source in the DB expected to be inside the subframe
@@ -809,6 +809,7 @@ class DIPOL(Instrument):
             logger.debug("Found only two sources in the field, assuming they are the ordinary and extraordinary images.")
             target_O, target_E = positions
         else:
+
             if len(expected_sources_in_field) == 0:
                 logger.warning(f"{redf}: No other DB sources in the field to check. Checking SIMBAD sources...")
                 simbad_search_radius = Angle(cls.arcsec_per_pix*redf.width/3600, unit="deg")
@@ -819,44 +820,70 @@ class DIPOL(Instrument):
                 # The function get_candidate_rank_by_matchs returns a rank for each candidate, the higher the rank, 
                 # the more likely it is to be the target source according to the matches with the catalog sources.
 
-                ranks, calibrators_fits = zip(*[get_candidate_rank_by_matchs(redf, pos, angle=angle, r_search=15, calibrators=expected_sources_in_field) for pos in positions[:6]])
+                # filter the positionsto rank only to those that could be pairs
+                from iop4lib.utils.quadmatching import distance
+                from iop4lib.utils.sourcepairing import get_best_pairs
+
+                list1, list2, _, _  = get_best_pairs(*zip(*itertools.product(positions,positions)), cls.disp_sign_mean, disp_sign_err=disp_allowed_err)
+
+                positions_to_rank = list()
+                positions_to_rank.extend(list1)
+                positions_to_rank.extend(list2)
+                positions_to_rank = np.array(positions_to_rank)
+                logger.debug(f"{positions_to_rank=}")
+
+                # N_max_to_rank = 10
+                # positions_to_rank = positions_to_rank[:N_max_to_rank]
+
+                ranks, _ = zip(*[get_candidate_rank_by_matchs(redf, pos, angle=angle, r_search=15, calibrators=expected_sources_in_field) for pos in positions_to_rank])
                 ranks = np.array(ranks)
 
                 # idx_sorted_by_rank = np.argsort(ranks)[::-1] # non stable sort
                 idx_sort_by_rank = np.argsort(-ranks, kind="stable") # stable sort
 
-                sorted_fits_by_rank = [calibrators_fits[i] for i in idx_sort_by_rank]
-                sorted_positions_by_rank = positions[idx_sort_by_rank]
+                with np.printoptions(precision=2, suppress=True):
+                    logger.debug(f"{positions_to_rank=}")
+                    logger.debug(f"{ranks=}")
+                    logger.debug(f"{idx_sort_by_rank=}")
 
                 # If the procedure worked, the first two sources should be the 
                 # ordinary and extraordinary images, which should have the most similar
                 # fluxes, there fore check if they are next to each others.
                 # if they are not, the procedure might have failed, give a warning.
 
-                logger.debug(f"Ranks: {ranks}, {idx_sort_by_rank=}")
-                
                 if abs(idx_sort_by_rank[0] - idx_sort_by_rank[1]) != 1:
-                    logger.warning("These might not be pairs, adyacent by rank flux mismatch detected")
-                    
-                # if the first higher ranks are not higher than the rest, it did not discriminate well, give a warning
-                if not np.all(min(ranks[idx_sort_by_rank][0:2]) > ranks[idx_sort_by_rank][2:]):
-                    logger.warning(f"Ranks did not discriminate well: {ranks=}. Using pairs.")
-                    target_O = sorted_positions_by_rank[0]
-                    err_pair = [np.sqrt((np.abs(target_O[0]-pos[0])-disp_mean[0])**2 +  (np.abs(target_O[1]-pos[1])-disp_mean[1])**2) for pos in sorted_positions_by_rank]
-                    idx_min_err_pair = np.argsort(err_pair)[0]
+                    logger.warning("adyacent by rank flux mismatch detected")
 
-                    if err_pair[idx_min_err_pair] > 60:
-                        logger.error(f"Best pair has error {err_pair[idx_min_err_pair]:.0f} px > 60 px, returning success = False.")
-                        return BuildWCSResult(success=False)
-                    elif err_pair[np.argsort(err_pair)[1]] < 60:
-                        logger.warning(f"Second best pair has error {err_pair[np.argsort(err_pair)[1]]:.0f} px < 60 px, I can not discriminate, returning success = False.")
-                        return BuildWCSResult(success=False)
-
-                    target_E = sorted_positions_by_rank[idx_min_err_pair]
-                    fits_O, fits_E = sorted_fits_by_rank[0], sorted_fits_by_rank[idx_min_err_pair]
+                if not any([(np.isfinite(r) and r>0) for r in ranks]):
+                    logger.error("None of the ranks worked, returning success = False.")
+                    return BuildWCSResult(success=False)
                 else:
-                    target_O, target_E = sorted_positions_by_rank[:2]
-                    fits_O, fits_E = sorted_fits_by_rank[0], sorted_fits_by_rank[1]
+                    logger.debug(f"Ranks discriminated well")
+                    pre_list1, pre_list2 = zip(*itertools.product([positions_to_rank[i] for i in range(len(positions_to_rank)) if np.isfinite(ranks[i]) and ranks[i] >= np.nanmax(ranks)], positions))
+
+                # log some debug info about the pairs diference and the difference with respect the expected disp_sign_mean
+
+                for i, (pos1, pos2) in enumerate(zip(pre_list1, pre_list2)):
+                    dist = distance(pos1, pos2)
+                    disp = np.abs(np.subtract(pos1, pos2))
+                    diff = np.abs(np.subtract(pos1, pos2))-np.abs(cls.disp_sign_mean)
+                    with np.printoptions(precision=1, suppress=True):
+                        logger.debug(f"{i=}, {pos1=!s}, {pos2=!s}, {dist=!s}, {disp=!s}, {diff=!s}")
+
+                # get the best pairs according to the disp_sign_mean 
+                # since we dont know if pre_list1 is the ordinary or extraordinary image, try with 
+                # disp_sign_mean and -disp_sign_mean
+
+                list1, list2, d0_new, disp_sign_new = get_best_pairs(pre_list1, pre_list2, cls.disp_sign_mean, disp_sign_err=disp_allowed_err)
+                logger.debug(f"{list1=}, {list2=}, {d0_new=}, {disp_sign_new=}")
+                if len(list1) == 0:
+                    list1, list2, d0_new, disp_sign_new = get_best_pairs(pre_list1, pre_list2, -cls.disp_sign_mean, disp_sign_err=disp_allowed_err)
+                    logger.debug(f"{list1=}, {list2=}, {d0_new=}, {disp_sign_new=}")
+                    if len(list1) == 0:
+                        logger.error("No pairs found, returning success = False.")
+                        return BuildWCSResult(success=False)
+                
+                target_O, target_E = list1[0], list2[0]
                 
             else:
                 
@@ -864,14 +891,12 @@ class DIPOL(Instrument):
 
                 return BuildWCSResult(success=False)
 
-        # Make the ordinary image the one ro the right always.
+        # Make the ordinary image the one in the right always.
 
         if target_O[0] < target_E[0]:
             target_O, target_E = target_E, target_O
 
         # from preliminary astrometry of photometry images
-        # pair distance should be [-2.09032765e+02,  1.65384209e-02] +- [4.13289109, 0.66159702]))
-        # tests for pairs +-30, should be more than enough
         # if they are not pairs, the procedure definitely failed, raise exception
 
         if not np.isclose(np.abs(target_E[0]-target_O[0]), cls.disp_mean[0], atol=disp_allowed_err[0]):
@@ -911,10 +936,15 @@ class DIPOL(Instrument):
                 known_pos_px = [target_px]
                 known_pos_px.extend([(fit[1][0].x_mean.value, fit[1][0].y_mean.value) for fit in fits])
 
-                logger.debug("Fitting " + ", ".join([f"ra {coord.ra.deg} dec {coord.dec.deg} to {pos}" for coord, pos in zip(known_pos_skycoord, known_pos_px)]))
+                try:
+                    logger.debug("Fitting " + ", ".join([f"ra {coord.ra.deg} dec {coord.dec.deg} to {pos}" for coord, pos in zip(known_pos_skycoord, known_pos_px)]))
 
-                wcs_fitted = fit_wcs_from_points(np.array(known_pos_px).T, SkyCoord(known_pos_skycoord), projection=build_wcs_centered_on(target_px, redf=redf, angle=angle))
-                wcslist.append(wcs_fitted)
+                    wcs_fitted = fit_wcs_from_points(np.array(known_pos_px).T, SkyCoord(known_pos_skycoord), projection=build_wcs_centered_on(target_px, redf=redf, angle=angle))
+                    wcslist.append(wcs_fitted)
+                except Exception as e:
+                    logger.error(f"Exception {e} while fitting WCS, using pre-computed angle {angle:.2f} deg for {target_src}.")
+                    wcslist = [build_wcs_centered_on(target_px, redf=redf, angle=angle) for target_px in [target_O, target_E]]
+                
 
 
         if summary_kwargs['build_summary_images']:
@@ -925,16 +955,13 @@ class DIPOL(Instrument):
             plot_preview_astrometry(redf, with_simbad=True, has_pairs=True, wcs1=wcslist[0], wcs2=wcslist[1], ax=ax, fig=fig) 
             fig.savefig(Path(redf.filedpropdir) / "astrometry_summary.png", bbox_inches="tight")
             fig.clear()
-            
-        import gc
-        gc.collect()
 
         return BuildWCSResult(success=True, wcslist=wcslist, info={'method':'_build_wcs_for_polarimetry_images_catalog_matching'})
     
 
 
     @classmethod
-    def _build_wcs_for_polarimetry_from_target_O_and_E(cls, redf: 'ReducedFit', summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}):
+    def _build_wcs_for_polarimetry_from_target_O_and_E(cls, redf: 'ReducedFit', summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}, n_seg_threshold=3.0, npixels=64) -> BuildWCSResult:
         r""" Deprecated. Build WCS for DIPOL polarimetry images by matching the found sources positions with the catalog.
 
         .. warning::
@@ -946,9 +973,13 @@ class DIPOL(Instrument):
             
         """
 
-        from iop4lib.db import AstroSource
+        disp_allowed_err = 1.5*cls.disp_std
 
-        logger.debug(f"{redf}: building WCS for DIPOL polarimetry images.")
+        from iop4lib.db import AstroSource
+        from iop4lib.utils.sourcepairing import get_best_pairs
+        from iop4lib.utils.quadmatching import distance
+
+        logger.debug(f"{redf}: building WCS for DIPOL polarimetry images from target_O and target_E with {npixels=}, {n_seg_threshold=}.")
         
         # definitions
 
@@ -985,15 +1016,42 @@ class DIPOL(Instrument):
             fig.savefig(Path(redf.filedpropdir) / "astrometry_detected_sources.png", bbox_inches="tight")
             fig.clear()
             
-        if not len(positions) == 2:
-            logger.error(f"{redf}: {len(positions)} sources found, expected 2.")
-            return BuildWCSResult(success=False, wcslist=list(), info={'n_bright_sources':len(positions)})
+        if len(positions) == 1:
+            logger.error(f"{redf}: Found only one source in the field, cannot build WCS.")
+            return BuildWCSResult(success=False)
         
+        if len(positions) > 2:
+            logger.warning(f"{redf}: {len(positions)} sources found, expected 2. Maybe after looking at pairs only, we can find the right ones.")
+
+            pre_list1, pre_list2 = zip(*itertools.product(positions, positions))
+            # log some debug info about the pairs diference and the difference with respect the expected disp_sign_mean
+            for i, (pos1, pos2) in enumerate(zip(pre_list1, pre_list2)):
+                dist = distance(pos1, pos2)
+                disp = np.abs(np.subtract(pos1, pos2))
+                diff = np.abs(np.subtract(pos1, pos2))-np.abs(cls.disp_sign_mean)
+                with np.printoptions(precision=1, suppress=True):
+                    logger.debug(f"{i=}, {pos1=!s}, {pos2=!s}, {dist=!s}, {disp=!s}, {diff=!s}")
+
+            list1, list2, d0_new, disp_sign_new = get_best_pairs(pre_list1, pre_list2, cls.disp_sign_mean, disp_sign_err=disp_allowed_err)
+
+            logger.debug(f"{list1=}, {list2=}, {d0_new=}, {disp_sign_new=}")
+
+            if len(list1) == 0:
+                list1, list2, d0_new, disp_sign_new = get_best_pairs(pre_list1, pre_list2, -cls.disp_sign_mean, disp_sign_err=disp_allowed_err)
+                logger.debug(f"{list1=}, {list2=}, {d0_new=}, {disp_sign_new=}")
+            
+            if len(list1) != 1:
+                logger.error(f"We expected exactly one source, but we found {len(list1)} pairs, returning success = False.")
+                return BuildWCSResult(success=False)
+            else:
+                positions = [list1[0], list2[0]]
+            
+
         # Check that the sources are pairs
-        if not np.isclose(np.abs(positions[0][0]-positions[1][0]), cls.disp_mean[0], atol=3*cls.disp_std[0]):
+        if not np.isclose(np.abs(positions[0][0]-positions[1][0]), cls.disp_mean[0], atol=disp_allowed_err[0]):
             logger.error(f"These are not pairs, x mismatch detected according to hard-coded pair distance: disp x = {np.abs(positions[0][0]-positions[1][0]):.0f} px")
             return BuildWCSResult(success=False, info={'n_bright_sources':len(positions)})
-        if not np.isclose(np.abs(positions[0][1]-positions[1][1]), cls.disp_mean[1], atol=3*cls.disp_std[1]):
+        if not np.isclose(np.abs(positions[0][1]-positions[1][1]), cls.disp_mean[1], atol=disp_allowed_err[1]):
             logger.error(f"These are not pairs, y mismatch detected according to hard-coded pair distance: disp y = {np.abs(positions[0][1]-positions[1][1]):.0f} px")
             return BuildWCSResult(success=False, info={'n_bright_sources':len(positions)})
 
@@ -1037,7 +1095,7 @@ class DIPOL(Instrument):
 
     @classmethod
     def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fit_boxsize=None, search_boxsize=(90,90)):
-        aperpix, r_in, r_out, fit_res_dict = super().estimate_common_apertures(reducedfits, reductionmethod=reductionmethod, fit_boxsize=fit_boxsize, search_boxsize=search_boxsize)
+        aperpix, r_in, r_out, fit_res_dict = super().estimate_common_apertures(reducedfits, reductionmethod=reductionmethod, fit_boxsize=fit_boxsize, search_boxsize=search_boxsize, fwhm_min=5.0, fwhm_max=60)
         sigma = fit_res_dict['sigma']
         return 1.8*sigma, 5*sigma, 10*sigma, fit_res_dict
   
@@ -1135,37 +1193,66 @@ class DIPOL(Instrument):
                     fluxD[pair] = {}
                 fluxD[pair][angle] = (flux, flux_err)
 
-            F = np.array([(fluxD['O'][angle][0] - fluxD['E'][angle][0]) / (fluxD['O'][angle][0] + fluxD['E'][angle][0]) for angle in angles_L])
-            I = np.mean([(fluxD['O'][angle][0] + fluxD['E'][angle][0]) for angle in angles_L])
+            F_O = np.array([(fluxD['O'][angle][0]) for angle in angles_L])
+            dF_O = np.array([(fluxD['O'][angle][1]) for angle in angles_L])
+
+            F_E = np.array([(fluxD['E'][angle][0]) for angle in angles_L])
+            dF_E = np.array([(fluxD['E'][angle][1]) for angle in angles_L])
+
+            F = (F_O - F_E) / (F_O + F_E)
+            dF = 1 / ( F_O**2 + F_E**2 ) * np.sqrt(dF_O**2 + dF_E**2)
+
+            I = (F_O + F_E)
+            dI = np.sqrt(dF_O**2 + dF_E**2)
 
             N = len(angles_L)
 
             # Compute both the uncorrected and corrected values
-            Qr_uncorr = 2/N * np.sum([F[i]*np.cos(np.pi/2*i) for i in range(N)]) 
-            Qr = Qr_uncorr + 3.77/100 # TODO: check and derive this value 
 
-            Ur_uncorr = 2/N * np.sum([F[i]*np.sin(np.pi/2*i) for i in range(N)]) 
-            Ur = Ur_uncorr - 0.057/100 # TODO: check and derive this value
+            Qr_uncorr = 2/N * sum([F[i] * math.cos(math.pi/2*i) for i in range(N)])
+            dQr_uncorr = 2/N * math.sqrt(sum([dF[i]**2 * math.cos(math.pi/2*i)**2 for i in range(N)]))
+
+            logger.debug(f"{Qr_uncorr=}, {dQr_uncorr=}")
+
+            Ur_uncorr = 2/N * sum([F[i] * math.sin(math.pi/2*i) for i in range(N)])
+            dUr_uncorr = 2/N * math.sqrt(sum([dF[i]**2 * math.sin(math.pi/2*i)**2 for i in range(N)]))
 
 
-            def _get_p_and_chi(Qr, Ur):
+            Q_inst = +0.057/100
+            dQ_inst = 0
+
+            logger.debug(f"{Q_inst=}, {dQ_inst=}")
+
+            U_inst = -3.77/100
+            dU_inst = 0
+
+            Qr = Qr_uncorr + Q_inst # TODO: check and derive this value 
+            dQr = math.sqrt(dQr_uncorr**2 + dQ_inst**2)
+
+            logger.debug(f"{Qr=}, {dQr=}")
+
+            Ur = Ur_uncorr + U_inst # TODO: check and derive this value
+            dUr = math.sqrt(dUr_uncorr**2 + dU_inst**2)
+
+            logger.debug(f"{Ur=}, {dUr=}")
+
+            def _get_p_and_chi(Qr, Ur, dQr, dUr):
                 # linear polarization (0 to 1)
-                P = np.sqrt(Qr**2+Ur**2)
-                dP = None
+                P = math.sqrt(Qr**2+Ur**2)
+                dP = 1/P * math.sqrt((Qr*dQr)**2 + (Ur*dUr)**2)
                 # polarization angle (degrees)
-                Theta_0 = 0
-                if Qr >= 0:
-                    Theta_0 = math.pi 
-                    if Ur > 0:
-                        Theta_0 = -1 * math.pi
-                chi = - 0.5 * np.rad2deg(np.arctan(Qr/Ur) + Theta_0)
-                dchi = None
+                x = -Qr/Ur
+                dx = math.sqrt( (-1/Ur)**2+dUr**2 + (+Qr/Ur**2)**2*dQr**2 )
+                chi = 0.5 * math.degrees(math.atan2(-Qr, Ur))
+                dchi = 0.5 * 1/(1 + x**2) * dx
 
-                return P, dP, chi, dchi
+                return P, chi, dP, dchi
             
             # linear polarization (0 to 1)
-            P_uncorr, dP_uncorr, chi_uncorr, dchi_uncorr = _get_p_and_chi(Qr_uncorr, Ur_uncorr)
-            P, dP, chi, dchi = _get_p_and_chi(Qr, Ur)
+            P_uncorr, chi_uncorr, dP_uncorr, dchi_uncorr = _get_p_and_chi(Qr_uncorr, Ur_uncorr, dQr_uncorr, dUr_uncorr)
+            P, chi, dP, dchi = _get_p_and_chi(Qr, Ur, dQr, dUr)
+
+            logger.debug(f"{P=}, {chi=}, {dP=}, {dchi=}")
 
             # No attempt to get magnitude from polarimetry fields in dipol, they have too low exposure, and many times there are no calibrators in the subframe.
 

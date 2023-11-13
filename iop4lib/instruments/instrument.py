@@ -610,7 +610,7 @@ class Instrument(metaclass=ABCMeta):
 
 
     @classmethod
-    def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fit_boxsize=None, search_boxsize=(90,90)):
+    def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fit_boxsize=None, search_boxsize=(90,90), fwhm_min=2, fwhm_max=50):
         r"""estimate an appropriate common aperture for a list of reduced fits.
         
         It fits the target source profile in the fields and returns some multiples of the fwhm which are used as the aperture and as the inner and outer radius of the annulus for local bkg estimation).
@@ -637,7 +637,7 @@ class Instrument(metaclass=ABCMeta):
             try:
                 gaussian = fit_gaussian(px_start=redf.wcs.world_to_pixel(target.coord), redf=redf)
                 fwhm = (2*np.sqrt(2*math.log(2))) * np.sqrt(gaussian[0].x_stddev.value**2+gaussian[0].y_stddev.value**2)
-                if not (2 < fwhm < 50):
+                if not (fwhm_min < fwhm < fwhm_max):
                     logger.warning(f"ReducedFit {redf.id} {target.name}: fwhm = {fwhm} px, skipping this reduced fit")
                     continue
                 logger.debug(f"{target.name}: Gaussian FWHM: {fwhm:.1f} px")

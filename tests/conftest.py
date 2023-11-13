@@ -12,7 +12,7 @@ from pathlib import Path
 
 TEST_CONFIG = str(Path(iop4conf.datadir) / "config.tests.yaml")
 TESTDATA_FPATH = str(Path("~/iop4testdata.tar.gz").expanduser())
-TESTDATA_MD5SUM = '8cf7f2cd3b072f16749fb2c04bc5fb48'
+TESTDATA_MD5SUM = '0f5432c54d6173f861b64d3d4280e2f7'
 TEST_DATADIR = str(Path(iop4conf.datadir) / "iop4testdata")
 TEST_DB_PATH = str(Path(iop4conf.db_path).expanduser().parent / ("test_" + str(Path(iop4conf.db_path).name)))
 
@@ -80,4 +80,3 @@ def setUpClass():
 def tearDownClass():
     # remove test data dir
     os.system(f"rm -rf {iop4conf.datadir}")
-
