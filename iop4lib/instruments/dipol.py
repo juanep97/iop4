@@ -267,8 +267,6 @@ class DIPOL(Instrument):
                     return AstroSource.objects.get(name=source['name'])
 
             for source in catalog:
-                if not source['other_name']:
-                    continue
                 if get_invariable_str(search_str) in get_invariable_str(source['name']):
                     return AstroSource.objects.get(name=source['name'])
                 
@@ -331,7 +329,13 @@ class DIPOL(Instrument):
 
 
     @classmethod
-    def _estimate_positions_from_segments(cls, redf, fwhm=1.0, npixels=64, n_seg_threshold=3.0, centered=True):
+    def _estimate_positions_from_segments(cls, redf, fwhm=None, npixels=64, n_seg_threshold=3.0, centered=True):
+
+        if redf.header_hintobject.srctype == SRCTYPES.STAR and redf.exptime <= 5:
+            fwhm = 80.0
+        else:
+            fwhm = 1.0
+
         # get the sources positions
 
         data = redf.data
@@ -407,7 +411,7 @@ class DIPOL(Instrument):
             def _try_EO_method():
 
                 if target_src.srctype == SRCTYPES.STAR:
-                    n_seg_threshold_L = [700, 600, 500, 400, 300, 200, 100, 50]
+                    n_seg_threshold_L = [300, 200, 100, 50, 25, 12, 6]
                     if reducedfit.exptime <= 5:
                         npixels_L = [128, 256, 64]
                     else:
@@ -425,7 +429,7 @@ class DIPOL(Instrument):
                 if redf_phot is not None:
                     
                     if target_src.srctype == SRCTYPES.STAR:
-                        n_threshold_L = [700, 600, 500, 400, 300, 200, 100]
+                        n_threshold_L = [300, 200, 100, 50, 25, 12, 6]
                     else:
                         n_threshold_L = [15,5,3]
 
@@ -729,7 +733,7 @@ class DIPOL(Instrument):
         """
 
         # disp_allowed_err = 1.5*cls.disp_std 
-        disp_allowed_err =  np.array([30,30]) # most times, should be much smaller (1.5*std)
+        disp_allowed_err =  np.array([30,30]) # most times should be much smaller (1.5*std)
         # but in bad cases, this is ~1 sigma of the gaussians
 
         logger.debug(f"{redf}: building WCS for DIPOL polarimetry images.")
@@ -868,7 +872,7 @@ class DIPOL(Instrument):
                     disp = np.abs(np.subtract(pos1, pos2))
                     diff = np.abs(np.subtract(pos1, pos2))-np.abs(cls.disp_sign_mean)
                     with np.printoptions(precision=1, suppress=True):
-                        logger.debug(f"{i=}, {pos1=!s}, {pos2=!s}, {dist=!s}, {disp=!s}, {diff=!s}")
+                        logger.debug(f"{i=},\t{pos1=!s},\t{pos2=!s},\t{dist=!s},\t{disp=!s},\t{diff=!s}")
 
                 # get the best pairs according to the disp_sign_mean 
                 # since we dont know if pre_list1 is the ordinary or extraordinary image, try with 
@@ -973,7 +977,9 @@ class DIPOL(Instrument):
             
         """
 
-        disp_allowed_err = 1.5*cls.disp_std
+        # disp_allowed_err = 1.5*cls.disp_std
+        disp_allowed_err =  np.array([30,30]) # most times should be much smaller (1.5*std)
+        # but in bad cases, this is ~1 sigma of the gaussians
 
         from iop4lib.db import AstroSource
         from iop4lib.utils.sourcepairing import get_best_pairs
