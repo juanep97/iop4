@@ -225,8 +225,9 @@ class CAFOS(Instrument):
 
         # 1. Compute all aperture photometries
 
-        target_fwhm, aperpix, r_in, r_out = cls.estimate_common_apertures(polarimetry_group, reductionmethod=REDUCTIONMETHODS.RELPOL)
-
+        aperpix, r_in, r_out, fit_res_dict = cls.estimate_common_apertures(polarimetry_group, reductionmethod=REDUCTIONMETHODS.RELPHOT)
+        target_fwhm = fit_res_dict['mean_fwhm']
+        
         logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group with target aperpix {aperpix:.1f}.")
 
         for reducedfit in polarimetry_group:

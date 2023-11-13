@@ -25,7 +25,8 @@ import time
 # iop4lib imports
 from iop4lib.db import *
 from iop4lib.enums import *
-from iop4lib.telescopes import Telescope
+from iop4lib.telescopes import *
+from iop4lib.instruments import *
 
 # logging
 import logging
@@ -49,14 +50,14 @@ def process_epochs(epochname_list, force_rebuild, check_remote_list):
         
         epoch.build_master_biases(force_rebuild=force_rebuild)
 
+    logger.info("Creating Master Darks.")
+    for epoch in epoch_L:
+        epoch.build_master_darks(force_rebuild=force_rebuild)
+        
     logger.info("Creating Master Flats.")
 
     for epoch in epoch_L:
         epoch.build_master_flats(force_rebuild=force_rebuild)
-
-    logger.info("Creating Master Darks.")
-    for epoch in epoch_L:
-        epoch.build_master_darks(force_rebuild=force_rebuild)
 
     logger.info("Science files will be reduced.")
 

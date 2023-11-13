@@ -29,7 +29,7 @@ import math
 from iop4lib.enums import *
 from .instrument import Instrument
 from iop4lib.utils import imshow_w_sources, get_candidate_rank_by_matchs, get_angle_from_history, build_wcs_centered_on, get_simbad_sources
-from iop4lib.utils.sourcedetection import get_sources_daofind, get_segmentation, get_cat_sources_from_segment_map
+from iop4lib.utils.sourcedetection import get_sources_daofind, get_segmentation, get_cat_sources_from_segment_map, get_bkg
 from iop4lib.utils.plotting import plot_preview_astrometry
 from iop4lib.utils.astrometry import BuildWCSResult
 
@@ -55,6 +55,15 @@ class DIPOL(Instrument):
     gain_e_adu = 1
 
     required_masters = ['masterbias', 'masterflat', 'masterdark']
+
+
+    # pre computed pairs distances to use in the astrometric calibrations
+    # obtained from calibrated photometry fields
+    
+    disp_sign_mean, disp_sign_std = np.array([-2.09032765e+02,  1.65384209e-02]), np.array([4.13289109, 0.66159702])
+    disp_mean, disp_std = np.abs(disp_sign_mean), disp_sign_std
+    disp_std = np.array([15, 5])
+
 
     @classmethod
     def classify_juliandate_rawfit(cls, rawfit: 'RawFit'):
@@ -107,8 +116,12 @@ class DIPOL(Instrument):
             else:
                 rawfit.band = BANDS.ERROR
                 raise ValueError(f"Missing FILTER keyword for {rawfit.fileloc} which is not a bias or dark (it is a {rawfit.imgtype}).")
-        elif rawfit.header['FILTER'] == "Red":  
+        elif rawfit.header['FILTER'] == "Red":  # TODO: they are not exacty red, they are in a different photometric system. Conversion must be implemented.
             rawfit.band = BANDS.R
+        elif rawfit.header['FILTER'] == "Green":
+            rawfit.band = BANDS.V
+        elif rawfit.header['FILTER'] == "Blue":
+            rawfit.band = BANDS.B
         else:
             rawfit.band = BANDS.ERROR
             raise ValueError(f"Unknown FILTER keyword for {rawfit.fileloc}: {rawfit.header['FILTER']}.")
@@ -313,8 +326,39 @@ class DIPOL(Instrument):
         """ DIPOL ALWAYS HAS PAIRS?!!!! """
         return True
 
+
+
+
+
     @classmethod
-    def build_wcs(cls, reducedfit: 'ReducedFit', summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}):
+    def _estimate_positions_from_segments(cls, redf, fwhm=1.0, npixels=64, n_seg_threshold=3.0, centered=True):
+        # get the sources positions
+
+        data = redf.data
+
+        mean, median, std = sigma_clipped_stats(data, sigma=5.0)
+
+        bkg = get_bkg(redf.mdata, filter_size=5, box_size=redf.width//10)
+        imgdata_bkg_substracted = redf.mdata - bkg.background
+        seg_threshold = n_seg_threshold * bkg.background_rms
+        
+        segment_map, convolved_data = get_segmentation(imgdata_bkg_substracted, fwhm=fwhm, npixels=npixels, threshold=seg_threshold)
+        if segment_map is None:
+            return list()
+        else:
+            seg_cat, positions, tb = get_cat_sources_from_segment_map(segment_map, imgdata_bkg_substracted, convolved_data)
+        
+        if centered:
+            # select only the sources in the center
+            cx, cy = redf.width//2, redf.height//2
+            idx = np.abs(positions[:,0]-cx) < 1/3 * redf.width
+            idx = idx & (np.abs(positions[:,1]-cy) < 1/3 * redf.height)
+            positions = positions[idx]
+
+        return positions
+
+    @classmethod
+    def build_wcs(cls, reducedfit: 'ReducedFit', summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}, method=None):
         """ Overriden Instrument build_wcs.
         
         While for PHOTOMETRY observations, DIPOL has a wide field which can be astrometrically calibrated, 
@@ -327,65 +371,97 @@ class DIPOL(Instrument):
         for the low flux and big size of the images.
 
         """
-        from iop4lib.db import ReducedFit
+
+        if method is not None:
+            logger.warning(f"Calling {method} for {reducedfit}.")
+            return method(reducedfit, summary_kwargs=summary_kwargs)
+
+        from iop4lib.db import ReducedFit, AstroSource
+
+        target_src = reducedfit.header_hintobject
 
         if reducedfit.obsmode == OBSMODES.PHOTOMETRY:
             return super().build_wcs(reducedfit, shotgun_params_kwargs=cls._build_shotgun_params(reducedfit), summary_kwargs=summary_kwargs)
         elif reducedfit.obsmode == OBSMODES.POLARIMETRY:
 
-            # First attempt: this fill find the sources in the image, if there are only two, that is.
-            
-            build_wcs = cls._build_wcs_for_polarimetry_from_target_O_and_E(reducedfit, summary_kwargs=summary_kwargs)
-            if build_wcs.success:
-                return build_wcs
-            else:
-                n_bright_sources = build_wcs.info['n_bright_sources']
+            # Gather some info to perform a good decision on which methods to use
 
-            logger.debug(f"Found {n_bright_sources} bright (>10 sigma) sources near the center of the field.")
+            n_estimate = len(cls._estimate_positions_from_segments(redf=reducedfit, n_seg_threshold=1.5, centered=False))
+            n_estimate_centered = len(cls._estimate_positions_from_segments(redf=reducedfit, n_seg_threshold=1.5, centered=True))
+            redf_phot = ReducedFit.objects.filter(instrument=reducedfit.instrument,
+                                                  sources_in_field__in=[reducedfit.header_hintobject], 
+                                                  obsmode=OBSMODES.PHOTOMETRY, 
+                                                  flags__has=ReducedFit.FLAGS.BUILT_REDUCED).first()
+            n_expected_simbad_sources = len(get_simbad_sources(reducedfit.header_hintobject.coord, radius=(reducedfit.width*cls.arcsec_per_pix*u.arcsec)))
+            n_expected_calibrators = AstroSource.objects.filter(calibrates__in=[reducedfit.header_hintobject]).count()
 
-            # Second attempt: this method will try to match the relative positions of sources to the ones in the catalog or simbad.
+            # log the variables above
 
-            if n_bright_sources < 4:
-                build_wcs = cls._build_wcs_for_polarimetry_images_catalog_matching(reducedfit, summary_kwargs=summary_kwargs)
-                if build_wcs.success:
-                    return build_wcs
+            logger.debug(f"{n_estimate=}")
+            logger.debug(f"{n_estimate_centered=}")
+            logger.debug(f"{redf_phot=}")
+            logger.debug(f"{n_expected_simbad_sources=}")
+            logger.debug(f"{n_expected_calibrators=}")
+
+            def _try_EO_method():
+
+                if target_src.srctype == SRCTYPES.STAR:
+                    n_seg_threshold_L = [500, 300, 200, 100, 50]
+                    npixels_L = [64]
                 else:
-                    logger.debug(f"Catalog matching failed.")
-            
-            # Third attempt: if there are many sources in the catalog and a previous photometry field has been solved, we can try to use the new method.
-            
-            # build_wcs = cls._build_wcs_for_polarimetry_images_photo_quads(reducedfit, summary_kwargs=summary_kwargs)
-            # if build_wcs.success:
-            #     return build_wcs
-            # else:
-            #     logger.debug(f"Photo quads matching failed.")
+                    n_seg_threshold_L = [6.0, 3.0, 1.5, 1.0]
+                    npixels_L = [64]
 
-            # TODO: change it to use segmentation with only one threshold, and remove the loop below.
-
-            if (redf_phot := ReducedFit.objects.filter(instrument=reducedfit.instrument, 
-                                              sources_in_field__in=[reducedfit.header_hintobject], 
-                                              obsmode=OBSMODES.PHOTOMETRY, 
-                                              flags__has=ReducedFit.FLAGS.BUILT_REDUCED).first()) is not None:
-                
-                logger.debug(f"Found solved photometry field for {reducedfit}, I will try the new method.")
-
-                for fwhm, n_threshold in itertools.product([30,15], [15,5,3]):
+                for npixels, n_seg_threshold in zip(npixels_L, n_seg_threshold_L):
+                    if (build_wcs_result := cls._build_wcs_for_polarimetry_from_target_O_and_E(reducedfit, summary_kwargs=summary_kwargs, n_seg_threshold=n_seg_threshold, npixels=npixels)):
+                        break
+                return build_wcs_result
+                            
+            def _try_quad_method():
+                if redf_phot is not None:
                     
-                    sources, _ = get_sources_daofind(reducedfit.mdata, fwhm=fwhm, n_threshold=n_threshold, brightest=100, exclude_border=True)
+                    if target_src.srctype == SRCTYPES.STAR:
+                        n_threshold_L = [500, 300, 200, 100]
+                    else:
+                        n_threshold_L = [15,5,3]
 
-                    if len(sources) >= 5:
-                        build_wcs_result = cls._build_wcs_for_polarimetry_images_photo_quads(reducedfit, 
-                                                                                             summary_kwargs=summary_kwargs, 
-                                                                                             n_threshold=n_threshold, 
-                                                                                             find_fwhm=fwhm,
-                                                                                             smooth_fwhm=4)
-
-                        if build_wcs_result.success:
-                            return build_wcs_result
+                    for fwhm, n_threshold in itertools.product([30,15], n_threshold_L):
+                        if (build_wcs_result := cls._build_wcs_for_polarimetry_images_photo_quads(reducedfit, summary_kwargs=summary_kwargs, n_threshold=n_threshold, find_fwhm=fwhm, smooth_fwhm=4)):
+                            break
+                else:
+                    build_wcs_result = BuildWCSResult(success=False)
+                return build_wcs_result
             
-                logger.warning(f"The new method did not work, trying with the old one")
+            def _try_catalog_method():
 
-                return cls._build_wcs_for_polarimetry_images_catalog_matching(reducedfit, summary_kwargs=summary_kwargs)
+                if target_src.srctype == SRCTYPES.STAR:
+                    n_seg_threshold_L = [500, 300, 200, 100, 50]
+                    npixels_L = [64]
+                else:
+                    n_seg_threshold_L = [1.5, 1.0]
+                    npixels_L = [64, 32]
+            
+                if n_expected_calibrators > 0 or n_expected_simbad_sources > 0:
+                    for npixels, n_seg_threshold in itertools.product(npixels_L, n_seg_threshold_L):
+                        if (build_wcs := cls._build_wcs_for_polarimetry_images_catalog_matching(reducedfit, summary_kwargs=summary_kwargs, n_seg_threshold=n_seg_threshold, npixels=npixels)):
+                            break
+                else:
+                    build_wcs = BuildWCSResult(success=False)
+                return build_wcs   
+            
+
+            method_try_order = [_try_EO_method, _try_quad_method, _try_catalog_method]
+
+            if n_estimate_centered < 3:
+                method_try_order = [_try_EO_method, _try_quad_method, _try_catalog_method]
+            else:
+                method_try_order = [_try_quad_method, _try_EO_method, _try_catalog_method]
+
+            for m in method_try_order:
+                if (build_wcs := m()):
+                    break
+
+            return build_wcs
         
         else:
             logger.error(f"Unknown obsmode {reducedfit.obsmode} for {reducedfit}.")
@@ -798,12 +874,12 @@ class DIPOL(Instrument):
         # tests for pairs +-30, should be more than enough
         # if they are not pairs, the procedure definitely failed, raise exception
 
-        if not np.isclose(np.abs(target_E[0]-target_O[0]), disp_mean[0], atol=60):
-            logger.error(f"These are not pairs, x mismatch detected according to hard-coded pair distance: err x = {np.abs(target_E[0]-target_O[0]):.0f} px")
+        if not np.isclose(np.abs(target_E[0]-target_O[0]), cls.disp_mean[0], atol=disp_allowed_err[0]):
+            logger.error(f"These are not pairs, x mismatch detected according to hard-coded pair distance:  disp x = {np.abs(target_E[0]-target_O[0]):.0f} px)")
             return BuildWCSResult(success=False)
             
-        if not np.isclose(np.abs(target_E[1]-target_O[1]), disp_mean[1], atol=60):
-            logger.error(f"These are not pairs, y mismatch detected according to hard-coded pair distance: err y = {np.abs(target_E[1]-target_O[1]):.0f} px")
+        if not np.isclose(np.abs(target_E[1]-target_O[1]), cls.disp_mean[1], atol=disp_allowed_err[1]):
+            logger.error(f"These are not pairs, y mismatch detected according to hard-coded pair distance: disp y = {np.abs(target_E[1]-target_O[1]):.0f} px")
             return BuildWCSResult(success=False)
 
         # WCS for Ordinary and Extraordinary images
@@ -824,6 +900,9 @@ class DIPOL(Instrument):
             logger.debug(f"Using {len(calibrators_in_field)} calibrators in field to fit WCS for {target_src}.")
 
             wcslist = list()
+
+            _, (fits_O, fits_E) = zip(*[get_candidate_rank_by_matchs(redf, pos, angle=angle, r_search=30, calibrators=expected_sources_in_field) for pos in [target_O, target_E]])
+
             for target_px, fits in zip([target_O, target_E], [fits_O, fits_E]):
                 known_pos_skycoord = [target_src.coord]
                 # fit[0] is the astro source fitted, fit[1] (fit[1][0] is the gaussian, fit[1][1] is the constant
@@ -879,30 +958,15 @@ class DIPOL(Instrument):
             raise Exception("No target source found in header, cannot build WCS.")
     
         data = redf.mdata
-        disp_sign_mean, disp_sign_std = np.array([-2.09032765e+02,  1.65384209e-02]), np.array([4.13289109, 0.66159702])
-        disp_mean, disp_std = np.abs(disp_sign_mean), disp_sign_std
         
         # get the sources positions
 
-        mean, median, std = sigma_clipped_stats(data, sigma=5.0)
-        img_bkg_substracted = data - median
-
-        if target_src.srctype == SRCTYPES.STAR:
-            seg_threshold = 3.0 * std
-        else:
-            seg_threshold = 1.0 * std
-
-        segment_map, convolved_data = get_segmentation(img_bkg_substracted, fwhm=1, npixels=64, threshold=seg_threshold)
-        if segment_map is None:
-            logger.error(f"{redf}: No sources found, returning success = False.")
-            return BuildWCSResult(success=False, wcslist=list(), info={'n_bright_sources':0})
-        else:
-            seg_cat, positions, tb = get_cat_sources_from_segment_map(segment_map, img_bkg_substracted, convolved_data)
-        
         cx, cy = redf.width//2, redf.height//2
-        idx = np.abs(positions[:,0]-cx) < 1/3 * redf.width
-        idx = idx & (np.abs(positions[:,1]-cy) < 1/3 * redf.height)
-        positions = positions[idx]
+        positions = cls._estimate_positions_from_segments(redf, n_seg_threshold=n_seg_threshold, npixels=npixels, centered=True)
+
+        if len(positions) == 0:
+            logger.error(f"{redf}: Found no sources in the field, cannot build WCS.")
+            return BuildWCSResult(success=False)
 
         if summary_kwargs['build_summary_images']:
             # plot summary of detected sources
@@ -925,13 +989,12 @@ class DIPOL(Instrument):
             logger.error(f"{redf}: {len(positions)} sources found, expected 2.")
             return BuildWCSResult(success=False, wcslist=list(), info={'n_bright_sources':len(positions)})
         
-
         # Check that the sources are pairs
-        if not np.isclose(np.abs(positions[0][0]-positions[1][0]), disp_mean[0], atol=70):
-            logger.error(f"These are not pairs, x mismatch detected according to hard-coded pair distance: err x = {np.abs(positions[0][0]-positions[1][0]):.0f} px")
+        if not np.isclose(np.abs(positions[0][0]-positions[1][0]), cls.disp_mean[0], atol=3*cls.disp_std[0]):
+            logger.error(f"These are not pairs, x mismatch detected according to hard-coded pair distance: disp x = {np.abs(positions[0][0]-positions[1][0]):.0f} px")
             return BuildWCSResult(success=False, info={'n_bright_sources':len(positions)})
-        if not np.isclose(np.abs(positions[0][1]-positions[1][1]), disp_mean[1], atol=70):
-            logger.error(f"These are not pairs, y mismatch detected according to hard-coded pair distance: err y = {np.abs(positions[0][1]-positions[1][1]):.0f} px")
+        if not np.isclose(np.abs(positions[0][1]-positions[1][1]), cls.disp_mean[1], atol=3*cls.disp_std[1]):
+            logger.error(f"These are not pairs, y mismatch detected according to hard-coded pair distance: disp y = {np.abs(positions[0][1]-positions[1][1]):.0f} px")
             return BuildWCSResult(success=False, info={'n_bright_sources':len(positions)})
 
         # define the targets to be the two positions found, with the ordinary on the right
@@ -970,7 +1033,15 @@ class DIPOL(Instrument):
         return BuildWCSResult(success=True, wcslist=[wcs1,wcs2],  info={'n_bright_sources':len(positions)})
     
 
+
+
+    @classmethod
+    def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fit_boxsize=None, search_boxsize=(90,90)):
+        aperpix, r_in, r_out, fit_res_dict = super().estimate_common_apertures(reducedfits, reductionmethod=reductionmethod, fit_boxsize=fit_boxsize, search_boxsize=search_boxsize)
+        sigma = fit_res_dict['sigma']
+        return 1.8*sigma, 5*sigma, 10*sigma, fit_res_dict
   
+
     @classmethod
     def compute_relative_polarimetry(cls, polarimetry_group):
         """ Computes the relative polarimetry for a polarimetry group for DIPOL
@@ -1024,8 +1095,9 @@ class DIPOL(Instrument):
 
         # 1. Compute all aperture photometries
 
-        target_fwhm, aperpix, r_in, r_out = cls.estimate_common_apertures(polarimetry_group, reductionmethod=REDUCTIONMETHODS.RELPOL)
-
+        aperpix, r_in, r_out, fit_res_dict = cls.estimate_common_apertures(polarimetry_group, reductionmethod=REDUCTIONMETHODS.RELPHOT)
+        target_fwhm = fit_res_dict['mean_fwhm']
+        
         logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group with target aperpix {aperpix:.1f}.")
 
         for reducedfit in polarimetry_group:

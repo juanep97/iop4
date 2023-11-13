@@ -153,11 +153,11 @@ class ReducedFit(RawFit):
     def apply_masters(self):
         return Instrument.by_name(self.instrument).apply_masters(self)
     
-    def build_file(self):
-        return Instrument.by_name(self.instrument).build_file(self)
+    def build_file(self, **build_wcs_kwargs):
+        return Instrument.by_name(self.instrument).build_file(self, **build_wcs_kwargs)
 
-    def astrometric_calibration(self):
-        return Instrument.by_name(self.instrument).astrometric_calibration(self)
+    def astrometric_calibration(self, **build_wcs_kwargs):
+        return Instrument.by_name(self.instrument).astrometric_calibration(self, **build_wcs_kwargs)
 
     @property
     def has_pairs(self):

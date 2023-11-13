@@ -326,7 +326,7 @@ class Instrument(metaclass=ABCMeta):
         fits.writeto(reducedfit.filepath, data_new, header=header_new, overwrite=True)
 
     @classmethod
-    def astrometric_calibration(cls, reducedfit: 'ReducedFit'):
+    def astrometric_calibration(cls, reducedfit: 'ReducedFit', **build_wcs_kwargs):
         """ Performs astrometric calibration on the reduced fit, giving it the appropriate WCS.
 
         If the are both ordinary and extraordinary sources in the field, one WCS will be built for each,
@@ -338,7 +338,7 @@ class Instrument(metaclass=ABCMeta):
             os.remove(fpath)
 
         # build the WCS
-        build_wcs_result = cls.build_wcs(reducedfit)
+        build_wcs_result = cls.build_wcs(reducedfit, **build_wcs_kwargs)
 
         if build_wcs_result.success:
 
@@ -387,7 +387,7 @@ class Instrument(metaclass=ABCMeta):
             raise Exception(f"Could not perform astrometric calibration on {reducedfit}: {build_wcs_result=}")
 
     @classmethod
-    def build_file(cls, reducedfit: 'ReducedFit'):
+    def build_file(cls, reducedfit: 'ReducedFit', **build_wcs_kwargs):
         """ Builds the ReducedFit FITS file.
 
         Notes
@@ -409,7 +409,7 @@ class Instrument(metaclass=ABCMeta):
         logger.debug(f"{reducedfit}: performing astrometric calibration")
 
         try:
-            reducedfit.astrometric_calibration()
+            reducedfit.astrometric_calibration(**build_wcs_kwargs)
         except Exception as e:
             logger.error(f"{reducedfit}: could not perform astrometric calibration on {reducedfit}: {e}")
             reducedfit.set_flag(ReducedFit.FLAGS.ERROR_ASTROMETRY)
@@ -441,14 +441,17 @@ class Instrument(metaclass=ABCMeta):
         from photutils.aperture import CircularAperture, CircularAnnulus, ApertureStats, aperture_photometry
         from photutils.utils import calc_total_error
         from astropy.stats import SigmaClip
-        from iop4lib.utils import estimate_common_apertures
 
-        if redf.mdata.shape[0] == 1024:
+        if redf.mdata.shape[0] == 1024: # andor cameras
             bkg_box_size = 128
-        elif redf.mdata.shape[0] == 2048:
+        elif redf.mdata.shape[0] == 2048: # andor cameras
             bkg_box_size = 256
-        elif redf.mdata.shape[0] == 800:
+        elif redf.mdata.shape[0] == 800: # cafos
             bkg_box_size = 100
+        elif redf.mdata.shape[0] == 900: # dipol polarimetry
+            bkg_box_size = 90
+        elif redf.mdata.shape[0] == 4144: # dipol photometry
+            bkg_box_size = 518
         else:
             logger.warning(f"Image size {redf.mdata.shape[0]} not expected.")
             bkg_box_size = redf.mdata.shape[0]//10
@@ -493,8 +496,9 @@ class Instrument(metaclass=ABCMeta):
         if redf.obsmode != OBSMODES.PHOTOMETRY:
             raise Exception(f"{redf}: this method is only for plain photometry images.")
         
-        target_fwhm, aperpix, r_in, r_out = cls.estimate_common_apertures([redf], reductionmethod=REDUCTIONMETHODS.RELPHOT)
-
+        aperpix, r_in, r_out, fit_res_dict = cls.estimate_common_apertures([redf], reductionmethod=REDUCTIONMETHODS.RELPHOT)
+        target_fwhm = fit_res_dict['mean_fwhm']
+        
         if target_fwhm is None:
             logger.error("Could not estimate a target FWHM, aborting relative photometry.")
             return
@@ -625,7 +629,7 @@ class Instrument(metaclass=ABCMeta):
         elif len(astrosource_S) > 0:
             target = astrosource_S.pop()
         else:
-            return np.nan, np.nan, np.nan, np.nan
+            return np.nan, np.nan, np.nan, {'mean_fwhm':np.nan, 'sigma':np.nan}
     
         fwhm_L = list()
 
@@ -651,6 +655,6 @@ class Instrument(metaclass=ABCMeta):
         sigma = mean_fwhm / (2*np.sqrt(2*math.log(2)))
         r = sigma
         
-        return mean_fwhm, 3.0*r, 7.0*r, 15.0*r
+        return 3.0*r, 7.0*r, 15.0*r, {'mean_fwhm':mean_fwhm, 'sigma':sigma}
     
 

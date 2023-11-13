@@ -202,8 +202,7 @@ def estimate_common_apertures(redfL, reductionmethod=None):
     sigma = mean_fwhm / (2*np.sqrt(2*math.log(2)))
     r = sigma
     
-    return mean_fwhm, 5.0*r, 15.0*r, 20.0*r
-
+    return 5.0*r, 7.0*r, 15.0*r, {'mean_fwhm':mean_fwhm, 'sigma':sigma}
 
 
 def fit_fwhm(pos_px: (float,float), data: NDArray = None, redf: 'ReducedFit' = None, px_max: int = None) -> float:
