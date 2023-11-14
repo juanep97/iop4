@@ -446,8 +446,8 @@ class DIPOL(Instrument):
             def _try_catalog_method():
 
                 if target_src.srctype == SRCTYPES.STAR:
-                        n_seg_threshold_L = [300, 200, 200, 100, 50, 25, 12, 6]
-                npixels_L = [128, 64]
+                    n_seg_threshold_L = [300, 200, 200, 100, 50, 25, 12, 6]
+                    npixels_L = [128, 64]
                 else:
                     n_seg_threshold_L = [1.0]
                     npixels_L = [64, 32]
