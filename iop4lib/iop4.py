@@ -62,7 +62,8 @@ def process_epochs(epochname_list, force_rebuild, check_remote_list):
     logger.info("Science files will be reduced.")
 
     rawfits = RawFit.objects.filter(epoch__in=epoch_L, imgtype=IMGTYPES.LIGHT).all()
-    Epoch.reduce_rawfits(rawfits, force_rebuild=force_rebuild)
+    Epoch.reduce_rawfits(rawfits.filter(obsmode=OBSMODES.PHOTOMETRY), force_rebuild=force_rebuild)
+    Epoch.reduce_rawfits(rawfits.filter(obsmode=OBSMODES.POLARIMETRY), force_rebuild=force_rebuild)
 
     logger.info("Computing relative photometry results.")
 
