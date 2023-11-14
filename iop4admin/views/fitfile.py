@@ -1,4 +1,3 @@
-
 # iop4lib config
 import iop4lib.config
 iop4conf = iop4lib.Config(config_db=False)

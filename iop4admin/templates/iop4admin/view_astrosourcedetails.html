@@ -31,5 +31,9 @@
 
 {{ object.comment_html | safe }}
 
+
+<h2>Finding chart</h2>
+<img src="data:image/png;base64,{{ finding_chart_b64 }}"</img>
+
 {{ block.super }}
 {% endblock %}

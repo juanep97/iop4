@@ -586,3 +586,70 @@ def build_astrometry_summary_images(redf, astrocalib_proc_vars, summary_kwargs):
         plot_preview_astrometry(redf, **astrocalib_proc_vars, ax=ax, fig=fig, with_simbad=summary_kwargs['with_simbad'])
         fig.savefig(Path(redf.filedpropdir) / "astrometry_4_img_result.png", bbox_inches="tight")
         fig.clf()
+
+
+
+
+def plot_finding_chart(target_src, fig=None, ax=None):
+
+    from iop4lib.db import AstroSource
+    from iop4lib.utils import get_simbad_sources
+
+    radius = u.Quantity("6 arcmin")
+
+    if fig is None:
+        fig = plt.gcf()
+    
+    if ax is None:
+        ax = plt.gca()
+
+    simbad_sources = get_simbad_sources(target_src.coord, radius=radius, Nmax=5, exclude_self=False)
+    calibrators = AstroSource.objects.filter(calibrates=target_src)
+    
+    for src in calibrators:
+        ax.plot([src.coord.ra.deg], [src.coord.dec.deg], 'rx', alpha=1)
+        ax.annotate(text=src.name, xy=(src.coord.ra.deg+0.001, src.coord.dec.deg), xytext=(+30,0), textcoords="offset pixels", color="red", fontsize=10, weight="bold", verticalalignment="center", horizontalalignment="left", arrowprops=dict(color="red", width=0.5, headwidth=1, headlength=3))
+    
+    for src in simbad_sources:
+        ax.plot([src.coord.ra.deg], [src.coord.dec.deg], 'b+', alpha=1)
+        ax.annotate(text=src.name, xy=(src.coord.ra.deg-0.001, src.coord.dec.deg), xytext=(-30,0), textcoords="offset pixels", color="blue", fontsize=10, weight="bold", verticalalignment="center", horizontalalignment="right", arrowprops=dict(color="blue", width=0.5, headwidth=1, headlength=3))
+
+    ax.plot([target_src.coord.ra.deg], [target_src.coord.dec.deg], 'ro', alpha=1)
+
+    # limits (center around target source)
+
+    ax.set_xlim([target_src.coord.ra.deg - radius.to_value("deg")/2, target_src.coord.ra.deg + radius.to_value("deg")/2])
+    ax.set_ylim([target_src.coord.dec.deg - radius.to_value("deg")/2, target_src.coord.dec.deg + radius.to_value("deg")/2])
+
+    # labels
+
+    ax.set_xlabel("RA [deg]")
+    ax.set_ylabel("DEC [deg]")
+    ax.set_title(f"{target_src.name} ({target_src.other_name})")
+
+    # legend
+
+    target_h = ax.plot([],[], 'ro', label=target_src.name)[0]
+    simbad_h = ax.plot([],[], 'b+', label="SIMBAD sources")[0]
+    calibrators_h = ax.plot([],[], 'rx', label="IOP4 Calibrators")[0]
+    ax.legend(handles=[target_h, calibrators_h, simbad_h], loc="upper right")
+
+    ax.grid(True, color='gray', ls='dashed')
+
+    # secondary axes in hms and dms
+    
+    lims_ra = ax.get_xlim()
+    ax_x2 = ax.twiny()
+    ax_x2_ticks = ax.get_xticks()
+    ax_x2.set_xticks(ax_x2_ticks)
+    ax_x2.set_xticklabels([Angle(x, unit="deg").to_string(unit="hourangle", sep="hms") for x in ax_x2_ticks])
+    ax_x2.set_xlabel("RA [hms]")
+    ax_x2.set_xlim(lims_ra)
+
+    lims_dec = ax.get_ylim()
+    ax_y2 = ax.twinx()
+    ax_y2_ticks = ax.get_yticks()
+    ax_y2.set_yticks(ax_y2_ticks)
+    ax_y2.set_yticklabels([Angle(x, unit="deg").to_string(unit="deg", sep="dms") for x in ax_y2_ticks])
+    ax_y2.set_ylabel("DEC [dms]")
+    ax_y2.set_ylim(lims_dec)
