@@ -369,18 +369,15 @@ class Instrument(metaclass=ABCMeta):
 
             # Save some extra info (not in the header)
 
+            if not 'date' in build_wcs_result.info:
+                build_wcs_result.info['date'] = datetime.datetime.now()
+
             try:
-                # redf.astrometry_info = [to_save]
-
-                if not 'date' in build_wcs_result.info:
-                    build_wcs_result.info['date'] = datetime.datetime.now()
-
                 if isinstance(reducedfit.astrometry_info, list):
                     reducedfit.astrometry_info = list(itertools.chain(reducedfit.astrometry_info, [build_wcs_result.info]))
                 else:
                     reducedfit.astrometry_info = [build_wcs_result.info]
             except NameError:
-                logger.debug("Could not save astrometry info to filed property.")
                 reducedfit.astrometry_info = [build_wcs_result.info]
 
         else:

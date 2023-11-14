@@ -321,7 +321,7 @@ class DIPOL(Instrument):
     
     @classmethod
     def has_pairs(cls, fit_instance: 'ReducedFit' or 'RawFit') -> bool:
-        """ DIPOL ALWAYS HAS PAIRS?!!!! """
+        """ DIPOL ALWAYS HAS PAIRS """
         return True
 
 
@@ -329,21 +329,22 @@ class DIPOL(Instrument):
 
 
     @classmethod
-    def _estimate_positions_from_segments(cls, redf, fwhm=None, npixels=64, n_seg_threshold=3.0, centered=True):
+    def _estimate_positions_from_segments(cls, redf=None, data=None, fwhm=None, npixels=64, n_seg_threshold=3.0, centered=True):
 
-        if redf.header_hintobject.srctype == SRCTYPES.STAR and redf.exptime <= 5:
+        if redf is not None and redf.header_hintobject.srctype == SRCTYPES.STAR and redf.exptime <= 5:
             fwhm = 80.0
         else:
             fwhm = 1.0
 
         # get the sources positions
 
-        data = redf.data
+        if data is None:
+            data = redf.mdata
+ 
+        height, width = data.shape
 
-        mean, median, std = sigma_clipped_stats(data, sigma=5.0)
-
-        bkg = get_bkg(redf.mdata, filter_size=5, box_size=redf.width//10)
-        imgdata_bkg_substracted = redf.mdata - bkg.background
+        bkg = get_bkg(data, filter_size=5, box_size=width//10)
+        imgdata_bkg_substracted = data - bkg.background
         seg_threshold = n_seg_threshold * bkg.background_rms
         
         segment_map, convolved_data = get_segmentation(imgdata_bkg_substracted, fwhm=fwhm, npixels=npixels, threshold=seg_threshold)
@@ -354,9 +355,9 @@ class DIPOL(Instrument):
         
         if centered:
             # select only the sources in the center
-            cx, cy = redf.width//2, redf.height//2
-            idx = np.abs(positions[:,0]-cx) < 1/3 * redf.width
-            idx = idx & (np.abs(positions[:,1]-cy) < 1/3 * redf.height)
+            cx, cy = width//2, height//2
+            idx = np.abs(positions[:,0]-cx) < 1/3 * width
+            idx = idx & (np.abs(positions[:,1]-cy) < 1/3 * height)
             positions = positions[idx]
 
         return positions
@@ -424,27 +425,29 @@ class DIPOL(Instrument):
                     if (build_wcs_result := cls._build_wcs_for_polarimetry_from_target_O_and_E(reducedfit, summary_kwargs=summary_kwargs, n_seg_threshold=n_seg_threshold, npixels=npixels)):
                         break
                 return build_wcs_result
-                            
+            
             def _try_quad_method():
                 if redf_phot is not None:
-                    
-                    if target_src.srctype == SRCTYPES.STAR:
-                        n_threshold_L = [300, 200, 100, 50, 25, 12, 6]
-                    else:
-                        n_threshold_L = [15,5,3]
 
-                    for fwhm, n_threshold in itertools.product([30,15], n_threshold_L):
-                        if (build_wcs_result := cls._build_wcs_for_polarimetry_images_photo_quads(reducedfit, summary_kwargs=summary_kwargs, n_threshold=n_threshold, find_fwhm=fwhm, smooth_fwhm=4)):
+                    if target_src.srctype == SRCTYPES.STAR:
+                        n_seg_threshold_L = [300, 200, 200, 100, 50, 25, 12, 6]
+                        npixels_L = [128, 64]
+                    else:
+                        n_seg_threshold_L = [1.0]
+                        npixels_L = [64, 32]
+
+                    for npixels, n_seg_threshold in itertools.product(npixels_L, n_seg_threshold_L):
+                        if (build_wcs_result := cls._build_wcs_for_polarimetry_images_photo_quads(reducedfit, summary_kwargs=summary_kwargs, n_seg_threshold=n_seg_threshold, npixels=npixels)):
                             break
                 else:
                     build_wcs_result = BuildWCSResult(success=False)
                 return build_wcs_result
-            
+                  
             def _try_catalog_method():
 
                 if target_src.srctype == SRCTYPES.STAR:
-                    n_seg_threshold_L = [700, 500, 400, 300, 200, 100, 50]
-                    npixels_L = [128, 64]
+                        n_seg_threshold_L = [300, 200, 200, 100, 50, 25, 12, 6]
+                npixels_L = [128, 64]
                 else:
                     n_seg_threshold_L = [1.0]
                     npixels_L = [64, 32]
@@ -462,13 +465,23 @@ class DIPOL(Instrument):
 
             if target_src.srctype == SRCTYPES.STAR:
                 method_try_order = [_try_EO_method, _try_quad_method, _try_catalog_method]
-            else:
-                method_try_order = [_try_quad_method, _try_catalog_method, _try_EO_method]
+            elif target_src.srctype == SRCTYPES.BLAZAR:
+                ## reduce flase positives by forcing to use quad method if it must work
+                if redf_phot is not None and n_estimate > 6:
+                    method_try_order = [_try_quad_method]
+                else:
+                    method_try_order = [_try_catalog_method, _try_quad_method, _try_EO_method]
 
             for m in method_try_order:
                 logger.debug(f"Trying {m.__name__} for {reducedfit}.")
                 if (build_wcs := m()):
                     break
+
+            build_wcs.info["m.__name__"] = m.__name__
+            build_wcs.info["n_estimate"] = n_estimate
+            build_wcs.info["n_estimate_centered"] = n_estimate_centered
+            build_wcs.info["n_expected_simbad_sources"] = n_expected_simbad_sources
+            build_wcs.info["n_expected_calibrators"] = n_expected_calibrators
 
             return build_wcs
         
@@ -511,8 +524,8 @@ class DIPOL(Instrument):
 
 
     @classmethod
-    def _build_wcs_for_polarimetry_images_photo_quads(cls, redf: 'ReducedFit', summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}, n_threshold=5.0, find_fwhm=30, smooth_fwhm=4):
-        
+    def _build_wcs_for_polarimetry_images_photo_quads(cls, redf: 'ReducedFit', summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}, n_seg_threshold=1.5, npixels=32):
+
         from iop4lib.db import ReducedFit
 
         if (target_src := redf.header_hintobject) is None:
@@ -533,6 +546,8 @@ class DIPOL(Instrument):
             logger.error(f"No astro-calibrated photometry field found for {redf_pol}.")
             return BuildWCSResult(success=False)
 
+        logger.debug(f"Invoked with {n_seg_threshold=}, {npixels=}")
+
         # get the subframe of the photometry field that corresponds to this polarimetry field, (approx)
         x_start = redf_pol.rawfit.header['XORGSUBF']
         y_start = redf_pol.rawfit.header['YORGSUBF']
@@ -548,28 +563,14 @@ class DIPOL(Instrument):
 
         sets_L = list()
 
-        for data in [redf_pol.mdata, photdata_subframe]:
+        for redf, data in zip([redf_pol, redf_phot], [redf_pol.mdata, photdata_subframe]):
 
-            if smooth_fwhm:
-                kernel_size = 2*int(smooth_fwhm)+1
-                kernel = make_2dgaussian_kernel(smooth_fwhm, size=kernel_size)
-                data = convolve(data, kernel)
-
-            mean, median, std = sigma_clipped_stats(data, sigma=5.0)
-
-            daofind = DAOStarFinder(fwhm=find_fwhm, threshold=n_threshold*std, brightest=100, exclude_border=True)  
-            sources = daofind(data - median)
-
-            if len(sources) < 4:
-                return BuildWCSResult(success=False)
-
-            sources.sort('flux', reverse=True)
-
-            sources = sources[:10]
-            
-            positions = np.transpose((sources['xcentroid'], sources['ycentroid']))
+            positions = cls._estimate_positions_from_segments(redf=redf, data=data, n_seg_threshold=n_seg_threshold, npixels=npixels, centered=False)
+            positions = positions[:10]
 
             sets_L.append(positions)
+        
+        logger.debug(f"Using {len(sets_L[0])} sources in polarimetry field and {len(sets_L[1])} in photometry field.")
 
         if summary_kwargs['build_summary_images']:
             fig = mplt.figure.Figure(figsize=(12,6), dpi=iop4conf.mplt_default_dpi)
@@ -622,7 +623,7 @@ class DIPOL(Instrument):
         distances_selected = all_distances[idx_selected]
         
         if np.sum(idx_selected) == 0:
-            logger.error(f"No quads with distance < 4.0, returning success = False.")
+            logger.error(f"No quads with distance < 4.0, minimum at {min(all_distances)=} returning success = False.")
             return BuildWCSResult(success=False, wcslist=None, info={'redf_phot__pk':redf_phot.pk, 'redf_phot__fileloc':redf_phot.fileloc}) 
         else:
             idx_selected = np.argsort(distances_selected)[:5]
@@ -713,7 +714,7 @@ class DIPOL(Instrument):
             fig.clear()            
 
 
-        result = BuildWCSResult(success=True, wcslist=wcslist, info={'method':'_build_wcs_for_polarimetry_images_photo_quads', 'redf_phot__pk':redf_phot.pk, 'redf_phot__fileloc':redf_phot.fileloc, 'smooth_fwhm':smooth_fwhm, 'n_threshold':n_threshold, 'find_fwhm':find_fwhm})
+        result = BuildWCSResult(success=True, wcslist=wcslist, info={'redf_phot__pk':redf_phot.pk, 'redf_phot__fileloc':redf_phot.fileloc, n_seg_threshold:n_seg_threshold, npixels:npixels})
 
         return result
 
@@ -749,8 +750,8 @@ class DIPOL(Instrument):
         data = redf.mdata
         cx, cy = redf.width//2, redf.height//2
 
-        positions = cls._estimate_positions_from_segments(redf, n_seg_threshold=n_seg_threshold, npixels=npixels, centered=True)
-        positions_non_centered = cls._estimate_positions_from_segments(redf, n_seg_threshold=n_seg_threshold, npixels=npixels, centered=False)
+        positions = cls._estimate_positions_from_segments(redf=redf, n_seg_threshold=n_seg_threshold, npixels=npixels, centered=True)
+        positions_non_centered = cls._estimate_positions_from_segments(redf=redf, n_seg_threshold=n_seg_threshold, npixels=npixels, centered=False)
 
         if len(positions) == 0:
             logger.error(f"{redf}: Found no sources in the field, cannot build WCS.")
@@ -790,6 +791,8 @@ class DIPOL(Instrument):
         else:
             angle = angle_mean
         
+        logger.debug(f"Angle {angle=}")
+
         # Now, if there is only two sources, they must be the ordinary and extraordinary images. We 
         # use them, if they are not, the procedure failed, raise exception.
 
@@ -872,17 +875,23 @@ class DIPOL(Instrument):
                     disp = np.abs(np.subtract(pos1, pos2))
                     diff = np.abs(np.subtract(pos1, pos2))-np.abs(cls.disp_sign_mean)
                     with np.printoptions(precision=1, suppress=True):
-                        logger.debug(f"{i=},\t{pos1=!s},\t{pos2=!s},\t{dist=!s},\t{disp=!s},\t{diff=!s}")
+                        logger.debug(f"{i=},\t{pos1=!s},\t{pos2=!s},\t{dist=:.2f},\t{disp=!s},\t{diff=!s}")
 
                 # get the best pairs according to the disp_sign_mean 
                 # since we dont know if pre_list1 is the ordinary or extraordinary image, try with 
                 # disp_sign_mean and -disp_sign_mean
 
                 list1, list2, d0_new, disp_sign_new = get_best_pairs(pre_list1, pre_list2, cls.disp_sign_mean, disp_sign_err=disp_allowed_err)
-                logger.debug(f"{list1=}, {list2=}, {d0_new=}, {disp_sign_new=}")
+
+                with np.printoptions(precision=1, suppress=True):
+                    logger.debug(f"{list1=}, {list2=}, {d0_new=}, {disp_sign_new=}")
+
                 if len(list1) == 0:
                     list1, list2, d0_new, disp_sign_new = get_best_pairs(pre_list1, pre_list2, -cls.disp_sign_mean, disp_sign_err=disp_allowed_err)
-                    logger.debug(f"{list1=}, {list2=}, {d0_new=}, {disp_sign_new=}")
+
+                    with np.printoptions(precision=1, suppress=True):
+                        logger.debug(f"{list1=}, {list2=}, {d0_new=}, {disp_sign_new=}")
+
                     if len(list1) == 0:
                         logger.error("No pairs found, returning success = False.")
                         return BuildWCSResult(success=False)
@@ -920,11 +929,11 @@ class DIPOL(Instrument):
 
         calibrators_in_field = [src for src in AstroSource.objects.filter(calibrates__in=[target_src]).all() if src.is_in_field(pre_wcs, redf.height, redf.width)]
 
-        logger.debug(f"Found {len(calibrators_in_field)} calibrators in field for {target_src}")
+        logger.debug(f"Found {len(calibrators_in_field)} calibrators in field for {target_src.name}: {calibrators_in_field}")
 
         if len(calibrators_in_field) <= 1 or len(positions) <= 2:
             logger.warning(f"Using pre-computed angle {angle:.2f} deg for {target_src}.")
-            wcslist = [build_wcs_centered_on(target_px, redf=redf, angle=angle) for target_px in [target_O, target_E]]
+            wcslist =  [build_wcs_centered_on(target_px, redf=redf, angle=angle) for target_px in [target_O, target_E]]
         else:
             logger.debug(f"Using {len(calibrators_in_field)} calibrators in field to fit WCS for {target_src}.")
 
@@ -932,24 +941,31 @@ class DIPOL(Instrument):
 
             _, (fits_O, fits_E) = zip(*[get_candidate_rank_by_matchs(redf, pos, angle=angle, r_search=30, calibrators=expected_sources_in_field) for pos in [target_O, target_E]])
 
-            for target_px, fits in zip([target_O, target_E], [fits_O, fits_E]):
-                known_pos_skycoord = [target_src.coord]
-                # fit[0] is the astro source fitted, fit[1] (fit[1][0] is the gaussian, fit[1][1] is the constant
-                known_pos_skycoord.extend([fit[0].coord for fit in fits])
 
-                known_pos_px = [target_px]
-                known_pos_px.extend([(fit[1][0].x_mean.value, fit[1][0].y_mean.value) for fit in fits])
+            for img_label, target_px, fits in zip(["Ordinary", "Extraordinary"], [target_O, target_E], [fits_O, fits_E]):
 
-                try:
-                    logger.debug("Fitting " + ", ".join([f"ra {coord.ra.deg} dec {coord.dec.deg} to {pos}" for coord, pos in zip(known_pos_skycoord, known_pos_px)]))
+                if len(fits) > 1:
+                    # fit[0] is the astro source fitted, fit[1] (fit[1][0] is the gaussian, fit[1][1] is the constant
 
-                    wcs_fitted = fit_wcs_from_points(np.array(known_pos_px).T, SkyCoord(known_pos_skycoord), projection=build_wcs_centered_on(target_px, redf=redf, angle=angle))
-                    wcslist.append(wcs_fitted)
-                except Exception as e:
-                    logger.error(f"Exception {e} while fitting WCS, using pre-computed angle {angle:.2f} deg for {target_src}.")
-                    wcslist = [build_wcs_centered_on(target_px, redf=redf, angle=angle) for target_px in [target_O, target_E]]
-                
+                    known_pos_src = [target_src]
+                    known_pos_src.extend([fit[0] for fit in fits])
 
+                    known_pos_px = [target_px]
+                    known_pos_px.extend([(fit[1][0].x_mean.value, fit[1][0].y_mean.value) for fit in fits])
+
+                    try:
+                        with np.printoptions(precision=2, suppress=True):
+                            for px, src in zip(known_pos_px, known_pos_src):
+                                logger.debug(f"Fitting {img_label} {src.name} ({src.coord.ra.deg:.2f} ra, {src.coord.dec.deg:.2f} dec) to ({px[0]:.1f}, {px[1]:.1f})")
+
+                        wcs_fitted = fit_wcs_from_points(np.array(known_pos_px).T, SkyCoord([src.coord for src in known_pos_src]), projection=build_wcs_centered_on(target_px, redf=redf, angle=angle))
+                        wcslist.append(wcs_fitted)
+                    except Exception as e:
+                        logger.error(f"Exception {e} while fitting WCS, using pre-computed angle {angle:.2f} deg for {target_src}.")
+                        wcslist.append(build_wcs_centered_on(target_px, redf=redf, angle=angle))
+                else:
+                    logger.debug("Using pre-computed wcs.")
+                    wcslist.append(build_wcs_centered_on(target_px, redf=redf, angle=angle))
 
         if summary_kwargs['build_summary_images']:
             logger.debug(f"Building summary images for {redf}.")
@@ -960,7 +976,7 @@ class DIPOL(Instrument):
             fig.savefig(Path(redf.filedpropdir) / "astrometry_summary.png", bbox_inches="tight")
             fig.clear()
 
-        return BuildWCSResult(success=True, wcslist=wcslist, info={'method':'_build_wcs_for_polarimetry_images_catalog_matching'})
+        return BuildWCSResult(success=True, wcslist=wcslist, info={})
     
 
 
@@ -999,7 +1015,7 @@ class DIPOL(Instrument):
         # get the sources positions
 
         cx, cy = redf.width//2, redf.height//2
-        positions = cls._estimate_positions_from_segments(redf, n_seg_threshold=n_seg_threshold, npixels=npixels, centered=True)
+        positions = cls._estimate_positions_from_segments(redf=redf, n_seg_threshold=n_seg_threshold, npixels=npixels, centered=True)
 
         if len(positions) == 0:
             logger.error(f"{redf}: Found no sources in the field, cannot build WCS.")
@@ -1030,13 +1046,14 @@ class DIPOL(Instrument):
             logger.warning(f"{redf}: {len(positions)} sources found, expected 2. Maybe after looking at pairs only, we can find the right ones.")
 
             pre_list1, pre_list2 = zip(*itertools.product(positions, positions))
+
             # log some debug info about the pairs diference and the difference with respect the expected disp_sign_mean
             for i, (pos1, pos2) in enumerate(zip(pre_list1, pre_list2)):
                 dist = distance(pos1, pos2)
                 disp = np.abs(np.subtract(pos1, pos2))
                 diff = np.abs(np.subtract(pos1, pos2))-np.abs(cls.disp_sign_mean)
                 with np.printoptions(precision=1, suppress=True):
-                    logger.debug(f"{i=}, {pos1=!s}, {pos2=!s}, {dist=!s}, {disp=!s}, {diff=!s}")
+                    logger.debug(f"{i=}, {pos1=!s}, {pos2=!s}, dist={dist:.2f}, {disp=!s}, {diff=!s}")
 
             list1, list2, d0_new, disp_sign_new = get_best_pairs(pre_list1, pre_list2, cls.disp_sign_mean, disp_sign_err=disp_allowed_err)
 

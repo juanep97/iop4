@@ -246,7 +246,7 @@ def fit_sigma(pos_px: (float, float), *args, **kwargs) -> float:
 
 
 
-def fit_gaussian(px_start, redf, sigma_start=7, r_max=90, r_search=None):
+def fit_gaussian(px_start, redf=None, data=None, sigma_start=7, r_max=None, r_search=None):
     r""" Fits a 2D gaussian + constant to the data around the given position, and returns the fitted model.
     
     Parameters
@@ -268,29 +268,36 @@ def fit_gaussian(px_start, redf, sigma_start=7, r_max=90, r_search=None):
     from astropy.modeling.models import Const2D, Gaussian2D
     from iop4lib.instruments import Instrument
 
-    mdata = redf.mdata
+    if redf is not None:
+        if data is None:
+            data = redf.mdata
 
-    if r_max is None: 
-        # 0.4 arcsecs is excellent seeing
-        r_max = int((30*0.4) / Instrument.by_name(redf.instrument).arcsec_per_pix) 
+        if r_max is None:
+            # 0.4 arcsecs is excellent seeing
+            r_max = int((30*0.4) / Instrument.by_name(redf.instrument).arcsec_per_pix) 
+    else:
+        if r_max is None:
+            r_max = 90
+
+    height, width = data.shape
 
     x_start, y_start = px_start
 
-    X, Y = np.meshgrid(np.arange(redf.width), np.arange(redf.height))
+    X, Y = np.meshgrid(np.arange(width), np.arange(height))
     
     if r_search is not None:
         idx_region = np.sqrt((X-x_start)**2 + (Y-y_start)**2) < r_search
-        idx_region_max = np.argmax(mdata[idx_region])
+        idx_region_max = np.argmax(data[idx_region])
         x_start, y_start = X[idx_region][idx_region_max], Y[idx_region][idx_region_max]
 
     idx_fit_region = np.sqrt((X-x_start)**2 + (Y-y_start)**2) < r_max
 
     X = X[idx_fit_region].flatten()
     Y = Y[idx_fit_region].flatten()
-    Z = mdata[idx_fit_region].compressed()
+    Z = np.ma.array(data[idx_fit_region]).compressed()
 
     fit = fitting.LevMarLSQFitter()
-    gaussian = Gaussian2D(amplitude=mdata[int(y_start), int(x_start)], x_mean=x_start, y_mean=y_start, x_stddev=sigma_start, y_stddev=sigma_start) + Const2D(np.median(Z))
+    gaussian = Gaussian2D(amplitude=data[int(y_start), int(x_start)], x_mean=x_start, y_mean=y_start, x_stddev=sigma_start, y_stddev=sigma_start) + Const2D(np.median(Z))
     gaussian[0].x_stddev.tied = lambda model: model[0].y_stddev
     gaussian_fit = fit(gaussian, X, Y, Z)
 
@@ -469,7 +476,7 @@ def get_candidate_rank_by_matchs(redf: 'ReducedFit',
     for src in calibrators:
         try:
             logger.debug(f"Trying to fit calibrator {src.name} at {src.coord.to_pixel(wcs)}")
-            fitted_gaussian = fit_gaussian(px_start=src.coord.to_pixel(wcs), redf=redf, r_search=r_search)
+            fitted_gaussian = fit_gaussian(px_start=src.coord.to_pixel(wcs), redf=redf, r_search=r_search, sigma_start=15) # 15px is closer to dipol's sigmas
             xycen = fitted_gaussian[0].x_mean.value, fitted_gaussian[0].y_mean.value            
             sigma = np.sqrt(fitted_gaussian[0].x_stddev.value**2 + fitted_gaussian[0].y_stddev.value**2)
             #logger.debug(f"Sigma for calibrator {src.name}: {sigma} px")
@@ -490,6 +497,9 @@ def get_candidate_rank_by_matchs(redf: 'ReducedFit',
         ap_stats = ApertureStats(redf.mdata, ap)
         flux_counts = ap_stats.sum - annulus_stats.mean*ap_stats.sum_aper_area.value
 
+        with np.printoptions(precision=2, suppress=True):
+            logger.debug(f"Calibrator {src.name} at {src.coord.to_pixel(wcs)}, sigma {sigma:.2f} SNR {ap_stats.max/annulus_stats.std:.2f}")
+
         if not flux_counts > 0:
             continue
         elif not ap_stats.max > 2*annulus_stats.std:
@@ -499,10 +509,6 @@ def get_candidate_rank_by_matchs(redf: 'ReducedFit',
 
         calibrators_fluxes.append(flux_counts)
         calibrators_fit_L.append((src, fitted_gaussian))
-
-        logger.debug(f"Calibrator {src.name} at {src.coord.to_pixel(wcs)}, sigma = {sigma}: {flux_counts:.1f} counts")
-
-        gc.collect()
 
     if len(calibrators_fluxes) > 0:
         # just look at how many matches with the calibs you find
@@ -516,7 +522,8 @@ def get_candidate_rank_by_matchs(redf: 'ReducedFit',
     else: # if no calibrators could be fitted, return -np.inf 
         rank = -np.inf
 
-    logger.debug(f"Rank of candidate {candidate_pos} for src {target_src.name} (n={len(calibrators_fluxes)}): {rank}")
+    with np.printoptions(precision=2, suppress=True):
+        logger.debug(f"Rank of candidate {candidate_pos} for src {target_src.name} (n={len(calibrators_fluxes)}): {rank}")
 
     return rank, calibrators_fit_L
 
