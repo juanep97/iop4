@@ -510,6 +510,8 @@ def get_candidate_rank_by_matchs(redf: 'ReducedFit',
         calibrators_fluxes.append(flux_counts)
         calibrators_fit_L.append((src, fitted_gaussian))
 
+        gc.collect()
+
     if len(calibrators_fluxes) > 0:
         # just look at how many matches with the calibs you find
         rank_1 = 1 - 0.5**np.sum(~np.isnan(calibrators_fluxes))

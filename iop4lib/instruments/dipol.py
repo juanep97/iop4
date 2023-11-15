@@ -24,6 +24,7 @@ from astropy.coordinates import Angle, SkyCoord
 import itertools
 import datetime
 import math
+import gc
 
 # iop4lib imports
 from iop4lib.enums import *
@@ -418,7 +419,7 @@ class DIPOL(Instrument):
                     else:
                         npixels_L = [64, 128]
                 else:
-                    n_seg_threshold_L = [6.0, 3.0, 1.5, 1.0]
+                    n_seg_threshold_L = [6.0, 3.0, 1.5, 1.0, 0.9, 0.8, 0.7, 0.6]
                     npixels_L = [64]
 
                 for npixels, n_seg_threshold in itertools.product(npixels_L, n_seg_threshold_L):
@@ -433,7 +434,7 @@ class DIPOL(Instrument):
                         n_seg_threshold_L = [300, 200, 200, 100, 50, 25, 12, 6]
                         npixels_L = [128, 64]
                     else:
-                        n_seg_threshold_L = [1.0]
+                        n_seg_threshold_L = [1.0, 0.9]
                         npixels_L = [64, 32]
 
                     for npixels, n_seg_threshold in itertools.product(npixels_L, n_seg_threshold_L):
@@ -449,7 +450,7 @@ class DIPOL(Instrument):
                     n_seg_threshold_L = [300, 200, 200, 100, 50, 25, 12, 6]
                     npixels_L = [128, 64]
                 else:
-                    n_seg_threshold_L = [1.0]
+                    n_seg_threshold_L = [1.0, 0.9, 0.8, 0.7, 0.6]
                     npixels_L = [64, 32]
             
                 if n_expected_calibrators > 0 or n_expected_simbad_sources > 0:
@@ -839,6 +840,10 @@ class DIPOL(Instrument):
                 positions_to_rank = np.array(positions_to_rank)
                 logger.debug(f"{positions_to_rank=}")
 
+                if len(positions_to_rank) < 2:
+                    logger.error("No pairs found, returning success = False.")
+                    return BuildWCSResult(success=False)
+
                 # N_max_to_rank = 10
                 # positions_to_rank = positions_to_rank[:N_max_to_rank]
 
@@ -975,6 +980,9 @@ class DIPOL(Instrument):
             plot_preview_astrometry(redf, with_simbad=True, has_pairs=True, wcs1=wcslist[0], wcs2=wcslist[1], ax=ax, fig=fig) 
             fig.savefig(Path(redf.filedpropdir) / "astrometry_summary.png", bbox_inches="tight")
             fig.clear()
+
+
+        gc.collect()
 
         return BuildWCSResult(success=True, wcslist=wcslist, info={})
     
