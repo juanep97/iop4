@@ -65,7 +65,7 @@ def order(points):
 
     return sorted_points
 
-def hash_juan_old(points):
+def hash_ish_old(points):
     P1,P2,P3,P4 = points     
     P1,P2,P3,P4 = order(points)
     d1,d2,d3,d4 = map(np.linalg.norm, [P2-P1,P3-P2,P4-P3,P1-P4])
@@ -73,7 +73,7 @@ def hash_juan_old(points):
 
 
 
-def quad_coords_juan(A,B,C,D):
+def quad_coords_ish(A,B,C,D):
 
     P = (A+B)/2
     A, B, C, D = A-P,B-P,C-P,D-P
@@ -118,10 +118,10 @@ def force_AB_maxdist(points):
     return result
     
 
-def hash_juan(points):
+def hash_ish(points):
     A,B,C,D = points
     A,B,C,D = force_AB_maxdist([A,B,C,D])
-    A,B,C,D = quad_coords_juan(A,B,C,D)
+    A,B,C,D = quad_coords_ish(A,B,C,D)
 
     FX = np.array([[-1,0],[0,1]])
     FY = np.array([[1,0],[0,-1]])
@@ -141,11 +141,11 @@ def hash_juan(points):
     return d1,d2,d3,d4
     
     
-def qorder_juan(points):
+def qorder_ish(points):
     A,B,C,D = points
     A,B,C,D = force_AB_maxdist([A,B,C,D])
 
-    Ap,Bp,Cp,Dp = quad_coords_juan(A,B,C,D)
+    Ap,Bp,Cp,Dp = quad_coords_ish(A,B,C,D)
 
     if not distance(Ap,Bp)<distance(Ap,Cp):
         B, C = C, B

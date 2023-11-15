@@ -558,7 +558,7 @@ class DIPOL(Instrument):
 
         idx = np.s_[y_start:y_end, x_start:x_end]
 
-        photdata_subframe = redf_phot.mdata[idx] # if we use the hash_juan_old, which is not invariant under fliiping, we need to flip the image in y (redf_phot.mdata[idx][::-1,:])
+        photdata_subframe = redf_phot.mdata[idx] # if we use the hash_ish_old, which is not invariant under fliiping, we need to flip the image in y (redf_phot.mdata[idx][::-1,:])
 
         # find 10 brightest sources in each field
 
@@ -594,8 +594,8 @@ class DIPOL(Instrument):
         quads_1 = np.array(list(itertools.combinations(sets_L[0], 4)))
         quads_2 = np.array(list(itertools.combinations(sets_L[1], 4)))
 
-        from iop4lib.utils.quadmatching import hash_juan, distance, order, qorder_juan, find_linear_transformation
-        hash_func, qorder = hash_juan, qorder_juan
+        from iop4lib.utils.quadmatching import hash_ish, distance, order, qorder_ish, find_linear_transformation
+        hash_func, qorder = hash_ish, qorder_ish
 
         hashes_1 = np.array([hash_func(quad) for quad in quads_1])
         hashes_2 = np.array([hash_func(quad) for quad in quads_2])
@@ -682,8 +682,8 @@ class DIPOL(Instrument):
 
         # give an unique ordering to the quads
 
-        quads_1 = [qorder_juan(quad) for quad in quads_1]
-        quads_2 = [qorder_juan(quad) for quad in quads_2]
+        quads_1 = [qorder_ish(quad) for quad in quads_1]
+        quads_2 = [qorder_ish(quad) for quad in quads_2]
 
         # get the pre wcs with the target in the center of the image
 
