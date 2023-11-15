@@ -1270,11 +1270,10 @@ class DIPOL(Instrument):
                 # linear polarization (0 to 1)
                 P = math.sqrt(Qr**2+Ur**2)
                 dP = 1/P * math.sqrt((Qr*dQr)**2 + (Ur*dUr)**2)
+
                 # polarization angle (degrees)
-                x = -Qr/Ur
-                dx = math.sqrt( (-1/Ur)**2+dUr**2 + (+Qr/Ur**2)**2*dQr**2 )
                 chi = 0.5 * math.degrees(math.atan2(-Qr, Ur))
-                dchi = 0.5 * 1/(1 + x**2) * dx
+                dchi = 0.5 * math.degrees( 1 / (Qr**2 + Ur**2) * math.sqrt((Qr*dUr)**2 + (Ur*dQr)**2) )
 
                 return P, chi, dP, dchi
             
