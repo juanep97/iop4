@@ -1230,7 +1230,7 @@ class DIPOL(Instrument):
             dF_E = np.array([(fluxD['E'][angle][1]) for angle in angles_L])
 
             F = (F_O - F_E) / (F_O + F_E)
-            dF = 1 / ( F_O**2 + F_E**2 ) * np.sqrt(dF_O**2 + dF_E**2)
+            dF = 2 / ( F_O + F_E )**2 * np.sqrt(F_E**2 * dF_O**2 + F_O**2 * dF_E**2)
 
             I = (F_O + F_E)
             dI = np.sqrt(dF_O**2 + dF_E**2)
