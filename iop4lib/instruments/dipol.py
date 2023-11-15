@@ -1120,6 +1120,13 @@ class DIPOL(Instrument):
     def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fit_boxsize=None, search_boxsize=(90,90)):
         aperpix, r_in, r_out, fit_res_dict = super().estimate_common_apertures(reducedfits, reductionmethod=reductionmethod, fit_boxsize=fit_boxsize, search_boxsize=search_boxsize, fwhm_min=5.0, fwhm_max=60)
         sigma = fit_res_dict['sigma']
+
+        if reducedfits[0].header_hintobject.name == "2200+420":
+            r = min(1.8*sigma, 17)
+            r_in = max(5*sigma, 80)
+            r_out = 2*r_in
+            return r, r_in, r_out, fit_res_dict
+        
         return 1.8*sigma, 5*sigma, 10*sigma, fit_res_dict
   
 
