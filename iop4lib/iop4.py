@@ -310,7 +310,7 @@ def main():
     if not args.list_only:
         if len(epochnames_to_process) > 0:
             logger.info("Processing epochs.")
-            epochnames_to_process, _ = sorted(zip(*[(epochname, Epoch.epochname_to_tel_night(epochname)[1].strftime("%Y-%m-%d")) for epochname in epochnames_to_process]), key=lambda x: x[1], reverse=True)
+            epochnames_to_process, _ = list(zip(*sorted([(epochname, Epoch.epochname_to_tel_night(epochname)[1].strftime("%Y-%m-%d")) for epochname in epochnames_to_process], key=lambda x: x[1], reverse=True)))
             process_epochs(epochnames_to_process, args.force_rebuild, check_remote_list=~args.skip_remote_file_list)
     else:
         logger.info("Invoked with --list-only!")
