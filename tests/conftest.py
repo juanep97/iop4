@@ -12,7 +12,7 @@ from pathlib import Path
 
 TEST_CONFIG = str(Path(iop4conf.datadir) / "config.tests.yaml")
 TESTDATA_FPATH = str(Path("~/iop4testdata.tar.gz").expanduser())
-TESTDATA_MD5SUM = '0f5432c54d6173f861b64d3d4280e2f7'
+TESTDATA_MD5SUM = '4d393377f8c659e2ead2fa252a9a38b2'
 TEST_DATADIR = str(Path(iop4conf.datadir) / "iop4testdata")
 TEST_DB_PATH = str(Path(iop4conf.db_path).expanduser().parent / ("test_" + str(Path(iop4conf.db_path).name)))
 
