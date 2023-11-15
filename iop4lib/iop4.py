@@ -65,15 +65,10 @@ def process_epochs(epochname_list, force_rebuild, check_remote_list):
     Epoch.reduce_rawfits(rawfits.filter(obsmode=OBSMODES.PHOTOMETRY), force_rebuild=force_rebuild)
     Epoch.reduce_rawfits(rawfits.filter(obsmode=OBSMODES.POLARIMETRY), force_rebuild=force_rebuild)
 
-    logger.info("Computing relative photometry results.")
-
+    logger.info("Computing results.")
     for epoch in epoch_L:
-            epoch.compute_relative_photometry()
-
-    logger.info("Computing relative polarimetry results.")
-    
-    for epoch in epoch_L:
-            epoch.compute_relative_polarimetry()
+        PhotoPolResult.objects.filter(epoch=epoch).delete()
+        epoch.compute_relative_polarimetry()
 
 
 def list_local_epochnames():
