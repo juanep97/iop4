@@ -28,7 +28,7 @@ def test_astrometric_calibration(load_test_catalog):
     from iop4lib.enums import IMGTYPES, SRCTYPES
     from iop4lib.utils.quadmatching import distance
 
-    epochname_L = ["OSN-T090/2023-09-26", "OSN-T090/2023-10-11", "OSN-T090/2023-10-12", "OSN-T090/2023-11-06"]
+    epochname_L = ["OSN-T090/2023-10-25", "OSN-T090/2023-09-26", "OSN-T090/2023-10-11", "OSN-T090/2023-10-12", "OSN-T090/2023-11-06"]
     epoch_L = [Epoch.create(epochname=epochname) for epochname in epochname_L]
 
     for epoch in epoch_L:
@@ -88,4 +88,23 @@ def test_astrometric_calibration(load_test_catalog):
 
     assert (distance(pos_O, [618, 259]) < 50) # O position
     assert (distance(pos_E, [402, 268]) < 50) # E position
+
+    # Test 4. Polarimetry field using target E, O
     
+    fileloc = "OSN-T090/2023-10-25/HD204827_R_IAR-0384.fts"
+    rawfit = RawFit.by_fileloc(fileloc=fileloc)
+    redf = ReducedFit.create(rawfit=rawfit)
+    redf.build_file()
+
+    # check source position in the image
+
+    src = AstroSource.objects.get(name="HD 204827")
+
+    assert redf.header_hintobject.name == src.name
+    assert redf.sources_in_field.filter(name=src.name).exists()
+    
+    pos_O = src.coord.to_pixel(wcs=redf.wcs1)
+    pos_E = src.coord.to_pixel(wcs=redf.wcs2)
+
+    assert (distance(pos_O, [684, 397]) < 50) # O position
+    assert (distance(pos_E, [475, 411]) < 50) # E position
