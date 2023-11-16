@@ -14,9 +14,11 @@ from iop4lib.utils import get_column_values
 
 # other imports
 import os
+import glob
 import numpy as np
 import pandas as pd
 from astropy.time import Time
+from pathlib import Path
 
 #logging
 import logging
@@ -34,7 +36,7 @@ def plot(request):
     date_end = request.POST.get("date_end", None)
     date_end = None if date_end == "" else date_end
 
-    enable_iop3 = request.POST.get("enable_iop3", False)
+    enable_crosscheckpts = request.POST.get("enable_crosscheckpts", False)
     enable_full_lc = request.POST.get("enable_full_lc", False)
     enable_errorbars = request.POST.get("enable_errorbars", False)
 
@@ -43,6 +45,10 @@ def plot(request):
     # comment these lines to allow for empty plot
     if not AstroSource.objects.filter(name=source_name).exists(): 
         return HttpResponseBadRequest(f"Source '{source_name}' does not exist".format(source_name=source_name))
+    
+    target_src = AstroSource.objects.get(name=source_name)
+
+    logger.debug(f"Serving results for {target_src}")
 
     # build plot
 
@@ -79,33 +85,83 @@ def plot(request):
     if date_end is not None:
         qs = qs.filter(juliandate__lte=Time(date_end).jd)
 
-    # iop3? 
-    if enable_iop3:
-        iop3_df = pd.read_csv(os.path.expanduser("~/iop3_results.csv"))
-        iop3_idx = (iop3_df["name_IAU"] == source_name) & (iop3_df["filter"] == "R")
-        if date_start is not None:
-            iop3_idx = iop3_idx & (iop3_df["mjd_obs"] >= Time(date_start).mjd)
-        if date_end is not None:
-            iop3_idx = iop3_idx & (iop3_df["mjd_obs"] <= Time(date_end).mjd)
-        iop3_df = iop3_df.loc[iop3_idx]
+    # crosscheck data
+
+    df_crosscheck = pd.DataFrame(columns=['juliandate', 'mag', 'dmag', 'p', 'p_err', 'chi', 'chi_err', 'instrument'])
+
+    if enable_crosscheckpts:
+
+        iop3_fpath = str(Path(iop4conf.datadir) / "iop4_crosscheck_data" / "iop3.csv")
+
+        if os.path.exists(iop3_fpath):
+            df = pd.read_csv(iop3_fpath)
+
+            df_idx = (df["name_IAU"] == source_name) & (df["filter"] == band)
+
+            if date_start is not None:
+                df_idx = df_idx & (df["mjd_obs"] >= Time(date_start).mjd)
+            if date_end is not None:
+                df_idx = df_idx & (df["mjd_obs"] <= Time(date_end).mjd)
+
+            df = df.loc[df_idx]
+
+            # rename IOP3 dump columns to match PhotoPolResult
+            df['juliandate'] = Time(df["mjd_obs"], format="mjd").jd
+            df['mag'] = df['Mag']
+            df['dmag'] = df['dMag']
+            df['chi'] = df['Theta']
+            df['chi_err'] = df['dTheta']
+            df['p'] = df['P']/100
+            df['p_err'] = df['dP']/100
+            df['instrument'] = list(map(lambda x: "IOP3-"+x, df_crosscheck["Telescope"]))
+
+            df_crosscheck = pd.concat([df_crosscheck, df], ignore_index=True, join="inner")
+        
+        dipol_dpath = str(Path(iop4conf.datadir) / "iop4_crosscheck_data" / "dipol")
+        
+        def get_invariable_str(s):
+            return s.replace(' ', '').replace('-','').replace('+','').replace('_','').upper()
     
+        for fpath in glob.iglob(f"{dipol_dpath}/*.txt"):
+
+            if get_invariable_str(target_src.name) in get_invariable_str(fpath) or get_invariable_str(target_src.other_name) in get_invariable_str(fpath):
+                logger.debug(f"Reading {fpath}")
+
+                df = pd.read_csv(fpath, delim_whitespace=True, header=None, 
+                                 names=["mjd", "q", "u", "p", "p_err", "chi", "chi_err"],
+                                 usecols=range(7), dtype=float)
+
+                if date_start is not None:
+                    df = df.loc[df["mjd"] >= Time(date_start).mjd]
+                if date_end is not None:
+                    df = df.loc[df["mjd"] <= Time(date_end).mjd]
+
+                df['juliandate'] = Time(df["mjd"], format="mjd").jd
+                df['mag'] = np.nan
+                df['dmag'] = np.nan
+                df['p'] = df['p']/100
+                df['p_err'] = df['p_err']/100
+                df['instrument'] = np.full(len(df), "VILPPU-DIPOL")
+
+                df_crosscheck = pd.concat([df_crosscheck, df], ignore_index=True, join="inner")
+
     # choose  the x and y
     if qs.count() > 0:
         vals = get_column_values(qs, column_names)
     else:
         vals = {k:np.array([]) for k in column_names}
 
-    if enable_iop3:
-        vals["instrument"] = np.append(vals["instrument"], list(map(lambda x: "IOP3-"+x, iop3_df["Telescope"])))
-        vals["id"] = np.append(vals["id"], -np.arange(len(iop3_df)))
-        vals["juliandate"] = np.append(vals["juliandate"], Time(iop3_df["mjd_obs"], format="mjd").jd)
-        vals["mag"] = np.append(vals["mag"],  iop3_df['Mag'])
-        vals["mag_err"] = np.append(vals["mag_err"], iop3_df['dMag'])
-        vals["p"] = np.append(vals["p"], iop3_df['P']/100)
-        vals["p_err"] = np.append(vals["p_err"], iop3_df['dP']/100)
-        vals["chi"] = np.append(vals["chi"], iop3_df['Theta'])
-        vals["chi_err"] = np.append(vals["chi_err"], iop3_df['dTheta'])
-        vals["flags"] = np.append(vals["flags"], np.full(len(iop3_df), 0)) # do not show flags for IOP3 data (0 means no flags)
+    if enable_crosscheckpts and len(df_crosscheck) > 0:
+        vals["instrument"] = np.append(vals["instrument"], df_crosscheck['instrument'])
+        vals["id"] = np.append(vals["id"], -np.arange(len(df_crosscheck))) ## assign negative ids to crosscheck data
+        vals["juliandate"] = np.append(vals["juliandate"], df_crosscheck['juliandate'])
+        vals["mag"] = np.append(vals["mag"],  df_crosscheck['mag'])
+        vals["mag_err"] = np.append(vals["mag_err"], df_crosscheck['dmag'])
+        vals["p"] = np.append(vals["p"], df_crosscheck['p'])
+        vals["p_err"] = np.append(vals["p_err"], df_crosscheck['p_err'])
+        vals["chi"] = np.append(vals["chi"], df_crosscheck['chi'])
+        vals["chi_err"] = np.append(vals["chi_err"], df_crosscheck['chi_err'])
+        vals["flags"] = np.append(vals["flags"], np.full(len(df_crosscheck), 0)) # do not show flags for crosscheck data (0 means no flags)
 
     if len(vals['id']) > 0:
         pks = vals['id']
@@ -224,6 +280,10 @@ def plot(request):
         x2_range = np.nan, np.nan
 
     # also the freeze y axis range of the main plot
+
+    x1 = np.array(x1, dtype=float)
+    y1 = np.array(y1, dtype=float)
+
     if len(y1) >= 2:
         y1_lims = np.nanmin(y1)-0.05*(np.nanmax(y1)-np.nanmin(y1)), np.nanmax(y1)+0.05*(np.nanmax(y1)-np.nanmin(y1))
     elif len(y1) == 1:
@@ -625,7 +685,7 @@ def plot(request):
                                     }, 
                                 'n_points':len(x1),
                                 'enable_full_lc': enable_full_lc,
-                                'enable_iop3': enable_iop3,
+                                'enable_crosscheckpts': enable_crosscheckpts,
                                 'enable_errorbars': enable_errorbars,
                             })
     
@@ -636,7 +696,7 @@ def plot(request):
                              'table':json_item(data_table),
                              'n_points':len(x1),
                              'enable_full_lc': enable_full_lc,
-                             'enable_iop3': enable_iop3,
+                             'enable_crosscheckpts': enable_crosscheckpts,
                              'enable_errorbars': enable_errorbars})
     
     elif fmt == "items":
@@ -647,7 +707,7 @@ def plot(request):
                             'render_items':[item.to_json() for item in render_items],
                             'n_points':len(x1),
                             'enable_full_lc': enable_full_lc,
-                            'enable_iop3': enable_iop3,
+                            'enable_crosscheckpts': enable_crosscheckpts,
                             'enable_errorbars': enable_errorbars})
     
     else:
