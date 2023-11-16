@@ -68,6 +68,7 @@ def process_epochs(epochname_list, force_rebuild, check_remote_list):
     logger.info("Computing results.")
     for epoch in epoch_L:
         PhotoPolResult.objects.filter(epoch=epoch).delete()
+        epoch.compute_relative_photometry()
         epoch.compute_relative_polarimetry()
 
 
