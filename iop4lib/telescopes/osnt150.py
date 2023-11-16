@@ -37,15 +37,13 @@ class OSNT150(OSNT090, Telescope, metaclass=ABCMeta):
 
     # telescope specific properties
 
-    arcsec_per_pix = 0.232
-    gain_e_adu = 4.5
-    field_width_arcmin = 7.92
-
     ftp_address = iop4conf.osn_t150_address
     ftp_user = iop4conf.osn_t150_user
     ftp_password = iop4conf.osn_t150_password
+    ftp_encoding = 'utf-8'
 
     # telescope specific methods
+
 
     @classmethod
     def compute_relative_photometry(cls, rawfit):

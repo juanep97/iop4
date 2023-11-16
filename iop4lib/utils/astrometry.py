@@ -19,6 +19,9 @@ from astropy.coordinates import SkyCoord
 import multiprocessing
 import functools
 import itertools
+import dataclasses
+
+# iop4lib imports
 
 from iop4lib.utils.sourcepairing import (get_pairs_d, get_pairs_dxy, get_best_pairs)
 from iop4lib.utils.sourcedetection import (get_bkg, get_segmentation, get_cat_sources_from_segment_map)
@@ -29,100 +32,31 @@ from iop4lib.utils.plotting import build_astrometry_summary_images
 import logging
 logger = logging.getLogger(__name__)
 
+import typing
+if typing.TYPE_CHECKING:
+    from iop4lib.db.reducedfit import ReducedFit
 
+@dataclasses.dataclass
+class BuildWCSResult():
+    r"""
+        'success': bool
+            whether the appropiate WCSs was built successfully
+        'wcslist': list 
+            list of WCS objects built (usually one, two if there are extraordinary sources in the image)
+        'info': dict or None 
+            dict with extra information about the process
 
-def build_wcs(redf, shotgun_params_kwargs=None, build_summary_images=True, summary_kwargs=None):
-    """ Build the appropiate WCSs for a ReducedFit image.
-
-    This functions tries to calibrate astrometrically a FITS image (given as a ReducedFit object). In the case of
-    images with Ordinary and Extraordinary sources, it returns two WCS, one in the first FITS extension and another 
-    in the second one.
-
-    Note: this function acts as a common function to call the appropiate WCS builder depending on the image type, the kind 
-    of parallelization and the parameters. The actual WCS building is done by helpers functions, see the code.
-
-    Parameters
-    ----------
-    redf : ReducedFit
-        The ReducedFit object to build the WCSs for.
-
-    Returns
-    -------
-    dict
-        The result, of the form
-        {
-            'success': bool, # whether the appropiate WCSs was built successfully
-            # if success is True, the following keys are also present:
-            'wcslist': list # list of WCS objects built (usually one, two if there are extraordinary sources in the image)
-            'info': dict or None # dict with extra information about the process
-        }
-
-    Keyword Arguments
-    -----------------
-    shotgun_params_kwargs : dict, optional
-        The parameters to pass to the shotgun_params function.
-    build_summary_images : bool, optional
-        Whether to build summary images of the process. Default is True.
-    summary_kwargs : dict, optional
-        with_simbad : bool, default True
-            Whether to query and plot a few Simbad sources in the image. Might be useful to 
-            check whether the found coordinates are correct. Default is True.
-
+        Boolean evaluation of this object returns the value of 'success'.
     """
+    success: bool
+    wcslist: list[WCS] = dataclasses.field(default_factory=list)
+    info: dict = dataclasses.field(default_factory=dict)   
 
-    if summary_kwargs is None:
-        summary_kwargs = {'with_simbad':True}
-
-    if shotgun_params_kwargs is None:
-        shotgun_params_kwargs = dict()
-
-    # OSN-T090 images of HIP2838 in band U with < 2.5s
-    # they can not get automatically calibrated because there are almost no sources visible, just return error so we dont loose time trying parameters.
-
-    if redf.band == "U" and "HIP2838" in redf.filename and redf.exptime < 2.5:
-        logger.error("Skipping WCS build for HIP2838 U band image with exptime < 2.5 , as it is known to fail, and we will only lose time. Manual calibration is needed for this image. See build_wcs_for_HIP2838_U_band_images.ipynb for more info.")
-        build_wcs_result = {'success':False, 'wcs_list':[], 'info':dict()}
-        return build_wcs_result
-
-    # For the rest, try to build the WCSs trying with different parameters.
-
-    ## if there might be a big pointing mismatch, try with other larger separation:
-
-    if redf.header_objecthint is not None and 'allsky' not in shotgun_params_kwargs:
-        if redf.header_objecthint.coord.separation(redf.header_hintcoord) > u.Quantity("20 arcmin"):
-            logger.debug(f"{redf}: large pointing mismatch detected, setting allsky = True for the position hint.")
-            shotgun_params_kwargs["allsky"] = [True]
-    
-    ## try with different parameters
-
-    build_wcs_result = build_wcs_params_shotgun(redf, shotgun_params_kwargs)
-
-    ## if it worked, build summary images
-    
-    if build_wcs_result['success'] and build_summary_images:
-        logger.debug(f"{redf}: building summary images.")
-        build_astrometry_summary_images(redf, build_wcs_result['info'], summary_kwargs=summary_kwargs)
-
-    # Save only some variables and return
-
-    if build_wcs_result['success']:
-        to_save_from_info_kw_L = ['params', 'bm', 'seg_d0', 'seg_disp_sign', 'seg_disp_xy', 'seg_disp_sign_xy', 'seg_disp_xy_best']
-        to_save = {k:build_wcs_result['info'][k] for k in to_save_from_info_kw_L if k in build_wcs_result['info']}
-        to_save['logodds'] = build_wcs_result['info']['bm'].logodds
-        try:
-            # redf.astrometry_info = [to_save]
-            if isinstance(redf.astrometry_info, list):
-                redf.astrometry_info = list(itertools.chain(redf.astrometry_info, [to_save]))
-            else:
-                redf.astrometry_info = [to_save]
-        except NameError:
-            redf.astrometry_info = [to_save]
-
-    return build_wcs_result
-    
+    def __bool__(self):
+        return self.success 
 
 
-def build_wcs_params_shotgun(redf, shotgun_params_kwargs=None, hard=False):
+def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict() = None, hard : bool = False, summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}) -> BuildWCSResult:
     """ Build the appropiate WCSs for a ReducedFit image, trying different parameters. See `build_wcs` for more info.
 
     Note: at the moment, this function tries source extraction with different combination of parameters and thresholds for 
@@ -133,7 +67,7 @@ def build_wcs_params_shotgun(redf, shotgun_params_kwargs=None, hard=False):
       - Implement a more robust way to choose the parameters for source extraction such that the astrometry solver works  with less 
       attempts.
       - Explore other detectors and solvers if necessary to improve speed, sucess rate and accuracy.
-
+      - Use pre-computed pair distances.
     """
 
     param_dicts_L = []
@@ -157,7 +91,7 @@ def build_wcs_params_shotgun(redf, shotgun_params_kwargs=None, hard=False):
 
     # FAST VERSION
 
-    if redf.with_pairs:
+    if redf.has_pairs:
         params["keep_n_seg"] = [300]
     else:
         params["keep_n_seg"] = [150]
@@ -252,23 +186,34 @@ def build_wcs_params_shotgun(redf, shotgun_params_kwargs=None, hard=False):
         #     logger.error(f"{redf}: some error ocurred during attempt {i+1} / {len(param_dicts_L)}, ({params_dict}), ignoring. Error: {e}")
         #     build_wcs_result = {'success': False}
 
-        if build_wcs_result['success']:
+        if build_wcs_result.success:
             logger.debug(f"{redf}: WCS built with attempt {i+1} / {len(param_dicts_L)} ({params_dict}).")
             break
     else:
         # if none worked
         logger.error(f"{redf}: could not solve astrometry with any of the {len(param_dicts_L)} default parameter combinations for source extraction.")
-        return {'success': False}
+        return BuildWCSResult(success=False)
 
     # add the parameters that worked to the result
-    build_wcs_result['info']['params'] = params_dict
+    build_wcs_result.info['params'] = params_dict
+
+    # build summary images
+    if summary_kwargs['build_summary_images']:
+        logger.debug(f"{redf}: building summary images.")
+        build_astrometry_summary_images(redf, build_wcs_result.info, summary_kwargs=summary_kwargs)
+
+    # to remove unwanted info from the result
+    to_save_from_info_kw_L = ['params', 'bm', 'seg_d0', 'seg_disp_sign', 'seg_disp_xy', 'seg_disp_sign_xy', 'seg_disp_xy_best']
+    build_wcs_result.info = {k:build_wcs_result.info[k] for k in to_save_from_info_kw_L if k in build_wcs_result.info}
+    build_wcs_result.info['logodds'] = build_wcs_result.info['bm'].logodds
+    build_wcs_result.info['method'] = 'shotgun'
 
     return build_wcs_result
 
 
 
 
-def _build_wcs_params_shotgun_helper(redf, with_pairs=None,
+def _build_wcs_params_shotgun_helper(redf, has_pairs=None,
         bkg_filter_size = 11,
         bkg_box_size = 16,
         seg_kernel_size = None,
@@ -277,17 +222,25 @@ def _build_wcs_params_shotgun_helper(redf, with_pairs=None,
         n_rms_seg = 1.0,
         keep_n_seg = 200,
         border_margin_px = 20,
-        d_eps=0.8,
+        dx_eps=None,
+        dy_eps=None,
+        d_eps=None,
+        dx_min=None,
+        dx_max=None,
+        dy_min=None,
+        dy_max=None,
+        d_min=None,
+        d_max=None,
         bins=None,
         hist_range=None,
         position_hint=None, size_hint=None, allsky=False,
-        output_logodds_threshold=21):
-    """ helper func. See build_wcs_params_shotgun for more info. Same signature. """
+        output_logodds_threshold=21) -> BuildWCSResult:
+    """ helper func, see build_wcs_params_shotgun for more info. """
 
     imgdata = redf.mdata
 
-    if with_pairs is None:
-        with_pairs = redf.with_pairs
+    if has_pairs is None:
+        has_pairs = redf.has_pairs
 
     if size_hint is None:
         size_hint = redf.get_astrometry_size_hint()
@@ -295,7 +248,7 @@ def _build_wcs_params_shotgun_helper(redf, with_pairs=None,
     if position_hint is None:
         position_hint = redf.get_astrometry_position_hint(allsky=allsky)
 
-    if with_pairs:
+    if has_pairs:
         if bins is None:
             bins = int( 0.75 * max(imgdata.shape) )
         if hist_range is None:
@@ -313,7 +266,7 @@ def _build_wcs_params_shotgun_helper(redf, with_pairs=None,
 
     if segment_map is None:
         logger.debug(f"{redf}: No segments found, returning early.")
-        return {'success': False}
+        return BuildWCSResult(success=False)
     
     seg_cat, pos_seg, tb = get_cat_sources_from_segment_map(segment_map, imgdata_bkg_substracted, convolved_data)
     
@@ -325,16 +278,16 @@ def _build_wcs_params_shotgun_helper(redf, with_pairs=None,
 
     if border_margin_px is not None:
         logger.debug(f"{redf}: Removing segments within {border_margin_px} px from border.")
-        pos_seg = [pos for pos in pos_seg if ( (border_margin_px < pos[0] < imgdata.shape[0]-border_margin_px) and (border_margin_px < pos[1] < imgdata.shape[1]-border_margin_px))]
+        pos_seg = [pos for pos in pos_seg if ( (border_margin_px < pos[0] < imgdata.shape[1]-border_margin_px) and (border_margin_px < pos[1] < imgdata.shape[0]-border_margin_px))]
 
     # Pair finding with results from image segmentation
     
-    if with_pairs:
-        seg1, seg2, seg_d0, seg_disp_sign = get_pairs_d(pos_seg, d_eps=d_eps, bins=bins, hist_range=hist_range)
+    if has_pairs:
+        seg1, seg2, seg_d0, seg_disp_sign = get_pairs_d(pos_seg, bins=bins, hist_range=hist_range, d_min=d_min, d_eps=d_eps, d_max=d_max)
         logger.debug(f"{redf}: seg pairs -> {len(seg1)} ({len(seg1)/len(pos_seg)*100:.1f}%), seg_disp_sign={seg_disp_sign}")
         seg1_best, seg2_best, seg_disp_best, seg_disp_sign_best = get_best_pairs(seg1, seg2, seg_disp_sign)
         logger.debug(f"{redf}: seg pairs best -> {len(seg1_best)} ({len(seg1_best)/len(pos_seg)*100:.1f}%), seg_disp_sign_best={seg_disp_sign_best}")
-        seg1xy, seg2xy, seg_disp_xy, seg_disp_sign_xy = get_pairs_dxy(pos_seg, d_eps=d_eps, bins=bins, hist_range=hist_range)
+        seg1xy, seg2xy, seg_disp_xy, seg_disp_sign_xy = get_pairs_dxy(pos_seg, bins=bins, hist_range=hist_range, dx_min=dx_min, dx_max=dx_max, dy_min=dy_min, dy_max=dy_max, dx_eps=dx_eps, dy_eps=dy_eps)
         logger.debug(f"{redf}: seg pairs xy -> {len(seg1xy)}, disp_sign_xy={seg_disp_sign_xy}")
         seg1xy_best, seg2xy_best, seg_disp_xy_best, seg_disp_sign_xy_best = get_best_pairs(seg1xy, seg2xy, seg_disp_sign_xy)
         logger.debug(f"{redf}: seg pairs xy best -> {len(seg1xy_best)} ({len(seg1xy_best)/len(pos_seg)*100:.1f}%), seg_disp_sign_xy_best={seg_disp_sign_xy_best}")
@@ -343,7 +296,7 @@ def _build_wcs_params_shotgun_helper(redf, with_pairs=None,
 
     bm = None
 
-    if with_pairs: ## Attempt both with D pairs and XY pairs
+    if has_pairs: ## Attempt both with D pairs and XY pairs
         attempts = ((f"Seg Best XY Pairs (n={len(seg1xy_best)})", seg1xy_best, seg_disp_sign_xy_best),
                     (f"Seg Best D Pairs (n={len(seg1_best)})", seg1_best, seg_disp_sign_best),)
     else: ## Use the positions of the segments
@@ -367,9 +320,10 @@ def _build_wcs_params_shotgun_helper(redf, with_pairs=None,
     ## If not, desist and return early; else we continue and build and save the wcs.
 
     if bm is None:
-        return {'success':False}
+        return BuildWCSResult(success=False)
     else:
-        logger.debug(f"{redf}: {msg} worked")
+        logger.debug(f"{redf}: {msg} worked.")
+        logger.debug(f"{redf}: {bm.index_path=}")
         logger.debug(f"{redf}: {bm.center_ra_deg=}")
         logger.debug(f"{redf}: {bm.center_dec_deg=}")
         logger.debug(f"{redf}: {bm.scale_arcsec_per_pixel=}")
@@ -379,7 +333,7 @@ def _build_wcs_params_shotgun_helper(redf, with_pairs=None,
 
     wcs1 = WCS(bm.wcs_fields)
 
-    if with_pairs:
+    if has_pairs:
         # Build WCS for pairs (just displace the center pixel by the disp_sign)
         wcs2 = wcs1.deepcopy()
         wcs2.wcs.crpix[0] += disp_sign[0]
@@ -387,9 +341,9 @@ def _build_wcs_params_shotgun_helper(redf, with_pairs=None,
 
     # save results and return
 
-    return {'success':True,
-            'wcslist': [wcs1, wcs2] if with_pairs else [wcs1],
-            'info': _save_astrocalib_proc_vars(locals())}
+    return BuildWCSResult(success=True, 
+                          wcslist=[wcs1, wcs2] if has_pairs else [wcs1], 
+                          info=_save_astrocalib_proc_vars(locals()))
 
 
 
@@ -400,7 +354,8 @@ def _save_astrocalib_proc_vars(locals_dict):
     astrocalib_proc_vars = dict()
 
     save_list = [
-        'with_pairs',
+        'msg',
+        'has_pairs',
         'bkg_box_size', 'bkg_filter_size',
         'bkg',
         'imgdata_bkg_substracted',
@@ -410,8 +365,9 @@ def _save_astrocalib_proc_vars(locals_dict):
         'stars', 'disp_sign',
     ]
 
-    if locals_dict['with_pairs']:
+    if locals_dict['has_pairs']:
         save_list += [
+        'msg',
         'wcs2',
         'hist_range', 'bins', 'd_eps',
         'seg1', 'seg2', 'seg_d0', 'seg_disp_sign',

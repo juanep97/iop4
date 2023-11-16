@@ -15,7 +15,7 @@ from astropy.time import Time
 
 class AdminPhotoPolResult(admin.ModelAdmin):
     model = PhotoPolResult
-    list_display = ['id', 'get_telescope', 'get_juliandate', 'get_datetime', 'get_src_name', 'get_src_type', 'get_reducedfits', 'obsmode', 'band', 'exptime', 'get_mag', 'get_mag_err', 'get_p', 'get_p_err', 'get_chi', 'get_chi_err', 'modified']
+    list_display = ['id', 'get_telescope', 'get_juliandate', 'get_datetime', 'get_src_name', 'get_src_type', 'get_reducedfits', 'obsmode', 'band', 'exptime', 'get_mag', 'get_mag_err', 'get_p', 'get_p_err', 'get_chi', 'get_chi_err', 'get_flags', 'modified']
     readonly_fields = [field.name for field in PhotoPolResult._meta.fields]
     search_fields = ['id', 'astrosource__name', 'astrosource__srctype', 'epoch__night']
     ordering = ['-juliandate']
@@ -42,11 +42,11 @@ class AdminPhotoPolResult(admin.ModelAdmin):
     @admin.display(description="ReducedFits")
     def get_reducedfits(self, obj):
         self.allow_tags = True
-        link_L = list()
-        for reducedfit in obj.reducedfits.all():
-            url = reverse('iop4admin:%s_%s_changelist' % (ReducedFit._meta.app_label, ReducedFit._meta.model_name)) + f"?id={reducedfit.id}"
-            link_L.append(rf'<a href="{url}">{reducedfit.id}</a>')
-        return mark_safe(", ".join(link_L))
+        
+        ids_str_L = [str(reducedfit.id) for reducedfit in obj.reducedfits.all()]
+        a_href = reverse('iop4admin:%s_%s_changelist' % (ReducedFit._meta.app_label, ReducedFit._meta.model_name)) + "?id__in=%s" % ",".join(ids_str_L)
+        a_text = ", ".join(ids_str_L)
+        return mark_safe(f'<a href="{a_href}">{a_text}</a>')
     
     @admin.display(description="JD")
     def get_juliandate(self, obj):
@@ -75,3 +75,7 @@ class AdminPhotoPolResult(admin.ModelAdmin):
     @admin.display(description="CHIERR [º]", ordering='-chi_err')
     def get_chi_err(self, obj):
         return f"{obj.chi_err:.2f}" if obj.chi_err is not None else None
+    
+    @admin.display(description='Status')
+    def get_flags(self, obj):
+        return ", ".join(list(obj.flag_labels))

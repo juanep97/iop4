@@ -1,0 +1,13 @@
+{% extends "admin/base_site.html" %}
+
+{% block branding %}
+    {% if site_title == "IOP4 admin" %}
+        <div id="site-name">
+            <h1><a href="{% url 'admin:index' %}">{{ site_header|default:_('Django administration') }}</a>
+            {% if debug %}<span style="color: red; font-size: 14px; padding-left: 1em; vertical-align: middle;">DEBUG*</span>{% endif %}
+            </h1>
+        </div>
+    {% else %}
+        {{ block.super }}
+    {% endif %}
+{% endblock %}

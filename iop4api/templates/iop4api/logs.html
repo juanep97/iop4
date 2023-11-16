@@ -29,19 +29,20 @@
             <q-card>
                 <q-card-section style="padding: 8px 16px 0 16px;">
                     <div>
-                        <q-chip v-model:selected="pipeline_log_options.errors" color="red" text-color="white" icon="error" :outline="!pipeline_log_options.errors">
-                         errors
+                        <q-chip @update:selected="() => $nextTick(show_pipeline_log)" v-model:selected="pipeline_log_options.errors" color="red" text-color="white" icon="error" :outline="!pipeline_log_options.errors">
+                            errors
                         </q-chip>
-                        <q-chip v-model:selected="pipeline_log_options.warnings" color="orange" text-color="white" icon="warning" :outline="!pipeline_log_options.warnings">
-                          warning
+                        <q-chip @update:selected="() => $nextTick(show_pipeline_log)" v-model:selected="pipeline_log_options.warnings" color="orange" text-color="white" icon="warning" :outline="!pipeline_log_options.warnings">
+                            warning
                         </q-chip>
-                        <q-chip v-model:selected="pipeline_log_options.info" color="darkgray" text-color="black" icon="info" :outline="!pipeline_log_options.info">
-                          info
+                        <q-chip @update:selected="() => $nextTick(show_pipeline_log)" v-model:selected="pipeline_log_options.info" color="darkgray" text-color="black" icon="info" :outline="!pipeline_log_options.info">
+                            info
                         </q-chip>
-                        <q-chip v-model:selected="pipeline_log_options.debug" color="green" text-color="white" icon="code" :outline="!pipeline_log_options.debug">
+                        <q-chip @update:selected="() => $nextTick(show_pipeline_log)" v-model:selected="pipeline_log_options.debug" color="green" text-color="white" icon="code" :outline="!pipeline_log_options.debug">
                             debug
                         </q-chip>
-                        <input type="text" v-model="pipeline_log_options.filter_text" placeholder="filter text" class="q-chip row inline no-wrap items-center text-black q-chip--colored q-chip--outline" style="outline: none;">
+                        <!-- <input type="text" v-model="pipeline_log_options.filter_text" placeholder="filter text" class="q-chip row inline no-wrap items-center text-black q-chip--colored q-chip--outline" style="outline: none;"> -->
+                        <input type="text" @change="show_pipeline_log()" v-model="pipeline_log_options.filter_text" placeholder="filter text (+ Enter)" class="q-chip row inline no-wrap items-center text-black q-chip--colored q-chip--outline" style="outline: none;">
                     </div>
                     <div id="pipeline-logs-tab-content">
                         <div id="log-file-content">

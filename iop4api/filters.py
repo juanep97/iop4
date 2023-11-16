@@ -34,7 +34,7 @@ class RawFitIdFilter(TextInputFilter):
             return queryset.filter(id=self.value())
         
 class RawFitNightFilter(TextInputFilter):
-    title = 'Night (contains)'
+    title = 'Night'
     name = 'night'
     parameter_name = 'night'
 
@@ -61,15 +61,29 @@ class RawFitTelescopeFilter(admin.SimpleListFilter):
 
     def lookups(self, request, model_admin):
         from iop4lib.telescopes import Telescope
-        tels = Telescope.get_known()
-        return ((t.name, t.name) for t in tels)
+        return ((t.name, t.name) for t in Telescope.get_known())
 
     def queryset(self, request, queryset):
         from iop4lib.telescopes import Telescope
         if (val := self.value()) is not None:
             return queryset.filter(epoch__telescope=Telescope.by_name(val).name)
         
+class RawFitInstrumentFilter(admin.SimpleListFilter):
+    """
+    Filter list for instrument in RawFit.
+    """
+    title = 'instrument'
+    name = 'instrument'
+    parameter_name = 'instrument'
 
+    def lookups(self, request, model_admin):
+        from iop4lib.instruments import Instrument
+        return ((i.name, i.name) for i in Instrument.get_known())
+    
+    def queryset(self, request, queryset):
+        from iop4lib.instruments import Instrument
+        if (val := self.value()) is not None:
+            return queryset.filter(instrument=Instrument.by_name(val).name)
 
 class RawFitFlagFilter(admin.SimpleListFilter):
 

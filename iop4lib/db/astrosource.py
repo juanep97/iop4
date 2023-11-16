@@ -1,11 +1,15 @@
 import iop4lib.config
 iop4conf = iop4lib.Config(config_db=False)
 
+# django imports
 from django.db import models
 from django.db.models import Q
 
-# other imports
+# iop4lib imports
 from ..enums import *
+
+# other imports
+import os
 import pypandoc 
 import warnings
 import astropy.io.fits as fits
@@ -40,6 +44,7 @@ class AstroSource(models.Model):
     comment = models.TextField(null=True, blank=True)
 
     # Blazar fields
+
     redshift = models.FloatField(null=True, blank=True)
     
     # Calibration stars fields
@@ -63,11 +68,10 @@ class AstroSource(models.Model):
 
 
     # Natural key
-    # allows us te relate the sources and calibration stars by names only
+    # allows us to relate the sources and calibration stars by names only
 
     # custom manager allows us to use natural keys when loading fixtures
     objects = AstroSourceManager()
-
     # this method allows us to dump using natural keys
     def natural_key(self):
             return (self.name,)
@@ -112,9 +116,6 @@ class AstroSource(models.Model):
                 return False
             
     # helper properties
-
-    def get_aperpix(self):
-        return 12
     
     @property
     def coord(self):
@@ -131,6 +132,10 @@ class AstroSource(models.Model):
 
         return html_src
 
+    @property
+    def filedpropdir(self):
+        return os.path.join(iop4conf.datadir, "astrosource", self.name)
+    
     # Class methods
 
     @classmethod
@@ -145,18 +150,25 @@ class AstroSource(models.Model):
         return catalog_dict
     
     @classmethod
-    def get_sources_in_field(cls, wcs=None, height=None, width=None, fit=None):
+    def get_sources_in_field(cls, wcs=None, width=None, height=None, fit=None, qs=None):
+        r""" Get the sources in the field of view of the image.
+
+        It accepts either a fit image or a wcs, height and width.
+        If no query set is given, it will search the whole catalog,
+        otherwise it will search the given query set.
+        """
+
         if fit is not None:
             wcs = fit.wcs
-            height, width = fit.data.shape
+            width, height = fit.width, fit.height
 
-        #catalog = cls.get_catalog(Q(srctype=SRCTYPES.BLAZAR) | Q(srctype=SRCTYPES.STAR))
-        objs = cls.objects.all()
+        if qs is None:
+            qs = cls.objects.all()
 
         sources_in_field = list()
 
         import warnings
-        for obj in objs:
+        for obj in qs:
             try:
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")

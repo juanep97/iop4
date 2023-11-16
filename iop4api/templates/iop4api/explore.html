@@ -1,7 +1,7 @@
 <div class="header">
     <h1>Explore data &nbsp;<span class="material-symbols-outlined">&#xE8B6;</span></h1>
     <div>
-        <q-tabs v-model="C2selectedTab">
+        <q-tabs v-model="selectedTabs[1]">
             <q-tab name="catalog" label="catalog"></q-tab>
             {% comment %} <q-tab name="query" label="Query"></q-tab> {% endcomment %}
             <q-tab name="plot" label="Plot"></q-tab>
@@ -19,23 +19,23 @@
         {% endfor %}
     </datalist>
 
-    <div v-show="C2selectedTab === 'catalog'" class="tab-content" id="catalog-tab">
+    <div v-show="selectedTabs[1] === 'catalog'" class="tab-content" id="catalog-tab">
         {% include 'iop4api/catalog.html' %}
     </div>
  
-    {% comment %} <div v-show="C2selectedTab === 'query'" class="tab-content" id="query-tab">
+    {% comment %} <div v-show="selectedTabs[1] === 'query'" class="tab-content" id="query-tab">
         {% include 'iop4api/query.html' %}
     </div> {% endcomment %}
 
-    <div v-show="C2selectedTab === 'plot'" class="tab-content" id="plot-tab">
+    <div v-show="selectedTabs[1] === 'plot'" class="tab-content" id="plot-tab">
         {% include 'iop4api/plot.html' %}
     </div>
 
-    <div  v-show="C2selectedTab == 'data'" class="tab-content" id="data-tab">
+    <div  v-show="selectedTabs[1] == 'data'" class="tab-content" id="data-tab">
         {% include 'iop4api/data.html' %}
     </div>
 
-    <div v-show="C2selectedTab == 'logs'" class="tab-content" id="logs-tab"> 
+    <div v-show="selectedTabs[1] == 'logs'" class="tab-content" id="logs-tab"> 
         {% include 'iop4api/logs.html' %}
     </div>
 

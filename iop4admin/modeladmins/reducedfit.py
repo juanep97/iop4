@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 class AdminReducedFit(AdminFitFile):
     model = ReducedFit
-    list_display = ["id", 'filename', 'telescope', 'night', 'status', 'imgtype', 'imgsize', 'band', 'obsmode', 'rotangle', 'exptime', 'get_targets_in_field', 'options', 'modified']
+    list_display = ["id", 'filename', 'telescope', 'night', 'instrument', 'status', 'imgtype', 'imgsize', 'band', 'obsmode', 'rotangle', 'exptime', 'get_targets_in_field', 'juliandate', 'options', 'modified']
     readonly_fields = [field.name for field in ReducedFit._meta.fields]
     search_fields = ['id', 'filename', 'epoch__telescope', 'epoch__night', 'sources_in_field__name']
     ordering = ['-epoch__night', '-epoch__telescope', '-juliandate']
@@ -28,13 +28,12 @@ class AdminReducedFit(AdminFitFile):
         RawFitTelescopeFilter,
         RawFitNightFilter,
         RawFitFilenameFilter,
+        RawFitInstrumentFilter,
         RawFitFlagFilter,
         "obsmode",
         "band",
         "imgsize",
     )
-
-
     
     @admin.display(description='OPTIONS')
     def options(self, obj):
@@ -42,18 +41,6 @@ class AdminReducedFit(AdminFitFile):
         url_details = reverse('iop4admin:iop4api_reducedfit_details', args=[obj.id])
         url_viewer= reverse('iop4admin:iop4api_reducedfit_viewer', args=[obj.id])
         return format_html(rf'<a href="{url_rawfit}">raw</a> / <a href="{url_details}">details</a> / <a href="{url_viewer}">advanced viewer</a>')
-    
-    @admin.display(description='TELESCOPE')
-    def telescope(self, obj):
-        return obj.epoch.telescope
-    
-    @admin.display(description='NIGHT')
-    def night(self, obj):
-        return obj.epoch.night
-    
-    @admin.display(description='FILENAME')
-    def filename(self, obj):
-        return obj.filename
     
     @admin.display(description='IMGSIZE')
     def imgsize(self, obj):
@@ -74,10 +61,6 @@ class AdminReducedFit(AdminFitFile):
     @admin.display(description='EXPTIME')
     def exptime(self, obj):
         return obj.exptime
-
-    @admin.display(description='STATUS')
-    def status(self, obj):
-        return ", ".join(obj.flag_labels)
     
     @admin.display(description='SRCS IN FIELD')
     def get_targets_in_field(self, obj):
@@ -87,7 +70,11 @@ class AdminReducedFit(AdminFitFile):
         if len(cat_targets) > 0:
             return cat_targets
         
-        kw_obj_val = obj.rawfit.header['OBJECT']
+        try:
+            kw_obj_val = obj.rawfit.header['OBJECT']
+        except FileNotFoundError:
+            return format_html(f"<i>rawfit not found</i>")
+        
         guessed_target = AstroSource.objects.filter(Q(name__icontains=kw_obj_val) | Q(other_name__icontains=kw_obj_val)).values_list('name', flat=True)
 
         if len(guessed_target) > 0:

@@ -38,6 +38,7 @@ def plot(request):
     enable_full_lc = request.POST.get("enable_full_lc", False)
     enable_errorbars = request.POST.get("enable_errorbars", False)
 
+    save_filename = f"IOP4_{source_name}_{band}"
 
     # comment these lines to allow for empty plot
     if not AstroSource.objects.filter(name=source_name).exists(): 
@@ -49,12 +50,15 @@ def plot(request):
     from bokeh.document import Document
     from bokeh.transform import factor_cmap
     from bokeh.layouts import column, gridplot
-    from bokeh.models import CategoricalColorMapper, LinearColorMapper, RangeTool, Range1d, LinearAxis, CustomJS, ColumnDataSource, Whisker, DatetimeAxis, DatetimeTickFormatter, Scatter, Segment, CDSView, GroupFilter, AllIndices, HoverTool, NumeralTickFormatter, BoxZoomTool, DataTable, TableColumn
+    from bokeh.models import CategoricalColorMapper, LinearColorMapper, RangeTool, Range1d, LinearAxis, CustomJS, ColumnDataSource, Whisker, DatetimeAxis, DatetimeTickFormatter, Scatter, Segment, CDSView, GroupFilter, AllIndices, HoverTool, NumeralTickFormatter, BoxZoomTool, DataTable, TableColumn, CategoricalMarkerMapper, CustomJSTransform, CustomJSHover, SaveTool, Toolbar
     from bokeh.plotting import figure, show
     from bokeh.embed import components, json_item
     from bokeh.models import Div, Circle, Column, Row
     from bokeh.plotting import figure
     from bokeh.models import ColumnDataSource, Styles, InlineStyleSheet, GlobalInlineStyleSheet
+    from bokeh.transform import factor_cmap, factor_mark, transform
+    from bokeh.events import Event, PanStart, PanEnd, Press, PressUp, RangesUpdate
+    from bokeh.models.widgets import HTMLTemplateFormatter, NumberFormatter
 
     lod_threshold = 2000
     lod_factor = 10
@@ -66,7 +70,7 @@ def plot(request):
         return Time(x1_val, format='mjd').datetime
     
     # Get data from DB
-    column_names = ['id', 'juliandate', 'band', 'instrument', 'mag', 'mag_err', 'p', 'p_err', 'chi', 'chi_err']
+    column_names = ['id', 'juliandate', 'band', 'instrument', 'mag', 'mag_err', 'p', 'p_err', 'chi', 'chi_err', 'flags']
     qs = PhotoPolResult.objects.filter(astrosource__name=source_name, band=band).all()
 
     if date_start is not None:
@@ -88,28 +92,22 @@ def plot(request):
     # choose  the x and y
     if qs.count() > 0:
         vals = get_column_values(qs, column_names)
+    else:
+        vals = {k:np.array([]) for k in column_names}
 
-        vals["instrument"] = np.array(vals["instrument"])
-        vals["id"] = np.array(vals["id"])
-        vals["juliandate"] = np.array(vals["juliandate"])
-        vals["mag"] = np.array(vals["mag"])
-        vals["mag_err"] = np.array(vals["mag_err"])
-        vals["p"] = np.array(vals["p"])
-        vals["p_err"] = np.array(vals["p_err"])
-        vals["chi"] = np.array(vals["chi"])
-        vals["chi_err"] = np.array(vals["chi_err"])
+    if enable_iop3:
+        vals["instrument"] = np.append(vals["instrument"], list(map(lambda x: "IOP3-"+x, iop3_df["Telescope"])))
+        vals["id"] = np.append(vals["id"], -np.arange(len(iop3_df)))
+        vals["juliandate"] = np.append(vals["juliandate"], Time(iop3_df["mjd_obs"], format="mjd").jd)
+        vals["mag"] = np.append(vals["mag"],  iop3_df['Mag'])
+        vals["mag_err"] = np.append(vals["mag_err"], iop3_df['dMag'])
+        vals["p"] = np.append(vals["p"], iop3_df['P']/100)
+        vals["p_err"] = np.append(vals["p_err"], iop3_df['dP']/100)
+        vals["chi"] = np.append(vals["chi"], iop3_df['Theta'])
+        vals["chi_err"] = np.append(vals["chi_err"], iop3_df['dTheta'])
+        vals["flags"] = np.append(vals["flags"], np.full(len(iop3_df), 0)) # do not show flags for IOP3 data (0 means no flags)
 
-        if enable_iop3:
-            vals["instrument"] = np.append(vals["instrument"], list(map(lambda x: "IOP3-"+x, iop3_df["Telescope"])))
-            vals["id"] = np.append(vals["id"], -np.arange(len(iop3_df)))
-            vals["juliandate"] = np.append(vals["juliandate"], Time(iop3_df["mjd_obs"], format="mjd").jd)
-            vals["mag"] = np.append(vals["mag"],  iop3_df['Mag'])
-            vals["mag_err"] = np.append(vals["mag_err"], iop3_df['dMag'])
-            vals["p"] = np.append(vals["p"], iop3_df['P']/100)
-            vals["p_err"] = np.append(vals["p_err"], iop3_df['dP']/100)
-            vals["chi"] = np.append(vals["chi"], iop3_df['Theta'])
-            vals["chi_err"] = np.append(vals["chi_err"], iop3_df['dTheta'])
-
+    if len(vals['id']) > 0:
         pks = vals['id']
         x1 = Time(vals['juliandate'], format='jd').mjd
         x2 = f_x1_to_x2(x1)
@@ -123,7 +121,9 @@ def plot(request):
 
     # Instruments and colors (auto)
     instruments_L = sorted(list(set(vals['instrument'])), reverse=True)
-    instrument_color_L = [bokeh.palettes.TolRainbow[max(3,len(instruments_L))][i % len(instruments_L)] for i in range(len(instruments_L))]
+
+    #instrument_color_L = [bokeh.palettes.TolRainbow[max(3,len(instruments_L))][i % len(instruments_L)] for i in range(len(instruments_L))]
+    instrument_color_L = [bokeh.palettes.Category10[max(3,len(instruments_L))][i % len(instruments_L)] for i in range(len(instruments_L))]
 
     rgb_L = [bokeh.colors.RGB.from_hex_string(hexcolor) for hexcolor in instrument_color_L]
 
@@ -149,19 +149,54 @@ def plot(request):
                                    palette=palette_nonselected, 
                                    factors=instruments_L)
     
+    # # Flags and markers
+
+    markermap = transform("flags", CustomJSTransform(v_func="""
+            let markers = [];
+            
+            for (let i = 0; i < xs.length; i++) {
+                                                     
+                let marker = "circle";
+                                                                                          
+                if (xs[i] & (1 << 0)) { // bad photometry
+                    marker = "triangle";
+                } 
+
+                if (xs[i] & (1 << 1)) { // bad polarimetry
+                    marker = "inverted_triangle";
+                }
+
+                if ((xs[i] & (1 << 0)) && (xs[i] & (1 << 1))) { // bad photometry and polarimetry
+                    marker = "cross";                                 
+                }
+                                                                                                                       
+                markers.push(marker);
+            }   
+                                                     
+            return markers;"""))
+
+
+    # Define data sources
+
     source = ColumnDataSource(data=dict(pk = pks,
                                         instrument = vals['instrument'],
-                                        x1 = x1, 
-                                        x2 = x2, 
+                                        x1 = x1, # mjd
+                                        x2 = x2, # datetime
+                                        datestr = Time(vals["juliandate"],format="jd").strftime("%Y/%m/%d %H:%M"),
                                         y1 = vals['mag'], 
-                                        y1_min = vals['mag']-vals['mag_err'],
-                                        y1_max = vals['mag']+vals['mag_err'],
+                                        y1_min = vals['mag']-vals['mag_err'], # if not sent it is computed in JS in check_plot()
+                                        y1_max = vals['mag']+vals['mag_err'], # if not sent it is computed in JS in check_plot()
+                                        y1_err = vals['mag_err'],
                                         y2 = vals['p'], 
-                                        y2_min = vals['p']-vals['p_err'],
-                                        y2_max = vals['p']+vals['p_err'],
+                                        y2_min = vals['p']-vals['p_err'], # if not sent it is computed in JS in check_plot()
+                                        y2_max = vals['p']+vals['p_err'], # if not sent it is computed in JS in check_plot()
+                                        y2_err = vals['p_err'],
                                         y3 = vals['chi'], 
-                                        y3_min = vals['chi']-vals['chi_err'],
-                                        y3_max = vals['chi']+vals['chi_err']),
+                                        y3_min = vals['chi']-vals['chi_err'], # if not sent it is computed in JS in check_plot()
+                                        y3_max = vals['chi']+vals['chi_err'], # if not sent it is computed in JS in check_plot()
+                                        y3_err = vals['chi_err'],
+                                        flags = vals['flags'],
+                                    ),
                                 name="source")
 
     view = CDSView(filter=AllIndices(), name="plot_view")
@@ -176,6 +211,12 @@ def plot(request):
         # and for the subplots
         x1_range = min(x1)-0.05*(max(x1)-min(x1)), max(x1)+0.05*(max(x1)-min(x1))
         x2_range = f_x1_to_x2(x1_range)
+    elif len(x1) == 1:
+        x1_lims = x1[0]-0.2, x1[0]+0.2
+        x2_lims = f_x1_to_x2(x1_lims)
+
+        x1_range = x1[0]-0.05, x1[0]+0.05
+        x2_range = f_x1_to_x2(x1_range)
     else:
         x1_lims = np.nan, np.nan
         x2_lims = np.nan, np.nan
@@ -185,6 +226,8 @@ def plot(request):
     # also the freeze y axis range of the main plot
     if len(y1) >= 2:
         y1_lims = np.nanmin(y1)-0.05*(np.nanmax(y1)-np.nanmin(y1)), np.nanmax(y1)+0.05*(np.nanmax(y1)-np.nanmin(y1))
+    elif len(y1) == 1:
+        y1_lims = y1[0]-0.05, y1[0]+0.05
     else:
         y1_lims = np.nan, np.nan
 
@@ -197,24 +240,66 @@ def plot(request):
         range_tool.overlay.fill_alpha = 0.2
 
     # Create a hover tool with custom JS callback
-    hover = HoverTool(renderers=[])
-    hover.callback = CustomJS(args = dict(source = source, hover = hover), code = '''
-                if (cb_data.index.indices.length > 0) { 
-                    let index = cb_data.index.indices[0];
-                    let p = source.data.y2[index];
 
-                    if (isFinite(p)) {
-                        hover.tooltips = [["id", "@pk"], ["instrument", "@instrument"], ["mag", "@y1"], ["p", "@y2{0.0 %}"], ["chi", "@y3"]];                                       
-                    } else {
-                        hover.tooltips = [["id", "@pk"], ["instrument", "@instrument"], ["mag", "@y1"]];
-                    }
-                } ''')
+    hover_formatter = CustomJSHover(args=dict(source=source), 
+                                    code="""
+                                        let idx = special_vars.index;
+
+                                        const [name, s1, s2] = format.split(',');
+                                        const y = source.data[s1][idx];
+                                        const dy = source.data[s2][idx];
+
+                                        if (name == "mag") {
+                                            return parseFloat(y).toFixed(2) + " ± " + parseFloat(dy).toFixed(2);
+                                        } else if ((name == "p")) {
+                                            return parseFloat(100*y).toFixed(2) + " ± " + parseFloat(100*dy).toFixed(2) + " %";
+                                        } else if ((name == "chi")) {
+                                            return parseFloat(y).toFixed(2) + " ± " + parseFloat(dy).toFixed(2) + " º";
+                                        }
+
+                                        return "error in hover formatter";
+                                        """)
+
+    hover_tool = HoverTool(renderers=[], formatters={"@pk":hover_formatter})
+
+    hover_tool.callback = CustomJS(args = dict(source = source, hover = hover_tool), code = '''
+            if (cb_data.index.indices.length > 0) { 
+                let index = cb_data.index.indices[0];
+                              
+                let mag = source.data.y1[index];
+                let p = source.data.y2[index];
+                let chi = source.data.y3[index];
+                let flags = source.data.flags[index];
+
+                let tooltips = [["id", "@pk"], ["instrument", "@instrument"], ["date", "@datestr"]]
+                              
+                if (isFinite(mag)) {
+                    //tooltips.push(["mag", "@y1"]);
+                    tooltips.push(["mag", "@pk{mag,y1,y1_err}"]);
+                }
+                             
+                if (isFinite(p)) {
+                    //tooltips.push(["mag", "@y2{0.0 %}"]);
+                    tooltips.push(["p", "@pk{p,y2,y2_err}"]);                                       
+                } 
+                              
+                if (isFinite(chi)) {
+                    //tooltips.push(["mag", "@y2"]);
+                    tooltips.push(["chi", "@pk{chi,y3,y3_err}"]);
+                }
+                    
+                tooltips.push(["flags", flags_to_str(flags)]);
+                              
+                hover.tooltips = tooltips
+                
+            } ''')
     
     # other tools
 
-    #tools = ["fullscreen", "reset", "save", "pan", "auto_box_zoom", "wheel_zoom", "box_select", "lasso_select"]
-    tools = ["fullscreen", "reset", "save", "pan", "wheel_zoom", "box_select", "lasso_select"]
-    box_zoom_tool = BoxZoomTool(dimensions="auto")
+    save_tool = SaveTool(filename=save_filename) # customize filename of saved plot
+    # tools = ["fullscreen", "reset", "pan", "wheel_zoom", "box_select", "tap", "lasso_select", save_tool, "auto_box_zoom"]
+    box_zoom_tool = BoxZoomTool(dimensions="auto") # added separately in each figure to make it the default active tool
+    tools = ["fullscreen", "reset", "pan", "wheel_zoom", "box_select", "tap", "lasso_select", save_tool]
 
     if enable_full_lc:
         # Create the main plot with range slider and secondary x-axis, fixed styles of markers
@@ -234,7 +319,7 @@ def plot(request):
                     selection_line_alpha=0.5, 
                     nonselection_line_alpha=0.5)
 
-        p_main.y_range = Range1d(*y1_lims)
+        p_main.y_range = Range1d(*y1_lims[::-1])
 
         p_main.extra_x_ranges["secondary"] = Range1d(*x2_lims)
         p_main_ax_x2 = DatetimeAxis(x_range_name="secondary", axis_label="Date")
@@ -254,7 +339,8 @@ def plot(request):
                                 'y':"y1", 
                                 "y_label": "mag",
                                 "err": ["y1_min", "y1_max"],                                  
-                                "marker":"circle",
+                                # "marker": "circle", # better done
+                                "marker": markermap,
                                 "size": 5,
                                 "color": index_cmap_selected,
                                 "selected_color": index_cmap_selected,
@@ -268,7 +354,8 @@ def plot(request):
                                 'y':"y2", 
                                 "y_label": "p [%]",
                                 "err": ["y2_min", "y2_max"],
-                                "marker":"circle",
+                                # "marker":"circle",
+                                "marker": markermap,
                                 "size": 5,
                                 "color": index_cmap_selected,
                                 "selected_color": index_cmap_selected,
@@ -282,7 +369,8 @@ def plot(request):
                                 'y':"y3", 
                                 "y_label": "chi [º]",
                                 "err": ["y3_min", "y3_max"],                                  
-                                "marker":"circle",
+                                # "marker":"circle",
+                                "marker": markermap,
                                 "size": 5,
                                 "color": index_cmap_selected,
                                 "selected_color": index_cmap_selected,
@@ -295,7 +383,7 @@ def plot(request):
                             
     for axLabel, axDict in pltDict.items():
 
-        p = figure(title=None, x_range=selected_range, toolbar_location=None, tools=tools, lod_threshold=lod_threshold, lod_factor=lod_factor, lod_timeout=lod_timeout, output_backend="webgl")
+        p = figure(title=None, x_range=selected_range, toolbar_location=None, tools=tools, lod_threshold=lod_threshold, lod_factor=lod_factor, lod_timeout=lod_timeout, output_backend="webgl", name=f"plot_{axLabel}")
 
         scatter_initial = Scatter(x=axDict['x'], y=axDict['y'], size=axDict["size"], fill_color=axDict["color"], line_color=axDict["color"], marker=axDict["marker"], fill_alpha=axDict["alpha"], line_alpha=axDict["alpha"])
         # scatter_selected = Scatter(x=axDict['x'], y=axDict['y'], size=axDict["size"], fill_color=axDict["selected_color"], line_color=axDict["selected_color"], marker=axDict["marker"], fill_alpha=axDict["selected_alpha"], line_alpha=axDict["selected_alpha"])
@@ -310,6 +398,7 @@ def plot(request):
             errorbars_renderer.visible = True
 
         if axLabel == "ax1":
+            p.y_range.flipped = True
             p.extra_x_ranges["secondary"] = Range1d(*x2_range)
             p_ax_x2 = DatetimeAxis(x_range_name="secondary")
             p_ax_x2.formatter = DatetimeTickFormatter(months=r"%Y/%m/%d",
@@ -338,8 +427,8 @@ def plot(request):
         p.title.visible = False
 
         # Add common hover tool with custom JS callback
-        hover.renderers += [pt_renderers] # it has no renderers, append the scatter
-        p.add_tools(hover)
+        hover_tool.renderers += [pt_renderers] # it has no renderers, append the scatter
+        p.add_tools(hover_tool)
 
         # make box_zoom the default active tool
         p.add_tools(box_zoom_tool)
@@ -367,28 +456,16 @@ def plot(request):
     else:
         plot_layout = gridplot([[pltDict["ax1"]["p"]], [pltDict["ax2"]["p"]], [pltDict["ax3"]["p"]]], merge_tools=True, toolbar_location="right", sizing_mode='stretch_both')
 
-    ##############
-    # Data table #
-    ##############
-    from bokeh.models.widgets import HTMLTemplateFormatter
-    table_link_formatter = HTMLTemplateFormatter(template="""<a href="/iop4/admin/iop4api/photopolresult/?id=<%= value %>"><%= value %></a>""")
-    table_columns = [   TableColumn(field="pk", title="id", formatter=table_link_formatter),
-                        TableColumn(field="instrument", title="instrument"),
-                        TableColumn(field="x1", title="mjd"),
-                        TableColumn(field="y1", title="mag"),
-                        TableColumn(field="y1_err", title="dmag"),
-                        TableColumn(field="y2", title="p"),
-                        TableColumn(field="y2_err", title="dp"),
-                        TableColumn(field="y3", title="chi"),
-                        TableColumn(field="y3_err", title="dchi")]
-               
-    data_table = DataTable(source=source, view=view, columns=table_columns, index_position=None,
-                           sortable=True, reorderable=True, scroll_to_selection=True, 
-                           stylesheets=[InlineStyleSheet(css=""".slick-cell.selected { background-color: #d2eaff; }""")])
+    plot_layout.name = "gridplot"
+
+    # this is a fix for the save tool of the gridplot not behaving as expected
+    # and having the filename of the configured plot
+    for tool in plot_layout.toolbar.tools:
+        if isinstance(tool, SaveTool):
+            tool.filename = save_filename
+            break
 
     # Add a callback to hide errorbars when panning (it makes the plot smoother)
-
-    from bokeh.events import Event, PanStart, PanEnd, Press, PressUp, RangesUpdate
 
     if enable_errorbars:
         cb_hide_errorbars = """window.were_errorbars_active = document.querySelector('#cbox_errorbars').checked; plot_hide_errorbars();"""
@@ -404,6 +481,40 @@ def plot(request):
         p2.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
         p3.js_on_event(PanStart, CustomJS(code=cb_hide_errorbars))
         p3.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
+        
+    # add a callback to anable flagging data
+    
+    cb_stage_to_flag = CustomJS(args=dict(source=source), code="""
+        vueApp.$data.selected_plot_idx = source.selected.indices;
+    """)
+    source.selected.js_on_change('indices', cb_stage_to_flag)
+
+    ##############
+    # Data table #
+    ##############
+    
+    table_link_formatter = HTMLTemplateFormatter(template="""<a href="/iop4/admin/iop4api/photopolresult/?id=<%= value %>"><%= value %></a>""")
+    float_formatter = NumberFormatter(format='0.00')
+    percent_formatter = NumberFormatter(format='0.0 %')
+    flags_to_str_formatter = HTMLTemplateFormatter(template="""<span><%= flags_to_str(flags) %></span>""")
+    
+    table_columns = [   
+                        TableColumn(field="pk", title="id", formatter=table_link_formatter),
+                        TableColumn(field="instrument", title="instrument"),
+                        TableColumn(field="x1", title="mjd", formatter=float_formatter),
+                        TableColumn(field="y1", title="mag", formatter=float_formatter),
+                        TableColumn(field="y1_err", title="dmag", formatter=float_formatter),
+                        TableColumn(field="y2", title="p", formatter=percent_formatter),
+                        TableColumn(field="y2_err", title="dp", formatter=percent_formatter),
+                        TableColumn(field="y3", title="chi", formatter=float_formatter),
+                        TableColumn(field="y3_err", title="dchi", formatter=float_formatter),
+                        TableColumn(field="flags", title="flags", formatter=flags_to_str_formatter),
+                    ]
+               
+    data_table = DataTable(source=source, view=view, columns=table_columns, index_position=None,
+                           sortable=True, reorderable=True, scroll_to_selection=True, #sizing_mode="stretch_width", # this works and is fast
+                            sizing_mode="inherit", # this also works fast while respecting the container size
+                            stylesheets=[InlineStyleSheet(css=""".slick-cell.selected { background-color: #d2eaff; }""")]) 
 
     #################################################
     # Create a legend (it will be a different plot) #
@@ -418,20 +529,21 @@ def plot(request):
                                             align-items: self-end;
                                             margin: 0;
                                             margin-left: 10px;
-                                            min-width: 8em;
-                                            max-width: 12em;
+                                            min-width: 6em;
+                                            /* max-width: 12em; */
                                         }
 
                                         label {
-                                            display: block;
+                                            display: flex;
                                             cursor: pointer; 
-                                            vertical-align: middle;
                                             font-weight: normal;
+                                            white-space: nowrap;
                                         }
 
                                         span {
-                                            display: inline-block;
-                                            min-width: 8em;
+                                            display: flex;
+                                            align-items: flex-end;
+                                            min-width: 4em;
                                         }
 
                                         input {
@@ -445,11 +557,36 @@ def plot(request):
                                         """)
 
     legend_row_L = list()
+
     for instrument, color in zip(instruments_L, instrument_color_L):
         # Create Div elements for labels
         label = Div(text=f"""<label><span>{instrument}</span><input onclick="plot_hide_instrument(this);" data-instrument="{instrument}" type="checkbox" checked/></label>""", height=21, stylesheets=[label_stylesheet])
         # Create glyphs
         circle_glyph = Circle(x='x', y='y', fill_color=color, line_color=color, size=8)
+        # Create plots to hold the glyphs
+        legend_p = figure(width=21, height=21, toolbar_location=None, min_border=0, tools="")
+        legend_p.add_glyph(legend_source, circle_glyph)
+        legend_p.axis.visible = False
+        legend_p.grid.visible = False
+        legend_p.background_fill_alpha = 0.0
+        legend_p.outline_line_alpha = 0.0
+
+        # Combine glyphs and labels into rows
+        legend_row = Row(children=[legend_p, label], align="center")
+
+        legend_row_L.append(legend_row)
+
+    for flag_value, flag_label, marker in zip([1,2,3], ["bad photometry", "bad polarimetry", "bad photometry and polarimetry"], ["triangle", "inverted_triangle", "cross"]):
+        # Create Div elements for labels
+        if flag_value in [1,2]:
+            cbox = f"""<input onclick="plot_hide_flag(this);" data-flag="{flag_value}" type="checkbox" checked/>"""
+            no_pointer = ""
+        else:
+            cbox = ""
+            no_pointer = """ style="cursor: default;" """
+        label = Div(text=f"""<label {no_pointer}><span>{flag_label}</span>{cbox}</label>""", height=21, stylesheets=[label_stylesheet])
+        # Create glyphs
+        circle_glyph = Scatter(x='x', y='y', fill_color="black", line_color="black", size=8, marker=marker)
         # Create plots to hold the glyphs
         legend_p = figure(width=21, height=21, toolbar_location=None, min_border=0, tools="")
         legend_p.add_glyph(legend_source, circle_glyph)

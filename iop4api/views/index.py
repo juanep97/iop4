@@ -28,7 +28,8 @@ def index(request, tabs=None):
 
     context = {}
 
-    context["tab_tree"] =  json.dumps({"about":{}, "login":{}, "explore": {"catalog":{}, "query":{}, "plot":{}, "data":{}, "logs":{}}})
+    tab_tree = {"about":{}, "login":{}, "explore": {"catalog":{}, "query":{}, "plot":{}, "data":{}, "logs":{}}}
+    context["tab_tree"] =  json.dumps(tab_tree)
     
     # pass the tabs to the template (e.g. /iop4/tab1/tab2/, see urls.py)
     if tabs is not None:
@@ -37,6 +38,11 @@ def index(request, tabs=None):
         # redirect to login if they are trying to see a tab that requires login
         if not request.user.is_authenticated and "C1selectedTab" in context['tabs'] and context['tabs']["C1selectedTab"] not in ["about", "login"]:
             return redirect("{}".format(reverse('iop4api:index', args=[["login",]])))
+        
+        # # # if the tab is not in the tab tree, redirect to the index
+        # for i, tab in enumerate(tabs):
+        #     if i == 0 and tab not in tab_tree.keys():
+        #         return redirect("{}".format(reverse('iop4api:index')))
 
     # if the user is logged, pass source names to the template
     if request.user.is_authenticated:

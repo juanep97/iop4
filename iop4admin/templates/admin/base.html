@@ -1,0 +1,7 @@
+{% extends "admin/base.html" %}
+
+{% block extrastyle %}{{ block.super }}
+    {% if site_title == "IOP4 admin" %}
+            {% include 'iop4admin/base.custom.css' %}
+    {% endif %}
+{% endblock %}

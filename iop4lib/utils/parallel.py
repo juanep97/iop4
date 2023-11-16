@@ -99,6 +99,7 @@ def _epoch_bulkreduce_multiprocessing_init(counter, queue, Nredf, iop4conf):
 
     root = logging.getLogger()
     root.handlers.clear()
+    iop4conf.configure_logging() # force configure logging 
     root.addHandler(h)
     root.addFilter(logging.Filter("iop4lib"))
 
@@ -116,6 +117,7 @@ def _epoch_bulkreduce_multiprocessing_init(counter, queue, Nredf, iop4conf):
     if not settings.configured:
         iop4conf.configure_db()
 
+    # close existing connections to the DB
     from django import db
     db.connections.close_all()
 
@@ -146,7 +148,7 @@ def _epoch_bulkreduce_multiprocessing_worker(reduced_fit: 'ReducedFit'):
     try:
         # Start a timer that will send SIGALRM in 20 minutes
         signal.signal(signal.SIGALRM, _epoch_bulkreduce_multiprocessing_worker_timeout_handler)
-        signal.alarm(20*60) 
+        signal.alarm(iop4conf.astrometry_timeout*60) 
         reduced_fit.build_file()
         signal.alarm(0) # cancel the alarm
     except Exception as e:
@@ -288,10 +290,9 @@ def epoch_bulkreduce_ray(reduced_L):
         
             if not redf.fileexists:
                 try:
-                    redf.apply_masterbias()
-                    redf.apply_masterflat()
+                    redf.apply_masters()
                 except Exception as e:
-                    logger.error(f"{redf}: exception during .apply_masterbias(), .apply_masterflat(): {e}")
+                    logger.error(f"{redf}: exception during .apply_masters(): {e}")
                     pass
             
             if success:

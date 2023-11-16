@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class AdminRawFit(AdminFitFile):
     model = RawFit
-    list_display = ["id", 'filename', 'telescope', 'night', 'status', 'imgtype', 'imgsize', 'band', 'obsmode', 'rotangle', 'exptime', 'options']
+    list_display = ["id", 'filename', 'telescope', 'night', 'instrument', 'status', 'imgtype', 'imgsize', 'band', 'obsmode', 'rotangle', 'exptime', 'options']
     readonly_fields = [field.name for field in RawFit._meta.fields] 
     search_fields = ['id', 'filename', 'epoch__telescope', 'epoch__night'] 
     ordering = ['-epoch__night','-epoch__telescope']
@@ -24,6 +24,7 @@ class AdminRawFit(AdminFitFile):
             RawFitTelescopeFilter,
             RawFitNightFilter,
             RawFitFilenameFilter,
+            RawFitInstrumentFilter,
             RawFitFlagFilter,
             "imgtype",
             "obsmode",
@@ -31,29 +32,20 @@ class AdminRawFit(AdminFitFile):
             "imgsize",
         )
     
-
-    
-    def telescope(self, obj):
-        return obj.epoch.telescope
-    
-    def night(self, obj):
-        return obj.epoch.night
-    
-    @admin.display(description='STATUS')
-    def status(self, obj):
-        return ", ".join(obj.flag_labels)
     
     @admin.display(description='OPTIONS')
     def options(self, obj):
-        if obj.imgtype == IMGTYPES.LIGHT:
+        html_src = str()
+
+        if obj.imgtype == IMGTYPES.LIGHT and hasattr(obj, "reduced"):
             url_reduced = reverse('iop4admin:%s_%s_changelist' % (ReducedFit._meta.app_label, ReducedFit._meta.model_name)) + f"?id={obj.reduced.id}"
-            url_details = reverse('iop4admin:iop4api_rawfit_details', args=[obj.id])
-            url_viewer= reverse('iop4admin:iop4api_rawfit_viewer', args=[obj.id])
-            return format_html(rf'<a href="{url_reduced}">reduced</a> / <a href="{url_details}">details</a> / <a href="{url_viewer}">advanced viewer</a>')
-        else:
-            url_details = reverse('iop4admin:iop4api_rawfit_details', args=[obj.id])
-            url_viewer= reverse('iop4admin:iop4api_rawfit_viewer', args=[obj.id])
-            return format_html(rf'<a href="{url_details}">details</a> / <a href="{url_viewer}">advanced viewer</a>')
+            html_src += rf'<a href="{url_reduced}">reduced</a> / '
+        
+        url_details = reverse('iop4admin:iop4api_rawfit_details', args=[obj.id])
+        url_viewer= reverse('iop4admin:iop4api_rawfit_viewer', args=[obj.id])
+        html_src += rf'<a href="{url_details}">details</a> / <a href="{url_viewer}">advanced viewer</a>'
+
+        return format_html(html_src)
 
     def image_preview(self, obj, allow_tags=True):
         url_img_preview = reverse('iop4admin:iop4api_rawfit_preview', args=[obj.id])

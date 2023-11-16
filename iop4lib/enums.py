@@ -8,6 +8,7 @@ class IMGTYPES(models.TextChoices):
     NONE = None, "None"
     ERROR = "ERROR", "Error"
     FLAT = 'FLAT', "Flat"
+    DARK = 'DARK', "Dark"
     BIAS = 'BIAS', "Bias"
     LIGHT = 'LIGHT', "Light"
 
@@ -43,6 +44,7 @@ class INSTRUMENTS(models.TextChoices):
     CAFOS = 'CAFOS2.2', "CAFOS2.2"
     AndorT90 = 'AndorT90', "AndorT90"
     AndorT150 = 'AndorT150', "AndorT150"
+    DIPOL = 'DIPOL', "DIPOL"
 
 class TELESCOPES(models.TextChoices):
     """

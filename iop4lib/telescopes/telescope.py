@@ -8,6 +8,8 @@ iop4conf = iop4lib.Config(config_db=False)
 from abc import ABCMeta, abstractmethod
 
 import re
+import os
+from pathlib import Path
 import ftplib
 import logging
 import astropy.io.fits as fits
@@ -26,12 +28,13 @@ logger = logging.getLogger(__name__)
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from iop4lib.db import RawFit, ReducedFit
+    from iop4lib.db import RawFit, ReducedFit, Epoch    
 
 class Telescope(metaclass=ABCMeta):
-    """
-        Inherit this class to provide telescope specific functionality and
-        translations.
+    """ Base class for telescopes.
+
+        Inherit this class to provide telescope specific functionality (e.g. discovering and 
+        downloading new data, classification of instruments, etc).
 
         Attributes and methods that must be implemented are marked as abstract (they will give
         error if the class is inherited and the method is not implemented in the subclass).
@@ -51,6 +54,8 @@ class Telescope(metaclass=ABCMeta):
 
     # Abstract attributes
 
+    # these attributes must be implemented in the subclass
+
     # telescope identification
 
     @property
@@ -68,80 +73,32 @@ class Telescope(metaclass=ABCMeta):
     def telescop_kw(self):
         pass
 
-    # telescope properties
-
-    @property
-    @abstractmethod
-    def gain_e_adu(self):
-        pass
 
     # Abstract methods
 
+    # This methods must be implemented in the subclass
+
     @classmethod
     @abstractmethod
-    def list_remote_raw_fnames(cls, epoch):
+    def list_remote_raw_fnames(cls, epoch: 'Epoch') -> list[str] :
         pass
 
     @classmethod
     @abstractmethod
-    def download_rawfits(cls, epoch):
+    def download_rawfits(cls, rawfits: list['RawFit']) -> None :
         pass
 
     @classmethod
     @abstractmethod
-    def list_remote_epochnames(cls):
+    def list_remote_epochnames(cls) -> list[str] :
         pass
 
     @classmethod
     @abstractmethod
-    def classify_juliandate_rawfit(cls, rawfit):
+    def list_remote_filelocs(cls, epochnames: list[str]) -> list[str] :
         pass
 
-    @classmethod
-    @abstractmethod
-    def classify_imgtype_rawfit(cls, rawfit):
-        pass
-
-    @classmethod
-    @abstractmethod
-    def classify_band_rawfit(cls, rawfit):
-        pass
-
-    @classmethod
-    @abstractmethod
-    def classify_obsmode_rawfit(cls, rawfit):
-        pass
-
-    @classmethod
-    @abstractmethod
-    def get_header_hintcoord(cls, rawfit, *args, **kwargs):
-        pass
-    
-    @classmethod
-    @abstractmethod
-    def get_astrometry_position_hint(cls, rawfit, *args, **kwargs):
-        pass
-
-    @classmethod
-    @abstractmethod
-    def get_astrometry_size_hint(cls, rawfit):
-        pass
-
-    # Not Implemented Methods (skeleton)
-
-    # @classmethod
-    # def compute_relative_photometry(cls):
-    #     raise NotImplementedError
-    
-    @classmethod
-    def compute_absolute_photometry(cls):
-        raise NotImplementedError
-    
-    @classmethod
-    def compute_relative_polarimetry(cls):
-        raise NotImplementedError
-
-    # Class methods (usable)
+    # Class methods (you should be using these only from this Telescope class, not from subclasses)
     
     @classmethod
     def get_known(cls):
@@ -170,20 +127,24 @@ class Telescope(metaclass=ABCMeta):
         """
         return (name in [tel.name for tel in Telescope.get_known()]) or (name in [tel.abbrv for tel in Telescope.get_known()])
     
+    # telescope independent functionality
+    # you should be using these from the subclasses already
+    # these don't need to be overriden in subclasses, but they can be (e.g. OSN-T090 overrides check_telescop_kw)
 
     @classmethod
     def classify_rawfit(cls, rawfit: 'RawFit'):
+        r""" Try to classify a RawFit object.
+
+        This method will first check that the rawfit belongs to this telescope, 
+        classify the instrument, then hand off classification to the instrument 
+        class.        
+        """
+
+        from iop4lib.instruments import Instrument
+
         cls.check_telescop_kw(rawfit)
         cls.classify_instrument_kw(rawfit)
-        cls.classify_juliandate_rawfit(rawfit)
-        cls.classify_imgtype_rawfit(rawfit)
-        cls.classify_band_rawfit(rawfit)
-        cls.classify_obsmode_rawfit(rawfit)
-        cls.classify_imgsize(rawfit)
-        cls.classify_exptime(rawfit)
-
-    # telescope independent functionality (they don't need to be overriden in subclasses)
-
+        Instrument.by_name(rawfit.instrument).classify_rawfit(rawfit)
 
     @classmethod
     def check_telescop_kw(cls, rawfit):
@@ -209,242 +170,161 @@ class Telescope(metaclass=ABCMeta):
             rawfit.instrument = INSTRUMENTS.AndorT150
         elif instrume_header == "CAFOS 2.2":
             rawfit.instrument = INSTRUMENTS.CAFOS
+        elif instrume_header == "ASI Camera (1)":
+            rawfit.instrument = INSTRUMENTS.DIPOL
         else:
             raise ValueError(f"INSTRUME in fits header ({instrume_header}) not known.")
     
-    @classmethod
-    def classify_imgsize(cls, rawfit):
-        import astropy.io.fits as fits
-        from iop4lib.db import RawFit
 
-        with fits.open(rawfit.filepath) as hdul:
-            if hdul[0].header["NAXIS"] == 2:
-                sizeX = hdul[0].header["NAXIS1"]
-                sizeY = hdul[0].header["NAXIS2"]
-                rawfit.imgsize = f"{sizeX}x{sizeY}"
-                return rawfit.imgsize
-            else:
-                raise ValueError(f"Raw fit file {rawfit.fileloc} has NAXIS != 2, cannot get imgsize.")
-            
-    @classmethod
-    def classify_exptime(cls, rawfit):
-        """
-        EXPTIME is an standard FITS keyword, measured in seconds.
-        """
-        import astropy.io.fits as fits
-        from iop4lib.db import RawFit
 
-        with fits.open(rawfit.filepath) as hdul:
-            rawfit.exptime = hdul[0].header["EXPTIME"]
+
+
+
+
+
+class FTPArchiveMixin():
+
+    @classmethod
+    @abstractmethod
+    def remote_dirname_to_epochname(cls, dirname):
+        pass
+        
+    @classmethod
+    @abstractmethod
+    def epochname_to_remote_dirname(cls, epochname):
+        pass
 
 
     @classmethod
-    def get_header_objecthint(self, rawfit):
-        r""" Get a hint for the AstroSource in this image from the header. OBJECT is a standard keyword. Return None if none found. 
-        
-        At the moment his only tries to match sources
-        with the IAU name format `[0-9]*\+[0-9]*`.
-        """
-        
-        from iop4lib.db import AstroSource
+    def list_remote_epochnames(cls):
+        try:
+            logger.debug(f"Loging to {cls.name} FTP server.")
 
-        object_header = rawfit.header["OBJECT"]
-        
-        matchs = re.findall(r".*?([0-9]*\+[0-9]*).*", object_header)
-        if len(matchs) > 0:
-            return AstroSource.objects.filter(name__contains=matchs[0]).first()
-        else:
-            return None
+            ftp =  ftplib.FTP(cls.ftp_address, encoding=cls.ftp_encoding)
+            ftp.login(cls.ftp_user, cls.ftp_password)
 
+            remote_dirnameL_all = ftp.nlst()
+            ftp.quit()
 
+            if '.' in remote_dirnameL_all:
+                remote_dirnameL_all.remove('.')
+            if '..' in remote_dirnameL_all:
+                remote_dirnameL_all.remove('..')
 
+            logger.debug(f"Total of {len(remote_dirnameL_all)} dirs in {cls.name} remote.")
 
-    # should not depend on the telescope
+            remote_epochnameL_all = list()
 
-    @classmethod
-    def compute_aperture_photometry(cls, redf, aperpix, r_in, r_out):
-
-        from iop4lib.db.aperphotresult import AperPhotResult
-        from iop4lib.utils.sourcedetection import get_bkg, get_segmentation
-        from photutils.utils import circular_footprint
-        from photutils.aperture import CircularAperture, CircularAnnulus, ApertureStats, aperture_photometry
-        from photutils.utils import calc_total_error
-        from astropy.stats import SigmaClip
-        from iop4lib.utils import get_target_fwhm_aperpix
-
-        if redf.mdata.shape[0] == 1024:
-            bkg_box_size = 128
-        elif redf.mdata.shape[0] == 2048:
-            bkg_box_size = 256
-        elif redf.mdata.shape[0] == 800:
-            bkg_box_size = 100
-        else:
-            logger.warning(f"Image size {redf.mdata.shape[0]} not expected.")
-            bkg_box_size = redf.mdata.shape[0]//10
-
-        bkg = get_bkg(redf.mdata, filter_size=1, box_size=bkg_box_size)
-        # img_bkg_sub = redf.mdata - bkg.background
-        img_bkg_sub = redf.mdata
-
-        if np.sum(redf.mdata <= 0.0) >= 1:
-            logger.debug(f"{redf}: {np.sum(redf.mdata <= 0.0):.0f} px < 0  ({math.sqrt(np.sum(redf.mdata <= 0.0)):.0f} px2) in IMAGE.")
-
-        # if np.sum(img_bkg_sub <= 0.0) >= 1:
-        #     try:
-        #         logger.debug(f"{redf}: {np.sum(img_bkg_sub <= 0.0)} px < 0 ({math.sqrt(np.sum(img_bkg_sub <= 0.0)):.0f} px2) in BKG-SUBSTRACTED IMG. Check the bkg-substraction method, I'm going to try to mask sources...")
-        #         seg_threshold = 3.0 * bkg.background_rms # safer to ensure they are sources
-        #         segment_map, convolved_data = get_segmentation(img_bkg_sub, threshold=seg_threshold, fwhm=1, kernel_size=None, npixels=16, deblend=True)
-        #         mask = segment_map.make_source_mask(footprint=circular_footprint(radius=6))
-        #         bkg = get_bkg(redf.mdata, filter_size=1, box_size=bkg_box_size, mask=mask)
-        #         img_bkg_sub = redf.mdata - bkg.background
-        #     except Exception as e:
-        #         logger.debug(f"{redf}: can not mask sources here... {e}")
-        
-        if np.sum(img_bkg_sub <= 0.0) >= 1:
-            logger.debug(f"{redf}: {np.sum(img_bkg_sub <= 0.0)} px < 0 ({math.sqrt(np.sum(img_bkg_sub <= 0.0)):.0f} px2) in BKG-SUBSTRACTED IMG, after masking.")
-
-
-        error = calc_total_error(img_bkg_sub, bkg.background_rms, cls.gain_e_adu)
-
-        for astrosource in redf.sources_in_field.all():
-            for pairs, wcs in (('O', redf.wcs1), ('E', redf.wcs2)) if redf.with_pairs else (('O',redf.wcs),):
-
-                ap = CircularAperture(astrosource.coord.to_pixel(wcs), r=aperpix)
-                annulus = CircularAnnulus(astrosource.coord.to_pixel(wcs), r_in=r_in, r_out=r_out)
-
-                annulus_stats = ApertureStats(redf.mdata, annulus, error=error, sigma_clip=SigmaClip(sigma=5.0, maxiters=10))
-                # bkg_stats = ApertureStats(bkg.background, ap, error=error)
-                ap_stats = ApertureStats(redf.mdata, ap, error=error)
-
-                # bkg_flux_counts = bkg_stats.sum
-                # bkg_flux_counts_err = bkg_stats.sum_err
-                bkg_flux_counts = annulus_stats.median*ap_stats.sum_aper_area.value
-                bkg_flux_counts_err = annulus_stats.sum_err / annulus_stats.sum_aper_area.value * ap_stats.sum_aper_area.value
-
-                flux_counts = ap_stats.sum - annulus_stats.mean*ap_stats.sum_aper_area.value
-                flux_counts_err = ap_stats.sum_err
-
-                AperPhotResult.create(reducedfit=redf, 
-                                      astrosource=astrosource, 
-                                      aperpix=aperpix, 
-                                      pairs=pairs, 
-                                      bkg_flux_counts=bkg_flux_counts, bkg_flux_counts_err=bkg_flux_counts_err,
-                                      flux_counts=flux_counts, flux_counts_err=flux_counts_err)
-    
-
-    @classmethod
-    def compute_relative_photometry(cls, redf: 'ReducedFit') -> None:
-        
-        from iop4lib.db.aperphotresult import AperPhotResult
-        from iop4lib.db.photopolresult import PhotoPolResult
-        from iop4lib.utils import get_target_fwhm_aperpix
-
-        if redf.obsmode != OBSMODES.PHOTOMETRY:
-            raise Exception(f"{redf}: this method is only for plain photometry images.")
-        
-        target_fwhm, aperpix, r_in, r_out = get_target_fwhm_aperpix([redf], reductionmethod=REDUCTIONMETHODS.RELPHOT)
-
-        if target_fwhm is None:
-            logger.error("Could not estimate a target FWHM, aborting relative photometry.")
-            return
-
-        # 1. Compute all aperture photometries
-
-        logger.debug(f"{redf}: computing aperture photometries for {redf}.")
-
-        redf.compute_aperture_photometry(aperpix, r_in, r_out)
-
-        # 2. Compute relative polarimetry for each source (uses the computed aperture photometries)
-
-        logger.debug(f"{redf}: computing relative photometry.")
-
-        # 2. Compute the flux in counts and the instrumental magnitude
-        
-        photopolresult_L = list()
-        
-        for astrosource in redf.sources_in_field.all():
-
-            result = PhotoPolResult.create(reducedfits=[redf], astrosource=astrosource, reduction=REDUCTIONMETHODS.RELPHOT)
-
-            aperphotresult = AperPhotResult.objects.get(reducedfit=redf, astrosource=astrosource, aperpix=aperpix, pairs="O")
-
-            result.bkg_flux_counts = aperphotresult.bkg_flux_counts
-            result.bkg_flux_counts_err = aperphotresult.bkg_flux_counts_err
-            result.flux_counts = aperphotresult.flux_counts
-            result.flux_counts_err = aperphotresult.flux_counts_err
-
-            # logger.debug(f"{self}: {result.flux_counts=}")
-
-            if result.flux_counts is None: # when does this happen? when there is a source whose apertue falls partially outside the image? https://github.com/juanep97/iop4/issues/24
-                logger.error(f"{redf}: during relative photometry, encountered flux_counts=None for source {astrosource.name}, aperphotresult {aperphotresult.id}!!!")
-                result.flux_counts = np.nan
-                result.flux_counts_err = np.nan
-
-            if result.flux_counts <= 0.0:
-                logger.warning(f"{redf}: negative flux counts encountered while relative photometry for {astrosource=} ??!! They will be nans, but maybe we should look into this...")
-
-            result.mag_inst = -2.5 * np.log10(result.flux_counts) # np.nan if result.flux_counts <= 0.0
-            result.mag_inst_err = math.fabs(2.5 / math.log(10) / result.flux_counts * result.flux_counts_err)
-
-            # if the source is a calibrator, compute also the zero point
-            if result.astrosource.srctype == SRCTYPES.CALIBRATOR:
-                result.mag_known = getattr(result.astrosource, f"mag_{redf.band}")
-                result.mag_known_err = getattr(result.astrosource, f"mag_{redf.band}_err", None) or 0.0
-
-                if result.mag_known is None:
-                    logger.warning(f"Relative Photometry over {redf}: calibrator {result.astrosource} has no magnitude for band {redf.band}.")
-                    result.mag_zp = np.nan
-                    result.mag_zp_err = np.nan
+            for dirname in remote_dirnameL_all:
+                if (epochname := cls.remote_dirname_to_epochname(dirname)) is None:
+                    logger.warning(f"Could not parse {dirname} as a valid epochname.")
                 else:
-                    result.mag_zp = result.mag_known - result.mag_inst
-                    result.mag_zp_err = math.sqrt(result.mag_inst_err**2 + result.mag_known_err**2)
-            else:
-                # if it is not a calibrator, we can not save the COMPUTED zp, it will be computed and the USED zp will be stored.
-                result.mag_zp = None
-                result.mag_zp_err = None
+                    remote_epochnameL_all.append(epochname)
 
-            result.save()
+            logger.debug(f"Filtered to {len(remote_epochnameL_all)} epochs in {cls.name}.")
 
-            photopolresult_L.append(result)
+            return remote_epochnameL_all
+        
+        except Exception as e:
+            raise Exception(f"Error listing remote epochs for {Telescope.name}: {e}.")
 
-        # 3. Average the zero points
+    @classmethod
+    def list_remote_raw_fnames(cls, epoch):
+        try:
 
-        calib_mag_zp_array = np.array([result.mag_zp or np.nan for result in photopolresult_L if result.astrosource.srctype == SRCTYPES.CALIBRATOR]) # else it fills with None also and the dtype becomes object
-        calib_mag_zp_array = calib_mag_zp_array[~np.isnan(calib_mag_zp_array)]
+            logger.debug(f"Loging to {cls.name} FTP server.")
 
-        calib_mag_zp_array_err = np.array([result.mag_zp_err or np.nan for result in photopolresult_L if result.astrosource.srctype == SRCTYPES.CALIBRATOR])
-        calib_mag_zp_array_err = calib_mag_zp_array_err[~np.isnan(calib_mag_zp_array_err)]
+            ftp =  ftplib.FTP(cls.ftp_address, encoding=cls.ftp_encoding)
+            ftp.login(cls.ftp_user, cls.ftp_password)
 
-        if len(calib_mag_zp_array) == 0:
-            logger.error(f"{redf}: can not perform relative photometry without any calibrators for this reduced fit. Deleting results.")
-            [result.delete() for result in redf.photopolresults.all()]
-            return #raise Exception(f"{self}: can not perform relative photometry without any calibrators for this reduced fit.") 
+            remote_dir = cls.epochname_to_remote_dirname(epoch.epochname)
+            logger.debug(f"Trying to change {remote_dir} directory.")
+            ftp.cwd(f"/{remote_dir}")
 
-        zp_avg = np.nanmean(calib_mag_zp_array)
-        zp_std = np.nanstd(calib_mag_zp_array)
+            remote_fnameL_all = ftp.nlst()
+            ftp.quit()
 
-        zp_err = math.sqrt(np.sum(calib_mag_zp_array_err**2)) / len(calib_mag_zp_array_err)
-        zp_err = math.sqrt(zp_std**2 + zp_err**2)
+            if '.' in remote_fnameL_all:
+                remote_fnameL_all.remove('.')
+            if '..' in remote_fnameL_all:
+                remote_fnameL_all.remove('..')
 
-        # 4. Compute the calibrated magnitudes
+            logger.debug(f"Total of {len(remote_fnameL_all)} files in {cls.name} {epoch.epochname}: {remote_fnameL_all}.")
 
-        for result in photopolresult_L:
+            remote_fnameL = [s for s in remote_fnameL_all if cls.re_expr_fnames.search(s)]
+            
+            logger.debug(f"Filtered to {len(remote_fnameL)} files in {cls.name} {epoch.epochname}.")
 
-            if result.astrosource.srctype == SRCTYPES.CALIBRATOR:
+            return remote_fnameL
+        
+        except Exception as e:
+            raise Exception(f"Error listing remote dir for {epoch.epochname}: {e}.")
+        
+    @classmethod
+    def download_rawfits(cls, rawfits: list['RawFit'] | list[str]):
+        from iop4lib.db import RawFit
+
+        try:
+            ftp =  ftplib.FTP(cls.ftp_address, encoding=cls.ftp_encoding)
+            ftp.login(cls.ftp_user, cls.ftp_password)
+
+            for rawfit in rawfits:
+
+                if isinstance(rawfit, str): # make sure that this is indeed the way tel, night, filepath are built
+                    fileloc = rawfit
+                    tel, night, filename = RawFit.fileloc_to_tel_night_filename(fileloc)
+                    yyyy_mm_dd = night.strftime("%Y-%m-%d")
+                    filepath = Path(iop4conf.datadir) / "raw" / tel / yyyy_mm_dd / filename
+                elif isinstance(rawfit, RawFit):
+                    fileloc = rawfit.fileloc
+                    tel, night, filename = rawfit.telescope, rawfit.night, rawfit.filename
+                    yyyy_mm_dd = night.strftime("%Y-%m-%d")
+                    filepath =  Path(rawfit.filepath)
+
+                rel_path = os.path.join(cls.epochname_to_remote_dirname(f"{tel}/{yyyy_mm_dd}"), filename)
+
+                logger.debug(f"Downloading {fileloc} from {cls.name} archive ...")
+
+                if not filepath.parent.exists():
+                    os.makedirs(filepath.parent)
+
+                with open(filepath, 'wb') as f:
+                    ftp.retrbinary(f"RETR {rel_path}", f.write)
+
+            ftp.quit()
+        except Exception as e:
+            raise Exception(f"Error downloading rawfits: {e}.")
+
+    @classmethod
+    def list_remote_filelocs(cls, epochnames: list[str]) -> list[str]:
+        from iop4lib.db import Epoch
+
+        ftp =  ftplib.FTP(cls.ftp_address, encoding=cls.ftp_encoding)
+        ftp.login(cls.ftp_user, cls.ftp_password)
+
+        dirnames = ftp.nlst()
+
+        fileloc_list = list()
+
+        for epochname in epochnames:
+
+            tel, night = Epoch.epochname_to_tel_night(epochname)
+            yymmdd = night.strftime("%y%m%d")
+
+            remote_dir = cls.epochname_to_remote_dirname(epochname)
+
+            if remote_dir not in dirnames:
+                logger.error(f"{cls.name} remote dir {remote_dir} does not exist.")
                 continue
 
-            # save the zp (to be) used
-            result.mag_zp = zp_avg
-            result.mag_zp_err = zp_err
-
-            # compute the calibrated magnitude
-            result.mag = zp_avg + result.mag_inst
-            result.mag_err = math.sqrt(result.mag_inst_err**2 + zp_err**2)
-
-            result.save()
+            try:
+                fnames = [fpath.split("/")[-1] for fpath in ftp.nlst(f"/{remote_dir}")]
+                fileloc_list.extend([f"{epochname}/{fname}" for fname in fnames if cls.re_expr_fnames.search(fname) and fname != '.' and fname != '..'])
         
-        # 5. Save the results
 
-        for result in photopolresult_L:
-            result.save()
+            except Exception as e:
+                logger.error(f"Error listing {cls.name} remote dir for {epochname}: {e}.")
+            
+        ftp.quit()
 
+        return fileloc_list

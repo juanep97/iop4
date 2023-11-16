@@ -24,7 +24,7 @@ from astropy.time import Time
 
 from iop4lib.enums import *
 from iop4lib.telescopes import Telescope
-from .astrosource import AstroSource
+from iop4lib.instruments import Instrument
 from .fields import FlagChoices, FlagBitField
 from iop4lib.utils import  get_mem_parent_from_child, get_total_mem_from_child, get_mem_current, get_mem_children
 from iop4lib.utils.parallel import epoch_bulkreduce_multiprocesing, epoch_bulkreduce_ray
@@ -34,50 +34,9 @@ from iop4lib.utils.parallel import epoch_bulkreduce_multiprocesing, epoch_bulkre
 import logging
 logger = logging.getLogger(__name__)
 
-
-class HybridProperty():
-    def __init__(self, fget=None, fset=None, fexp=None):
-        self.fget = fget
-        self.fset = fset
-        self.fexp = fexp
-
-    def getter(self, fget):
-        return type(self)(fget=fget, fset=self.fset, fexp=self.fexp)
-    
-    def setter(self, fset):
-        return type(self)(fget=self.fget, fset=fset, fexp=self.fexp)
-    
-    def expression(self, fexp):
-        return type(self)(fget=self.fget, fset=self.fset, fexp=fexp)
-    
-    def __get__(self, instance, owner):
-        if instance is None:
-            return self
-        return self.fget(instance)
-
-    def __set__(self, instance, value):
-        if self.fset is not None:
-            self.fset(instance, value)
-        else:
-            raise AttributeError("Can't set attribute")
-
-def hybrid_property(fget):
-    res =  HybridProperty(fget=fget)
-    if fget.__name__ is not None:
-        res.__name__ = fget.__name__
-    return res
-
-
-class HybridManager(models.Manager):
-    def get_queryset(self):
-        qs = super().get_queryset()
-        print(f"get_queryset: {qs=}, {qs.model=}")
-        for name, value in vars(qs.model).items():
-            if isinstance(value, HybridProperty) and value.expression is not None:
-                print(f"Getting qs of {name} with {value=}")
-                qs = qs.annotate(**{name: value.fexp(qs.model)})
-                print("Got qs")
-        return qs
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from iop4lib.db import RawFit, ReducedFit, Epoch
     
 class Epoch(models.Model):
     """A class representing an epoch.
@@ -85,20 +44,6 @@ class Epoch(models.Model):
     Identified by the telescope and date of the night. Provides method for fetching the data
     from the telescope archives and reducing the data.
     """
-
-    objects = models.Manager()
-
-    custom = HybridManager()
-    @hybrid_property
-    def epochname_(self):
-        print(self)
-        return f"{self.telescope}/{self.night}"
-
-    @epochname_.expression
-    def cush(self):
-        return Concat('telescope', models.Value('/'), 'night', output_field=models.CharField())
-
-
 
     # Database fields and information
 
@@ -154,6 +99,11 @@ class Epoch(models.Model):
     def masterflatdir(self):
         """Returns the path to the directory where the masterflat files of this epoch are stored."""
         return os.path.join(iop4conf.datadir, "masterflat", self.epochname)
+
+    @property 
+    def masterdarkdir(self):
+        """Returns the path to the directory where the masterdark files of this epoch are stored."""
+        return os.path.join(iop4conf.datadir, "masterdark", self.epochname)
 
     @property
     def yyyymmdd(self):
@@ -242,9 +192,9 @@ class Epoch(models.Model):
     # creator
 
     @staticmethod
-    def epochname_to_tel_night(epochname):
+    def epochname_to_tel_night(epochname : str) -> tuple[str, datetime.date]:
         """Parses an epochname to a telescope and night."""
-
+        
         matches = re.findall(r"([a-zA-Z0-9]+)/([0-9]{2,4}-?[0-9]{2}-?[0-9]{2})$", epochname)
 
         if len(matches) != 1:
@@ -254,7 +204,7 @@ class Epoch(models.Model):
         if Telescope.is_known(telescope):
             telescope = Telescope.by_name(telescope).name
         else:
-            raise Exception(f"Telescope {telescope} not known.")
+            raise Exception(f"Telescope {telescope} in epochname {epochname} not known.")
 
         if len(matches[0][1]) == 6: ## yymmdd
             logger.debug("Epoch name was specified in YYMMDD format, it will automatically casted to 20YYMMDD format.")
@@ -416,71 +366,50 @@ class Epoch(models.Model):
 
 
 
-    def build_master_biases(self, force_rebuild=False):
-        from iop4lib.db import RawFit, MasterBias
+    def build_masters(self, model, force_rebuild=False):
         import itertools
 
-        # define keywords to be used to build master biases
-        kw_L = MasterBias.mbargs_kwL
+        # define keywords to be used to build the master
+        kw_L = model.margs_kwL
 
         # for each keyword, get the set of values in the rawfits of this epoch
-        kw_set_D = {kw:set(self.rawfits.filter(imgtype=IMGTYPES.BIAS).values_list(kw, flat=True).distinct()) for kw in kw_L}
+        kw_set_D = {kw:set(self.rawfits.filter(imgtype=model.imgtype).values_list(kw, flat=True).distinct()) for kw in kw_L}
 
         # create a list of dictionaries with all the combinations of values for each keyword
-        mbargs_L = [dict(zip(kw_L, prod)) for prod in itertools.product(*kw_set_D.values())]
-        
-        # create master biases
+        margs_L = [dict(zip(kw_L, prod)) for prod in itertools.product(*kw_set_D.values())]
 
-        try:
-            for mbargs in mbargs_L:
-                mbargs['epoch'] = self
-                logger.debug(f"{mbargs=}")
-                if self.rawfits.filter(imgtype=IMGTYPES.BIAS, **mbargs).count() > 0:
-                    logger.info(f"Building masterbias for {MasterBias.mbargs2str(mbargs)}.")
-                    MasterBias.create(**mbargs, force_rebuild=force_rebuild)
+        if len(margs_L) == 0:
+            logger.error(f"No {model._meta.verbose_name} will be built for this epoch since there are no files for it.")
+        
+        # create master 
+
+        for margs in margs_L:
+            try:
+                margs['epoch'] = self
+                logger.debug(f"{margs=}")
+                if self.rawfits.filter(imgtype=model.imgtype, **margs).count() > 0:
+                    logger.info(f"Building {model._meta.verbose_name} for {model.margs2str(margs)}.")
+                    model.create(**margs, force_rebuild=force_rebuild)
                 else:
-                    logger.debug(f"No masterbias will be built for this mbargs since there are no files for it.")
-        except Exception as e:
-            logger.error(f"Error building masterbias for {self.epochname}: {e}.")
-            self.set_flag(Epoch.FLAGS.ERROR)
+                    logger.debug(f"No {model._meta.verbose_name} will be built for this margs since there are no files for it.")
+            except Exception as e:
+                logger.error(f"Error building {model._meta.verbose_name} for {self.epochname} with args {margs}: {e}.")
+                self.set_flag(Epoch.FLAGS.ERROR)
             
         if self.auto_merge_to_db:
-            self.save()
+            self.save() 
 
-
-
-    def build_master_flats(self, force_rebuild=False):
-        from iop4lib.db import RawFit, MasterFlat
-        import itertools
-
-        # define keywords to be used to build master flats
-        kw_L = MasterFlat.mfargs_kwL
-
-        # for each keyword, get the set of values in the rawfits of this epoch
-        kw_set_D = {kw:set(self.rawfits.filter(imgtype=IMGTYPES.FLAT).values_list(kw, flat=True).distinct()) for kw in kw_L}
-
-        # create a list of dictionaries with all the combinations of values for each keyword
-        mfargs_L = [dict(zip(kw_L, prod)) for prod in itertools.product(*kw_set_D.values())]
-        
-        # create master flats
-
-        try:
-            for mfargs in mfargs_L:
-                mfargs['epoch'] = self
-                logger.debug(f"{mfargs=}")
-                if self.rawfits.filter(imgtype=IMGTYPES.FLAT, **mfargs).count() > 0:
-                    logger.info(f"Building masterflat for {MasterFlat.mfargs2str(mfargs)}.")
-                    MasterFlat.create(**mfargs, force_rebuild=force_rebuild)
-                else:
-                    logger.debug(f"No masterflat will be built for this mfargs since there are no files for it.")
-        except Exception as e:
-            logger.error(f"Error building masterflats for {self.epochname}: {e}.")
-            self.set_flag(Epoch.FLAGS.ERROR)
-            
-        if self.auto_merge_to_db:
-            self.save()
-
-
+    def build_master_biases(self, **kwargs):
+        from iop4lib.db import MasterBias
+        return self.build_masters(MasterBias, **kwargs)
+    
+    def build_master_flats(self, **kwargs):
+        from iop4lib.db import MasterFlat
+        return self.build_masters(MasterFlat, **kwargs)
+    
+    def build_master_darks(self, **kwargs):
+        from iop4lib.db import MasterDark
+        return self.build_masters(MasterDark, **kwargs)
 
     def reduce(self, force_rebuild=False):
         """ Reduces all (LIGHT) rawfits of this epoch. 
@@ -606,6 +535,7 @@ class Epoch(models.Model):
             
             keys = (
                     ('kwobj', redf.rawfit.header['OBJECT'].split(" ")[0]), 
+                    ('instrument', redf.instrument),
                     ('band', redf.band), 
                     ('exptime', redf.exptime)
             )
@@ -618,7 +548,8 @@ class Epoch(models.Model):
         # output some debug info about the groups made
         for key_T, redf_L in groups_D.items():
             key_D = dict(key_T)
-            logger.debug(f"{len(redf_L)=}; {key_D.values()}, {set([redf.rotangle for redf in redf_L])}")
+            rotangles_S = sorted(set([redf.rotangle for redf in redf_L]))
+            logger.debug(f"{len(redf_L)=}; {key_D.values()}, {rotangles_S}")
     
         # split the groups into subgroups such that every subgroup has at most 4 elements and all rotangles are present in the subgroup
 
@@ -628,12 +559,12 @@ class Epoch(models.Model):
         for key_T, redf_L in groups_D.items():
             key_D = dict(key_T)
 
-            rotangles_S = set([redf.rotangle for redf in redf_L]) # rotangles available in the redf_L
+            rotangles_S = sorted(set([redf.rotangle for redf in redf_L])) # rotangles available in the redf_L
             
             split_rotangle_D = {rotangle:[redf for redf in redf_L if redf.rotangle==rotangle] for rotangle in rotangles_S}  # to access the redfs in the redfL by rotangle
             
             while any([len(split_rotangle_D[rotangle])>0 for rotangle in rotangles_S]): # while there are redfs for some rotangle, create groups by popping one of each rotangle
-                split_groups.append([split_rotangle_D[rotangle].pop() for rotangle in rotangles_S if len(split_rotangle_D[rotangle]) > 0])
+                split_groups.append([split_rotangle_D[rotangle].pop(0) for rotangle in rotangles_S if len(split_rotangle_D[rotangle]) > 0])
                 split_groups_keys.append(key_D)
 
         # sort the groups by min(juliandate)
@@ -651,10 +582,10 @@ class Epoch(models.Model):
                 t1 = Time(min([redf.juliandate for redf in redf_L]), format="jd").datetime.strftime("%H:%M:%S")
                 t2 = Time(max([redf.juliandate for redf in redf_L]), format="jd").datetime.strftime("%H:%M:%S")
                 
-                print(f"{len(redf_L)=}; {key_D.values()}, {set([redf.rotangle for redf in redf_L])}   ({t1}, {t2})")
+                logging.debug(f"Group {len(redf_L)=}; {key_D.values()}, {set([redf.rotangle for redf in redf_L])}   ({t1}, {t2})")
                 
                 for redf in redf_L:
-                    print(f"     -> {redf.rotangle}: {Time(redf.juliandate, format='jd').datetime.strftime('%H:%M:%S')}")
+                    logging.debug(f"     -> {redf.rotangle}: {Time(redf.juliandate, format='jd').datetime.strftime('%H:%M:%S')}")
 
         # return the groups and their keys:
 
@@ -669,9 +600,15 @@ class Epoch(models.Model):
         logger.info(f"{self}: computing relative polarimetry over {len(groupkeys_L)} polarimetry groups.")
         logger.debug(f"{self}: {groupkeys_L=}")
 
-        f = lambda x: Telescope.by_name(self.telescope).compute_relative_polarimetry(x, *args, **kwargs)
-        
-        return list(map(f, clusters_L))
+        f = lambda x: Instrument.by_name(x[1]['instrument']).compute_relative_polarimetry(x[0], *args, **kwargs)
+
+        for i, (group, keys) in enumerate(zip(clusters_L, groupkeys_L)):
+            try:
+                Instrument.by_name(keys['instrument']).compute_relative_polarimetry(group, *args, **kwargs)
+            except Exception as e:
+                logger.error(f"{self}: error computing relative polarimetry for group n {i} {keys}: {e}")
+            finally:
+                logger.info(f"{self}: computed relative polarimetry for group n {i} {keys}.")
 
 
 

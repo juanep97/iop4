@@ -4,7 +4,7 @@ iop4conf = iop4lib.Config(config_db=False)
 import numpy as np
 
 from photutils.detection import DAOStarFinder
-from astropy.convolution import convolve
+from astropy.convolution import convolve, convolve_fft
 from photutils.segmentation import make_2dgaussian_kernel
 from astropy.stats import SigmaClip, sigma_clipped_stats
 from photutils.background import Background2D, MedianBackground, SExtractorBackground
@@ -26,24 +26,44 @@ def get_bkg(imgdata, box_size=(16,16), filter_size=(11,11), mask=None):
 
     return bkg
 
-def get_sources_daofind(data, fwhm=8.0, threshold=None):
+def apply_gaussian_smooth(data, fwhm, kernel_size=None):
+    if kernel_size is None:
+        kernel_size = 2*int(fwhm)+1
+
+    if kernel_size < 30:
+        fconv = convolve
+    else:
+        fconv = convolve_fft
+
+    kernel = make_2dgaussian_kernel(fwhm, size=kernel_size)
+    data = fconv(data, kernel)
+    return data
+
+def get_sources_daofind(data, threshold=None, fwhm=8.0, n_threshold=5.0, brightest=100, exclude_border=True):
     """
     `data` needs not but should be bkg-substracted and smoothed (that is, convolved with a kernel),
     threshold should be set depending on the brackground noise.
     """
 
-    if threshold is None:
-        threshold = 1.0*np.nanstd(data)
+    mean, median, std = sigma_clipped_stats(data, sigma=5.0)
 
-    daofind = DAOStarFinder(fwhm=fwhm, threshold=threshold)  
-    sources = daofind(data)
+    if threshold is None:
+        if n_threshold is not None:
+            threshold = 5.0*std
+        else:
+            raise ValueError('threshold or n_threshold must be provided')
+
+    daofind = DAOStarFinder(fwhm=fwhm, threshold=threshold, brightest=brightest, exclude_border=exclude_border)  
+    sources = daofind(data-median)
     
     if sources is None or len(sources) == 0:
         return np.empty((0,0))
     
-    pos = np.transpose((sources['xcentroid'], sources['ycentroid']))
+    sources.sort('flux', reverse=True)
+
+    positions = np.transpose((sources['xcentroid'], sources['ycentroid']))
     
-    return pos, sources
+    return sources, positions
 
 def get_cat_sources_from_segment_map(segment_map, imgdata_bkg_substracted, convolved_data):    
     """
@@ -69,8 +89,13 @@ def get_segmentation(imgdata_bkg_substracted, threshold, fwhm=1.0, kernel_size=N
     if kernel_size is None:
         kernel_size = 2*int(fwhm)+1
 
+    if kernel_size < 30:
+        fconv = convolve
+    else:
+        fconv = convolve_fft
+
     kernel = make_2dgaussian_kernel(fwhm, size=kernel_size)
-    convolved_data = convolve(imgdata_bkg_substracted, kernel)
+    convolved_data = fconv(imgdata_bkg_substracted, kernel)
 
     if deblend:
         finder = SourceFinder(npixels=npixels, deblend=deblend, progress_bar=False)

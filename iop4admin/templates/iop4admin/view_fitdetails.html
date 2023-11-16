@@ -30,9 +30,9 @@
 		<thead>
 		<tr>
 			<th></th>
-			{% for field, value in fields_and_values %}
-			{% if value != "None" %}
-				<th>{{ field }}</th>
+			{% for k, v in fields_and_values.items %}
+			{% if v != "None" %}
+				<th>{{ k }}</th>
 			{% endif %}
 			{% endfor %}
 		</tr>
@@ -40,9 +40,9 @@
 		<tbody>
 		<tr>
 			<th></th>
-			{% for field, value in fields_and_values %}
-			{% if value != "None" %}
-				<td>{{ value }}</td>
+			{% for k, v in fields_and_values.items %}
+			{% if v != "None" %}
+				<td>{{ v }}</td>
 			{% endif %}
 			{% endfor %}
 		</tr>
@@ -61,14 +61,14 @@
 	<table>
 		<thead>
 		  <tr>
-			{% for key in object.stats %}
+			{% for key in stats %}
 			  <th>{{ key }}</th>
 			{% endfor %}
 		  </tr>
 		</thead>
 		<tbody>
 		  <tr>
-			{% for value in object.stats.values %}
+			{% for value in stats.values %}
 			  <td>{{ value | stringformat:".2g" }}</td>
 			{% endfor %}
 		  </tr>
@@ -89,18 +89,18 @@
 			<label style="grid-area: label1;">vmin:</label>
 			<input id="slider1" type="range" style="grid-area: slider1;" oninput="updateSliderValues()" step="any">
 			<input id="value1" name="vmin" type="hidden">
-			<label id="value1_label" style="grid-area: value1;"></label>
+			<pre id="value1_label" style="grid-area: value1;"></pre>
 
 			<label style="grid-area: label2;">vmax:</label>
 			<input id="slider2" type="range" style="grid-area: slider2;" oninput="updateSliderValues()" step="any">
 			<input id="value2" name="vmax" type="hidden">
-			<label id="value2_label" style="grid-area: value2;"></label>
+			<pre id="value2_label" style="grid-area: value2;"></pre>
 
 			<input type="submit" value="reload" style="grid-area: reload;">
 		</form>
 		
 		<div id="img_preview_image">
-			<img src='data:image/png;base64, {{ imgb64 }}' width='256' height='256'/>
+			<img src='data:image/png;base64, {{ imgb64 }}' height='256'/>
 		</div>
 	</div>
 
@@ -115,7 +115,7 @@
 
 
 
-		<h3>MasterBias and MasterFlat</h3>
+		<h3>Calibration Frames</h3>
 		<ul>
 		{% if object.masterbias %}
 			<li><a href="{% url 'iop4admin:iop4api_masterbias_changelist' %}?id={{ object.masterbias.id }}">MasterBias {{ object.masterbias.id }}</a></li>
@@ -123,16 +123,30 @@
 		{% if object.masterflat %}
 			<li><a href="{% url 'iop4admin:iop4api_masterflat_changelist' %}?id={{ object.masterflat.id }}">MasterFlat {{ object.masterflat.id }}</a></li>
 		{% endif %}
+		{% if object.masterdark %}
+		<li><a href="{% url 'iop4admin:iop4api_masterdark_changelist' %}?id={{ object.masterdark.id }}">MasterDark {{ object.masterdark.id }}</a></li>
+		{% endif %}
 		</ul>
 
 
 
 		<h3>Astrometric calibration</h3>
+		
+		<h4>Astrometry info:</h4>
+		<table>
+			<tbody>
+				{% for D in astrometry_info %}
+					{% for k,v in D.items %}
+					<tr>
+						<td>{{ k }}</td>
+						<td>{{ v |truncatechars:500 }}</td>
+					</tr>
+					{% endfor %}
+				{% endfor %}
+			</tbody>
+		</table>
 
-		{{ astrometry_info.working_msg }} <br>
-		{{ astrometry_info.bm }} <br>
-
-		<small><i>(scroll horizontally)<i></small><br>
+		<h4>Summary images (scroll horizontally)</h4>
 
 		<div class="astrometry_summary_div">
 			{% for fname, imgb64 in astrometry_img_D.items reversed %}
@@ -144,7 +158,6 @@
 		</div>
 
 
-
 		<h3>Sources in the field</h3>
 		{% if sources_in_field_L %}
 			<ul>
@@ -154,7 +167,7 @@
 						{{ source.name }}
 						{% if source.other_name %} 
 							({{ source.other_name }}) 
-						{% endif %}.
+						{% endif %}
 						[{{ source.srctype | upper }}]
 					</a>
 				</li>
@@ -175,7 +188,7 @@
 	<h2>FITS file headers: </h2>
 
 	{% for header in header_L %}
-		<h3>Header {{forloop.counter }}:</h3> <small><i>(scroll down)<i></small> <br>
+		<h3>Header {{forloop.counter }}:</h3> <small><i>(scroll down)</i></small> <br>
 		<div class="header_tb_wrapper">
 			<table>
 				<thead>
@@ -195,7 +208,6 @@
 			</table>  
 		</div>
 	{% endfor %}
-
 {% else %}
     <p>Local file does not exist, FIT can not be opened.</p>
 {% endif %}
@@ -207,8 +219,8 @@
 <script>
 	vmin = Number("{{ vmin }}");
 	vmax = Number("{{ vmax }}");
-	vabsmin = Number("{{ object.stats.min }}");
-	vabsmax = Number("{{ object.stats.max }}");
+	vabsmin = Number("{{ stats.min }}");
+	vabsmax = Number("{{ stats.max }}");
 
 	var slider1 = document.getElementById("slider1");
 	var slider2 = document.getElementById("slider2");
@@ -233,8 +245,8 @@
 		//console.log(value2.value)
 
 		// Update displayed values
-		value1_label.innerHTML = Number(value1.value).toFixed(5);
-		value2_label.innerHTML = Number(value2.value).toFixed(5);
+		value1_label.innerHTML = Number(value1.value).toFixed(4).padStart(Math.ceil(Math.log10(vabsmax))+7);
+		value2_label.innerHTML = Number(value2.value).toFixed(4).padStart(Math.ceil(Math.log10(vabsmax))+7);
 	}
 
 	a = 10

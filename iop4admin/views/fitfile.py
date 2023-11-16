@@ -1,4 +1,3 @@
-
 # iop4lib config
 import iop4lib.config
 iop4conf = iop4lib.Config(config_db=False)
@@ -81,7 +80,9 @@ class FitDetailsView(SingleObjView):
             context['url_raw'] = reverse('iop4admin:%s_%s_changelist' % (obj._meta.app_label, obj.rawfit._meta.model_name)) + f"?id={obj.rawfit.id}"
 
         ## non-empty fields and values
-        fields_and_values = [(field.name, str(getattr(obj, field.name))) for field in obj._meta.fields if getattr(obj, field.name) is not None]
+        fields_and_values = {field.name:str(getattr(obj, field.name)) for field in obj._meta.fields if getattr(obj, field.name) is not None}
+        if hasattr(obj, 'flags'):
+            fields_and_values['flags'] = ", ".join(obj.flag_labels)
         context['fields_and_values'] = fields_and_values
 
         # If file does not exist, return early
@@ -91,6 +92,8 @@ class FitDetailsView(SingleObjView):
         
         # If file exists, gather additional info and pass it to the template
         
+        imgdata = obj.mdata
+
         ## header
 
         with fits.open(obj.filepath) as hdul:
@@ -101,12 +104,15 @@ class FitDetailsView(SingleObjView):
         vmin = self.request.GET.get("vmin", "auto")
         vmax = self.request.GET.get("vmax", "auto")
 
-        if vmin == "auto":
-            vmin = np.quantile(obj.mdata.compressed(), 0.3)
-        if vmax == "auto":
-            vmax = np.quantile(obj.mdata.compressed(), 0.99)
+        if vmin == "auto" or vmax == "auto":
+            vmin = np.quantile(imgdata.compressed(), 0.3)
+            vmax = np.quantile(imgdata.compressed(), 0.99)
+            imgbytes = obj.get_imgbytes_preview_image()
+        else:
+            vmin = float(vmin)
+            vmax = float(vmax)
+            imgbytes = obj.get_imgbytes_preview_image(vmin=vmin, vmax=vmax)
 
-        imgbytes = obj.get_imgbytes_preview_image(vmin=vmin, vmax=vmax)
         imgb64 = base64.b64encode(imgbytes).decode("utf-8")
 
         context["vmin"] = vmin
@@ -122,8 +128,12 @@ class FitDetailsView(SingleObjView):
         ## astrometric calibration
         try:
             context["astrometry_info"] = obj.astrometry_info
-        except:
+            # logger.debug(f"Loaded astrometry info for {obj}: {context['astrometry_info']}")
+        except Exception as e:
+            # logger.debug(f"Failed to load astrometry info for {obj}: {e}")
             pass
+
+        #logger.debug(f"Loading astrometry images from disk for {obj.fileloc}")
 
         astrometry_img_D = dict()
         fnameL = glob.iglob(obj.filedpropdir + "/astrometry_*.png")
@@ -134,12 +144,20 @@ class FitDetailsView(SingleObjView):
             astrometry_img_D[os.path.basename(fname)] = imgb64
         context["astrometry_img_D"] = dict(sorted(astrometry_img_D.items()))
 
+        #logger.debug(f"Finished loading images from disk for {obj.fileloc}")
+
         ## sources info
         if isinstance(obj, ReducedFit):
             sources_in_field_L = list()
             for source in obj.sources_in_field.all():
                 sources_in_field_L.append((source, reverse('iop4admin:%s_%s_changelist' % (source._meta.app_label, source._meta.model_name)) + f"?id={source.id}"))
             context["sources_in_field_L"] = sources_in_field_L
+
+
+        # stats
+        context["stats"] = obj.stats
+
+        #logger.debug("Finished building template context for fit details view")
 
         return context
     

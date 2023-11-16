@@ -8,9 +8,9 @@
     <thead>
       <tr>
         <th></th>
-        {% for field, value in fields_and_values %}
-          {% if value != "None" %}
-            <th>{{ field }}</th>
+        {% for k, v in fields_and_values.items %}
+          {% if v != "None" %}
+            <th>{{ k }}</th>
           {% endif %}
         {% endfor %}
       </tr>
@@ -18,9 +18,9 @@
     <tbody>
       <tr>
         <th></th>
-        {% for field, value in fields_and_values %}
-          {% if value != "None" %}
-            <td>{{ value }}</td>
+        {% for k, v in fields_and_values.items %}
+          {% if v != "None" %}
+            <td>{{ v }}</td>
           {% endif %}
         {% endfor %}
       </tr>
@@ -30,6 +30,10 @@
 <h2>Comment</h2>
 
 {{ object.comment_html | safe }}
+
+
+<h2>Finding chart</h2>
+<img src="data:image/png;base64,{{ finding_chart_b64 }}"</img>
 
 {{ block.super }}
 {% endblock %}

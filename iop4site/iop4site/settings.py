@@ -26,6 +26,7 @@ SECRET_KEY = "django-insecure-t2%lj1okdbr#lvo37p**sw(#hoo$kd)n*jx=%r-%v33g&_!f2c
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+INTERNAL_IPS = ["127.0.0.1"] ## when DEBUG=True, this enables the debug variable in templates
 
 ALLOWED_HOSTS = []
 

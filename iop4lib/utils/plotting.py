@@ -39,7 +39,7 @@ def hist_data(data, log=True, ax=None):
         ax.set_xscale('log')
         ax.set_yscale('log')
 
-    ax.hist(data, bins="sqrt", log=log)
+    ax.hist(data, bins="sqrt", log=log, histtype='step')
     
     ax.axvline(x=np.quantile(data, 0.3), color="r")
     ax.axvline(x=np.quantile(data, 0.5), color="g")
@@ -47,7 +47,7 @@ def hist_data(data, log=True, ax=None):
 
     ax.xaxis.set_major_locator(mplt.ticker.MaxNLocator(4))
 
-def imshow_w_sources(imgdata, pos1=None, pos2=None, normtype="log", vmin=None, vmax=None, a=10, cmap=None, ax=None):
+def imshow_w_sources(imgdata, pos1=None, pos2=None, normtype="log", vmin=None, vmax=None, a=10, cmap=None, ax=None, r_aper=20):
     if ax is None:
         ax = plt.gca()
 
@@ -85,14 +85,14 @@ def imshow_w_sources(imgdata, pos1=None, pos2=None, normtype="log", vmin=None, v
     pos2_present = pos2 is not None and len(pos2) > 0
 
     if pos1_present and not pos2_present:
-        apertures1 = CircularAperture(pos1, r=20.0)
+        apertures1 = CircularAperture(pos1, r=r_aper)
         apertures1.plot(color="r", lw=1, alpha=0.9, linestyle='--', ax=ax)
             
     if pos1_present and pos2_present:
 
         if len(pos1) < 300:
-            apertures1 = CircularAperture(pos1, r=20.0)
-            apertures2 = CircularAperture(pos2, r=20.0)
+            apertures1 = CircularAperture(pos1, r=r_aper)
+            apertures2 = CircularAperture(pos2, r=r_aper)
             
             color_cycle = itertools.cycle(plt.rcParams['axes.prop_cycle'].by_key()['color'])
             colors = [next(color_cycle) for _ in range(len(apertures1))]
@@ -101,8 +101,8 @@ def imshow_w_sources(imgdata, pos1=None, pos2=None, normtype="log", vmin=None, v
                 ap1.plot(color=colors[i], lw=1, alpha=0.9, linestyle='--', ax=ax)
                 ap2.plot(color=colors[i], lw=1, alpha=0.9, linestyle='-', ax=ax)
         else:
-            apertures1 = CircularAperture(pos1, r=20.0)
-            apertures2 = CircularAperture(pos2, r=20.0)
+            apertures1 = CircularAperture(pos1, r=r_aper)
+            apertures2 = CircularAperture(pos2, r=r_aper)
             
             apertures1.plot(color="m", lw=1, alpha=0.9, linestyle='--', ax=ax)
             apertures2.plot(color="y", lw=1, alpha=0.9, linestyle='-', ax=ax)
@@ -154,10 +154,7 @@ def plot_preview_background_substraction(redf, bkg, axs=None, fig=None):
 def plot_preview_astrometry(redf, with_simbad=False, legend=True, names_over=False, ax=None, fig=None, **astrocalib_proc_vars):
 
     from iop4lib.db import AstroSource
-    from astroquery.simbad import Simbad
-    Simbad.ROW_LIMIT = 50
-    Simbad.add_votable_fields('otype')
-    #Simbad.add_votable_fields('flux(R)', 'flux(G)')
+    from iop4lib.utils import get_simbad_sources
 
     def get_matched_sources(match, pos, d_eps=1.412):
         """ Finds sources matching field stars within sqrt(2) pixels. """
@@ -185,9 +182,9 @@ def plot_preview_astrometry(redf, with_simbad=False, legend=True, names_over=Fal
     else:
         wcs1 = redf.wcs1
 
-    with_pairs = astrocalib_proc_vars.pop('with_pairs', redf.with_pairs)
+    has_pairs = astrocalib_proc_vars.pop('has_pairs', redf.has_pairs)
     
-    if with_pairs:
+    if has_pairs:
         if 'wcs2' in astrocalib_proc_vars:
             wcs2 = astrocalib_proc_vars['wcs2']
         else:
@@ -213,15 +210,18 @@ def plot_preview_astrometry(redf, with_simbad=False, legend=True, names_over=Fal
         matched_stars = None
 
     ## get sources in field
-    sources_in_field = AstroSource.get_sources_in_field(wcs1, redf.mdata.shape[0], redf.mdata.shape[1])
+    sources_in_field = AstroSource.get_sources_in_field(wcs1, width=redf.width, height=redf.height)
     logger.debug(f"{redf}: found {len(sources_in_field)} catalog sources in field: {sources_in_field}")
 
 
-    if ax is None:
-        ax = plt.gca()
-
     if fig is None:
-        fig = ax.figure
+        fig = plt.gcf()
+
+    if ax is None:
+        if len(fig.axes) > 0:
+            ax = plt.gca()
+        else:
+            ax = fig.add_subplot(projection=redf.wcs)
 
     legend_handles_L = list()
     legend_labels_L = list()
@@ -260,7 +260,7 @@ def plot_preview_astrometry(redf, with_simbad=False, legend=True, names_over=Fal
         for i, source in enumerate(sources_in_field):
             ap = CircularAperture([*source.coord.to_pixel(wcs1)], r=20)
             h = ap.plot(color="r", lw=1, alpha=1, linestyle='-', ax=ax, label=f"{source.name}")
-            if with_pairs:
+            if has_pairs:
                 ax.plot(*source.coord.to_pixel(wcs2), 'rx', alpha=1)
             x, y = source.coord.to_pixel(wcs1)
             ax.annotate(text=source.name if names_over else f"{i}", 
@@ -286,55 +286,31 @@ def plot_preview_astrometry(redf, with_simbad=False, legend=True, names_over=Fal
         try:
             # known sources in this area of sky (Simbad)
             pixscale = np.mean(np.sqrt(np.sum(wcs1.pixel_scale_matrix**2, axis=0)))*u.Unit("deg/pix")
-            #radius = np.linalg.norm(redf.mdata.shape)//2 * u.Unit('pixel') * pixscale
-            radius = redf.mdata.shape[0]//2 * u.Unit('pixel') * pixscale
-
+            radius = redf.width * u.Unit('pixel') * pixscale
             centercoord = wcs1.pixel_to_world(redf.mdata.shape[0]//2, redf.mdata.shape[1]//2)
 
-            logger.debug(f"Querying Simbad for {centercoord=}, {pixscale.to('arcsec/pix')=}, {radius.to('arcmin')=}")
+            simbad_sources = get_simbad_sources(centercoord, radius, Nmax=6, exclude_self=False)
 
-            tb_simbad = Simbad.query_region(centercoord, radius=radius, epoch="J2000")
-
-
-            N_max_simbad = 4 if names_over else 10
-            idx = (tb_simbad['OTYPE'] == 'Star') | (tb_simbad['OTYPE'] == 'QSO') | (tb_simbad['OTYPE'] == 'BLLac')
-
-            # if sum(idx) >= N_max_simbad:
-            #     tb_simbad = tb_simbad[idx]
-            idx = np.argsort(idx)[::-1]
-            tb_simbad = tb_simbad[idx][:N_max_simbad] # this will get only N_max_simbad sources, starting from selected types
-
-            logger.debug(f"Simbad query returned {len(tb_simbad)}")
-
-            if len(tb_simbad) > N_max_simbad:
-                simbad_coords = SkyCoord(Angle(tb_simbad['RA'], unit=u.hourangle), Angle(tb_simbad['DEC'], unit=u.degree), frame='icrs')
-                simbad_pos_px = np.transpose(simbad_coords.to_pixel(wcs1))
-                simbad_selected_idx = np.array(select_points(simbad_pos_px, 5)[1])
-                tb_simbad = tb_simbad[simbad_selected_idx]
-
-            for i, row in enumerate(tb_simbad):
-                logger.debug(f"Plotting Simbad's {row['MAIN_ID']}")
-                c = SkyCoord(Angle(row['RA'], unit=u.hourangle), Angle(row['DEC'], unit=u.degree), frame='icrs')
-                x, y = c.to_pixel(wcs1)
-                ap = CircularAperture([*c.to_pixel(wcs1)], r=20)
-                h = ap.plot(color="yellow", lw=1, alpha=0.8, linestyle='--', ax=ax, label=f"{row['MAIN_ID']}")
-                ax.annotate(text=row['MAIN_ID'] if names_over else f"{i}", 
+            for i, src in enumerate(simbad_sources):
+                x, y = src.coord.to_pixel(wcs1)
+                ap = CircularAperture([x,y], r=20)
+                h = ap.plot(color="yellow", lw=1, alpha=0.8, linestyle='--', ax=ax, label=src.name)
+                ax.annotate(text=src.name if names_over else f"{i}", 
                             xy=(x+20, y) if names_over else (x-20, y), 
                             xytext=(40,-20) if names_over else (-15,0), 
                             verticalalignment="center",
                             textcoords="offset pixels", color="yellow", fontsize=10, weight="bold", arrowprops=dict(color='yellow', width=1.0, headwidth=1, headlength=3) if names_over else None)
-                
                 if not names_over:
                     legend_handles_L.append(h)
-                    legend_labels_L.append(f"{i}: {row['MAIN_ID']}")
+                    legend_labels_L.append(f"{i}: {src.name}")
        
         except Exception as e:
             logger.debug(f"Simbad query failed, ignoring: {e}")
 
     # Plot the displacement betwen pairs as scale, if specified
 
-    if astrocalib_proc_vars['disp_sign'] is not None:
-        ax.arrow(x=redf.mdata.shape[0]-20, y=20, dx=astrocalib_proc_vars['disp_sign'][0], dy=astrocalib_proc_vars['disp_sign'][1], color='red', lw=2, head_width=8, length_includes_head=True)
+    if (disp_sign := astrocalib_proc_vars.get('disp_sign', None)) is not None:
+        ax.arrow(x=redf.mdata.shape[0]-20, y=20, dx=disp_sign[0], dy=disp_sign[1], color='red', lw=2, head_width=8, length_includes_head=True)
 
     # set axes and legends
 
@@ -511,7 +487,7 @@ def build_astrometry_summary_images(redf, astrocalib_proc_vars, summary_kwargs):
 
         logger.debug(f"{redf}: plotting astrometry summary image of segmentation results")
 
-        if astrocalib_proc_vars['with_pairs']:
+        if astrocalib_proc_vars['has_pairs']:
             fig = mplt.figure.Figure(figsize=(12,6), dpi=iop4conf.mplt_default_dpi)
             axs = fig.subplots(nrows=2, ncols=4)
 
@@ -562,7 +538,7 @@ def build_astrometry_summary_images(redf, astrocalib_proc_vars, summary_kwargs):
 
         logger.debug(f"{redf}: plotting astrometry summary image of daofind results")
 
-        if astrocalib_proc_vars['with_pairs']:
+        if astrocalib_proc_vars['has_pairs']:
             fig = mplt.figure.Figure(figsize=(12,6), dpi=iop4conf.mplt_default_dpi, layout="constrained")
             axs = fig.subplot_mosaic([["A", "B", "C", "D"], 
                                     ["A", "E", "F", "G"]])
@@ -610,3 +586,70 @@ def build_astrometry_summary_images(redf, astrocalib_proc_vars, summary_kwargs):
         plot_preview_astrometry(redf, **astrocalib_proc_vars, ax=ax, fig=fig, with_simbad=summary_kwargs['with_simbad'])
         fig.savefig(Path(redf.filedpropdir) / "astrometry_4_img_result.png", bbox_inches="tight")
         fig.clf()
+
+
+
+
+def plot_finding_chart(target_src, fig=None, ax=None):
+
+    from iop4lib.db import AstroSource
+    from iop4lib.utils import get_simbad_sources
+
+    radius = u.Quantity("6 arcmin")
+
+    if fig is None:
+        fig = plt.gcf()
+    
+    if ax is None:
+        ax = plt.gca()
+
+    simbad_sources = get_simbad_sources(target_src.coord, radius=radius, Nmax=5, exclude_self=False)
+    calibrators = AstroSource.objects.filter(calibrates=target_src)
+    
+    for src in calibrators:
+        ax.plot([src.coord.ra.deg], [src.coord.dec.deg], 'rx', alpha=1)
+        ax.annotate(text=src.name, xy=(src.coord.ra.deg+0.001, src.coord.dec.deg), xytext=(+30,0), textcoords="offset pixels", color="red", fontsize=10, weight="bold", verticalalignment="center", horizontalalignment="left", arrowprops=dict(color="red", width=0.5, headwidth=1, headlength=3))
+    
+    for src in simbad_sources:
+        ax.plot([src.coord.ra.deg], [src.coord.dec.deg], 'b+', alpha=1)
+        ax.annotate(text=src.name, xy=(src.coord.ra.deg-0.001, src.coord.dec.deg), xytext=(-30,0), textcoords="offset pixels", color="blue", fontsize=10, weight="bold", verticalalignment="center", horizontalalignment="right", arrowprops=dict(color="blue", width=0.5, headwidth=1, headlength=3))
+
+    ax.plot([target_src.coord.ra.deg], [target_src.coord.dec.deg], 'ro', alpha=1)
+
+    # limits (center around target source)
+
+    ax.set_xlim([target_src.coord.ra.deg - radius.to_value("deg")/2, target_src.coord.ra.deg + radius.to_value("deg")/2])
+    ax.set_ylim([target_src.coord.dec.deg - radius.to_value("deg")/2, target_src.coord.dec.deg + radius.to_value("deg")/2])
+
+    # labels
+
+    ax.set_xlabel("RA [deg]")
+    ax.set_ylabel("DEC [deg]")
+    ax.set_title(f"{target_src.name} ({target_src.other_name})")
+
+    # legend
+
+    target_h = ax.plot([],[], 'ro', label=target_src.name)[0]
+    simbad_h = ax.plot([],[], 'b+', label="SIMBAD sources")[0]
+    calibrators_h = ax.plot([],[], 'rx', label="IOP4 Calibrators")[0]
+    ax.legend(handles=[target_h, calibrators_h, simbad_h], loc="upper right")
+
+    ax.grid(True, color='gray', ls='dashed')
+
+    # secondary axes in hms and dms
+    
+    lims_ra = ax.get_xlim()
+    ax_x2 = ax.twiny()
+    ax_x2_ticks = ax.get_xticks()
+    ax_x2.set_xticks(ax_x2_ticks)
+    ax_x2.set_xticklabels([Angle(x, unit="deg").to_string(unit="hourangle", sep="hms") for x in ax_x2_ticks])
+    ax_x2.set_xlabel("RA [hms]")
+    ax_x2.set_xlim(lims_ra)
+
+    lims_dec = ax.get_ylim()
+    ax_y2 = ax.twinx()
+    ax_y2_ticks = ax.get_yticks()
+    ax_y2.set_yticks(ax_y2_ticks)
+    ax_y2.set_yticklabels([Angle(x, unit="deg").to_string(unit="deg", sep="dms") for x in ax_y2_ticks])
+    ax_y2.set_ylabel("DEC [dms]")
+    ax_y2.set_ylim(lims_dec)
