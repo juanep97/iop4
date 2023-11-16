@@ -1255,21 +1255,24 @@ class DIPOL(Instrument):
             Ur_uncorr = 2/N * sum([F[i] * math.sin(math.pi/2*i) for i in range(N)])
             dUr_uncorr = 2/N * math.sqrt(sum([dF[i]**2 * math.sin(math.pi/2*i)**2 for i in range(N)]))
 
-
+            # Instrumental polarization 
+            # TODO: make this value editable and dependent on epoch date
+            
             Q_inst = +0.057/100
             dQ_inst = 0
-
-            logger.debug(f"{Q_inst=}, {dQ_inst=}")
 
             U_inst = -3.77/100
             dU_inst = 0
 
-            Qr = Qr_uncorr + Q_inst # TODO: check and derive this value 
+            logger.debug(f"{Q_inst=}, {dQ_inst=}")
+            logger.debug(f"{U_inst=}, {dU_inst=}")
+
+            Qr = Qr_uncorr + Q_inst
             dQr = math.sqrt(dQr_uncorr**2 + dQ_inst**2)
 
             logger.debug(f"{Qr=}, {dQr=}")
 
-            Ur = Ur_uncorr + U_inst # TODO: check and derive this value
+            Ur = Ur_uncorr + U_inst
             dUr = math.sqrt(dUr_uncorr**2 + dU_inst**2)
 
             logger.debug(f"{Ur=}, {dUr=}")
