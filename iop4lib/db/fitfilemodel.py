@@ -191,6 +191,17 @@ class FitFileModel(AbstractModel):
         fig = mplt.figure.Figure(figsize=(width/100, height/100), dpi=iop4conf.mplt_default_dpi)
         ax = fig.subplots()
         ax.imshow(imgdata, cmap=cmap, origin='lower', norm=norm)
+        try:
+            from iop4lib.db import ReducedFit, AstroSource
+            from iop4lib.enums import SRCTYPES
+            # If it is a astro calibrated reduced fit, mark the src position
+            if self.has_flag(ReducedFit.FLAGS.BUILT_REDUCED):
+                if (target_src := self.sources_in_field.exclude(srctype=SRCTYPES.CALIBRATOR).get()) is not None:
+                    target_pos_px = target_src.coord.to_pixel(self.wcs1)
+                    ax.axhline(y=target_pos_px[1], color='r', linestyle="--", linewidth=1)
+                    ax.axvline(x=target_pos_px[0], color='r', linestyle="--", linewidth=1)
+        except:
+            pass
         ax.axis('off')
         fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
         fig.clf()

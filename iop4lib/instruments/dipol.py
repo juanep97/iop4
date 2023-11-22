@@ -574,6 +574,8 @@ class DIPOL(Instrument):
         logger.debug(f"Using {len(sets_L[0])} sources in polarimetry field and {len(sets_L[1])} in photometry field.")
 
         if summary_kwargs['build_summary_images']:
+            logger.debug(f"Building summary image for astrometry detected sources.")
+
             fig = mplt.figure.Figure(figsize=(12,6), dpi=iop4conf.mplt_default_dpi)
             axs = fig.subplots(nrows=1, ncols=2)
 
@@ -587,7 +589,7 @@ class DIPOL(Instrument):
                 
             axs[0].set_title("Polarimetry field")
             axs[1].set_title("Photometry field")
-            fig.savefig(Path(redf.filedpropdir) / "astrometry_detected_sources.png", bbox_inches="tight")
+            fig.savefig(Path(redf_pol.filedpropdir) / "astrometry_detected_sources.png", bbox_inches="tight")
             fig.clf()
 
         # Build the quads for each field
@@ -637,6 +639,12 @@ class DIPOL(Instrument):
         R_L, t_L = zip(*[find_linear_transformation(qorder(quads_1[i]), qorder(quads_2[j])) for i,j in indices_selected])
         logger.debug(f"{t_L=}")
         
+
+        logger.debug(f"Filtering out big translations (<1000px)")
+        indices_selected = indices_selected[np.array([np.linalg.norm(t) < 1000 for t in t_L])]
+        R_L, t_L = zip(*[find_linear_transformation(qorder(quads_1[i]), qorder(quads_2[j])) for i,j in indices_selected])
+
+
         # get the closest one to the t_L mean
         median_t = np.median(t_L, axis=0)
 
@@ -675,7 +683,7 @@ class DIPOL(Instrument):
             axs[0].set_title("Polarimetry")
             axs[1].set_title("Photometry")
             
-            fig.savefig(Path(redf.filedpropdir) / "astrometry_matched_quads.png", bbox_inches="tight")
+            fig.savefig(Path(redf_pol.filedpropdir) / "astrometry_matched_quads.png", bbox_inches="tight")
             fig.clf()
 
         # Build the WCS
@@ -687,13 +695,15 @@ class DIPOL(Instrument):
 
         # get the pre wcs with the target in the center of the image
 
-        angle_mean, angle_std = get_angle_from_history(redf, target_src)
-        if 'FLIPSTAT' in redf.rawfit.header: 
+        angle_mean, angle_std = get_angle_from_history(redf_pol, target_src)
+        if 'FLIPSTAT' in redf_pol.rawfit.header: 
             # TODO: check that indeed the mere presence of this keyword means that the image is flipped, without the need of checking the value. 
             # FLIPSTAT is a MaximDL thing only, but it seems that the iamge is flipped whenever the keyword is present, regardless of the value.
             angle = - angle_mean
         else:
             angle = angle_mean
+
+        logger.debug(f"Using {angle=} for pre wcs.")
 
         pre_wcs = build_wcs_centered_on((redf_pol.width//2,redf_pol.height//2), redf=redf_phot, angle=angle)
         
@@ -708,6 +718,7 @@ class DIPOL(Instrument):
         wcslist = [wcs1, wcs2]
 
         if summary_kwargs['build_summary_images']:
+            logger.debug(f"Building summary image for astrometry.")
             fig = mplt.figure.Figure(figsize=(6,6), dpi=iop4conf.mplt_default_dpi)
             ax = fig.subplots(nrows=1, ncols=1, subplot_kw={'projection': wcslist[0]})
             plot_preview_astrometry(redf_pol, with_simbad=True, has_pairs=True, wcs1=wcslist[0], wcs2=wcslist[1], ax=ax, fig=fig) 
@@ -1206,6 +1217,10 @@ class DIPOL(Instrument):
         photopolresult_L = list()
 
         for astrosource in group_sources:
+
+            if astrosource.calibrates.count() > 0:
+                continue
+
             logger.debug(f"Computing relative polarimetry for {astrosource}.")
 
             # if any angle is missing for some pair, it uses the equivalent angle of the other pair
@@ -1217,7 +1232,8 @@ class DIPOL(Instrument):
                 continue
 
             if len(aperphotresults) != 32:
-                logger.warning(f"There should be 32 aperphotresults for each astrosource in the group, there are {len(aperphotresults)}.")
+                logger.error(f"There should be 32 aperphotresults for each astrosource in the group, there are {len(aperphotresults)} for {astrosource.name}.")
+                continue
 
             values = get_column_values(aperphotresults, ['reducedfit__rotangle', 'flux_counts', 'flux_counts_err', 'pairs'])
 

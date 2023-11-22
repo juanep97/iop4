@@ -510,7 +510,7 @@ class Epoch(models.Model):
 
 
 
-    def make_polarimetry_groups(self):
+    def make_polarimetry_groups(self, redf_qs=None):
         """
         To reduce the polarimetry data, we need to group the reduced fits corresponding to rotated polarization angles.
 
@@ -525,7 +525,10 @@ class Epoch(models.Model):
 
         from .reducedfit import ReducedFit
 
-        redf_qs = ReducedFit.objects.filter(epoch=self, obsmode=OBSMODES.POLARIMETRY, flags__has=ReducedFit.FLAGS.BUILT_REDUCED).order_by('juliandate').all()
+        if redf_qs is None:
+            redf_qs = ReducedFit.objects.filter(epoch=self, obsmode=OBSMODES.POLARIMETRY, flags__has=ReducedFit.FLAGS.BUILT_REDUCED).order_by('juliandate').all()
+        else:
+            redf_qs = redf_qs.filter(obsmode=OBSMODES.POLARIMETRY).order_by('juliandate').all()
 
         # Create a groups with the same keys (object, band, exptime)
 

@@ -447,6 +447,8 @@ class Instrument(metaclass=ABCMeta):
             bkg_box_size = 100
         elif redf.mdata.shape[0] == 900: # dipol polarimetry
             bkg_box_size = 90
+        elif redf.mdata.shape[0] == 896: # dipol polarimetry (also)
+            bkg_box_size = 112
         elif redf.mdata.shape[0] == 4144: # dipol photometry
             bkg_box_size = 518
         else:
@@ -479,6 +481,7 @@ class Instrument(metaclass=ABCMeta):
                 AperPhotResult.create(reducedfit=redf, 
                                       astrosource=astrosource, 
                                       aperpix=aperpix, 
+                                      r_in=r_in, r_out=r_out,
                                       pairs=pairs, 
                                       bkg_flux_counts=bkg_flux_counts, bkg_flux_counts_err=bkg_flux_counts_err,
                                       flux_counts=flux_counts, flux_counts_err=flux_counts_err)
