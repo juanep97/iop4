@@ -75,6 +75,8 @@ def hash_ish_old(points):
 
 def quad_coords_ish(A,B,C,D):
 
+    (A,B,C,D), idx = force_AB_maxdist([A,B,C,D])
+
     P = (A+B)/2
     A, B, C, D = A-P,B-P,C-P,D-P
     
@@ -91,7 +93,29 @@ def quad_coords_ish(A,B,C,D):
     C = np.array([xc,yc])
     D = np.array([xd,yd])
 
-    return A,B,C,D
+    FX = np.array([[-1,0],[0,1]])
+    FY = np.array([[1,0],[0,-1]])
+
+    # begin track the idx
+
+    if C[0] + D[0] > 0:
+        idx[2], idx[3] = idx[3], idx[2]
+        idx[0], idx[1] = idx[1], idx[0]
+    if C[0] > D[0]:
+        idx[2], idx[3] = idx[3], idx[2]
+    
+    # end track the idx
+
+    if C[0] + D[0] > 0:
+        C,D = [FX@P for P in [C,D]]
+
+    if C[1] + D[1] > 0:
+        C,D = [FY@P for P in [C,D]]
+
+    if C[0] > D[0]:
+        C,D = D,C
+
+    return (A,B,C,D), idx
 
 
 def force_AB_maxdist(points):
@@ -111,47 +135,36 @@ def force_AB_maxdist(points):
 
     i, j = farthest_i_j
     
+    result_idx = [i,j]
     result = [points[i], points[j]]
 
+    result_idx.extend([k for k in range(len(points)) if k not in [i,j]])
     result.extend([points[k] for k in range(len(points)) if k not in [i,j]])
     
-    return result
+    return result, result_idx
     
 
 def hash_ish(points):
+    
     A,B,C,D = points
-    A,B,C,D = force_AB_maxdist([A,B,C,D])
-    A,B,C,D = quad_coords_ish(A,B,C,D)
+    (A,B,C,D), idx = quad_coords_ish(A,B,C,D)
+    d1,d2,d3,d4 = map(np.linalg.norm, [C-A,D-C,B-D,A-B])
 
-    FX = np.array([[-1,0],[0,1]])
-    FY = np.array([[1,0],[0,-1]])
-
-    M = np.identity(2)
-    
-    if C[0] > D[0]:
-        M = FX @ M
-
-    if C[1] > D[1]:
-        M = FY @ M
-
-    C, D = [M @ P for P in [C,D]]
-
-    d1,d2,d3,d4 = map(np.linalg.norm, [C-A,B-C,D-B,A-D])
-    
     return d1,d2,d3,d4
     
     
 def qorder_ish(points):
-    A,B,C,D = points
-    A,B,C,D = force_AB_maxdist([A,B,C,D])
 
-    Ap,Bp,Cp,Dp = quad_coords_ish(A,B,C,D)
+    (Ap,Bp,Cp,Dp), idx_quad_ord = quad_coords_ish(points[0],points[1],points[2],points[3])
 
-    if not distance(Ap,Bp)<distance(Ap,Cp):
-        B, C = C, B
+    pts_quad_ord = [points[i] for i in idx_quad_ord]
 
-    dL = list(map(np.linalg.norm, [C-A, B-C, D-B, A-B]))
-    (A,B,C,D), dL = zip(*sorted(zip([A,B,C,D], dL), key=lambda x:x[1]))
+    # cx = np.mean([p[0] for p in [Ap,Bp,Cp,Dp]])
+    # cy = np.mean([p[1] for p in [Ap,Bp,Cp,Dp]])
+    # idx_sorting, _ = list(zip(*sorted(enumerate([Ap,Bp,Cp,Dp]), key=lambda p: np.arctan2(p[1][1]-cy, p[1][0]-cx))))
+    # A,B,C,D = [pts_quad_ord[i] for i in idx_sorting]
+
+    A,B,C,D = pts_quad_ord
 
     return A,B,C,D
 
