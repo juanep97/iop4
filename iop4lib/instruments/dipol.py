@@ -625,7 +625,7 @@ class DIPOL(Instrument):
         indices_selected = all_indices[idx_selected]
         distances_selected = all_distances[idx_selected]
         
-        if np.sum(idx_selected) == 0:
+        if len(idx_selected) == 0:
             logger.error(f"No quads with distance < 4.0, minimum at {min(all_distances)=} returning success = False.")
             return BuildWCSResult(success=False, wcslist=None, info={'redf_phot__pk':redf_phot.pk, 'redf_phot__fileloc':redf_phot.fileloc}) 
         else:
