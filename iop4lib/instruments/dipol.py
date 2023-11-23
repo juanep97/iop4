@@ -11,6 +11,7 @@ import re
 import astrometry
 import numpy as np
 import matplotlib as mplt
+import matplotlib.patheffects
 import matplotlib.pyplot as plt
 import astropy.units as u
 from astropy.stats import sigma_clipped_stats
@@ -21,13 +22,14 @@ from astropy.convolution import convolve
 from photutils.segmentation import make_2dgaussian_kernel
 from astropy.wcs.utils import fit_wcs_from_points
 from astropy.coordinates import Angle, SkyCoord
+from astropy.time import Time
 import itertools
 import datetime
 import math
 import gc
 
 # iop4lib imports
-from iop4lib.enums import *
+from iop4lib.enums import IMGTYPES, BANDS, OBSMODES, SRCTYPES, INSTRUMENTS, REDUCTIONMETHODS
 from .instrument import Instrument
 from iop4lib.utils import imshow_w_sources, get_candidate_rank_by_matchs, get_angle_from_history, build_wcs_centered_on, get_simbad_sources
 from iop4lib.utils.sourcedetection import get_sources_daofind, get_segmentation, get_cat_sources_from_segment_map, get_bkg
@@ -216,13 +218,17 @@ class DIPOL(Instrument):
 
         rf_data = fits.getdata(reducedfit.rawfit.filepath)
         mb_data = fits.getdata(reducedfit.masterbias.filepath)[idx]
-        mf_data = fits.getdata(reducedfit.masterflat.filepath)[idx]
+
+        if reducedfit.obsmode == OBSMODES.PHOTOMETRY:
+            mf_data = fits.getdata(reducedfit.masterflat.filepath)[idx]
+        else: # no flat fielding for polarimetry
+            mf_data = 1.0
 
         if reducedfit.masterdark is not None:
             md_dark = fits.getdata(reducedfit.masterdark.filepath)[idx]
         else :
             logger.warning(f"{reducedfit}: no masterdark found, assuming dark current = 0, is this a CCD camera and it's cold?")
-            md_dark = 0
+            md_dark = 0.0
 
         data_new = (rf_data - mb_data - md_dark*reducedfit.rawfit.exptime) / (mf_data)
 
@@ -434,7 +440,7 @@ class DIPOL(Instrument):
                         n_seg_threshold_L = [300, 200, 200, 100, 50, 25, 12, 6]
                         npixels_L = [128, 64]
                     else:
-                        n_seg_threshold_L = [1.0, 0.9]
+                        n_seg_threshold_L = [1.1, 1.0, 0.9]
                         npixels_L = [64, 32]
 
                     for npixels, n_seg_threshold in itertools.product(npixels_L, n_seg_threshold_L):
@@ -450,7 +456,7 @@ class DIPOL(Instrument):
                     n_seg_threshold_L = [300, 200, 200, 100, 50, 25, 12, 6]
                     npixels_L = [128, 64]
                 else:
-                    n_seg_threshold_L = [1.0, 0.9, 0.8, 0.7, 0.6]
+                    n_seg_threshold_L = [1.1, 1.0, 0.9, 0.8, 0.7, 0.6]
                     npixels_L = [64, 32]
             
                 if n_expected_calibrators > 0 or n_expected_simbad_sources > 0:
@@ -470,6 +476,8 @@ class DIPOL(Instrument):
                 ## reduce flase positives by forcing to use quad method if it must work
                 if redf_phot is not None and n_estimate > 5:
                     method_try_order = [_try_quad_method]
+                elif redf_phot is not None and n_estimate >= 4:
+                    method_try_order = [_try_quad_method, _try_catalog_method, _try_EO_method]
                 else:
                     method_try_order = [_try_catalog_method, _try_quad_method, _try_EO_method]
 
@@ -640,8 +648,45 @@ class DIPOL(Instrument):
         logger.debug(f"{t_L=}")
         
 
-        logger.debug(f"Filtering out big translations (<1000px)")
-        indices_selected = indices_selected[np.array([np.linalg.norm(t) < 1000 for t in t_L])]
+        logger.debug(f"Filtering out big translations (<1020px)")
+
+        _indices_selected = indices_selected[np.array([np.linalg.norm(t) < 1020 for t in t_L])]
+
+        logger.debug(f"Filtered to {len(_indices_selected)} quads with distance < 4.0 and translation < 1020px.")
+
+        if len(_indices_selected) == 0:
+            logger.error(f"No quads with distance < 4.0 and translation < 1000px, building summary image of the 3 best quads and returning success = False.")
+
+            colors = [color for color in mplt.rcParams["axes.prop_cycle"].by_key()["color"]]
+
+            fig = mplt.figure.Figure(figsize=(12,6), dpi=iop4conf.mplt_default_dpi)
+            axs = fig.subplots(nrows=1, ncols=2)
+
+            for (i, j), color in list(zip(indices_selected, colors))[:3]: 
+
+                tij = find_linear_transformation(qorder(quads_1[i]), qorder(quads_2[j]))[1]
+
+                for ax, data, quad, positions in zip(axs, [redf_pol.mdata, photdata_subframe], [quads_1[i], quads_2[j]], sets_L):
+                    imshow_w_sources(data, pos1=positions, ax=ax)
+                    x, y = np.array(order(quad)).T
+                    ax.fill(x, y, edgecolor='k', fill=True, facecolor=mplt.colors.to_rgba(color, alpha=0.2))
+                    for pi, p in enumerate(np.array((qorder(quad)))):
+                        xp = p[0]
+                        yp = p[1]
+                        ax.text(xp, yp, f"{pi}", fontsize=16, color=color, path_effects=[mplt.patheffects.Stroke(linewidth=1, foreground='black'), mplt.patheffects.Normal()])
+
+                fig.suptitle(f"dist({i},{j})={distance(hash_func(quads_1[i]),hash_func(quads_2[j])):.3f}, norm(t) = {np.linalg.norm(tij):.0f} px", y=0.83)
+
+            axs[0].set_title("Polarimetry")
+            axs[1].set_title("Photometry")
+            
+            fig.savefig(Path(redf_pol.filedpropdir) / "astrometry_matched_quads.png", bbox_inches="tight")
+            fig.clf()
+
+            return BuildWCSResult(success=False, wcslist=None, info={'redf_phot__pk':redf_phot.pk, 'redf_phot__fileloc':redf_phot.fileloc})
+        else:
+            indices_selected = _indices_selected
+        
         R_L, t_L = zip(*[find_linear_transformation(qorder(quads_1[i]), qorder(quads_2[j])) for i,j in indices_selected])
 
 
@@ -668,6 +713,8 @@ class DIPOL(Instrument):
             axs = fig.subplots(nrows=1, ncols=2)
 
             for (i, j), color in list(zip(indices_selected, colors))[:1]: 
+                
+                tij = find_linear_transformation(qorder(quads_1[i]), qorder(quads_2[j]))[1]
 
                 for ax, data, quad, positions in zip(axs, [redf_pol.mdata, photdata_subframe], [quads_1[i], quads_2[j]], sets_L):
                     imshow_w_sources(data, pos1=positions, ax=ax)
@@ -676,9 +723,9 @@ class DIPOL(Instrument):
                     for pi, p in enumerate(np.array((qorder(quad)))):
                         xp = p[0]
                         yp = p[1]
-                        ax.text(xp, yp, f"{pi}", fontsize=16, color="y")
+                        ax.text(xp, yp, f"{pi}", fontsize=16, color=color, path_effects=[mplt.patheffects.Stroke(linewidth=1, foreground='black'), mplt.patheffects.Normal()])
 
-                fig.suptitle(f"dist({i},{j})={distance(hash_func(quads_1[i]),hash_func(quads_2[j])):.3f}", y=0.83)
+                fig.suptitle(f"dist({i},{j})={distance(hash_func(quads_1[i]),hash_func(quads_2[j])):.3f}, norm(t) = {np.linalg.norm(tij):.0f} px", y=0.83)
 
             axs[0].set_title("Polarimetry")
             axs[1].set_title("Photometry")
@@ -1138,16 +1185,31 @@ class DIPOL(Instrument):
     @classmethod
     def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fit_boxsize=None, search_boxsize=(90,90)):
         aperpix, r_in, r_out, fit_res_dict = super().estimate_common_apertures(reducedfits, reductionmethod=reductionmethod, fit_boxsize=fit_boxsize, search_boxsize=search_boxsize, fwhm_min=5.0, fwhm_max=60)
-        sigma = fit_res_dict['sigma']
-
-        if reducedfits[0].header_hintobject.name == "2200+420":
-            r = min(1.8*sigma, 17)
-            r_in = max(5*sigma, 80)
-            r_out = 2*r_in
-            return r, r_in, r_out, fit_res_dict
         
-        return 1.8*sigma, 5*sigma, 10*sigma, fit_res_dict
-  
+        sigma = fit_res_dict['sigma']
+        fwhm = fit_res_dict["mean_fwhm"]
+
+        return 1.05*fwhm, 6*fwhm, 10*fwhm, fit_res_dict  
+
+    @classmethod
+    def get_instrumental_polarization(cls, reducedfit):
+        if reducedfit.juliandate <= Time("2023-09-28 12:00").jd: # limpieza de espejos
+            CPA = 44.5
+            dCPA = 0.0
+            Q_inst = 0.05777
+            dQ_inst = 0.005
+            U_inst = -3.77095
+            dU_inst = 0.005
+        else:
+            CPA = 45.1
+            dCPA = 0.05
+            Q_inst = -0.0138 / 100
+            dQ_inst = 0.005
+            U_inst = -4.0806 / 100
+            dU_inst = 0.005
+
+        return {'Q_inst':Q_inst, 'dQ_inst':dQ_inst, 'U_inst':U_inst, 'dU_inst':dU_inst, 'CPA':CPA, 'dCPA':dCPA}
+
 
     @classmethod
     def compute_relative_polarimetry(cls, polarimetry_group):
@@ -1187,7 +1249,7 @@ class DIPOL(Instrument):
             return
         
         if group_sources != set.union(*map(set, sources_in_field_qs_list)):
-            logger.warning(f"Sources in field do not match for all polarimetry groups: {set.difference(*map(set, sources_in_field_qs_list))}")
+            logger.warning("Sources in field do not match for all polarimetry groups (ReducedFit %s): %s" % (",".join([str(redf.pk) for redf in polarimetry_group]), str(set.difference(*map(set, sources_in_field_qs_list)))))
 
         ## check rotation angles
 
@@ -1238,6 +1300,7 @@ class DIPOL(Instrument):
             values = get_column_values(aperphotresults, ['reducedfit__rotangle', 'flux_counts', 'flux_counts_err', 'pairs'])
 
             angles_L = list(sorted(set(values['reducedfit__rotangle'])))
+
             if len(angles_L) != 16:
                 logger.warning(f"There should be 16 different angles, there are {len(angles_L)}.")
 
@@ -1247,19 +1310,25 @@ class DIPOL(Instrument):
                     fluxD[pair] = {}
                 fluxD[pair][angle] = (flux, flux_err)
 
-            F_O = np.array([(fluxD['O'][angle][0]) for angle in angles_L])
-            dF_O = np.array([(fluxD['O'][angle][1]) for angle in angles_L])
+            # Dipol has the ordinary to the left and extraordinary to the right, IOP4 astrocalibration atm works the other way, swap them here
 
-            F_E = np.array([(fluxD['E'][angle][0]) for angle in angles_L])
-            dF_E = np.array([(fluxD['E'][angle][1]) for angle in angles_L])
+            F_O = np.array([(fluxD['E'][angle][0]) for angle in angles_L])
+            dF_O = np.array([(fluxD['E'][angle][1]) for angle in angles_L])
+
+            F_E = np.array([(fluxD['O'][angle][0]) for angle in angles_L])
+            dF_E = np.array([(fluxD['O'][angle][1]) for angle in angles_L])
+
+            N = len(angles_L)
+
+            if astrosource.name == "2200+420":
+                F_O = np.roll(F_E, 2)
+                dF_O = np.roll(dF_E, 2)
 
             F = (F_O - F_E) / (F_O + F_E)
             dF = 2 / ( F_O + F_E )**2 * np.sqrt(F_E**2 * dF_O**2 + F_O**2 * dF_E**2)
 
             I = (F_O + F_E)
             dI = np.sqrt(dF_O**2 + dF_E**2)
-
-            N = len(angles_L)
 
             # Compute both the uncorrected and corrected values
 
@@ -1271,24 +1340,23 @@ class DIPOL(Instrument):
             Ur_uncorr = 2/N * sum([F[i] * math.sin(math.pi/2*i) for i in range(N)])
             dUr_uncorr = 2/N * math.sqrt(sum([dF[i]**2 * math.sin(math.pi/2*i)**2 for i in range(N)]))
 
-            # Instrumental polarization 
-            # TODO: make this value editable and dependent on epoch date
-            
-            Q_inst = +0.057/100
-            dQ_inst = 0
-
-            U_inst = -3.77/100
-            dU_inst = 0
+            intrumental_polarization = cls.get_instrumental_polarization(reducedfit=polarimetry_group[0])
+            Q_inst = intrumental_polarization['Q_inst']
+            dQ_inst = intrumental_polarization['dQ_inst']
+            U_inst = intrumental_polarization['U_inst']
+            dU_inst = intrumental_polarization['dU_inst']
+            CPA = intrumental_polarization['CPA']
+            dCPA = intrumental_polarization['dCPA']
 
             logger.debug(f"{Q_inst=}, {dQ_inst=}")
             logger.debug(f"{U_inst=}, {dU_inst=}")
 
-            Qr = Qr_uncorr + Q_inst
+            Qr = Qr_uncorr - Q_inst
             dQr = math.sqrt(dQr_uncorr**2 + dQ_inst**2)
 
             logger.debug(f"{Qr=}, {dQr=}")
 
-            Ur = Ur_uncorr + U_inst
+            Ur = Ur_uncorr - U_inst
             dUr = math.sqrt(dUr_uncorr**2 + dU_inst**2)
 
             logger.debug(f"{Ur=}, {dUr=}")
@@ -1299,14 +1367,15 @@ class DIPOL(Instrument):
                 dP = 1/P * math.sqrt((Qr*dQr)**2 + (Ur*dUr)**2)
 
                 # polarization angle (degrees)
-                chi = 0.5 * math.degrees(math.atan2(-Qr, Ur))
+                chi = 0.5 * math.degrees(math.atan2(Ur, Qr))
                 dchi = 0.5 * math.degrees( 1 / (Qr**2 + Ur**2) * math.sqrt((Qr*dUr)**2 + (Ur*dQr)**2) )
 
                 return P, chi, dP, dchi
             
-            # linear polarization (0 to 1)
             P_uncorr, chi_uncorr, dP_uncorr, dchi_uncorr = _get_p_and_chi(Qr_uncorr, Ur_uncorr, dQr_uncorr, dUr_uncorr)
             P, chi, dP, dchi = _get_p_and_chi(Qr, Ur, dQr, dUr)
+            chi = chi + CPA
+            dchi = math.sqrt(dchi**2 + dCPA**2)
 
             logger.debug(f"{P=}, {chi=}, {dP=}, {dchi=}")
 
