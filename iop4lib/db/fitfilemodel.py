@@ -168,7 +168,7 @@ class FitFileModel(AbstractModel):
         fpath = os.path.join(self.filedpropdir, "img_preview_image.png")
 
         if len(kwargs) == 0 and not force_rebuild:
-            if os.path.isfile(fpath):
+            if os.path.isfile(fpath) and os.path.getmtime(self.filepath) < os.path.getmtime(fpath):
                 # logger.debug(f"Loading image preview for {self.fileloc} from disk")
                 with open(fpath, 'rb') as f:
                     return f.read()
@@ -241,7 +241,7 @@ class FitFileModel(AbstractModel):
         fpath = os.path.join(self.filedpropdir, "img_preview_histogram.png")
 
         if len(kwargs) == 0 and not force_rebuild:
-            if os.path.isfile(fpath):
+            if os.path.isfile(fpath) and os.path.getmtime(self.filepath) < os.path.getmtime(fpath):
                 #logger.debug(f"Loading preview histogram for {self.fileloc} from disk")
                 with open(fpath, 'rb') as f:
                     return f.read()
