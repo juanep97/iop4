@@ -1189,7 +1189,7 @@ class DIPOL(Instrument):
         sigma = fit_res_dict['sigma']
         fwhm = fit_res_dict["mean_fwhm"]
 
-        return 1.05*fwhm, 6*fwhm, 10*fwhm, fit_res_dict  
+        return 1.1*fwhm, 6*fwhm, 10*fwhm, fit_res_dict  
 
     @classmethod
     def get_instrumental_polarization(cls, reducedfit):
