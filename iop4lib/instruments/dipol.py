@@ -392,8 +392,8 @@ class DIPOL(Instrument):
 
             # Gather some info to perform a good decision on which methods to use
 
-            n_estimate = len(cls._estimate_positions_from_segments(redf=reducedfit, n_seg_threshold=1.5, centered=False))
-            n_estimate_centered = len(cls._estimate_positions_from_segments(redf=reducedfit, n_seg_threshold=1.5, centered=True))
+            n_estimate = len(cls._estimate_positions_from_segments(redf=reducedfit, n_seg_threshold=1.3, npixels=64, centered=False))
+            n_estimate_centered = len(cls._estimate_positions_from_segments(redf=reducedfit, n_seg_threshold=1.3, npixels=64, centered=True))
             redf_phot = ReducedFit.objects.filter(instrument=reducedfit.instrument,
                                                   sources_in_field__in=[reducedfit.header_hintobject], 
                                                   obsmode=OBSMODES.PHOTOMETRY, 
@@ -468,7 +468,7 @@ class DIPOL(Instrument):
                 method_try_order = [_try_EO_method, _try_quad_method, _try_catalog_method]
             elif target_src.srctype == SRCTYPES.BLAZAR:
                 ## reduce flase positives by forcing to use quad method if it must work
-                if redf_phot is not None and n_estimate > 6:
+                if redf_phot is not None and n_estimate > 5:
                     method_try_order = [_try_quad_method]
                 else:
                     method_try_order = [_try_catalog_method, _try_quad_method, _try_EO_method]
