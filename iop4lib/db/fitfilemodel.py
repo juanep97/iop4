@@ -200,8 +200,11 @@ class FitFileModel(AbstractModel):
                     target_pos_px = target_src.coord.to_pixel(self.wcs1)
                     ax.axhline(y=target_pos_px[1], color='r', linestyle="--", linewidth=1)
                     ax.axvline(x=target_pos_px[0], color='r', linestyle="--", linewidth=1)
-        except:
-            pass
+        except Exception as e: 
+            # it can fail if there is any problem with the fit calibration (e.g. in early versions the wcs
+            # was not saved into key A, but we still want to be able to explore the data in the admin).
+            logger.warning(f"Coudl not mark the target source position on ReducedFit {self.pk}: {e}")
+
         ax.axis('off')
         fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
         fig.clf()

@@ -351,8 +351,8 @@ def get_angle_from_history(redf: 'ReducedFit' = None,
     for calibrated_fit in calibrated_fits:
         try:
             w = WCS(calibrated_fit.header, key="A")
-        except:
-            logger.debug(f"Could not get WCS 'A' from ReducedFit {calibrated_fit.id}")
+        except Exception as e: # usually KeyError
+            logger.warning(f"Could not get WCS 'A' from ReducedFit {calibrated_fit.id}: {e}")
             continue
             
         
