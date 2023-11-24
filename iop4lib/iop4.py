@@ -153,20 +153,20 @@ def retry_failed_files():
 
 def filter_epochname_by_date(epochname_list, date_start=None, date_end=None):
     if date_start is not None:
-        epochname_list = [epochname for epochname in epochname_list if Epoch.epochname_to_tel_night(epochname)[1] > datetime.date.fromisoformat(date_start)]
+        epochname_list = [epochname for epochname in epochname_list if Epoch.epochname_to_tel_night(epochname)[1] >= datetime.date.fromisoformat(date_start)]
     
     if date_end is not None:
-        epochname_list = [epochname for epochname in epochname_list if Epoch.epochname_to_tel_night(epochname)[1] < datetime.date.fromisoformat(date_end)]
+        epochname_list = [epochname for epochname in epochname_list if Epoch.epochname_to_tel_night(epochname)[1] <= datetime.date.fromisoformat(date_end)]
     
     return epochname_list
 
 def filter_filelocs_by_date(fileloc_list, date_start=None, date_end=None):
 
     if date_start is not None:
-        fileloc_list = [fileloc for fileloc in fileloc_list if RawFit.fileloc_to_tel_night_filename(fileloc)[1] > datetime.date.fromisoformat(date_start)]
+        fileloc_list = [fileloc for fileloc in fileloc_list if RawFit.fileloc_to_tel_night_filename(fileloc)[1] >= datetime.date.fromisoformat(date_start)]
     
     if date_end is not None:
-        fileloc_list = [fileloc for fileloc in fileloc_list if RawFit.fileloc_to_tel_night_filename(fileloc)[1] < datetime.date.fromisoformat(date_end)]
+        fileloc_list = [fileloc for fileloc in fileloc_list if RawFit.fileloc_to_tel_night_filename(fileloc)[1] <= datetime.date.fromisoformat(date_end)]
     
     return fileloc_list
 
