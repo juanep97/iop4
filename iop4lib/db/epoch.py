@@ -605,13 +605,19 @@ class Epoch(models.Model):
 
         f = lambda x: Instrument.by_name(x[1]['instrument']).compute_relative_polarimetry(x[0], *args, **kwargs)
 
-        for i, (group, keys) in enumerate(zip(clusters_L, groupkeys_L)):
-            try:
-                Instrument.by_name(keys['instrument']).compute_relative_polarimetry(group, *args, **kwargs)
-            except Exception as e:
-                logger.error(f"{self}: error computing relative polarimetry for group n {i} {keys}: {e}")
-            finally:
-                logger.info(f"{self}: computed relative polarimetry for group n {i} {keys}.")
+        if iop4conf.max_concurrent_threads > 1:
+            # parallel
+            from iop4lib.utils.parallel import parallel_relative_polarimetry
+            parallel_relative_polarimetry(clusters_L, groupkeys_L)
+        else: 
+            # one by one
+            for i, (group, keys) in enumerate(zip(clusters_L, groupkeys_L)):
+                try:
+                    Instrument.by_name(keys['instrument']).compute_relative_polarimetry(group, *args, **kwargs)
+                except Exception as e:
+                    logger.error(f"{self}: error computing relative polarimetry for group n {i} {keys}: {e}")
+                finally:
+                    logger.info(f"{self}: computed relative polarimetry for group n {i} {keys}.")
 
 
 

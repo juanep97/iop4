@@ -198,6 +198,23 @@ def _epoch_bulkreduce_multiprocesing_mainloop(tasks, counter, reduced_L, epoch=N
     return
 
 
+# COMPUTE RELATIVE POLARIMETRY IN MULTIPROCESSING POOL
+
+def _parallel_relative_polarimetry_helper(keys, group):
+    from iop4lib.instruments import Instrument
+    try:
+        Instrument.by_name(keys['instrument']).compute_relative_polarimetry(group)
+    except Exception as e:
+        logger.error(f"Error for {group=}. Exception {e}: {traceback.format_exc()}")
+    finally:
+        logger.info(f"Finished computing relative polarimetry for {group=}.")
+
+def parallel_relative_polarimetry(keys, groups):
+    with multiprocessing.Pool(iop4conf.max_concurrent_threads) as pool:
+        for keys, group in zip(keys, groups):
+            if len(group) == 0:
+                continue
+            pool.map(_parallel_relative_polarimetry_helper, groups)
 
 
 # BULK REDUCTION IN RAY CLUSTER
