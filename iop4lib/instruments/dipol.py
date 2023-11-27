@@ -1195,7 +1195,7 @@ class DIPOL(Instrument):
     def get_instrumental_polarization(cls, reducedfit):
         if reducedfit.juliandate <= Time("2023-09-28 12:00").jd: # limpieza de espejos
             CPA = 44.5
-            dCPA = 0.0
+            dCPA = 0.05
             Q_inst = 0.05777
             dQ_inst = 0.005
             U_inst = -3.77095
