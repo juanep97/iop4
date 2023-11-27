@@ -282,7 +282,10 @@ class RawFit(FitFileModel):
 
         if self.fileexists:
             if iop4conf.set_rawdata_readonly:
-                os.chmod(self.filepath, stat.S_IREAD)
+                # this will remove the write permission from the file for all users
+                current_perms = os.stat(self.filepath).st_mode
+                new_perms = current_perms & (~stat.S_IWUSR) & (~stat.S_IWGRP) & (~stat.S_IWOTH)
+                os.chmod(self.filepath, new_perms)
 
             if self.auto_classify:
                 self.classify()
