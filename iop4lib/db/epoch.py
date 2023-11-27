@@ -608,7 +608,7 @@ class Epoch(models.Model):
         if iop4conf.max_concurrent_threads > 1:
             # parallel
             from iop4lib.utils.parallel import parallel_relative_polarimetry
-            parallel_relative_polarimetry(clusters_L, groupkeys_L)
+            parallel_relative_polarimetry(groupkeys_L, clusters_L)
         else: 
             # one by one
             for i, (group, keys) in enumerate(zip(clusters_L, groupkeys_L)):

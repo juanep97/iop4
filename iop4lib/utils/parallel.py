@@ -211,10 +211,7 @@ def _parallel_relative_polarimetry_helper(keys, group):
 
 def parallel_relative_polarimetry(keys, groups):
     with multiprocessing.Pool(iop4conf.max_concurrent_threads) as pool:
-        for keys, group in zip(keys, groups):
-            if len(group) == 0:
-                continue
-            pool.map(_parallel_relative_polarimetry_helper, groups)
+        pool.starmap(_parallel_relative_polarimetry_helper, zip(keys, groups))
 
 
 # BULK REDUCTION IN RAY CLUSTER
