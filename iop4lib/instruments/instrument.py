@@ -16,6 +16,7 @@ import astropy.units as u
 import itertools
 import datetime
 import glob
+import astrometry
 
 # iop4lib imports
 from iop4lib.enums import *
@@ -26,7 +27,6 @@ logger = logging.getLogger(__name__)
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    import astrometry
     from iop4lib.db import AstroSource, RawFit, ReducedFit
     from iop4lib.utils.astrometry import BuildWCSResult
 
