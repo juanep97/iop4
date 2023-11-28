@@ -43,19 +43,19 @@ class Instrument(metaclass=ABCMeta):
     @abstractmethod
     def name(self):
         """ The name of the instrument."""
-        pass
+        raise NotImplementedError
 
     @property
     @abstractmethod
     def telescope(self):
         """ The telescope this instrument is mounted on."""
-        pass
+        raise NotImplementedError
 
     @property
     @abstractmethod
     def instrument_kw(self):
         """ The keyword in the FITS header that identifies this instrument."""
-        pass
+        raise NotImplementedError
 
     # Instrument specific properties (subclasses must implement these)
 
@@ -63,19 +63,19 @@ class Instrument(metaclass=ABCMeta):
     @abstractmethod
     def field_width_arcmin(self):
         """ Field width in arcmin."""
-        pass
+        raise NotImplementedError
 
     @property
     @abstractmethod
     def arcsec_per_pix(self):
         """ Pixel size in arcseconds per pixel."""
-        pass
+        raise NotImplementedError
 
     @property
     @abstractmethod
     def gain_e_adu(self):
         """ Gain in e-/ADU. Used to compute the error in aperture photometry."""
-        pass
+        raise NotImplementedError
 
     @property
     @abstractmethod
@@ -85,7 +85,7 @@ class Instrument(metaclass=ABCMeta):
             Cooled CCD cameras will only need `required_masters = ['masterbias', 'masterflat']` in the subclass, since dark current is close to zero. 
             If dark current is not negligible, set `required_masters = ['masterbias', 'masterdark', 'masterflat']` in the subclass.
         """
-        pass
+        raise NotImplementedError
 
     # Class methods (you should be using these from the Instrument class, not subclasses)
 
