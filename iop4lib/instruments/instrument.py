@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
+    import astrometry
     from iop4lib.db import AstroSource, RawFit, ReducedFit
     from iop4lib.utils.astrometry import BuildWCSResult
 
