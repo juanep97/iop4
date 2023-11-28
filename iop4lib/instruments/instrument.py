@@ -197,7 +197,7 @@ class Instrument(metaclass=ABCMeta):
         raise NotImplementedError
 
     @classmethod
-    def build_wcs(self, reducedfit: 'ReducedFit', shotgun_params_kwargs : dict =  dict(), summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}) -> 'BuildWCSResult':
+    def build_wcs(self, reducedfit: 'ReducedFit', shotgun_params_kwargs : dict = None, summary_kwargs : dict = None) -> 'BuildWCSResult':
         """ Build a WCS for a reduced fit from this instrument. 
         
         By default (Instrument class), this will just call the build_wcs_params_shotgun from iop4lib.utils.astrometry.
@@ -213,6 +213,13 @@ class Instrument(metaclass=ABCMeta):
                 Whether to query and plot a few Simbad sources in the image. Might be useful to 
                 check whether the found coordinates are correct. Default is True.
         """
+
+        if shotgun_params_kwargs is None:
+            shotgun_params_kwargs = dict()
+
+        if summary_kwargs is None:
+            summary_kwargs = {'build_summary_images':True, 'with_simbad':True}
+
         from iop4lib.utils.astrometry import build_wcs_params_shotgun
         from iop4lib.utils.plotting import build_astrometry_summary_images
 
