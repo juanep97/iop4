@@ -18,8 +18,6 @@ class AdminRawFit(AdminFitFile):
     readonly_fields = [field.name for field in RawFit._meta.fields] 
     search_fields = ['id', 'filename', 'epoch__telescope', 'epoch__night'] 
     ordering = ['-epoch__night','-epoch__telescope']
-    list_per_page = 16
-    list_max_show_all = 200
     list_filter = (
             RawFitIdFilter,
             RawFitTelescopeFilter,
