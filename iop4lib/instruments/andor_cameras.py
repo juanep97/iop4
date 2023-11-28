@@ -149,17 +149,28 @@ class Andor(Instrument, metaclass=ABCMeta):
         return hint_coord
     
     @classmethod
-    def get_astrometry_position_hint(cls, rawfit, allsky=False, n_field_width=1.5):
-        """ Get the position hint from the FITS header as an astrometry.PositionHint."""        
+    def get_astrometry_position_hint(cls, rawfit, allsky=False, n_field_width=1.5, hintsep=None):
+        """ Get the position hint from the FITS header as an astrometry.PositionHint.
+
+        Parameters
+        ----------
+            allsky: bool, optional
+                If True, the hint will cover the whole sky, and n_field_width and hintsep will be ignored.
+            n_field_width: float, optional
+                The search radius in units of field width. Default is 1.5.
+            hintsep: Quantity, optional
+                The search radius in units of degrees.
+        """        
 
         hintcoord = cls.get_header_hintcoord(rawfit)
         
         if allsky:
-            hintsep = 180.0
+            hintsep = 180.0 * u.deg
         else:
-            hintsep = (n_field_width * cls.field_width_arcmin*u.Unit("arcmin")).to_value(u.deg)
+            if hintsep is None:
+                hintsep = (n_field_width * cls.field_width_arcmin*u.Unit("arcmin"))
 
-        return astrometry.PositionHint(ra_deg=hintcoord.ra.deg, dec_deg=hintcoord.dec.deg, radius_deg=hintsep)
+        return astrometry.PositionHint(ra_deg=hintcoord.ra.deg, dec_deg=hintcoord.dec.deg, radius_deg=hintsep.to_value("deg"))
     
     @classmethod
     def get_astrometry_size_hint(cls, rawfit):

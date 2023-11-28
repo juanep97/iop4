@@ -178,15 +178,15 @@ class Instrument(metaclass=ABCMeta):
     
     @classmethod
     @abstractmethod 
-    def get_astrometry_position_hint(cls, rawfit, allsky=False, n_field_width=1.5):
+    def get_astrometry_position_hint(cls, rawfit, allsky=False, n_field_width=1.5, hintsep=None) -> astrometry.PositionHint:
         """ Get the position hint from the FITS header as an astrometry.PositionHint object. """        
-        pass
+        raise NotImplementedError
 
     @classmethod
     @abstractmethod 
-    def get_astrometry_size_hint(cls, rawfit):
+    def get_astrometry_size_hint(cls, rawfit) -> astrometry.SizeHint:
         """ Get the size hint for this telescope / rawfit."""
-        pass
+        raise NotImplementedError
 
     @classmethod
     @abstractmethod
@@ -194,7 +194,7 @@ class Instrument(metaclass=ABCMeta):
         """ Indicates whether both ordinary and extraordinary sources are present 
         in the file. At the moment, this happens only for CAFOS polarimetry
         """
-        pass
+        raise NotImplementedError
 
     @classmethod
     def build_wcs(self, reducedfit: 'ReducedFit', shotgun_params_kwargs : dict =  dict(), summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}) -> 'BuildWCSResult':
@@ -216,10 +216,29 @@ class Instrument(metaclass=ABCMeta):
         from iop4lib.utils.astrometry import build_wcs_params_shotgun
         from iop4lib.utils.plotting import build_astrometry_summary_images
 
+
+        # if there is pointing mismatch information and it was not invoked with given allsky or position_hint,
+        # fine-tune the position_hint or set allsky = True if appropriate.
+        # otherwise leave it alone.
+
         if reducedfit.header_hintobject is not None and 'allsky' not in shotgun_params_kwargs and 'position_hint' not in shotgun_params_kwargs:
-            if reducedfit.header_hintobject.coord.separation(reducedfit.header_hintcoord) > u.Quantity("20 arcmin"):
-                logger.debug(f"{reducedfit}: large pointing mismatch detected, setting allsky = True for the position hint.")
-                shotgun_params_kwargs["allsky"] = [True]
+
+            pointing_mismatch = reducedfit.header_hintobject.coord.separation(reducedfit.header_hintcoord)
+
+            # minimum of 1.5 the field width, and max the allsky_septhreshold
+
+            hintsep = np.clip(1.1*pointing_mismatch, 
+                                1.5*Instrument.by_name(reducedfit.instrument).field_width_arcmin*u.arcmin,
+                                iop4conf.astrometry_allsky_septhreshold*u.arcmin)
+            shotgun_params_kwargs["position_hint"] = [reducedfit.get_astrometry_position_hint(hintsep=hintsep)]
+
+            # if the pointing mismatch is too large, set allsky = True if configured 
+
+            if  pointing_mismatch.to_value('arcmin') > iop4conf.astrometry_allsky_septhreshold:
+                if iop4conf.astrometry_allsky_allow:
+                    logger.debug(f"{reducedfit}: large pointing mismatch detected ({pointing_mismatch.to_value('arcmin')} arcmin), setting allsky = True for the position hint.")
+                    shotgun_params_kwargs["allsky"] = [True]
+                    del shotgun_params_kwargs["position_hint"]
 
 
         build_wcs_result = build_wcs_params_shotgun(reducedfit, shotgun_params_kwargs, summary_kwargs=summary_kwargs)

@@ -116,17 +116,28 @@ class CAFOS(Instrument):
         return hint_coord
     
     @classmethod
-    def get_astrometry_position_hint(cls, rawfit, allsky=False, n_field_width=1.5):
-        """ Get the position hint from the FITS header as an astrometry.PositionHint object. """        
+    def get_astrometry_position_hint(cls, rawfit, allsky=False, n_field_width=1.5, hintsep=None):
+        """ Get the position hint from the FITS header as an astrometry.PositionHint object. 
+
+        Parameters
+        ----------
+            allsky: bool, optional
+                If True, the hint will cover the whole sky, and n_field_width and hintsep will be ignored.
+            n_field_width: float, optional
+                The search radius in units of field width. Default is 1.5.
+            hintsep: Quantity, optional
+                The search radius in units of degrees.
+        """        
 
         hintcoord = cls.get_header_hintcoord(rawfit)
 
         if allsky:
-            hintsep = 180
+            hintsep = 180.0 * u.deg
         else:
-            hintsep = n_field_width * u.Quantity("16 arcmin").to_value(u.deg) # 16 arcmin is the full field size of the CAFOS T2.2, our cut is smaller (6.25, 800x800, but the pointing kws might be from anywhere in the full field)
+            if hintsep is None:
+                hintsep = n_field_width * u.Quantity("16 arcmin") # 16 arcmin is the full field size of the CAFOS T2.2, our cut is smaller (6.25, 800x800, but the pointing kws might be from anywhere in the full field)
 
-        return astrometry.PositionHint(ra_deg=hintcoord.ra.deg, dec_deg=hintcoord.dec.deg, radius_deg=hintsep)
+        return astrometry.PositionHint(ra_deg=hintcoord.ra.deg, dec_deg=hintcoord.dec.deg, radius_deg=hintsep.to_value(u.deg))
     
     @classmethod
     def get_astrometry_size_hint(cls, rawfit):

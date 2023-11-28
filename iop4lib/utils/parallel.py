@@ -146,7 +146,7 @@ def _epoch_bulkreduce_multiprocessing_worker(reduced_fit: 'ReducedFit'):
 
 
     try:
-        # Start a timer that will send SIGALRM in 20 minutes
+        # Start a timer that will send SIGALRM in iop4conf.astrometry_timeout minutes
         signal.signal(signal.SIGALRM, _epoch_bulkreduce_multiprocessing_worker_timeout_handler)
         signal.alarm(iop4conf.astrometry_timeout*60) 
         reduced_fit.build_file()
