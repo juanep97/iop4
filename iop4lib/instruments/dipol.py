@@ -796,7 +796,7 @@ class DIPOL(Instrument):
 
 
     @classmethod
-    def _build_wcs_for_polarimetry_images_catalog_matching(cls, redf: 'ReducedFit', summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}, n_seg_threshold=1.5, npixels=64):
+    def _build_wcs_for_polarimetry_images_catalog_matching(cls, redf: 'ReducedFit', summary_kwargs : dict = None, n_seg_threshold=1.5, npixels=64):
         r""" Deprecated. Build WCS for DIPOL polarimetry images by matching the found sources positions with the catalog.
 
         .. warning::
@@ -807,6 +807,9 @@ class DIPOL(Instrument):
             It is safer to use the method _build_wcs_for_polarimetry_images_photo_quads, which uses the photometry field and quad matching to build the WCS.
             
         """
+
+        if summary_kwargs is None:
+            summary_kwargs = {'build_summary_images':True, 'with_simbad':True}
 
         # disp_allowed_err = 1.5*cls.disp_std 
         disp_allowed_err =  np.array([30,30]) # most times should be much smaller (1.5*std)
@@ -1063,7 +1066,7 @@ class DIPOL(Instrument):
 
 
     @classmethod
-    def _build_wcs_for_polarimetry_from_target_O_and_E(cls, redf: 'ReducedFit', summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}, n_seg_threshold=3.0, npixels=64) -> BuildWCSResult:
+    def _build_wcs_for_polarimetry_from_target_O_and_E(cls, redf: 'ReducedFit', summary_kwargs : dict = None, n_seg_threshold=3.0, npixels=64) -> BuildWCSResult:
         r""" Deprecated. Build WCS for DIPOL polarimetry images by matching the found sources positions with the catalog.
 
         .. warning::
@@ -1074,6 +1077,9 @@ class DIPOL(Instrument):
             It is safer to use the method _build_wcs_for_polarimetry_images_photo_quads, which uses the photometry field and quad matching to build the WCS.
             
         """
+
+        if summary_kwargs is None:
+            summary_kwargs = {'build_summary_images':True, 'with_simbad':True}
 
         # disp_allowed_err = 1.5*cls.disp_std
         disp_allowed_err =  np.array([30,30]) # most times should be much smaller (1.5*std)
