@@ -500,10 +500,22 @@ class Epoch(models.Model):
 
 
 
-    def compute_relative_photometry(self):
+    def compute_relative_photometry(self, redf_qs=None):
+        """ Computes the relative photometry results for this epoch.
+
+        Parameters
+        ----------
+        redf_qs : QuerySet, optional
+            If provided, the relative photometry will be computed only for the ReducedFit objects in the QuerySet.
+            If not provided, the relative photometry will be computed for all ReducedFit objects in the epoch.
+        """
+
         from .reducedfit import ReducedFit
 
-        redf_qs = ReducedFit.objects.filter(epoch=self, obsmode=OBSMODES.PHOTOMETRY, flags__has=ReducedFit.FLAGS.BUILT_REDUCED).order_by('juliandate').all()
+        if redf_qs is None:
+            redf_qs = ReducedFit.objects.filter(epoch=self, obsmode=OBSMODES.PHOTOMETRY, flags__has=ReducedFit.FLAGS.BUILT_REDUCED).order_by('juliandate').all()
+        else:
+            redf_qs = redf_qs.filter(epoch=self, obsmode=OBSMODES.PHOTOMETRY, flags__has=ReducedFit.FLAGS.BUILT_REDUCED).order_by('juliandate').all()
 
         for redf in redf_qs:
             redf.compute_relative_photometry()
@@ -528,7 +540,7 @@ class Epoch(models.Model):
         if redf_qs is None:
             redf_qs = ReducedFit.objects.filter(epoch=self, obsmode=OBSMODES.POLARIMETRY, flags__has=ReducedFit.FLAGS.BUILT_REDUCED).order_by('juliandate').all()
         else:
-            redf_qs = redf_qs.filter(obsmode=OBSMODES.POLARIMETRY).order_by('juliandate').all()
+            redf_qs = redf_qs.filter(epoch=self, obsmode=OBSMODES.POLARIMETRY, flags__has=ReducedFit.FLAGS.BUILT_REDUCED).order_by('juliandate').all()
 
         # Create a groups with the same keys (object, band, exptime)
 
@@ -595,15 +607,24 @@ class Epoch(models.Model):
         return split_groups, split_groups_keys
 
 
-    def compute_relative_polarimetry(self, *args, **kwargs):
+    def compute_relative_polarimetry(self, redf_qs=None):
+        """Computes the relative polarimetry results for this epoch.
+
+        Parameters
+        ----------
+        redf_qs : QuerySet, optional
+            If provided, the relative polarimetry will be computed only for the ReducedFit objects in the QuerySet.
+            If not provided, the relative polarimetry will be computed for all ReducedFit objects in the epoch.
+        """
+
         from .reducedfit import ReducedFit
 
-        clusters_L, groupkeys_L = self.make_polarimetry_groups()
+        clusters_L, groupkeys_L = self.make_polarimetry_groups(redf_qs=redf_qs)
 
         logger.info(f"{self}: computing relative polarimetry over {len(groupkeys_L)} polarimetry groups.")
         logger.debug(f"{self}: {groupkeys_L=}")
 
-        f = lambda x: Instrument.by_name(x[1]['instrument']).compute_relative_polarimetry(x[0], *args, **kwargs)
+        f = lambda x: Instrument.by_name(x[1]['instrument']).compute_relative_polarimetry(x[0])
 
         if iop4conf.max_concurrent_threads > 1:
             # parallel
@@ -613,7 +634,7 @@ class Epoch(models.Model):
             # one by one
             for i, (group, keys) in enumerate(zip(clusters_L, groupkeys_L)):
                 try:
-                    Instrument.by_name(keys['instrument']).compute_relative_polarimetry(group, *args, **kwargs)
+                    Instrument.by_name(keys['instrument']).compute_relative_polarimetry(group)
                 except Exception as e:
                     logger.error(f"{self}: error computing relative polarimetry for group n {i} {keys}: {e}")
                 finally:
