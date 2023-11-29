@@ -1,3 +1,5 @@
+<a href="https://github.com/juanep97/iop4/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/juanep97/iop4/actions/workflows/ci.yml/badge.svg"/></a>
+<a href="https://zenodo.org/doi/10.5281/zenodo.10222722"><img src="https://zenodo.org/badge/636786270.svg" alt="DOI"></a>
 
 **IOP4** is a complete rewrite of IOP3, a pipeline to work with **photometry** and **polarimetry** of **optical data** from [CAHA](https://www.caha.es/es/) and [OSN](https://www.osn.iaa.csic.es/) observatories. It is built to ease debugging and inspection of data.
 
@@ -142,9 +144,5 @@ To build and show the documentation, run
 ````
 
 ## Contribute
-
-Status (main branch) 
-
-<a href="https://github.com/juanep97/iop4/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/juanep97/iop4/actions/workflows/ci.yml/badge.svg"/></a>
 
 You are welcome to contribute to IOP4. Fork and create a PR!
