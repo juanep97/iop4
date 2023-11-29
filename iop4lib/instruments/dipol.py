@@ -1214,7 +1214,17 @@ class DIPOL(Instrument):
         return 1.1*fwhm, 6*fwhm, 10*fwhm, fit_res_dict  
 
     @classmethod
-    def get_instrumental_polarization(cls, reducedfit):
+    def get_instrumental_polarization(cls, reducedfit) -> dict:
+        """ Returns the instrumental polarization for to be used for a given reducedfit.
+
+        The instrumental polarization is a dictionary with the following keys:
+            - Q_inst: instrumental Q Stokes parameter (0-1)
+            - dQ_inst: instrumental Q error (0-1)
+            - U_inst: instrumental U Stokes parameter (0-1)
+            - dU_inst: instrumental U error (0-1)
+            - CPA: zero-angle (deg)
+        """
+
         if reducedfit.juliandate <= Time("2023-09-28 12:00").jd: # limpieza de espejos
             CPA = 44.5
             dCPA = 0.05
