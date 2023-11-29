@@ -35,6 +35,7 @@ dependencies = [
     "pypandoc",
     "termcolor",
     "pyyaml<5.4",
+    "psutil",
 ]
 
 # need for setuptools_scm, so we derived version from git version control system
