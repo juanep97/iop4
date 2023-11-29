@@ -2,9 +2,24 @@
 import os, pathlib, yaml, logging
 
 import matplotlib, matplotlib.pyplot
+
+# Disable matplotlib logging except for warnings and above
+
 matplotlib.pyplot.set_loglevel('warning')
 
+# Set journal_mode=WAL and synchronous=NORMAL for sqlite3 databases on 
+# connection, to improve support for concurrent write access to the 
+# database during parallel reduction
 
+from django.db.backends.signals import connection_created
+from django.dispatch.dispatcher import receiver
+
+@receiver(connection_created)    
+def enable_wal_sqlite(sender, connection, **kwargs) -> None:
+    if connection.vendor == "sqlite":
+        with connection.cursor() as cursor:
+            cursor.execute('PRAGMA synchronous=NORMAL;')
+            cursor.execute('PRAGMA journal_mode=WAL;')
 
 class Config(dict):
     r""" Configuration class for IOP4.

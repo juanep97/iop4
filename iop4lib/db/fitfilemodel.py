@@ -168,7 +168,7 @@ class FitFileModel(AbstractModel):
         fpath = os.path.join(self.filedpropdir, "img_preview_image.png")
 
         if len(kwargs) == 0 and not force_rebuild:
-            if os.path.isfile(fpath):
+            if os.path.isfile(fpath) and os.path.getmtime(self.filepath) < os.path.getmtime(fpath):
                 # logger.debug(f"Loading image preview for {self.fileloc} from disk")
                 with open(fpath, 'rb') as f:
                     return f.read()
@@ -191,6 +191,20 @@ class FitFileModel(AbstractModel):
         fig = mplt.figure.Figure(figsize=(width/100, height/100), dpi=iop4conf.mplt_default_dpi)
         ax = fig.subplots()
         ax.imshow(imgdata, cmap=cmap, origin='lower', norm=norm)
+        try:
+            from iop4lib.db import ReducedFit, AstroSource
+            from iop4lib.enums import SRCTYPES
+            # If it is a astro calibrated reduced fit, mark the src position
+            if self.has_flag(ReducedFit.FLAGS.BUILT_REDUCED):
+                if (target_src := self.sources_in_field.exclude(srctype=SRCTYPES.CALIBRATOR).get()) is not None:
+                    target_pos_px = target_src.coord.to_pixel(self.wcs1)
+                    ax.axhline(y=target_pos_px[1], color='r', linestyle="--", linewidth=1)
+                    ax.axvline(x=target_pos_px[0], color='r', linestyle="--", linewidth=1)
+        except Exception as e: 
+            # it can fail if there is any problem with the fit calibration (e.g. in early versions the wcs
+            # was not saved into key A, but we still want to be able to explore the data in the admin).
+            logger.warning(f"Coudl not mark the target source position on ReducedFit {self.pk}: {e}")
+
         ax.axis('off')
         fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
         fig.clf()
@@ -230,7 +244,7 @@ class FitFileModel(AbstractModel):
         fpath = os.path.join(self.filedpropdir, "img_preview_histogram.png")
 
         if len(kwargs) == 0 and not force_rebuild:
-            if os.path.isfile(fpath):
+            if os.path.isfile(fpath) and os.path.getmtime(self.filepath) < os.path.getmtime(fpath):
                 #logger.debug(f"Loading preview histogram for {self.fileloc} from disk")
                 with open(fpath, 'rb') as f:
                     return f.read()

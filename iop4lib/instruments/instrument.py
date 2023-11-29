@@ -16,6 +16,7 @@ import astropy.units as u
 import itertools
 import datetime
 import glob
+import astrometry
 
 # iop4lib imports
 from iop4lib.enums import *
@@ -43,19 +44,19 @@ class Instrument(metaclass=ABCMeta):
     @abstractmethod
     def name(self):
         """ The name of the instrument."""
-        pass
+        raise NotImplementedError
 
     @property
     @abstractmethod
     def telescope(self):
         """ The telescope this instrument is mounted on."""
-        pass
+        raise NotImplementedError
 
     @property
     @abstractmethod
     def instrument_kw(self):
         """ The keyword in the FITS header that identifies this instrument."""
-        pass
+        raise NotImplementedError
 
     # Instrument specific properties (subclasses must implement these)
 
@@ -63,19 +64,19 @@ class Instrument(metaclass=ABCMeta):
     @abstractmethod
     def field_width_arcmin(self):
         """ Field width in arcmin."""
-        pass
+        raise NotImplementedError
 
     @property
     @abstractmethod
     def arcsec_per_pix(self):
         """ Pixel size in arcseconds per pixel."""
-        pass
+        raise NotImplementedError
 
     @property
     @abstractmethod
     def gain_e_adu(self):
         """ Gain in e-/ADU. Used to compute the error in aperture photometry."""
-        pass
+        raise NotImplementedError
 
     @property
     @abstractmethod
@@ -85,7 +86,7 @@ class Instrument(metaclass=ABCMeta):
             Cooled CCD cameras will only need `required_masters = ['masterbias', 'masterflat']` in the subclass, since dark current is close to zero. 
             If dark current is not negligible, set `required_masters = ['masterbias', 'masterdark', 'masterflat']` in the subclass.
         """
-        pass
+        raise NotImplementedError
 
     # Class methods (you should be using these from the Instrument class, not subclasses)
 
@@ -178,15 +179,15 @@ class Instrument(metaclass=ABCMeta):
     
     @classmethod
     @abstractmethod 
-    def get_astrometry_position_hint(cls, rawfit, allsky=False, n_field_width=1.5):
+    def get_astrometry_position_hint(cls, rawfit, allsky=False, n_field_width=1.5, hintsep=None) -> astrometry.PositionHint:
         """ Get the position hint from the FITS header as an astrometry.PositionHint object. """        
-        pass
+        raise NotImplementedError
 
     @classmethod
     @abstractmethod 
-    def get_astrometry_size_hint(cls, rawfit):
+    def get_astrometry_size_hint(cls, rawfit) -> astrometry.SizeHint:
         """ Get the size hint for this telescope / rawfit."""
-        pass
+        raise NotImplementedError
 
     @classmethod
     @abstractmethod
@@ -194,10 +195,10 @@ class Instrument(metaclass=ABCMeta):
         """ Indicates whether both ordinary and extraordinary sources are present 
         in the file. At the moment, this happens only for CAFOS polarimetry
         """
-        pass
+        raise NotImplementedError
 
     @classmethod
-    def build_wcs(self, reducedfit: 'ReducedFit', shotgun_params_kwargs : dict =  dict(), summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}) -> 'BuildWCSResult':
+    def build_wcs(self, reducedfit: 'ReducedFit', shotgun_params_kwargs : dict = None, summary_kwargs : dict = None) -> 'BuildWCSResult':
         """ Build a WCS for a reduced fit from this instrument. 
         
         By default (Instrument class), this will just call the build_wcs_params_shotgun from iop4lib.utils.astrometry.
@@ -213,13 +214,39 @@ class Instrument(metaclass=ABCMeta):
                 Whether to query and plot a few Simbad sources in the image. Might be useful to 
                 check whether the found coordinates are correct. Default is True.
         """
+
+        if shotgun_params_kwargs is None:
+            shotgun_params_kwargs = dict()
+
+        if summary_kwargs is None:
+            summary_kwargs = {'build_summary_images':True, 'with_simbad':True}
+
         from iop4lib.utils.astrometry import build_wcs_params_shotgun
         from iop4lib.utils.plotting import build_astrometry_summary_images
 
+
+        # if there is pointing mismatch information and it was not invoked with given allsky or position_hint,
+        # fine-tune the position_hint or set allsky = True if appropriate.
+        # otherwise leave it alone.
+
         if reducedfit.header_hintobject is not None and 'allsky' not in shotgun_params_kwargs and 'position_hint' not in shotgun_params_kwargs:
-            if reducedfit.header_hintobject.coord.separation(reducedfit.header_hintcoord) > u.Quantity("20 arcmin"):
-                logger.debug(f"{reducedfit}: large pointing mismatch detected, setting allsky = True for the position hint.")
-                shotgun_params_kwargs["allsky"] = [True]
+
+            pointing_mismatch = reducedfit.header_hintobject.coord.separation(reducedfit.header_hintcoord)
+
+            # minimum of 1.5 the field width, and max the allsky_septhreshold
+
+            hintsep = np.clip(1.1*pointing_mismatch, 
+                                1.5*Instrument.by_name(reducedfit.instrument).field_width_arcmin*u.arcmin,
+                                iop4conf.astrometry_allsky_septhreshold*u.arcmin)
+            shotgun_params_kwargs["position_hint"] = [reducedfit.get_astrometry_position_hint(hintsep=hintsep)]
+
+            # if the pointing mismatch is too large, set allsky = True if configured 
+
+            if  pointing_mismatch.to_value('arcmin') > iop4conf.astrometry_allsky_septhreshold:
+                if iop4conf.astrometry_allsky_allow:
+                    logger.debug(f"{reducedfit}: large pointing mismatch detected ({pointing_mismatch.to_value('arcmin')} arcmin), setting allsky = True for the position hint.")
+                    shotgun_params_kwargs["allsky"] = [True]
+                    del shotgun_params_kwargs["position_hint"]
 
 
         build_wcs_result = build_wcs_params_shotgun(reducedfit, shotgun_params_kwargs, summary_kwargs=summary_kwargs)
@@ -447,6 +474,8 @@ class Instrument(metaclass=ABCMeta):
             bkg_box_size = 100
         elif redf.mdata.shape[0] == 900: # dipol polarimetry
             bkg_box_size = 90
+        elif redf.mdata.shape[0] == 896: # dipol polarimetry (also)
+            bkg_box_size = 112
         elif redf.mdata.shape[0] == 4144: # dipol photometry
             bkg_box_size = 518
         else:
@@ -479,6 +508,7 @@ class Instrument(metaclass=ABCMeta):
                 AperPhotResult.create(reducedfit=redf, 
                                       astrosource=astrosource, 
                                       aperpix=aperpix, 
+                                      r_in=r_in, r_out=r_out,
                                       pairs=pairs, 
                                       bkg_flux_counts=bkg_flux_counts, bkg_flux_counts_err=bkg_flux_counts_err,
                                       flux_counts=flux_counts, flux_counts_err=flux_counts_err)

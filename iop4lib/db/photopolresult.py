@@ -188,7 +188,7 @@ class PhotoPolResult(models.Model):
             logger.debug(f'Creating DB entry photopolresult for {reducedfits=}, {astrosource=} and {reduction=}')
             photopolresult = cls(**kwargs)
             photopolresult.save() # we need to save it to use the manytomany field
-            photopolresult.reducedfits.set(reducedfits, through_defaults={'astrosource': astrosource, 'reduction': reduction})
+            photopolresult.reducedfits.set(reducedfits, through_defaults={'astrosource': astrosource, 'reduction': reduction}, clear=True)
             photopolresult.save()
         else:
             logger.debug(f'Db entry for photopolresult already exists for {reducedfits=}, {astrosource=} and {reduction=}, using it instead.')
@@ -292,4 +292,5 @@ class PhotoPolResult(models.Model):
 def reducedfits_on_change(sender, instance, action, **kwargs):
     """ Updates automatically filled fields when -after- reducedfits are altered."""
     if action.startswith('post_'):
-        instance.update_fields()
+        if instance.reducedfits.count() > 0:
+            instance.update_fields()

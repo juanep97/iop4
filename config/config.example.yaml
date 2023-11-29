@@ -11,16 +11,9 @@ db_path: ~/.iop4data/iop4.db # Path to iop4 sqlite database file.
 astrometry_cache_path: ~/.astrometry_cache/ # <tr> Path to store the astromery index files.
 max_concurrent_threads: 4 # <int> Number of threads / processes to use (e.g. 4).
 astrometry_timeout: 20 # <int> Timeout in minutes for astrometry solving.
-
-###################
-### RAY CLUSTER ###
-###################
-
-ray_use_cluster: False # <bool> True/False (use ray for parallelization), let it to false if you have not configured it.
-ray_cluster_address: null # <str> Aaddress for the cluster, needs ssh keys for current user; e.g. 'user@address'.
-ray_cluster_config: null # <str> Path to ray cluster config file, e.g. /path/to/iop4/priv.rayconfig.yaml'.
-ray_db_path: null # <str> Path in ray cluster, e.g. '~/iop4data/iop4.db'.
-ray_datadir: null # <str> Path in ray cluster, e.g. '~/iop4data/'.
+astrometry_allsky_allow: false # <bool> Whether to allow all sky searches in the astrometry.net solver. If there are many all-sky images and max_concurrent_threads is too high, it might cause
+# very high memory consumption.
+astrometry_allsky_septhreshold: 25 # <int> Threshold of detected poinint mismatch to trigger an all-sky search.
 
 ################
 ### GRAPHICS ###

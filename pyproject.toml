@@ -34,8 +34,8 @@ dependencies = [
     "multiprocess==0.70.14",
     "pypandoc",
     "termcolor",
-    "ray[default]>=2.4",
     "pyyaml<5.4",
+    "psutil",
 ]
 
 # need for setuptools_scm, so we derived version from git version control system
