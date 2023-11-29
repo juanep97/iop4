@@ -454,8 +454,10 @@ class DIPOL(Instrument):
                         n_seg_threshold_L = [1.1, 1.0, 0.9]
                         npixels_L = [64, 32]
 
-                    for npixels, n_seg_threshold in itertools.product(npixels_L, n_seg_threshold_L):
-                        if (build_wcs_result := cls._build_wcs_for_polarimetry_images_photo_quads(reducedfit, summary_kwargs=summary_kwargs, n_seg_threshold=n_seg_threshold, npixels=npixels)):
+                    min_quad_distance_L = [4.0, 8.0] 
+
+                    for npixels, n_seg_threshold, min_quad_distance in itertools.product(npixels_L, n_seg_threshold_L, min_quad_distance_L):
+                        if (build_wcs_result := cls._build_wcs_for_polarimetry_images_photo_quads(reducedfit, summary_kwargs=summary_kwargs, n_seg_threshold=n_seg_threshold, npixels=npixels, min_quad_distance=min_quad_distance)):
                             break
                 else:
                     build_wcs_result = BuildWCSResult(success=False)
@@ -544,7 +546,10 @@ class DIPOL(Instrument):
 
 
     @classmethod
-    def _build_wcs_for_polarimetry_images_photo_quads(cls, redf: 'ReducedFit', summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}, n_seg_threshold=1.5, npixels=32):
+    def _build_wcs_for_polarimetry_images_photo_quads(cls, redf: 'ReducedFit', summary_kwargs : dict = None, n_seg_threshold=1.5, npixels=32, min_quad_distance=4.0):
+
+        if summary_kwargs is None:
+            summary_kwargs = {'build_summary_images':True, 'with_simbad':True}
 
         from iop4lib.db import ReducedFit
 
@@ -640,12 +645,12 @@ class DIPOL(Instrument):
 
         # the best 5 that have less than 1px of error per quad (4 points)
  
-        idx_selected = np.where(all_distances < 4.0)[0] 
+        idx_selected = np.where(all_distances < min_quad_distance)[0] 
         indices_selected = all_indices[idx_selected]
         distances_selected = all_distances[idx_selected]
         
         if len(idx_selected) == 0:
-            logger.error(f"No quads with distance < 4.0, minimum at {min(all_distances)=} returning success = False.")
+            logger.error(f"No quads with distance < {min_quad_distance}, minimum at {min(all_distances)=} returning success = False.")
             return BuildWCSResult(success=False, wcslist=None, info={'redf_phot__pk':redf_phot.pk, 'redf_phot__fileloc':redf_phot.fileloc}) 
         else:
             idx_selected = np.argsort(distances_selected)[:5]
@@ -653,7 +658,7 @@ class DIPOL(Instrument):
             distances_selected = all_distances[idx_selected]
 
         # get linear transforms
-        logger.debug(f"Selected {len(indices_selected)} quads with distance < 4.0. I will get the one with less deviation from the median linear transform.")
+        logger.debug(f"Selected {len(indices_selected)} quads with distance < {min_quad_distance}. I will get the one with less deviation from the median linear transform.")
 
         R_L, t_L = zip(*[find_linear_transformation(qorder(quads_1[i]), qorder(quads_2[j])) for i,j in indices_selected])
         logger.debug(f"{t_L=}")
@@ -666,7 +671,7 @@ class DIPOL(Instrument):
         logger.debug(f"Filtered to {len(_indices_selected)} quads with distance < 4.0 and translation < 1020px.")
 
         if len(_indices_selected) == 0:
-            logger.error(f"No quads with distance < 4.0 and translation < 1000px, building summary image of the 3 best quads and returning success = False.")
+            logger.error(f"No quads with distance < {min_quad_distance} and translation < 1000px, building summary image of the 3 best quads and returning success = False.")
 
             colors = [color for color in mplt.rcParams["axes.prop_cycle"].by_key()["color"]]
 
