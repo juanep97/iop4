@@ -210,7 +210,6 @@ def main():
 
     # parallelization options
     parser.add_argument("--nthreads", dest="nthreads", type=int, default=None, help="<Optional> Number of threads to use when possible (default: %(default)s)", required=False)
-    parser.add_argument("--use-ray-cluster", dest="ray_use_cluster", action="store_true", help="<Optional> Use ray for parallelization", required=False)
     
     # epoch processing options
     parser.add_argument('--epoch-list', dest='epochname_list', nargs='+', help='<Optional> List of epochs (e.g: T090/230102 T090/230204)', required=False)
@@ -268,9 +267,6 @@ def main():
 
     if args.nthreads is not None:
         iop4conf.max_concurrent_threads = args.nthreads
-
-    if args.ray_use_cluster:
-        iop4conf.ray_use_cluster = True
 
     # Epochs
     

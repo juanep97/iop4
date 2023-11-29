@@ -27,7 +27,7 @@ from iop4lib.telescopes import Telescope
 from iop4lib.instruments import Instrument
 from .fields import FlagChoices, FlagBitField
 from iop4lib.utils import  get_mem_parent_from_child, get_total_mem_from_child, get_mem_current, get_mem_children
-from iop4lib.utils.parallel import epoch_bulkreduce_multiprocesing, epoch_bulkreduce_ray
+from iop4lib.utils.parallel import epoch_bulkreduce_multiprocesing
 
 # logging
 
@@ -478,9 +478,7 @@ class Epoch(models.Model):
         """
 
         if len(reduced_L) > 0:
-            if iop4conf.ray_use_cluster:
-                epoch_bulkreduce_ray(reduced_L)
-            elif iop4conf.max_concurrent_threads > 1:
+            if iop4conf.max_concurrent_threads > 1:
                 epoch_bulkreduce_multiprocesing(reduced_L, epoch=epoch)
             else:
                 epoch_bulkreduce_onebyone(reduced_L, epoch=epoch)

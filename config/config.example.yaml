@@ -15,16 +15,6 @@ astrometry_allsky_allow: false # <bool> Whether to allow all sky searches in the
 # very high memory consumption.
 astrometry_allsky_septhreshold: 25 # <int> Threshold of detected poinint mismatch to trigger an all-sky search.
 
-###################
-### RAY CLUSTER ###
-###################
-
-ray_use_cluster: False # <bool> True/False (use ray for parallelization), let it to false if you have not configured it.
-ray_cluster_address: null # <str> Aaddress for the cluster, needs ssh keys for current user; e.g. 'user@address'.
-ray_cluster_config: null # <str> Path to ray cluster config file, e.g. /path/to/iop4/priv.rayconfig.yaml'.
-ray_db_path: null # <str> Path in ray cluster, e.g. '~/iop4data/iop4.db'.
-ray_datadir: null # <str> Path in ray cluster, e.g. '~/iop4data/'.
-
 ################
 ### GRAPHICS ###
 ################
