@@ -22,7 +22,6 @@ class AdminReducedFit(AdminFitFile):
     readonly_fields = [field.name for field in ReducedFit._meta.fields]
     search_fields = ['id', 'filename', 'epoch__telescope', 'epoch__night', 'sources_in_field__name']
     ordering = ['-epoch__night', '-epoch__telescope', '-juliandate']
-    list_per_page = 25
     list_filter = (
         RawFitIdFilter,
         RawFitTelescopeFilter,

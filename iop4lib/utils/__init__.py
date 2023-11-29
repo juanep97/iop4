@@ -349,7 +349,12 @@ def get_angle_from_history(redf: 'ReducedFit' = None,
 
     angle_L = list()
     for calibrated_fit in calibrated_fits:
-        w = WCS(calibrated_fit.header, key="A")
+        try:
+            w = WCS(calibrated_fit.header, key="A")
+        except Exception as e: # usually KeyError
+            logger.warning(f"Could not get WCS 'A' from ReducedFit {calibrated_fit.id}: {e}")
+            continue
+            
         
         # Extract the PC matrix elements
         pc_11, pc_12 = w.wcs.pc[0]
@@ -362,6 +367,10 @@ def get_angle_from_history(redf: 'ReducedFit' = None,
                 angle = - angle
 
         angle_L.append(angle)
+
+    if len(angle_L) == 0:
+        logger.error(f"No angle found in history for {redf.instrument} {target_src.name}")
+        return np.nan, np.nan
     
     angle_mean = np.mean(angle_L)
     angle_std = np.std(angle_L)

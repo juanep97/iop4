@@ -153,20 +153,20 @@ def retry_failed_files():
 
 def filter_epochname_by_date(epochname_list, date_start=None, date_end=None):
     if date_start is not None:
-        epochname_list = [epochname for epochname in epochname_list if Epoch.epochname_to_tel_night(epochname)[1] > datetime.date.fromisoformat(date_start)]
+        epochname_list = [epochname for epochname in epochname_list if Epoch.epochname_to_tel_night(epochname)[1] >= datetime.date.fromisoformat(date_start)]
     
     if date_end is not None:
-        epochname_list = [epochname for epochname in epochname_list if Epoch.epochname_to_tel_night(epochname)[1] < datetime.date.fromisoformat(date_end)]
+        epochname_list = [epochname for epochname in epochname_list if Epoch.epochname_to_tel_night(epochname)[1] <= datetime.date.fromisoformat(date_end)]
     
     return epochname_list
 
 def filter_filelocs_by_date(fileloc_list, date_start=None, date_end=None):
 
     if date_start is not None:
-        fileloc_list = [fileloc for fileloc in fileloc_list if RawFit.fileloc_to_tel_night_filename(fileloc)[1] > datetime.date.fromisoformat(date_start)]
+        fileloc_list = [fileloc for fileloc in fileloc_list if RawFit.fileloc_to_tel_night_filename(fileloc)[1] >= datetime.date.fromisoformat(date_start)]
     
     if date_end is not None:
-        fileloc_list = [fileloc for fileloc in fileloc_list if RawFit.fileloc_to_tel_night_filename(fileloc)[1] < datetime.date.fromisoformat(date_end)]
+        fileloc_list = [fileloc for fileloc in fileloc_list if RawFit.fileloc_to_tel_night_filename(fileloc)[1] <= datetime.date.fromisoformat(date_end)]
     
     return fileloc_list
 
@@ -210,7 +210,6 @@ def main():
 
     # parallelization options
     parser.add_argument("--nthreads", dest="nthreads", type=int, default=None, help="<Optional> Number of threads to use when possible (default: %(default)s)", required=False)
-    parser.add_argument("--use-ray-cluster", dest="ray_use_cluster", action="store_true", help="<Optional> Use ray for parallelization", required=False)
     
     # epoch processing options
     parser.add_argument('--epoch-list', dest='epochname_list', nargs='+', help='<Optional> List of epochs (e.g: T090/230102 T090/230204)', required=False)
@@ -268,9 +267,6 @@ def main():
 
     if args.nthreads is not None:
         iop4conf.max_concurrent_threads = args.nthreads
-
-    if args.ray_use_cluster:
-        iop4conf.ray_use_cluster = True
 
     # Epochs
     

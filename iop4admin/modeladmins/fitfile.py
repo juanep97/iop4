@@ -23,6 +23,9 @@ import logging
 logger = logging.getLogger(__name__)
     
 class AdminFitFile(admin.ModelAdmin):
+
+    list_per_page = 25
+    list_max_show_all = 200
     
     @admin.display(description='TELESCOPE', ordering='epoch__telescope')
     def telescope(self, obj):

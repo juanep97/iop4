@@ -26,6 +26,8 @@ class AperPhotResult(models.Model):
     reducedfit = models.ForeignKey("ReducedFit", on_delete=models.CASCADE, related_name='aperphotresults', help_text="The ReducedFit this AperPhotResult has been computed for.")
     astrosource = models.ForeignKey("AstroSource", on_delete=models.CASCADE, related_name='aperphotresults', help_text="The AstroSource this AperPhotResult has been computed for.")
     aperpix = models.FloatField(null=True, blank=True)
+    r_in = models.FloatField(null=True, blank=True)
+    r_out = models.FloatField(null=True, blank=True)
     pairs = models.TextField(null=True, blank=True, choices=PAIRS.choices, help_text="Whether this AperPhotResult is for the Ordinary or Extraordinary pair.")
 
     ## photometry results
@@ -46,7 +48,7 @@ class AperPhotResult(models.Model):
         verbose_name = 'Aperture Photometry Result'
         verbose_name_plural = 'Aperture Photometry Results'
         constraints = [
-            models.UniqueConstraint(fields=['reducedfit', 'astrosource', 'aperpix', 'pairs'], name='unique_aperphotresult')
+            models.UniqueConstraint(fields=['reducedfit', 'astrosource', 'aperpix', 'r_in', 'r_out', 'pairs'], name='unique_aperphotresult')
         ]
 
   # repr and str

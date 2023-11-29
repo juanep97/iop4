@@ -42,16 +42,3 @@ class OSNT150(OSNT090, Telescope, metaclass=ABCMeta):
     ftp_password = iop4conf.osn_t150_password
     ftp_encoding = 'utf-8'
 
-    # telescope specific methods
-
-
-    @classmethod
-    def compute_relative_photometry(cls, rawfit):
-        logger.warning(f"OSNT150.compute_relative_photometry not implemented yet, using OSNT090.compute_relative_photometry {super(cls)=}")
-        super(OSNT150, cls).compute_relative_photometry(rawfit)
-
-    @classmethod
-    def compute_relative_polarimetry(cls, polarimetry_group):
-        logger.warning(f"OSNT150.compute_relative_polarimetry not implemented yet, using OSNT090.compute_relative_polarimetry {super(cls)=}")
-        super(OSNT150, cls).compute_relative_polarimetry(polarimetry_group)
-
