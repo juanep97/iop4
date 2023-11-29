@@ -315,12 +315,12 @@ class DIPOL(Instrument):
         
         Parameters
         ----------
-            allsky: bool, optional
-                If True, the hint will cover the whole sky, and n_field_width and hintsep will be ignored.
-            n_field_width: float, optional
-                The search radius in units of field width. Default is 1.5.
-            hintsep: Quantity, optional
-                The search radius in units of degrees.
+        allsky: bool, optional
+            If True, the hint will cover the whole sky, and n_field_width and hintsep will be ignored.
+        n_field_width: float, optional
+            The search radius in units of field width. Default is 1.5.
+        hintsep: Quantity, optional
+            The search radius in units of degrees.
         """        
 
         hintcoord = cls.get_header_hintcoord(rawfit)
