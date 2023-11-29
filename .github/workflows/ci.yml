@@ -30,6 +30,7 @@ jobs:
 
 
   tests:
+    timeout-minutes: 60
     strategy:
       matrix:
         include:
