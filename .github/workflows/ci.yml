@@ -75,10 +75,15 @@ jobs:
       - name: Install httpdirfs to access astrometry index files without downloading them
         run: sudo apt install httpdirfs
 
+      - name: some debug info
+        runs: |
+          pwd
+          echo $HOME
+
       - uses: actions/cache/restore@v3
         id: cache
         with:
-          path: $HOME/.cache/httpdirfs/
+          path: /home/runner/.cache/httpdirfs/
           key: astrometry_5200_cache
 
       - name: Debug cache
@@ -88,7 +93,7 @@ jobs:
         run: mkdir -p $HOME/.astrometry_cache/5200 && httpdirfs --cache 'https://portal.nersc.gov/project/cosmo/temp/dstn/index-5200/LITE/' $HOME/.astrometry_cache/5200/
 
       - name: Check that it was correctly mounted
-        run: ls $HOME/.astrometry_cache/5200/index-5200-00.fits
+        run: ls /.astrometry_cache/5200/index-5200-00.fits
 
       - name: Download test data
         env:
@@ -102,7 +107,7 @@ jobs:
 
       - uses: actions/cache/save@v3
         with:
-          path: $HOME/.cache/httpdirfs/
+          path: /home/runner/.cache/httpdirfs/
           key: astrometry_5200_cache
 
       - name: Output some info for debugging 
