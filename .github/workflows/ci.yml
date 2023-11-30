@@ -78,7 +78,7 @@ jobs:
       - uses: actions/cache/restore@v3
         id: cache
         with:
-          path: $HOME/.astrometry_cache/5200/
+          path: $HOME/.cache/httpdirfs/
           key: astrometry_5200_cache
 
       - name: Debug cache
@@ -102,7 +102,7 @@ jobs:
 
       - uses: actions/cache/save@v3
         with:
-          path: $HOME/.astrometry_cache/5200/
+          path: $HOME/.cache/httpdirfs/
           key: astrometry_5200_cache
 
       - name: Output some info for debugging 
