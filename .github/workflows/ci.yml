@@ -70,6 +70,15 @@ jobs:
       - name: Install httpdirfs to access astrometry index files without downloading them
         run: sudo apt install httpdirfs
 
+      - uses: actions/cache/restore@v3
+        id: cache
+        with:
+          path: $HOME/.astrometry_cache/5200/
+          key: astrometry_5200_cache
+
+      - name: Debug cache
+        run: ls $HOME/.astrometry_cache/5200/index-5200-00.fits || true
+
       - name: Mount astrometry index file in default location
         run: mkdir -p $HOME/.astrometry_cache/5200 && httpdirfs --cache 'https://portal.nersc.gov/project/cosmo/temp/dstn/index-5200/LITE/' $HOME/.astrometry_cache/5200/
 
@@ -85,6 +94,13 @@ jobs:
       
       - name: Run tests (with -o log_cli=true -o log_cli_level=DEBUG to debug CI actions)
         run: pytest -o log_cli=true -o log_cli_level=DEBUG -vxs tests/
+
+      - uses: actions/cache/save@v3
+        with:
+          path: |
+            path/to/dependencies
+            some/other/dependencies
+          key: ${{ steps.restore-cache.outputs.cache-primary-key }}
 
       - name: Output some info for debugging 
         # | true so erros in this step are ignored
