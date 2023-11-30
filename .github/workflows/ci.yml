@@ -105,7 +105,7 @@ jobs:
           path: |
             path/to/dependencies
             some/other/dependencies
-          key: ${{ steps.restore-cache.outputs.cache-primary-key }}
+          key: astrometry_5200_cache
 
       - name: Output some info for debugging 
         # | true so erros in this step are ignored
