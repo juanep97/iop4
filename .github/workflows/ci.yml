@@ -10,6 +10,10 @@ on:
       - '**'
   pull_request:
 
+concurrency:
+  # cancel previous runs of the same workflow for the same PR when new commits are pushed
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   NUMBA_NUM_THREADS: 1
