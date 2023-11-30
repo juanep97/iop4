@@ -93,7 +93,7 @@ jobs:
         run: mkdir -p $HOME/.astrometry_cache/5200 && httpdirfs --cache 'https://portal.nersc.gov/project/cosmo/temp/dstn/index-5200/LITE/' $HOME/.astrometry_cache/5200/
 
       - name: Check that it was correctly mounted
-        run: ls /.astrometry_cache/5200/index-5200-00.fits
+        run: ls $HOME/.astrometry_cache/5200/index-5200-00.fits
 
       - name: Download test data
         env:
