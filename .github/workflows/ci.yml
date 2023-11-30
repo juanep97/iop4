@@ -76,7 +76,7 @@ jobs:
         run: sudo apt install httpdirfs
 
       - name: some debug info
-        runs: |
+        run: |
           pwd
           echo $HOME
 
