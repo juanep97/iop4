@@ -102,9 +102,7 @@ jobs:
 
       - uses: actions/cache/save@v3
         with:
-          path: |
-            path/to/dependencies
-            some/other/dependencies
+          path: $HOME/.astrometry_cache/5200/
           key: astrometry_5200_cache
 
       - name: Output some info for debugging 
