@@ -620,6 +620,10 @@ class DIPOL(Instrument):
         quads_1 = np.array(list(itertools.combinations(sets_L[0], 4)))
         quads_2 = np.array(list(itertools.combinations(sets_L[1], 4)))
 
+        if len(quads_1) == 0 or len(quads_2) == 0:
+            logger.error(f"No quads found in {redf_pol} and {redf_phot}, returning success = False.")
+            return BuildWCSResult(success=False)
+        
         from iop4lib.utils.quadmatching import hash_ish, distance, order, qorder_ish, find_linear_transformation
         hash_func, qorder = hash_ish, qorder_ish
 
