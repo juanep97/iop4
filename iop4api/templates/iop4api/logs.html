@@ -29,24 +29,29 @@
             <q-card>
                 <q-card-section style="padding: 8px 16px 0 16px;">
                     <div>
-                        <q-chip @update:selected="() => $nextTick(show_pipeline_log)" v-model:selected="pipeline_log_options.errors" color="red" text-color="white" icon="error" :outline="!pipeline_log_options.errors">
+                        <q-chip @update:selected="() => $nextTick(format_pipeline_logs)" v-model:selected="pipeline_log_options.errors" color="red" text-color="white" icon="error" :outline="!pipeline_log_options.errors">
                             errors
                         </q-chip>
-                        <q-chip @update:selected="() => $nextTick(show_pipeline_log)" v-model:selected="pipeline_log_options.warnings" color="orange" text-color="white" icon="warning" :outline="!pipeline_log_options.warnings">
+                        <q-chip @update:selected="() => $nextTick(format_pipeline_logs)" v-model:selected="pipeline_log_options.warnings" color="orange" text-color="white" icon="warning" :outline="!pipeline_log_options.warnings">
                             warning
                         </q-chip>
-                        <q-chip @update:selected="() => $nextTick(show_pipeline_log)" v-model:selected="pipeline_log_options.info" color="darkgray" text-color="black" icon="info" :outline="!pipeline_log_options.info">
+                        <q-chip @update:selected="() => $nextTick(format_pipeline_logs)" v-model:selected="pipeline_log_options.info" color="darkgray" text-color="black" icon="info" :outline="!pipeline_log_options.info">
                             info
                         </q-chip>
-                        <q-chip @update:selected="() => $nextTick(show_pipeline_log)" v-model:selected="pipeline_log_options.debug" color="green" text-color="white" icon="code" :outline="!pipeline_log_options.debug">
+                        <q-chip @update:selected="() => $nextTick(format_pipeline_logs)" v-model:selected="pipeline_log_options.debug" color="green" text-color="white" icon="code" :outline="!pipeline_log_options.debug">
                             debug
                         </q-chip>
-                        <!-- <input type="text" v-model="pipeline_log_options.filter_text" placeholder="filter text" class="q-chip row inline no-wrap items-center text-black q-chip--colored q-chip--outline" style="outline: none;"> -->
-                        <input type="text" @change="show_pipeline_log()" v-model="pipeline_log_options.filter_text" placeholder="filter text (+ Enter)" class="q-chip row inline no-wrap items-center text-black q-chip--colored q-chip--outline" style="outline: none;">
+                        <input type="text" @change="format_pipeline_logs();" v-model="pipeline_log_options.filter_text" placeholder="filter text (+ Enter)" class="q-chip row inline no-wrap items-center text-black q-chip--colored q-chip--outline" style="outline: none;">
+                        <q-spinner
+                            v-show="pipeline_log.filter_in_progress"
+                            color="primary"
+                            size="1em"
+                            :thickness="10"
+                        ></q-spinner>
                     </div>
                     <div id="pipeline-logs-tab-content">
                         <div id="log-file-content">
-                            <q-virtual-scroll :items="pipeline_log.items" style="height: 100%;" virtual-scroll-item-size="14" separator v-slot="{ item, index }">
+                            <q-virtual-scroll :items="pipeline_log.items_filtered" style="height: 100%;" virtual-scroll-item-size="14" separator v-slot="{ item, index }">
                                 <q-item :key="index" dense class="pipeline-log-entry">
                                     <q-item-section  class="pipeline-log-entry">
                                         <q-item-label class="pipeline-log-entry">
