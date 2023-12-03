@@ -734,15 +734,21 @@ function highlightTextInHTML(html, re_expr) {
 
 async function load_pipeline_log() {
 
+    this.pipeline_log_options.filter_text = ''; // clear the filter text (it would not make sense to push to the filtered array below otherwise)
 
-    this.filter_text = ''; // clear the filter text (it would not make sense to push to the filtered array below otherwise)
+    console.log(`Loading pipeline log for ${this.log_file}`);
 
-    console.log("Loading pipeline log...");
-
+    const log_file = this.log_file;
     const decoder = new TextDecoder('utf-8');
-    const response = await fetch('/iop4/api/log/');
+    const response = await fetch(`/iop4/api/log/?log_file=${log_file}`);
+
     let data = ''
     for await (const chunk of response.body) {
+        if (log_file !== this.log_file) {
+            console.log("Pipeline log loading cancelled due to new input");
+            return; // Exit the loop early
+        }
+
         data += decoder.decode(chunk);
         new_items = data.split('\n').slice(vueApp.$data.pipeline_log.items.length,-1);
         vueApp.$data.pipeline_log.items.push(...new_items);

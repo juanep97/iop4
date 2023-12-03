@@ -127,7 +127,7 @@ class Config(dict):
         # Allow paths relative to home directory
 
         for k, v in self.items():
-            if (k in ['basedir', 'datadir', 'log_fname'] or 'path' in k) and v is not None: # config variables that are should have ~ expanded
+            if (k in ['basedir', 'datadir', 'log_file'] or 'path' in k) and v is not None: # config variables should have ~ expanded
                 setattr(self, k, str(pathlib.Path(v).expanduser()))
 
         # If data dir does not exist, create it

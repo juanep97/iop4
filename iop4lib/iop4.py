@@ -1,6 +1,18 @@
 #!/usr/bin/env python
 """ iop4.py
     Invoke the IOP4 pipeline.
+
+You can specify how to select epochs using the --epoch-list, --discover-missing and --list-local options.
+You can check whether to keep selected epochs that are already in DB using the --no-check-db option, otherwise
+they will be removed from the list of epochs to process. The --date-start and --date-end options allow to filter
+the selected epochs by date. 
+
+Equivalent options exist for files.
+
+Use -o option=value to override config options, e.g., to set the log level to DEBUG and use 6 parallel processes, 
+you would invoke iop4 as `iop4 -o log_level=DEBUG -o n_processes=6 [other options]`.
+
+Contact: Juan Escudero Pedrosa (jescudero@iaa.es).
 """
 
 # iop4lib config
@@ -21,6 +33,7 @@ import itertools
 from astropy.time import Time
 import datetime
 import time
+from pathlib import Path
 
 # iop4lib imports
 from iop4lib.db import *
@@ -192,24 +205,37 @@ def group_filelocs_by_telescope(filelocs):
     return filelocs_by_telescope
 
 
-def main():
+def parse_config_overrides(overrides):
 
+    config = dict()
+
+    for override in overrides:
+        key, value = override.split('=')
+        config[key] = value
+
+    # correct the type of the config options
+    for k, v in config.items():
+        # interpret the log_level option
+        if k == "log_level":
+            v = config[k] = getattr(logging, v.upper())
+        # check the type of the config option, if it is an int, convert it
+        if k in iop4conf and isinstance(iop4conf[k], int):
+            config[k] = int(v)
+            
+    return config
+
+def main():
     # Parse args:
 
     parser = argparse.ArgumentParser(
-                    prog='iop4',
-                    description='Photometry and polarimetry of optical data from CAHA and OSN.',
-                    epilog='Contact Juan Escudero Pedrosa (jescudero@iaa.es).',
+                    prog="iop4",
+                    description="The Interactive Optical Photo-Polarimetric Python Pipeline",
+                    epilog = __doc__,
+                    formatter_class=argparse.RawDescriptionHelpFormatter,
                     allow_abbrev=False)
     
     parser.add_argument('-i', "--interactive", dest="interactive", action="store_true", help="<Optional> Jump to an IPython shell after finishing execution", required=False)
-
-    # logging options
-    parser.add_argument('--log-level', type=str, dest='log_level', choices=['debug', 'info', 'error', 'warning', 'critical'], default=None, help='Logging level to use (default: %(default)s)')   
-    parser.add_argument('-m', '--mail-to', dest='mail_to', default=list(), nargs='+', help='<Optional> List of email addresses to send the log to', required=False)
-
-    # parallelization options
-    parser.add_argument("--nthreads", dest="nthreads", type=int, default=None, help="<Optional> Number of threads to use when possible (default: %(default)s)", required=False)
+    parser.add_argument('-o', action='append', dest='config_overrides', help="Override a config option (e.g., -o option=value)")
     
     # epoch processing options
     parser.add_argument('--epoch-list', dest='epochname_list', nargs='+', help='<Optional> List of epochs (e.g: T090/230102 T090/230204)', required=False)
@@ -233,8 +259,8 @@ def main():
     parser.add_argument('--reclassify-rawfits', dest="reclassify_rawfits", action="store_true", help="<Optional> Re-classify rawfits", required=False)
 
     # range
-    parser.add_argument('--date_start', '-s', dest='date_start', type=str, default=None, help='<Optional> Start date (YYYY-MM-DD)', required=False)
-    parser.add_argument('--date_end', '-e', dest='date_end', type=str, default=None, help='<Optional> End date (YYYY-MM-DD)', required=False)
+    parser.add_argument('--date-start', '-s', dest='date_start', type=str, default=None, help='<Optional> Start date (YYYY-MM-DD)', required=False)
+    parser.add_argument('--date-end', '-e', dest='date_end', type=str, default=None, help='<Optional> End date (YYYY-MM-DD)', required=False)
 
     args = parser.parse_args()
 
@@ -244,16 +270,27 @@ def main():
 
     # Configuration:
 
-    ## logging
+    if args.config_overrides:
+        # get the config options as a dict
+        opts = parse_config_overrides(args.config_overrides)
+        # update the config
+        iop4conf.update(opts)
+
+    ## configure logging
+
+    # check if log_file is a path or just the file name, if it is a path, use it, if not, use datadir/logs/log_file
+
+    if os.path.dirname(iop4conf.log_file) == '':
+        iop4conf.log_file = (Path(iop4conf.datadir) / "logs" / iop4conf.log_file)
+
+    if iop4conf.log_file == "$date":
+        iop4conf.log_file = str(Path(iop4conf.datadir) / "logs" / datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log")
 
     ROOT_LOGGER = logging.getLogger()
     
-    if args.log_level is not None:
-        iop4conf.log_level = args.log_level.upper()
-    
     ROOT_LOGGER.setLevel(iop4conf.log_level)
 
-    logger_h1 = logging.FileHandler(iop4conf.log_fname, mode="w")
+    logger_h1 = logging.FileHandler(iop4conf.log_file, mode="w")
     logger_h1.setFormatter(coloredlogs.ColoredFormatter(iop4conf.log_format, datefmt=iop4conf.log_date_format))
 
     logger_h2 = logging.StreamHandler(sys.stdout)
@@ -262,11 +299,6 @@ def main():
     ROOT_LOGGER.handlers.clear()
     ROOT_LOGGER.addHandler(logger_h1)
     ROOT_LOGGER.addHandler(logger_h2)
-
-    ## read cli config options
-
-    if args.nthreads is not None:
-        iop4conf.max_concurrent_threads = args.nthreads
 
     # Epochs
     

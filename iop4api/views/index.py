@@ -15,6 +15,7 @@ from iop4lib.enums import SRCTYPES
 import json
 import os
 import subprocess
+from pathlib import Path
 
 #logging
 import logging
@@ -52,5 +53,8 @@ def index(request, tabs=None):
     context['git_commit_hash'] = GIT_COMMIT_HASH
     context['git_branch'] = GIT_BRANCH
     context['git_describe'] = GIT_DESCRIBE
+
+    # add the available log files
+    context['log_files'] = json.dumps([os.path.basename(f) for f in os.listdir(Path(iop4conf.datadir) / "logs") if f.endswith(".log")])
 
     return render(request, 'iop4api/index.html', context)

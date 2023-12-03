@@ -28,7 +28,12 @@
         >
             <q-card>
                 <q-card-section style="padding: 8px 16px 0 16px;">
-                    <div>
+                    <div class="row items-center q-gutter-sm">
+                        <q-select
+                            v-model="log_file"
+                            :options="log_files"
+                            dense
+                        ></q-select>
                         <q-chip @update:selected="() => $nextTick(format_pipeline_logs)" v-model:selected="pipeline_log_options.errors" color="red" text-color="white" icon="error" :outline="!pipeline_log_options.errors">
                             errors
                         </q-chip>

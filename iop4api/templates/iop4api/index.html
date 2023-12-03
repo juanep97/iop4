@@ -96,7 +96,7 @@
     <script src="https://cdn.jsdelivr.net/npm/quasar@2.12.5/dist/quasar.umd.prod.js"></script>
     
     <script>
-
+        const log_files = JSON.parse('{{ log_files | escapejs }}');
         const tab_tree = JSON.parse('{{ tab_tree | escapejs }}');
         const { ref } = Vue
         
@@ -133,7 +133,13 @@
                     input_astrosource: '',
                     // logs
                     pipeline_log: {'isLoaded': false, 'items': null, 'items_filtered': null, 'filter_in_progress': false},
-                    pipeline_log_options: {'errors':true, 'warnings':true, 'info':true, 'debug':false, 'filter_text': null},
+                    pipeline_log_options: {'errors':true, 
+                                           'warnings':true, 
+                                           'info':true, 
+                                           'debug':false, 
+                                           'filter_text': null,},
+                    log_file: 'iop4.log',
+                    log_files: log_files,
                 }
             },
             computed: {
@@ -252,7 +258,7 @@
                             if (this.pipeline_log.items == null && newVal === 'logs') {
                                 this.pipeline_log.items = [];
                                 this.pipeline_log.items_filtered = [];
-                                load_pipeline_log();
+                                load_pipeline_log.bind(this)();
                             }
                         }
                     },
@@ -265,6 +271,14 @@
                         format_pipeline_logs();
                     },
                     deep: true
+                },
+                log_file: {
+                    handler(newValue, oldValue) {
+                        console.log('log_file changed to ' + newValue);
+                        this.pipeline_log.items = [];
+                        this.pipeline_log.items_filtered = [];
+                        load_pipeline_log.bind(this)();
+                    },
                 },
                 // data table filters
                 DataTableFilters: {
