@@ -239,28 +239,28 @@ def main():
     
     # epoch processing options
     parser.add_argument('--epoch-list', dest='epochname_list', nargs='+', help='<Optional> List of epochs (e.g: T090/230102 T090/230204)', required=False)
-    parser.add_argument('--discover-missing', dest='discover_missing', action='store_true', help='<Optional> Discover new epochs to process them', required=False)
-    parser.add_argument('--list-local', dest='list_local', action='store_true', help='<Optional> Discover local epochs to process them', required=False)
-    parser.add_argument('--list-only', dest='list_only', action='store_true', help='<Optional> If given, the built list of epochs will be printed but not processed', required=False)
+    parser.add_argument('--discover-missing', action='store_true', help='<Optional> Discover new epochs to process them', required=False)
+    parser.add_argument('--list-local', action='store_true', help='<Optional> Discover local epochs to process them', required=False)
+    parser.add_argument('--list-only', action='store_true', help='<Optional> If given, the built list of epochs will be printed but not processed', required=False)
     parser.add_argument('--no-check-db', dest='keep_epochs_in_db', action='store_true', help='<Optional> Process discovered epochs even if they existed in archive', required=False)
 
     ## file processing  options
     parser.add_argument('--file-list', dest='fileloc_list', nargs='+', help='<Optional> List of files (e.g: tel/yyyy-mm-dd/name))', required=False)
-    parser.add_argument('--discover-missing-files', dest='discover_missing_files', action='store_true', help='<Optional> Discover files in remote archives that are not present in archive', required=False)
-    parser.add_argument('--list-local-files',  dest='list_local_files', action='store_true', help='<Optional> Discover local files to process them', required=False)
-    parser.add_argument('--list-files-only', dest='list_files_only', action='store_true', help='<Optional> If given, the built list of filelocs will be printed but not processed', required=False)
+    parser.add_argument('--discover-missing-files', action='store_true', help='<Optional> Discover files in remote archives that are not present in archive', required=False)
+    parser.add_argument('--list-local-files', action='store_true', help='<Optional> Discover local files to process them', required=False)
+    parser.add_argument('--list-files-only', action='store_true', help='<Optional> If given, the built list of filelocs will be printed but not processed', required=False)
     parser.add_argument('--no-check-db-files',  dest='keep_files_in_db', action='store_true', help='<Optional> Process discovered files even if they existed in archive', required=False)
     
 
     # other options
-    parser.add_argument('--skip-remote-file-list', dest='skip_remote_file_list', action='store_true', help='<Optional> Skip remote file list check', required=False)
-    parser.add_argument("--force-rebuild", dest="force_rebuild", action="store_true", help="<Optional> Force re-building of files (pass force_rebuild=True)", required=False)
-    parser.add_argument('--retry-failed', dest='retry_failed', action='store_true', help='<Optional> Retry failed reduced fits', required=False)
+    parser.add_argument('--skip-remote-file-list', action='store_true', help='<Optional> Skip remote file list check', required=False)
+    parser.add_argument("--force-rebuild", action="store_true", help="<Optional> Force re-building of files (pass force_rebuild=True)", required=False)
+    parser.add_argument('--retry-failed', action='store_true', help='<Optional> Retry failed reduced fits', required=False)
     parser.add_argument('--reclassify-rawfits', dest="reclassify_rawfits", action="store_true", help="<Optional> Re-classify rawfits", required=False)
 
     # range
-    parser.add_argument('--date-start', '-s', dest='date_start', type=str, default=None, help='<Optional> Start date (YYYY-MM-DD)', required=False)
-    parser.add_argument('--date-end', '-e', dest='date_end', type=str, default=None, help='<Optional> End date (YYYY-MM-DD)', required=False)
+    parser.add_argument('--date-start', '-s', type=str, default=None, help='<Optional> Start date (YYYY-MM-DD)', required=False)
+    parser.add_argument('--date-end', '-e', type=str, default=None, help='<Optional> End date (YYYY-MM-DD)', required=False)
 
     args = parser.parse_args()
 
@@ -281,10 +281,10 @@ def main():
     # check if log_file is a path or just the file name, if it is a path, use it, if not, use datadir/logs/log_file
 
     if os.path.dirname(iop4conf.log_file) == '':
-        iop4conf.log_file = str(Path(iop4conf.datadir) / "logs" / iop4conf.log_file)
+        iop4conf.log_file = str(Path(iop4conf.datadir).expanduser() / "logs" / iop4conf.log_file)
 
     if iop4conf.log_file == "$date":
-        iop4conf.log_file = str(Path(iop4conf.datadir) / "logs" / datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log")
+        iop4conf.log_file = str(Path(iop4conf.datadir).expanduser() / "logs" / datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log")
 
     ROOT_LOGGER = logging.getLogger()
     
