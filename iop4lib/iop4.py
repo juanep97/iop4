@@ -361,12 +361,10 @@ def main():
             for telname, filelocs in group_filelocs_by_telescope(filelocs_missing).items():
                 Telescope.by_name(telname).download_rawfits(filelocs)
 
-            for fileloc in filelocs_missing:
-                rawfit = RawFit.create(fileloc=fileloc)
-
         if len(filelocs_to_process) > 0:
             logger.info("Processing files.")
-            pass
+            for fileloc in filelocs_to_process:
+                rawfit = RawFit.create(fileloc=fileloc)
 
     else:
         logger.info("Invoked with --list-files-only")
