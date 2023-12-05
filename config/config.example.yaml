@@ -9,9 +9,9 @@ datadir: ~/.iop4data/ # <str> Path to iop4data data folder.
 set_rawdata_readonly: False # <bool> True / False (sets raw fits file to readonly when downloading them or creating a RawFit object).
 db_path: ~/.iop4data/iop4.db # Path to iop4 sqlite database file.
 astrometry_cache_path: ~/.astrometry_cache/ # <tr> Path to store the astromery index files.
-nprocs: 4 # <int> Number of threads / processes to use (e.g. 4).
+nthreads: 4 # <int> Number of threads / processes to use (e.g. 4).
 astrometry_timeout: 20 # <int> Timeout in minutes for astrometry solving.
-astrometry_allsky_allow: false # <bool> Whether to allow all sky searches in the astrometry.net solver. If there are many all-sky images and nprocs is too high, it might cause
+astrometry_allsky_allow: false # <bool> Whether to allow all sky searches in the astrometry.net solver. If there are many all-sky images and nthreads is too high, it might cause
 # very high memory consumption.
 astrometry_allsky_septhreshold: 25 # <int> Threshold of detected poinint mismatch to trigger an all-sky search.
 

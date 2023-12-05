@@ -281,7 +281,7 @@ def main():
     # check if log_file is a path or just the file name, if it is a path, use it, if not, use datadir/logs/log_file
 
     if os.path.dirname(iop4conf.log_file) == '':
-        iop4conf.log_file = (Path(iop4conf.datadir) / "logs" / iop4conf.log_file)
+        iop4conf.log_file = str(Path(iop4conf.datadir) / "logs" / iop4conf.log_file)
 
     if iop4conf.log_file == "$date":
         iop4conf.log_file = str(Path(iop4conf.datadir) / "logs" / datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log")

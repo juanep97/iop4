@@ -42,7 +42,7 @@ def test_build_single_proc(load_test_catalog):
         epoch.build_master_biases()
         epoch.build_master_flats()
 
-    iop4conf.nprocs = 1
+    iop4conf.nthreads = 1
 
     rawfits = RawFit.objects.filter(epoch__in=epoch_L, imgtype=IMGTYPES.LIGHT).all()
     
@@ -76,7 +76,7 @@ def test_build_multi_proc_photopol(load_test_catalog):
         epoch.build_master_biases()
         epoch.build_master_flats()
 
-    iop4conf.nprocs = 4
+    iop4conf.nthreads = 4
 
     rawfits = RawFit.objects.filter(epoch__in=epoch_L, imgtype=IMGTYPES.LIGHT).all()
     

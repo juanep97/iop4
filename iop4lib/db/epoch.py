@@ -418,7 +418,7 @@ class Epoch(models.Model):
         the BUILT_REDUCED flag) will be reduced, else all rawfits of this epoch of type LIGHT be 
         reduced.
 
-        If iop4conf.nprocs > 1, the reduction will be done in parallel processes.
+        If iop4conf.nthreads > 1, the reduction will be done in parallel processes.
         """
 
         Epoch.reduce_rawfits(self.rawfits.filter(imgtype=IMGTYPES.LIGHT), force_rebuild=force_rebuild, epoch=self)
@@ -434,7 +434,7 @@ class Epoch(models.Model):
         If force_rebuild is False, only rawfits that have not been reduced yet (that do not have 
         the BUILT_REDUCED flag) will be reduced, else all rawfits in the list will be reduced.
 
-        If iop4conf.nprocs > 1, the reduction will be done in parallel processes.
+        If iop4conf.nthreads > 1, the reduction will be done in parallel processes.
 
         Parameters
         ----------
@@ -462,7 +462,7 @@ class Epoch(models.Model):
     def reduce_reducedfits(reduced_L, epoch=None):
         """ Bulk reduces a list of ReducedFit in a multiprocessing pool. 
         
-        If iop4conf.nprocs > 1, the reduction will be done in parallel processes.
+        If iop4conf.nthreads > 1, the reduction will be done in parallel processes.
 
         Parameters
         ----------
@@ -478,7 +478,7 @@ class Epoch(models.Model):
         """
 
         if len(reduced_L) > 0:
-            if iop4conf.nprocs > 1:
+            if iop4conf.nthreads > 1:
                 epoch_bulkreduce_multiprocesing(reduced_L, epoch=epoch)
             else:
                 epoch_bulkreduce_onebyone(reduced_L, epoch=epoch)
@@ -624,7 +624,7 @@ class Epoch(models.Model):
 
         f = lambda x: Instrument.by_name(x[1]['instrument']).compute_relative_polarimetry(x[0])
 
-        if iop4conf.nprocs > 1:
+        if iop4conf.nthreads > 1:
             # parallel
             from iop4lib.utils.parallel import parallel_relative_polarimetry
             parallel_relative_polarimetry(groupkeys_L, clusters_L)

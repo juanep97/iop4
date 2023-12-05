@@ -403,7 +403,7 @@ def _save_astrocalib_proc_vars(locals_dict):
 #"""
 # The wrapper uses the `multiprocess` package instead of `multiprocessing` because the latter does 
 # not allow for daemon processes to have children, and solve_astrometry is invoked from a Pool of 
-# processes when iop4conf.nprocs > 1, and Pool's processes are daemons. Another 
+# processes when iop4conf.nthreads > 1, and Pool's processes are daemons. Another 
 # alternative would have been to start the concurrent threads using Process instead of Pool 
 # with daemon=False. 
 #
