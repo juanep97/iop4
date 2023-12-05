@@ -13,7 +13,6 @@ from django.contrib.admin.views.decorators import staff_member_required
 import coloredlogs
 import coloredlogs.converter
 from pathlib import Path
-import os
 
 #logging
 import logging
