@@ -278,14 +278,6 @@ def main():
 
     ## configure logging
 
-    # check if log_file is a path or just the file name, if it is a path, use it, if not, use datadir/logs/log_file
-
-    if os.path.dirname(iop4conf.log_file) == '':
-        iop4conf.log_file = str(Path(iop4conf.datadir).expanduser() / "logs" / iop4conf.log_file)
-
-    if iop4conf.log_file == "$date":
-        iop4conf.log_file = str(Path(iop4conf.datadir).expanduser() / "logs" / datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".log")
-
     ROOT_LOGGER = logging.getLogger()
     
     ROOT_LOGGER.setLevel(iop4conf.log_level)
