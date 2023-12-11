@@ -22,6 +22,15 @@ from iop4lib.enums import *
 import logging
 logger = logging.getLogger(__name__)
     
+
+@admin.action(description="Ignore these files in subsequent runs")
+def action_mark_ignore(modeladmin, request, queryset):
+    for obj in queryset:
+        logger.debug(f"Marking {obj} as IGNORE")
+        obj.set_flag(modeladmin.model.FLAGS.IGNORE)
+        obj.save()
+
+
 class AdminFitFile(admin.ModelAdmin):
 
     list_per_page = 25

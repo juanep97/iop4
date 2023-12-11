@@ -5,7 +5,7 @@ from django.urls import reverse
 from django.utils.safestring import mark_safe
 from iop4api.filters import *
 from iop4api.models import *
-from .fitfile import AdminFitFile
+from .fitfile import AdminFitFile, action_mark_ignore
 
 import logging
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ class AdminMasterBias(AdminFitFile):
 
     model = MasterBias
 
-    list_display = ['id', 'telescope', 'night', 'instrument', 'imgsize', 'get_built_from', 'options']
+    list_display = ['id', 'telescope', 'night', 'instrument', 'imgsize', 'get_built_from', 'options', 'status']
 
     list_filter = (
             RawFitIdFilter,
@@ -25,6 +25,7 @@ class AdminMasterBias(AdminFitFile):
             "imgsize",
     )
     
+    actions = [action_mark_ignore]
     
     @admin.display(description='Options')
     def options(self, obj):

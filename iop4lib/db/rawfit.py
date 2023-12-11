@@ -44,6 +44,7 @@ class RawFit(FitFileModel):
         CLASSIFIED = 1 << 5
         ERROR_ASTROMETRY = 1 << 6
         BUILT_REDUCED = 1 << 7
+        IGNORE = 1 << 8
         
     flags = FlagBitField(choices=FLAGS.choices(), default=0)
 

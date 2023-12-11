@@ -6,7 +6,7 @@ from django.utils.safestring import mark_safe
 
 from iop4api.filters import *
 from iop4api.models import *
-from .fitfile import AdminFitFile
+from .fitfile import AdminFitFile, action_mark_ignore
 
 import logging
 logger = logging.getLogger(__name__)
@@ -15,7 +15,7 @@ class AdminMasterDark(AdminFitFile):
     
     model = MasterDark
 
-    list_display = ['id', 'telescope', 'night', 'instrument', 'imgsize', 'exptime', 'get_masterbias', 'get_built_from', 'options']
+    list_display = ['id', 'telescope', 'night', 'instrument', 'imgsize', 'exptime', 'get_masterbias', 'get_built_from', 'options', 'status']
     
     list_filter = (
             RawFitIdFilter,
@@ -25,6 +25,8 @@ class AdminMasterDark(AdminFitFile):
             RawFitFlagFilter,
             "imgsize",
     )
+
+    actions = [action_mark_ignore]
 
     @admin.display(description='Options')
     def options(self, obj):
