@@ -6,7 +6,7 @@ from django.utils.safestring import mark_safe
 
 from iop4api.filters import *
 from iop4api.models import *
-from .fitfile import AdminFitFile, action_mark_ignore
+from .fitfile import AdminFitFile, action_mark_ignore, action_unmark_ignore
 
 import logging
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ class AdminMasterFlat(AdminFitFile):
             "imgsize",
     )
 
-    actions = [action_mark_ignore]
+    actions = [action_mark_ignore, action_unmark_ignore]
     
     @admin.display(description='Options')
     def options(self, obj):

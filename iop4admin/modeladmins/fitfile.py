@@ -26,10 +26,16 @@ logger = logging.getLogger(__name__)
 @admin.action(description="Ignore these files in subsequent runs")
 def action_mark_ignore(modeladmin, request, queryset):
     for obj in queryset:
-        logger.debug(f"Marking {obj} as IGNORE")
+        logger.debug(f"Setting IGNORE flag on {obj}")
         obj.set_flag(modeladmin.model.FLAGS.IGNORE)
         obj.save()
 
+@admin.action(description="Do NOT ignore these files in subsequent runs")
+def action_unmark_ignore(modeladmin, request, queryset):
+    for obj in queryset:
+        logger.debug(f"Removing IGNORE flag on {obj}")
+        obj.unset_flag(modeladmin.model.FLAGS.IGNORE)
+        obj.save()
 
 class AdminFitFile(admin.ModelAdmin):
 
