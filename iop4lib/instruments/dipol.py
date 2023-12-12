@@ -349,10 +349,12 @@ class DIPOL(Instrument):
     @classmethod
     def _estimate_positions_from_segments(cls, redf=None, data=None, fwhm=None, npixels=64, n_seg_threshold=3.0, centered=True):
 
-        if redf is not None and redf.header_hintobject.srctype == SRCTYPES.STAR and redf.exptime <= 5:
-            fwhm = 80.0
-        else:
-            fwhm = 1.0
+        if fwhm is None:
+            if redf is not None and redf.header_hintobject.srctype == SRCTYPES.STAR and redf.exptime <= 5:
+                # the star might be too bright, we need to smooth the image not to get too fake sources
+                fwhm = 80.0
+            else:
+                fwhm = 1.0
 
         # get the sources positions
 
@@ -486,13 +488,19 @@ class DIPOL(Instrument):
             if target_src.srctype == SRCTYPES.STAR:
                 method_try_order = [_try_EO_method, _try_quad_method, _try_catalog_method]
             elif target_src.srctype == SRCTYPES.BLAZAR:
-                ## reduce flase positives by forcing to use quad method if it must work
-                if redf_phot is not None and n_estimate > 5:
-                    method_try_order = [_try_quad_method]
-                elif redf_phot is not None and n_estimate >= 4:
-                    method_try_order = [_try_quad_method, _try_catalog_method, _try_EO_method]
-                else:
+                # special cases
+                if target_src.name == "1101+384":
+                    # diffraction spike from a nearby bright star creates lines of detected fake sources which trigger the quad method
+                    # with too many fake sources, giving a bad calibration
                     method_try_order = [_try_catalog_method, _try_quad_method, _try_EO_method]
+                else:
+                    # reduce flase positives by forcing to use quad method if it must work
+                    if redf_phot is not None and n_estimate > 5:
+                        method_try_order = [_try_quad_method]
+                    elif redf_phot is not None and n_estimate >= 4:
+                        method_try_order = [_try_quad_method, _try_catalog_method, _try_EO_method]
+                    else:
+                        method_try_order = [_try_catalog_method, _try_quad_method, _try_EO_method]
 
             for m in method_try_order:
                 logger.debug(f"Trying {m.__name__} for {reducedfit}.")
@@ -800,7 +808,7 @@ class DIPOL(Instrument):
 
 
     @classmethod
-    def _build_wcs_for_polarimetry_images_catalog_matching(cls, redf: 'ReducedFit', summary_kwargs : dict = None, n_seg_threshold=1.5, npixels=64):
+    def _build_wcs_for_polarimetry_images_catalog_matching(cls, redf: 'ReducedFit', summary_kwargs : dict = None, n_seg_threshold=1.5, npixels=64, fwhm=None):
         r""" Deprecated. Build WCS for DIPOL polarimetry images by matching the found sources positions with the catalog.
 
         .. warning::
@@ -832,8 +840,8 @@ class DIPOL(Instrument):
         data = redf.mdata
         cx, cy = redf.width//2, redf.height//2
 
-        positions = cls._estimate_positions_from_segments(redf=redf, n_seg_threshold=n_seg_threshold, npixels=npixels, centered=True)
-        positions_non_centered = cls._estimate_positions_from_segments(redf=redf, n_seg_threshold=n_seg_threshold, npixels=npixels, centered=False)
+        positions = cls._estimate_positions_from_segments(redf=redf, n_seg_threshold=n_seg_threshold, npixels=npixels, fwhm=fwhm, centered=True)
+        positions_non_centered = cls._estimate_positions_from_segments(redf=redf, n_seg_threshold=n_seg_threshold, npixels=npixels, fwhm=fwhm, centered=False)
 
         if len(positions) == 0:
             logger.error(f"{redf}: Found no sources in the field, cannot build WCS.")
@@ -1070,7 +1078,7 @@ class DIPOL(Instrument):
 
 
     @classmethod
-    def _build_wcs_for_polarimetry_from_target_O_and_E(cls, redf: 'ReducedFit', summary_kwargs : dict = None, n_seg_threshold=3.0, npixels=64) -> BuildWCSResult:
+    def _build_wcs_for_polarimetry_from_target_O_and_E(cls, redf: 'ReducedFit', summary_kwargs : dict = None, n_seg_threshold=3.0, npixels=64, fwhm=None) -> BuildWCSResult:
         r""" Deprecated. Build WCS for DIPOL polarimetry images by matching the found sources positions with the catalog.
 
         .. warning::
@@ -1107,7 +1115,7 @@ class DIPOL(Instrument):
         # get the sources positions
 
         cx, cy = redf.width//2, redf.height//2
-        positions = cls._estimate_positions_from_segments(redf=redf, n_seg_threshold=n_seg_threshold, npixels=npixels, centered=True)
+        positions = cls._estimate_positions_from_segments(redf=redf, n_seg_threshold=n_seg_threshold, npixels=npixels, fwhm=fwhm, centered=True)
 
         if len(positions) == 0:
             logger.error(f"{redf}: Found no sources in the field, cannot build WCS.")
