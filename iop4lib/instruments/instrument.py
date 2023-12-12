@@ -280,12 +280,12 @@ class Instrument(metaclass=ABCMeta):
         args.pop("exptime", None) # exptime might be a building keywords (for flats and darks), but masters with different exptime can be applied
         args["epoch"] = rawfit.epoch # from .values() we only get epoch__id 
 
-        master = model.objects.filter(**args).first()
+        master = model.objects.filter(**args, flags__hasnot=model.FLAGS.IGNORE).first()
         
         if master is None and other_epochs == True:
             args.pop("epoch")
 
-            master_other_epochs = np.array(model.objects.filter(**args).all())
+            master_other_epochs = np.array(model.objects.filter(**args, flags__hasnot=model.FLAGS.IGNORE).all())
 
             if len(master_other_epochs) == 0:
                 logger.debug(f"No {model._meta.verbose_name} for {args} in DB, None will be returned.")
