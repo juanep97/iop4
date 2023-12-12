@@ -176,12 +176,12 @@ class DIPOL(Instrument):
 
         args["imgsize"] = "4144x2822" # search for full field calibration frames
 
-        master = model.objects.filter(**args).first()
+        master = model.objects.filter(**args, flags__hasnot=model.FLAGS.IGNORE).first()
         
         if master is None and other_epochs == True:
             args.pop("epoch")
 
-            master_other_epochs = np.array(model.objects.filter(**args).all())
+            master_other_epochs = np.array(model.objects.filter(**args, flags__hasnot=model.FLAGS.IGNORE).all())
 
             if len(master_other_epochs) == 0:
                 logger.debug(f"No {model._meta.verbose_name} for {args} in DB, None will be returned.")
