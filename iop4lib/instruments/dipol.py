@@ -176,12 +176,12 @@ class DIPOL(Instrument):
 
         args["imgsize"] = "4144x2822" # search for full field calibration frames
 
-        master = model.objects.filter(**args).first()
+        master = model.objects.filter(**args, flags__hasnot=model.FLAGS.IGNORE).first()
         
         if master is None and other_epochs == True:
             args.pop("epoch")
 
-            master_other_epochs = np.array(model.objects.filter(**args).all())
+            master_other_epochs = np.array(model.objects.filter(**args, flags__hasnot=model.FLAGS.IGNORE).all())
 
             if len(master_other_epochs) == 0:
                 logger.debug(f"No {model._meta.verbose_name} for {args} in DB, None will be returned.")
@@ -620,6 +620,10 @@ class DIPOL(Instrument):
         quads_1 = np.array(list(itertools.combinations(sets_L[0], 4)))
         quads_2 = np.array(list(itertools.combinations(sets_L[1], 4)))
 
+        if len(quads_1) == 0 or len(quads_2) == 0:
+            logger.error(f"No quads found in {redf_pol} and {redf_phot}, returning success = False.")
+            return BuildWCSResult(success=False)
+        
         from iop4lib.utils.quadmatching import hash_ish, distance, order, qorder_ish, find_linear_transformation
         hash_func, qorder = hash_ish, qorder_ish
 

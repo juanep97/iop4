@@ -10,6 +10,7 @@ import astropy.io.fits as fits
 
 from .fitfilemodel import FitFileModel
 from ..enums import *
+from .fields import FlagChoices, FlagBitField
 
 import logging
 logger = logging.getLogger(__name__)
@@ -25,6 +26,13 @@ class MasterFlat(FitFileModel):
     
     # Database fields
     rawfits = models.ManyToManyField('RawFit', related_name='built_masterflats')
+
+    # flags
+
+    class FLAGS(FlagChoices):
+        IGNORE = 1 << 1
+        
+    flags = FlagBitField(choices=FLAGS.choices(), default=0)
 
     # fields corresponding to MasterFlat kw arguments (margs_kwL)
 

@@ -96,7 +96,7 @@
     <script src="https://cdn.jsdelivr.net/npm/quasar@2.12.5/dist/quasar.umd.prod.js"></script>
     
     <script>
-
+        const log_files = JSON.parse('{{ log_files | escapejs }}');
         const tab_tree = JSON.parse('{{ tab_tree | escapejs }}');
         const { ref } = Vue
         
@@ -132,8 +132,14 @@
                     // query
                     input_astrosource: '',
                     // logs
-                    pipeline_log: {'isLoaded': false, 'data': null, items:[]},
-                    pipeline_log_options: {'errors':true, 'warnings':true, 'info':true, 'debug':false, 'filter_text': null},
+                    pipeline_log: {'isLoaded': false, 'items': null, 'items_filtered': null, 'filter_in_progress': false},
+                    pipeline_log_options: {'errors':true, 
+                                           'warnings':true, 
+                                           'info':true, 
+                                           'debug':false, 
+                                           'filter_text': null,},
+                    log_file: 'iop4.log',
+                    log_files: log_files,
                 }
             },
             computed: {
@@ -249,8 +255,10 @@
                             if (this.catalog == null && newVal === 'catalog') {
                                 load_catalog();
                             }
-                            if (this.pipeline_log.data == null && newVal === 'logs') {
-                                load_pipeline_log();
+                            if (this.pipeline_log.items == null && newVal === 'logs') {
+                                this.pipeline_log.items = [];
+                                this.pipeline_log.items_filtered = [];
+                                load_pipeline_log.bind(this)();
                             }
                         }
                     },
@@ -260,17 +268,17 @@
                 // log viewer gui
                 pipeline_log_options: {
                     handler(newValue, oldValue) {
-                        if (this.pipeline_log.isLoaded) {
-                            // filter on input with:
-                            //show_pipeline_log();
-                            // but this can be slow if the log is large and there's only 1 or 2 chars written
-                            // better filter on enter (implemented on the @change)
-                            // but if filter options are changed, we should trigger filter (done in @update:selected on the q-chips)
-                            // if the update is done here, remove those @events
-                        }
-                        this.pipeline_log_options.filter_timeout = null;
+                        format_pipeline_logs();
                     },
                     deep: true
+                },
+                log_file: {
+                    handler(newValue, oldValue) {
+                        console.log('log_file changed to ' + newValue);
+                        this.pipeline_log.items = [];
+                        this.pipeline_log.items_filtered = [];
+                        load_pipeline_log.bind(this)();
+                    },
                 },
                 // data table filters
                 DataTableFilters: {
@@ -382,7 +390,9 @@
                 toggle_flag,
                 set_flag,
                 // logs,
-                show_pipeline_log,
+                load_pipeline_log,
+                is_log_visible,
+                format_pipeline_logs,
                 // to format floats to give precision or return nan
                 formatFloat(value, precision) {
                     if (value === null || isNaN(Number(value))) {
@@ -400,8 +410,6 @@
                 });
             }
         }).use(Quasar).mount('#app')
-
-        //Quasar.iconSet.set(Quasar.iconSet.materialIconsOutlined);
 
     </script>
 

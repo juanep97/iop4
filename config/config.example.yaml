@@ -9,9 +9,9 @@ datadir: ~/.iop4data/ # <str> Path to iop4data data folder.
 set_rawdata_readonly: False # <bool> True / False (sets raw fits file to readonly when downloading them or creating a RawFit object).
 db_path: ~/.iop4data/iop4.db # Path to iop4 sqlite database file.
 astrometry_cache_path: ~/.astrometry_cache/ # <tr> Path to store the astromery index files.
-max_concurrent_threads: 4 # <int> Number of threads / processes to use (e.g. 4).
+nthreads: 4 # <int> Number of threads / processes to use (e.g. 4).
 astrometry_timeout: 20 # <int> Timeout in minutes for astrometry solving.
-astrometry_allsky_allow: false # <bool> Whether to allow all sky searches in the astrometry.net solver. If there are many all-sky images and max_concurrent_threads is too high, it might cause
+astrometry_allsky_allow: false # <bool> Whether to allow all sky searches in the astrometry.net solver. If there are many all-sky images and nthreads is too high, it might cause
 # very high memory consumption.
 astrometry_allsky_septhreshold: 25 # <int> Threshold of detected poinint mismatch to trigger an all-sky search.
 
@@ -25,7 +25,7 @@ mplt_default_dpi: 100 # <int> dpi for matplotlib (e.g. 100)
 ### LOGGING ###
 ###############
 
-log_fname: ~/.iop4data/iop4.log # </path/to/iop4.log>
+log_file: ~/.iop4data/logs/iop4.log # <str> Path to log file.
 log_date_format: '%Y-%m-%d %H:%M:%S' # <log date format>
 log_format: '%(asctime)s - %(name)s [%(filename)s:%(lineno)d] - %(levelname)s - %(message)s' # <log format> You can also add '%(process)d (%(proc_memory)s)' to the format to show pid and memory usage per process.
 log_level: 20 # <int>. Possible values are: 10 (DEBUG), 20 (INFO), 30 (WARNING), 40 (ERROR), 50 (CRITICAL).

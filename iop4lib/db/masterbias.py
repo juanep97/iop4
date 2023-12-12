@@ -11,6 +11,7 @@ import datetime
 
 from ..enums import *
 from .fitfilemodel import FitFileModel
+from .fields import FlagChoices, FlagBitField
 
 import logging
 logger = logging.getLogger(__name__)
@@ -24,6 +25,13 @@ class MasterBias(FitFileModel):
 
     # Database fields
     rawfits = models.ManyToManyField('RawFit', related_name='built_masterbias')
+
+    # flags
+
+    class FLAGS(FlagChoices):
+        IGNORE = 1 << 1
+        
+    flags = FlagBitField(choices=FLAGS.choices(), default=0)
 
     # fields corresponding to MasterBias kw arguments (margs_kwL)
     
