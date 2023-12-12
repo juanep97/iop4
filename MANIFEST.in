@@ -1,0 +1,3 @@
+prune iop4lib/_dev_version
+prune .github
+prune .gitignore
