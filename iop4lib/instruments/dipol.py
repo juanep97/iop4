@@ -494,7 +494,7 @@ class DIPOL(Instrument):
                     # with too many fake sources, giving a bad calibration
                     method_try_order = [_try_catalog_method, _try_quad_method, _try_EO_method]
                 else:
-                    # reduce flase positives by forcing to use quad method if it must work
+                    # reduce false positives by forcing to use quad method if it must work
                     if redf_phot is not None and n_estimate > 5:
                         method_try_order = [_try_quad_method]
                     elif redf_phot is not None and n_estimate >= 4:
