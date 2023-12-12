@@ -61,7 +61,6 @@ class SRCTYPES(models.TextChoices):
     BLAZAR = 'blazar', "Blazar"
     STAR = 'star', "Star"
     CALIBRATOR = 'calibrator', "Calibrator"
-    UNPOLARIZED_FIELD_STAR = 'unpolarized_field_star', "Unpolarized field star"
 
 class REDUCTIONMETHODS(models.TextChoices):
     """
