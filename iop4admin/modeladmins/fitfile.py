@@ -9,6 +9,7 @@ from django.utils.html import format_html
 from django.urls import path, reverse 
 from django.http import HttpResponse, HttpResponseNotFound, FileResponse
 from django.apps import apps
+from django.utils.safestring import mark_safe
 
 # iop4lib imports
 from iop4api.filters import *
@@ -57,6 +58,15 @@ class AdminFitFile(admin.ModelAdmin):
     @admin.display(description='STATUS')
     def status(self, obj):
         return ", ".join(obj.flag_labels)
+    
+    @admin.display(description="Built from")
+    def get_built_from(self, obj):
+        self.allow_tags = True
+        
+        ids_str_L = [str(rf.id) for rf in obj.rawfits.all()]
+        a_href = reverse('iop4admin:%s_%s_changelist' % (RawFit._meta.app_label, RawFit._meta.model_name)) + "?id__in=%s" % ",".join(ids_str_L)
+        a_text = ", ".join(ids_str_L)
+        return mark_safe(f'<a href="{a_href}">{a_text}</a>')
     
     def get_urls(self):
         urls = super().get_urls()
