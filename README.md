@@ -86,7 +86,7 @@ An utility script, `iop4site/resetdb.py`, is provided which will completely rese
 ### As A Program
 The pipeline script `iop4` can be invoked as
 ```bash
-    $ iop4 -l tel1/yymmdd tel2/yymmdd
+    $ iop4 --epoch-list tel1/yymmdd tel2/yymmdd
 ```
 to download and reduce the epoch `yymmdd` from telescopes `tel1` and `tel2` respectively. For example: `iop4 -l T090/230430`.
 
@@ -131,9 +131,9 @@ iop4conf = iop4lib.Config(config_db=True, gonogui=False, jupytermode=True)
 ```
 
 ### Tips
-You can get an IPython interactive terminal after running iop4 using the `-i` option as
+You can get an IPython interactive terminal after running iop4 using the `-i` option. You can override any config option using the `-o` option, e.g.:
 ```bash
-    $ iop4 -i -l T090/230313 T090/230317 T090/230319
+    $ iop4 -i -o nthreads=20 -o log_file=test.log --epoch-list T090/230313 T090/230317
 ```
 
 ## Documentation
