@@ -809,11 +809,9 @@ class DIPOL(Instrument):
 
     @classmethod
     def _build_wcs_for_polarimetry_images_catalog_matching(cls, redf: 'ReducedFit', summary_kwargs : dict = None, n_seg_threshold=1.5, npixels=64, fwhm=None):
-        r""" Deprecated. Build WCS for DIPOL polarimetry images by matching the found sources positions with the catalog.
+        r""" Build WCS for DIPOL polarimetry images by matching the found sources positions with the catalog.
 
         .. warning::
-            This method is deprecated and will be removed in the future. It is kept here for reference. Do not use, unless you know what you are doing.
-
             When there are some DB sources in the field it probably works, but when there are not, it might give a result that is centered on the wrong source!
         
             It is safer to use the method _build_wcs_for_polarimetry_images_photo_quads, which uses the photometry field and quad matching to build the WCS.
