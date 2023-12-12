@@ -33,38 +33,38 @@ class AstroSource(models.Model):
 
     # Identification
 
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255, unique=True, help_text="Name of the source (must be unique)")
 
     # common to all sources
 
-    other_name = models.CharField(max_length=255, null=True, blank=True)
-    ra_hms = models.CharField(max_length=255)
-    dec_dms = models.CharField(max_length=255)
-    srctype = models.CharField(max_length=255, choices=SRCTYPES.choices)  
-    comment = models.TextField(null=True, blank=True)
+    other_name = models.CharField(max_length=255, null=True, blank=True, help_text="Alternative name for the source (it might be needed to correctly identify the target source of observations if observers used a different name)")
+    ra_hms = models.CharField(max_length=255, help_text="Right ascension in hh:mm:ss format")
+    dec_dms = models.CharField(max_length=255, help_text="Declination in dd:mm:ss format")
+    srctype = models.CharField(max_length=255, choices=SRCTYPES.choices, help_text="Source type")  
+    comment = models.TextField(null=True, blank=True, help_text="Any comment about the source (in Markdown format)")
 
     # Blazar fields
 
-    redshift = models.FloatField(null=True, blank=True)
+    redshift = models.FloatField(null=True, blank=True, help_text="Redshift of the source")
     
     # Calibration stars fields
 
-    calibrates = models.ManyToManyField('AstroSource', related_name="calibrators", blank=True)
+    calibrates = models.ManyToManyField('AstroSource', related_name="calibrators", blank=True, help_text="sources that it calibrates (for calibrators only)")
 
-    mag_R = models.FloatField(blank=True, null=True)
-    mag_R_err = models.FloatField(blank=True, null=True)
+    mag_R = models.FloatField(blank=True, null=True, help_text="Literature magnitude in R band (for calibrators only)")
+    mag_R_err = models.FloatField(blank=True, null=True, help_text="Literature magnitude error in R band (for calibrators only)")
 
-    mag_B = models.FloatField(blank=True, null=True)
-    mag_B_err = models.FloatField(blank=True, null=True)
+    mag_B = models.FloatField(blank=True, null=True, help_text="Literature magnitude in B band (for calibrators only)")
+    mag_B_err = models.FloatField(blank=True, null=True, help_text="Literature magnitude error in B band (for calibrators only)")
 
-    mag_V = models.FloatField(blank=True, null=True)
-    mag_V_err = models.FloatField(blank=True, null=True)
+    mag_V = models.FloatField(blank=True, null=True, help_text="Literature magnitude in V band (for calibrators only)")
+    mag_V_err = models.FloatField(blank=True, null=True, help_text="Literature magnitude error in V band (for calibrators only)")
 
-    mag_I = models.FloatField(blank=True, null=True)
-    mag_I_err = models.FloatField(blank=True, null=True)
+    mag_I = models.FloatField(blank=True, null=True, help_text="Literature magnitude in I band (for calibrators only)")
+    mag_I_err = models.FloatField(blank=True, null=True, help_text="Literature magnitude error in I band (for calibrators only)")
 
-    mag_U = models.FloatField(blank=True, null=True)
-    mag_U_err = models.FloatField(blank=True, null=True)
+    mag_U = models.FloatField(blank=True, null=True, help_text="Literature magnitude in U band (for calibrators only)")
+    mag_U_err = models.FloatField(blank=True, null=True, help_text="Literature magnitude error in U band (for calibrators only)")
 
 
     # Natural key
@@ -72,6 +72,7 @@ class AstroSource(models.Model):
 
     # custom manager allows us to use natural keys when loading fixtures
     objects = AstroSourceManager()
+    
     # this method allows us to dump using natural keys
     def natural_key(self):
             return (self.name,)
