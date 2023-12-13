@@ -7,6 +7,10 @@ import matplotlib, matplotlib.pyplot
 
 matplotlib.pyplot.set_loglevel('warning')
 
+# logging
+import logging
+logger = logging.getLogger(__name__)
+
 # Set journal_mode=WAL and synchronous=NORMAL for sqlite3 databases on 
 # connection, to improve support for concurrent write access to the 
 # database during parallel reduction
@@ -204,7 +208,7 @@ class Config(dict):
         logging.setLogRecordFactory(record_factory_w_proc_memory)
 
 
-    def check_config(self):
+    def is_valid(self):
         r""" Checks that the configuration file is correct by comparing it with the default one.
         
         Returns
@@ -224,8 +228,7 @@ class Config(dict):
 
         for k, v in config_dict_example.items():
             if k not in config_dict:
-                # print because logging might not be configured yet
-                print(f"ERROR: {k} missing in config file.")
+                logger.error(f"ERROR: {k} missing in config file.")
                 wrong = True
 
         return not wrong
