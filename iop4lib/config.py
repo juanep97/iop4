@@ -202,3 +202,30 @@ class Config(dict):
             return
         
         logging.setLogRecordFactory(record_factory_w_proc_memory)
+
+
+    def check_config(self):
+        r""" Checks that the configuration file is correct by comparing it with the default one.
+        
+        Returns
+        -------
+        bool
+            True if the configuration file is correct, False otherwise.
+
+        """
+
+        with open(self.config_path, 'r') as f:
+            config_dict = yaml.safe_load(f)
+
+        with open(pathlib.Path(self.basedir) / "config" / "config.example.yaml", 'r') as f:
+            config_dict_example = yaml.safe_load(f)
+
+        wrong = False
+
+        for k, v in config_dict_example.items():
+            if k not in config_dict:
+                # print because logging might not be configured yet
+                print(f"ERROR: {k} missing in config file.")
+                wrong = True
+
+        return not wrong
