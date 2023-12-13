@@ -30,11 +30,8 @@ def plot(request):
 
     source_name = request.POST.get("source_name", None)
     band = request.POST.get("band", "R")
-    fmt = request.POST.get("fmt", "items") 
-    date_start = request.POST.get("date_start", None)
-    date_start = None if date_start == "" else date_start
-    date_end = request.POST.get("date_end", None)
-    date_end = None if date_end == "" else date_end
+    date_start = request.POST.get("date_start", None) or None # it might be an empty string, this converts it to None
+    date_end = request.POST.get("date_end", None) or None
 
     enable_crosscheckpts = request.POST.get("enable_crosscheckpts", False)
     enable_full_lc = request.POST.get("enable_full_lc", False)
@@ -48,7 +45,7 @@ def plot(request):
     
     target_src = AstroSource.objects.get(name=source_name)
 
-    logger.debug(f"Serving results for {target_src}")
+    logger.debug(f"Serving results for {target_src} band {band} from {date_start} to {date_end}")
 
     # build plot
 
@@ -673,44 +670,11 @@ def plot(request):
     doc.add_root(data_table)
     doc.add_root(legend_layout)
     
-    if fmt == "components":
-        # these can be loaded independently in the template and will be connected, but no control on the load process
-        script, (div_plot, div_table, div_legend) = components([plot_layout, data_table, legend_layout], wrap_script=False)
-        return JsonResponse({
-                                'plot': {
-                                        'script': script,
-                                        'div_plot': div_plot,
-                                        'div_table': div_table,
-                                        'div_legend': div_legend,
-                                    }, 
-                                'n_points':len(x1),
-                                'enable_full_lc': enable_full_lc,
-                                'enable_crosscheckpts': enable_crosscheckpts,
-                                'enable_errorbars': enable_errorbars,
-                            })
-    
-    elif fmt == "json_item":
-        # this will make them indepenedent, so table wont be connected to plot
-        return JsonResponse({'plot':json_item(plot_layout), 
-                             'legend':json_item(legend_layout),
-                             'table':json_item(data_table),
-                             'n_points':len(x1),
-                             'enable_full_lc': enable_full_lc,
-                             'enable_crosscheckpts': enable_crosscheckpts,
-                             'enable_errorbars': enable_errorbars})
-    
-    elif fmt == "items":
-        # to implement my own load process
-        from bokeh.embed.util import standalone_docs_json_and_render_items
-        doc, render_items = standalone_docs_json_and_render_items([plot_layout, data_table, legend_layout])
-        return JsonResponse({'doc':doc,
-                            'render_items':[item.to_json() for item in render_items],
-                            'n_points':len(x1),
-                            'enable_full_lc': enable_full_lc,
-                            'enable_crosscheckpts': enable_crosscheckpts,
-                            'enable_errorbars': enable_errorbars})
-    
-    else:
-
-        return HttpResponseBadRequest("Invalid format parameter")
-
+    from bokeh.embed.util import standalone_docs_json_and_render_items
+    doc, render_items = standalone_docs_json_and_render_items([plot_layout, data_table, legend_layout])
+    return JsonResponse({'doc':doc,
+                        'render_items':[item.to_json() for item in render_items],
+                        'n_points':len(x1),
+                        'enable_full_lc': enable_full_lc,
+                        'enable_crosscheckpts': enable_crosscheckpts,
+                        'enable_errorbars': enable_errorbars})
