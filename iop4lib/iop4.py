@@ -235,7 +235,7 @@ def main():
                     allow_abbrev=False)
     
     parser.add_argument('-i', "--interactive", dest="interactive", action="store_true", help="<Optional> Jump to an IPython shell after finishing execution")
-    parser.add_argument('--no-check-config', action="store_true", help="<Optional> Check the configuration file")
+    parser.add_argument('--check-config', action="store_true", help="<Optional> Check the configuration file")
     parser.add_argument('-o', action='append', dest='config_overrides', help="Override a config option (e.g., -o option=value)")
     
     # epoch processing options
@@ -271,12 +271,11 @@ def main():
 
     # Configuration:
 
-    if not args.no_check_config:
-        if not iop4conf.is_valid():
-            print("check_config: there are some missing keys in the config file. All keys in the example config file must be present. Add them to your config file (you can set them to null) and try again.")
-            sys.exit(-1)
-        else:
-            print("check_config: config file is OK.")
+    if not iop4conf.is_valid():
+        print("check_config: there are some missing keys in the config file. All keys in the example config file must be present. Add them to your config file (you can set them to null) and try again. Aborting.")
+        sys.exit(-1)
+    elif args.check_config:
+        print("check_config: config file is OK.")
 
     if args.config_overrides:
         # get the config options as a dict
