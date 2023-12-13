@@ -15,7 +15,9 @@
                         <div class="form-row wrappable">
                             <input v-model="input_date_start" type="text" name="date_start" placeholder="From..." title="Select a start date (yyyy-mm-dd HH:MM)">
                             <input v-model="input_date_end" type="text" name="date_end" placeholder="To..." title="Select an end date (yyyy-mm-dd HH:MM)">
-
+                        </div>
+                        <div class="form-row wrappable">
+                            <q-select label="band" v-model="plot_config_band" name="band" :options="plot_config_band_options" required></q-select>
                             <label><q-toggle v-model="plot_config_fast" color="blue"></q-toggle><span>fast</span></label>
                             <input type="checkbox" style="display:none" name="plot_config_fast" v-model="plot_config_fast" hidden />
                         </div>
