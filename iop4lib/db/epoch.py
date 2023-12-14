@@ -591,7 +591,7 @@ class Epoch(models.Model):
             split_groups_keys = [x[1] for x in sorted(zip(t1_L, split_groups_keys))]
             split_groups = [x[1] for x in sorted(zip(t1_L, split_groups))]
         except Exception as e:
-            import IPython
+            import IPython, sys
             _ns = dict(globals())
             _ns.update(locals())
             IPython.embed(header="Start IOP4ing!", module=sys.modules['__main__'], user_ns=_ns)
