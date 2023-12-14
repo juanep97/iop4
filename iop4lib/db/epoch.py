@@ -584,8 +584,17 @@ class Epoch(models.Model):
          
         t1_L = [min([redf.juliandate for redf in redf_L]) for redf_L in split_groups]
 
-        split_groups_keys = [x[1] for x in sorted(zip(t1_L, split_groups_keys), key=lambda x: x[0])]
-        split_groups = [x[1] for x in sorted(zip(t1_L, split_groups), key=lambda x: x[0])]
+        # split_groups_keys = [x[1] for x in sorted(zip(t1_L, split_groups_keys), key=lambda x: x[0])]
+        # split_groups = [x[1] for x in sorted(zip(t1_L, split_groups), key=lambda x: x[0])]
+
+        try:
+            split_groups_keys = [x[1] for x in sorted(zip(t1_L, split_groups_keys))]
+            split_groups = [x[1] for x in sorted(zip(t1_L, split_groups))]
+        except Exception as e:
+            import IPython
+            _ns = dict(globals())
+            _ns.update(locals())
+            IPython.embed(header="Start IOP4ing!", module=sys.modules['__main__'], user_ns=_ns)
 
         # some debug info about the final sorted groups:
 
