@@ -492,7 +492,7 @@ class DIPOL(Instrument):
                 if target_src.name == "1101+384":
                     # diffraction spike from a nearby bright star creates lines of detected fake sources which trigger the quad method
                     # with too many fake sources, giving a bad calibration
-                    method_try_order = [_try_catalog_method, _try_quad_method, _try_EO_method]
+                    method_try_order = [_try_catalog_method, _try_EO_method, _try_quad_method]
                 else:
                     # reduce false positives by forcing to use quad method if it must work
                     if redf_phot is not None and n_estimate > 5:
