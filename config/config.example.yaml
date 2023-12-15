@@ -66,3 +66,11 @@ osn_source_list_path: null # <path/to/osn/source/list>
 osn_fnames_patterns: 
 - (^Flat.*\.fi?ts?$)
 - (^Bias.*\.fi?ts?$)
+
+
+#################
+### IOP4ADMIN ###
+#################
+
+iop4admin:
+  force_rebuild_finding_charts: true # <bool> Whether to force rebuild finding charts.

@@ -618,8 +618,8 @@ def plot_finding_chart(target_src, fig=None, ax=None):
 
     # limits (center around target source)
 
-    ax.set_xlim([target_src.coord.ra.deg - radius.to_value("deg")/2, target_src.coord.ra.deg + radius.to_value("deg")/2])
-    ax.set_ylim([target_src.coord.dec.deg - radius.to_value("deg")/2, target_src.coord.dec.deg + radius.to_value("deg")/2])
+    ax.set_xlim([target_src.coord.ra.deg - radius.to_value("deg"), target_src.coord.ra.deg + radius.to_value("deg")])
+    ax.set_ylim([target_src.coord.dec.deg - radius.to_value("deg"), target_src.coord.dec.deg + radius.to_value("deg")])
 
     # labels
 
@@ -642,7 +642,7 @@ def plot_finding_chart(target_src, fig=None, ax=None):
     ax_x2 = ax.twiny()
     ax_x2_ticks = ax.get_xticks()
     ax_x2.set_xticks(ax_x2_ticks)
-    ax_x2.set_xticklabels([Angle(x, unit="deg").to_string(unit="hourangle", sep="hms") for x in ax_x2_ticks])
+    ax_x2.set_xticklabels([Angle(x, unit="deg").to_string(unit="hourangle", sep="hms") for x in ax_x2_ticks], fontsize=8)
     ax_x2.set_xlabel("RA [hms]")
     ax_x2.set_xlim(lims_ra)
 
@@ -650,6 +650,6 @@ def plot_finding_chart(target_src, fig=None, ax=None):
     ax_y2 = ax.twinx()
     ax_y2_ticks = ax.get_yticks()
     ax_y2.set_yticks(ax_y2_ticks)
-    ax_y2.set_yticklabels([Angle(x, unit="deg").to_string(unit="deg", sep="dms") for x in ax_y2_ticks])
+    ax_y2.set_yticklabels([Angle(x, unit="deg").to_string(unit="deg", sep="dms") for x in ax_y2_ticks], fontsize=8)
     ax_y2.set_ylabel("DEC [dms]")
     ax_y2.set_ylim(lims_dec)
