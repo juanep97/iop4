@@ -536,9 +536,16 @@ class Epoch(models.Model):
         from .reducedfit import ReducedFit
 
         if redf_qs is None:
-            redf_qs = ReducedFit.objects.filter(epoch=self, obsmode=OBSMODES.POLARIMETRY, flags__has=ReducedFit.FLAGS.BUILT_REDUCED).order_by('juliandate').all()
+            redf_qs = ReducedFit.objects.filter(epoch=self, obsmode=OBSMODES.POLARIMETRY, flags__has=ReducedFit.FLAGS.BUILT_REDUCED).order_by('juliandate', 'filename').all()
         else:
-            redf_qs = redf_qs.filter(epoch=self, obsmode=OBSMODES.POLARIMETRY, flags__has=ReducedFit.FLAGS.BUILT_REDUCED).order_by('juliandate').all()
+            redf_qs = redf_qs.filter(epoch=self, obsmode=OBSMODES.POLARIMETRY, flags__has=ReducedFit.FLAGS.BUILT_REDUCED).order_by('juliandate', 'filename').all()
+
+        # it should not be necessary to sort by filename, but there have been some ERRORS 
+        # where a few files had the same juliandate. This tries to work around that. 
+        # With it, if two files have the same juliandate, the one with the lower filename will 
+        # be first (e.g. Mrk421_0001R.fit will be before Mrk421_0002R.fit)
+        # Keep an eye on it. It should not happen, and it will affect the time of the results.
+        # TODO: check why this happened and maybe remove the 'filename' in order_by if it is not necessary anymore.
 
         # Create a groups with the same keys (object, band, exptime)
 
@@ -584,12 +591,17 @@ class Epoch(models.Model):
          
         t1_L = [min([redf.juliandate for redf in redf_L]) for redf_L in split_groups]
 
-        split_groups_keys = [x[1] for x in sorted(zip(t1_L, split_groups_keys))]
-        split_groups = [x[1] for x in sorted(zip(t1_L, split_groups))]
+        split_groups_keys = [x[1] for x in sorted(zip(t1_L, split_groups_keys), key=lambda x: x[0])]
+        split_groups = [x[1] for x in sorted(zip(t1_L, split_groups), key=lambda x: x[0])]
 
-        # some debug info about the final sorted groups:
+        # some warning/debug info about the final sorted groups:
 
-        if iop4conf.log_level == logging.DEBUG:
+        # all groups should have different min(juliandate), otherwise there is a problem with the data
+        if len(t1_L) != len(set(t1_L)):
+            logger.warning(f"{self}: error grouping observations for polarimetry: some groups have the same min(juliandate).")
+
+        if iop4conf.log_level == logging.DEBUG: 
+            # so we dont lose time if not in debug mode
             for key_D, redf_L in zip(split_groups_keys, split_groups):
                 
                 t1 = Time(min([redf.juliandate for redf in redf_L]), format="jd").datetime.strftime("%H:%M:%S")
