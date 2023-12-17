@@ -1,0 +1,123 @@
+# This file defines a decision tree to choose the best methods to try to calibrate DIPOL images.
+
+# The tree is defined as a recursive list of brnaches. 
+# The tree is traversed from top to bottom, following only the first rule sub-branche found
+# to satisfy all the conditions in the branch.
+# When an attempts branch is found, all the methods in the branch are tried in order
+# until one succeeds or all fail.
+
+# The attempts branch is a list of either attempts defs or method defs, and they can define 
+# also conditions to be satisfied before the attempt is tried.
+
+
+attempt_defs:
+
+  # STARS
+
+  star_lowexp_target_O_and_E:
+    method: '_build_wcs_for_polarimetry_from_target_O_and_E'
+    args: 
+      n_seg_threshold:  [300, 200, 100, 50, 25, 12, 6]
+      npixels:  [128, 256, 64]
+
+  star_photo_quads:
+    method: '_build_wcs_for_polarimetry_images_photo_quads'
+    conds:
+      redf_phot__ne: null
+    args: 
+      n_seg_threshold:  [300, 200, 100, 50, 25, 12, 6]
+      npixels:  [128, 64]
+      min_quad_distance: [4.0, 8.0]
+
+  star_catalog_matching:
+    method: '_build_wcs_for_polarimetry_images_catalog_matching'
+    args:
+      n_seg_threshold: [300, 200, 200, 100, 50, 25, 12, 6]
+      npixels: [128, 64]
+
+  star_highexp_target_O_and_E_high_exptime:
+    method: '_build_wcs_for_polarimetry_from_target_O_and_E'
+    args: 
+      n_seg_threshold:  [300, 200, 100, 50, 25, 12, 6]
+      npixels:  [64, 128]
+
+  # BLAZARS
+
+  blazar_target_O_and_E:
+    method: '_build_wcs_for_polarimetry_from_target_O_and_E'
+    args: 
+      n_seg_threshold:   [6.0, 3.0, 1.5, 1.0, 0.9, 0.8, 0.7, 0.6]
+      npixels:  [64]
+
+  blazar_photo_quads:
+    method: '_build_wcs_for_polarimetry_images_photo_quads'
+    conds:
+      redf_phot__ne: null
+    args: 
+      n_seg_threshold:  [1.1, 1.0, 0.9]
+      npixels:  [64, 32]
+      min_quad_distance: [4.0, 8.0]
+
+  blazar_catalog_matching:
+    method: '_build_wcs_for_polarimetry_images_catalog_matching'
+    args:
+      n_seg_threshold:  [1.1, 1.0, 0.9, 0.8, 0.7, 0.6]
+      npixels: [64, 32]
+
+
+
+# Decision tree as a recusive list of rules.
+
+rules:
+  - conds:
+      srctype: 'star'
+    
+    rules:
+      - conds:
+          exptime__lte: 5.0
+        attempts:
+          - 'star_lowexp_target_O_and_E'
+          - 'star_photo_quads'
+          - 'star_catalog_matching'
+
+      - conds: []
+        attempts:
+          - 'star_highexp_target_O_and_E'
+          - 'star_photo_quads'
+          - 'star_catalog_matching'
+  
+  - conds:
+      srcname: '1101+384'
+    attempts:
+      - method: '_build_wcs_for_polarimetry_from_target_O_and_E'
+        args: 
+          n_seg_threshold:   [6.0, 3.0, 1.5, 1.3, 1.2, 1.1, 1.0, 0.9]
+          npixels:  [64, 32]
+          centering: [0.666, 0.75]
+
+  - conds:
+      srcname: '1641+399'
+    attempts:
+      - 'blazar_target_O_and_E'
+
+  - conds:
+      srctype: 'blazar'
+    
+    rules:
+      - conds:
+          n_estimate__gt: 5
+        attempts:
+          - 'blazar_photo_quads'
+
+      - conds:
+          n_estimate__gte: 4
+        attempts:
+          - 'blazar_photo_quads'
+          - 'blazar_catalog_matching'
+          - 'blazar_target_O_and_E'
+
+      - conds: []
+        attempts:
+          - 'blazar_catalog_matching'
+          - 'blazar_photo_quads'
+          - 'blazar_target_O_and_E'
