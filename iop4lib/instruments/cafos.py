@@ -20,6 +20,10 @@ from iop4lib.telescopes import CAHAT220
 import logging
 logger = logging.getLogger(__name__)
 
+import typing
+if typing.TYPE_CHECKING:
+    from iop4lib.db import RawFit, ReducedFit, Epoch
+
 class CAFOS(Instrument):
         
     name = "CAFOS2.2"
@@ -32,6 +36,13 @@ class CAFOS(Instrument):
     field_height_arcmin = 34.0
 
     required_masters = ['masterbias', 'masterflat']
+
+    # pre computed pairs distances to use in the astrometric calibrations
+    # obtained from calibrated fields
+    
+    disp_sign_mean, disp_sign_std = np.array([-35.72492116, -0.19719535]), np.array([1.34389, 1.01621491])
+    disp_mean, disp_std = np.abs(disp_sign_mean), disp_sign_std
+
 
     @classmethod
     def classify_juliandate_rawfit(cls, rawfit):
@@ -395,3 +406,27 @@ class CAFOS(Instrument):
         # 5. Save results
         for result in photopolresult_L:
             result.save()
+
+
+
+    @classmethod
+    def _build_shotgun_params(cls, redf: 'ReducedFit'):
+        shotgun_params_kwargs = dict()
+
+        shotgun_params_kwargs["d_eps"] = [5*np.linalg.norm(cls.disp_std)]
+        shotgun_params_kwargs["dx_eps"] = [5*cls.disp_std[0]]
+        shotgun_params_kwargs["dy_eps"] = [5*cls.disp_std[1]]
+        shotgun_params_kwargs["dx_min"] = [(cls.disp_mean[0] - 5*cls.disp_std[0])]
+        shotgun_params_kwargs["dx_max"] = [(cls.disp_mean[0] + 5*cls.disp_std[0])]
+        shotgun_params_kwargs["dy_min"] = [(cls.disp_mean[1] - 5*cls.disp_std[1])]
+        shotgun_params_kwargs["dy_max"] = [(cls.disp_mean[1] + 5*cls.disp_std[1])]
+        shotgun_params_kwargs["d_min"] = [np.linalg.norm(cls.disp_mean) - 5*np.linalg.norm(cls.disp_std)]
+        shotgun_params_kwargs["d_max"] = [np.linalg.norm(cls.disp_mean) + 5*np.linalg.norm(cls.disp_std)]
+        shotgun_params_kwargs["bins"] = [400]
+        shotgun_params_kwargs["hist_range"] = [(0,400)]
+
+        return shotgun_params_kwargs
+
+    @classmethod
+    def build_wcs(cls, reducedfit: 'ReducedFit', summary_kwargs : dict = None, method=None):
+        return super().build_wcs(reducedfit, shotgun_params_kwargs=cls._build_shotgun_params(reducedfit), summary_kwargs=summary_kwargs, method=method)
