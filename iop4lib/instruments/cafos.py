@@ -428,5 +428,5 @@ class CAFOS(Instrument):
         return shotgun_params_kwargs
 
     @classmethod
-    def build_wcs(cls, reducedfit: 'ReducedFit', summary_kwargs : dict = None, method=None):
-        return super().build_wcs(reducedfit, shotgun_params_kwargs=cls._build_shotgun_params(reducedfit), summary_kwargs=summary_kwargs, method=method)
+    def build_wcs(cls, reducedfit: 'ReducedFit', summary_kwargs : dict = None):
+        return super().build_wcs(reducedfit, shotgun_params_kwargs=cls._build_shotgun_params(reducedfit), summary_kwargs=summary_kwargs)
