@@ -425,6 +425,14 @@ class CAFOS(Instrument):
         shotgun_params_kwargs["bins"] = [400]
         shotgun_params_kwargs["hist_range"] = [(0,400)]
 
+        if redf.header_hintobject is not None and redf.header_hintobject.name == "1101+384":
+            shotgun_params_kwargs["bkg_filter_size"] = [3.0]
+            shotgun_params_kwargs["bkg_box_size"] = [16.0]
+            shotgun_params_kwargs["bkg_filter_threshold"] = [1.0]
+            shotgun_params_kwargs["npixels"] = [8, 16]
+            shotgun_params_kwargs["n_rms_seg"] = [3.0, 1.5, 1.2, 1.1, 1.0]
+
+
         return shotgun_params_kwargs
 
     @classmethod
