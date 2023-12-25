@@ -667,7 +667,7 @@ class Instrument(metaclass=ABCMeta):
                 if not (fwhm_min < fwhm < fwhm_max):
                     logger.warning(f"ReducedFit {redf.id} {target.name}: fwhm = {fwhm} px, skipping this reduced fit")
                     continue
-                logger.debug(f"{target.name}: Gaussian FWHM: {fwhm:.1f} px")
+                logger.debug(f"ReducedFit {redf.id} [{target.name}] Gaussian FWHM: {fwhm:.1f} px")
                 fwhm_L.append(fwhm)
             except Exception as e:
                 logger.warning(f"ReducedFit {redf.id} {target.name}: error in gaussian fit, skipping this reduced fit ({e})")
@@ -682,6 +682,6 @@ class Instrument(metaclass=ABCMeta):
         sigma = mean_fwhm / (2*np.sqrt(2*math.log(2)))
         r = sigma
         
-        return 3.0*r, 7.0*r, 15.0*r, {'mean_fwhm':mean_fwhm, 'sigma':sigma}
+        return 6.0*r, 7.0*r, 15.0*r, {'mean_fwhm':mean_fwhm, 'sigma':sigma}
     
 
