@@ -413,15 +413,15 @@ class CAFOS(Instrument):
     def _build_shotgun_params(cls, redf: 'ReducedFit'):
         shotgun_params_kwargs = dict()
 
-        shotgun_params_kwargs["d_eps"] = [0.8] #[1*np.linalg.norm(cls.disp_std)]
-        shotgun_params_kwargs["dx_eps"] = [0.8] #[1*cls.disp_std[0]]
-        shotgun_params_kwargs["dy_eps"] = [0.8] #[1*cls.disp_std[1]]
+        shotgun_params_kwargs["d_eps"] = [1.0] #[1*np.linalg.norm(cls.disp_std)]
+        shotgun_params_kwargs["dx_eps"] = [1.0] #[1*cls.disp_std[0]]
+        shotgun_params_kwargs["dy_eps"] = [1.0] #[1*cls.disp_std[1]]
         shotgun_params_kwargs["dx_min"] = [(cls.disp_mean[0] - 5*cls.disp_std[0])]
         shotgun_params_kwargs["dx_max"] = [(cls.disp_mean[0] + 5*cls.disp_std[0])]
         shotgun_params_kwargs["dy_min"] = [(cls.disp_mean[1] - 5*cls.disp_std[1])]
         shotgun_params_kwargs["dy_max"] = [(cls.disp_mean[1] + 5*cls.disp_std[1])]
-        shotgun_params_kwargs["d_min"] = [np.linalg.norm(cls.disp_mean) - 5*np.linalg.norm(cls.disp_std)]
-        shotgun_params_kwargs["d_max"] = [np.linalg.norm(cls.disp_mean) + 5*np.linalg.norm(cls.disp_std)]
+        shotgun_params_kwargs["d_min"] = [np.linalg.norm(cls.disp_mean) - 3*np.linalg.norm(cls.disp_std)]
+        shotgun_params_kwargs["d_max"] = [np.linalg.norm(cls.disp_mean) + 3*np.linalg.norm(cls.disp_std)]
         shotgun_params_kwargs["bins"] = [400]
         shotgun_params_kwargs["hist_range"] = [(0,400)]
 
