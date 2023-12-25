@@ -438,3 +438,7 @@ class CAFOS(Instrument):
     @classmethod
     def build_wcs(cls, reducedfit: 'ReducedFit', summary_kwargs : dict = None):
         return super().build_wcs(reducedfit, shotgun_params_kwargs=cls._build_shotgun_params(reducedfit), summary_kwargs=summary_kwargs)
+
+    @classmethod
+    def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fit_boxsize=None, search_boxsize=(30,30), fwhm_min=2, fwhm_max=20):
+        return super().estimate_common_apertures(reducedfits, reductionmethod=reductionmethod, fit_boxsize=fit_boxsize, search_boxsize=search_boxsize, fwhm_min=fwhm_min, fwhm_max=fwhm_max)
