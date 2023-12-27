@@ -40,6 +40,11 @@ class CAFOS(Instrument):
     # pre computed pairs distances to use in the astrometric calibrations
     # obtained from calibrated fields
     
+    # computed with:
+    # > In [1]: qs = ReducedFit.objects.filter(flags__has=ReducedFit.FLAGS.BUILT_REDUCED, instrument="CAFOS2.2").all()
+    # > In [2]: disp_sign_mean = np.mean([redf.astrometry_info[-1]['seg_disp_sign'] for redf in qs[len(qs)-300:len(qs)-1]], axis=0)
+    # > In [3]: disp_sign_std = np.std([redf.astrometry_info[-1]['seg_disp_sign'] for redf in qs[len(qs)-300:len(qs)-1]], axis=0)
+
     disp_sign_mean, disp_sign_std = np.array([-35.72492116, -0.19719535]), np.array([1.34389, 1.01621491])
     disp_mean, disp_std = np.abs(disp_sign_mean), disp_sign_std
 
