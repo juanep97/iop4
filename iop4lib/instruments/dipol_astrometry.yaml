@@ -1,6 +1,6 @@
 # This file defines a decision tree to choose the best methods to try to calibrate DIPOL images.
 
-# The tree is defined as a recursive list of brnaches. 
+# The tree is defined as a recursive list of branches. 
 # The tree is traversed from top to bottom, following only the first rule sub-branch found
 # to satisfy all the conditions in the branch.
 # When an attempts branch is found, all the methods in the branch are tried in order
