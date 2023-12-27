@@ -28,6 +28,7 @@ import datetime
 import math
 import gc
 import yaml
+from importlib import resources
 
 # iop4lib imports
 from iop4lib.enums import IMGTYPES, BANDS, OBSMODES, SRCTYPES, INSTRUMENTS, REDUCTIONMETHODS
@@ -433,8 +434,7 @@ class DIPOL(Instrument):
             logger.debug(f"{n_expected_simbad_sources=}")
             logger.debug(f"{n_expected_calibrators=}")
             
-
-            with open(Path(__file__).parent / "dipol_astrometry.yaml") as f:
+            with open(resources.files("iop4lib.instruments") / "dipol_astrometry.yaml") as f:
                 dipol_astrometry = yaml.safe_load(f)
 
             def apply_comparison(val1, val2, op):
@@ -455,7 +455,6 @@ class DIPOL(Instrument):
 
             def check_conditions(branch, context):
                 if 'conds' in branch and len(branch['conds']) > 0:
-                    print(branch['conds'])
                     keys, ops, vals = zip(*[(*k.split('__'),v) if '__' in k else (k,None,v) for k,v in branch['conds'].items()])
                     satisfies_conds = all([apply_comparison(context[k], v, op) for k,op,v in zip(keys, ops, vals)])
                 else:

@@ -69,6 +69,7 @@ attempt_defs:
 # Decision tree as a recusive list of rules.
 
 rules:
+  # Stars (general)
   - conds:
       srctype: 'star'
     
@@ -86,6 +87,9 @@ rules:
           - 'star_photo_quads'
           - 'star_catalog_matching'
   
+  # 1101+384 (mrk421) has a bright star nearby whose difraction spikes cause the quad method to fail, 
+  # safest to use the target O E method. Sometimes it is a bit off the center too, but it should be the two 
+  # brightest objects in the field, so try progressively dimmer and less centered sources.
   - conds:
       srcname: '1101+384'
     attempts:
@@ -95,11 +99,13 @@ rules:
           npixels:  [64, 32]
           centering: [0.666, 0.75]
 
+  # 1641+399 (3C 345) should be the only two detected with the normal target O E method.
   - conds:
       srcname: '1641+399'
     attempts:
       - 'blazar_target_O_and_E'
 
+  # Blazars (general)
   - conds:
       srctype: 'blazar'
     
