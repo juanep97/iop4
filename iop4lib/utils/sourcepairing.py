@@ -203,7 +203,7 @@ def get_best_pairs(list1, list2, disp_sign, dist_err=None, disp_sign_err=None):
     ## Get only the best pairs, according to the displacement sign
     seg1xy_best, seg2xy_best, seg_disp_xy_best, seg_disp_sign_xy_best = get_best_pairs(seg1xy, seg2xy, seg_disp_sign_xy)
     ```
-    Alternativele, using a priori knowledge of the displacement, we can find the pairs directly:
+    Alternatively, using a priori knowledge of the displacement, we can find the pairs directly:
     ```
     # Get the average displacement between pairs and its std from already calibrated sources
     disp_mean = np.mean([redf.astrometry_info[-1]['seg_disp_sign_xy'] for redf in ReducedFit.objects.filter(flags__has=ReducedFit.FLAGS.BUILT_REDUCED, obsmode="POLARIMETRY") if 'seg_disp_sign_xy' in redf.astrometry_info[-1] and isinstance(redf.astrometry_info[-1]['seg_disp_sign_xy'], np.ndarray)], axis=0)
