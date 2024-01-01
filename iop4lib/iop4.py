@@ -64,6 +64,7 @@ def process_epochs(epochname_list, force_rebuild, check_remote_list):
         epoch.build_master_biases(force_rebuild=force_rebuild)
 
     logger.info("Creating Master Darks.")
+
     for epoch in epoch_L:
         epoch.build_master_darks(force_rebuild=force_rebuild)
         
@@ -79,10 +80,20 @@ def process_epochs(epochname_list, force_rebuild, check_remote_list):
     Epoch.reduce_rawfits(rawfits.filter(obsmode=OBSMODES.POLARIMETRY), force_rebuild=force_rebuild)
 
     logger.info("Computing results.")
+
     for epoch in epoch_L:
         PhotoPolResult.objects.filter(epoch=epoch).delete()
         epoch.compute_relative_photometry()
         epoch.compute_relative_polarimetry()
+
+    logger.info("Applying corrections.")
+
+    for epoch in epoch_L:
+        results = PhotoPolResult.objects.filter(epoch=epoch).all()
+        for result in results:
+            result.compute_host_galaxy_correction()
+
+    logger.info("Done.")
 
 
 def list_local_epochnames():
