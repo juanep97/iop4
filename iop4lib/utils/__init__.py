@@ -615,8 +615,80 @@ def get_simbad_sources(center_coord, radius, Nmax=6, all_types=False, exclude_se
 
 
 
+def get_host_correction(astrosource, aperas, fwhm=None) -> (float, float):
+    r""" Returns the contaminating flux and its uncertainty for a given astrosource and aperture radius. 
+    
+    If no correction is available for the given astrosource, it returns None, None.
 
+    The value is interpolated from the tables in `host_correction_data.csv`. You can find
+    more details in this file.
 
+    Parameters
+    ----------
+    astrosource: AstroSource
+        The astrosource for which to get the correction.
+    aperas: float
+        The aperture radius in arcsecs.
+    fwhm: float, optional
+        The fwhm in arcsec. Default is 7 arcsec (approximately this 
+        fwhm for our 0.9m to 2.2m telescopes, doesnt affect much)
 
+    Returns
+    -------
+    flux, flux_err: tuple[float, float]
+        The contaminating flux and its uncertainty in mJy.
 
+    or
+    
+    None, None
 
+    """
+
+    import numpy as np
+    import pandas as pd
+    from io import StringIO
+    from importlib import resources
+    import re
+
+    with open(resources.files("iop4lib.utils") / "host_correction_data.csv", 'r') as f:
+        text = f.read()
+
+    df = None
+
+    def get_invariable_str(s):
+        return s.replace(' ', '').replace('-','').replace('+','').replace('_','').upper()
+    
+    for table in text.split("#"*80):
+        objname = re.findall(r"OBJECT: (.*)", table)[0]
+        if get_invariable_str(astrosource.name) == get_invariable_str(objname) or \
+            get_invariable_str(astrosource.other_name) == get_invariable_str(objname):
+            df = pd.read_csv(StringIO(table), comment="#")
+            break
+
+    if df is None:
+        return None, None
+    
+    if fwhm is None:
+        fwhm = 7 
+
+    # Get the column whose header is closest to the indicated fwhm
+    
+    fwhm_L = np.array([float(fwhm) for fwhm in df.columns[1:]])
+    fwhm_idx = np.argmin(np.abs(fwhm_L - fwhm))
+
+    # Get the values and uncertainties of the contaminating flux for the indicated fwhm
+
+    flux_L, flux_err_L = zip(*[v.split(" ") for v in df.iloc[:,fwhm_idx+1]])
+
+    flux_L = np.array([float(flux) for flux in flux_L])
+    flux_err_L = np.array([float(flux_err) for flux_err in flux_err_L])
+
+    aperas_L = np.array([float(apera) for apera in df.iloc[:,0]])
+
+    # Interpolate the contaminating flux and its uncertainty for the indicated aperture radius
+    # Use simple linear interpolation from np.interp:
+
+    flux = np.interp(aperas, aperas_L, flux_L)
+    flux_err = np.interp(aperas, aperas_L, flux_err_L)
+
+    return flux, flux_err
