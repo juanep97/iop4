@@ -26,3 +26,6 @@ docs-sphinx:
 
 docs-show:
 	open docs/_build/html/index.html
+
+clean-notebooks:
+	nbstripout docs/recipes/*.ipynb --extra-keys "metadata.kernelspec"

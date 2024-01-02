@@ -72,6 +72,7 @@ doc = [
     "sphinxcontrib-bibtex",
     "docutils>=0.20",
     "nbsphinx",
+    "nbstripout",
 ]
 dev = [
   "setuptools_scm",
