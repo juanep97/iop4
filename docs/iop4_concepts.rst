@@ -22,13 +22,18 @@ mapped to rows. These classes are called usually called *Models*. IOP4 defines t
 models:
 
 * **Epoch**: an observation session, defined by its `telescope` (str) and `night` (date).
-  It provides methods to download the data from the remote telescope archives and reduce it.
+  It provides methods to download the data from the remote telescope archives and classify them.
 
 * **RawFit**: a raw FITS image, defined by its `epoch` (Epoch) and `filename` (str). 
 
-* **ReducedFit**: a reduced FITS image, defined by its associated `rawfit` (RawFit).
+* **MasterBias**, **MasterDark**, **MasterFlat**: master calibration images, defined by their 
+  associated `epoch` (Epoch) and `filename` (str). They are built from the raw images of each night of the appropriate type.
 
-* **AstroSource**: an astronomical source, in the IOP4 catalog, defined by its `name` (str).
+* **ReducedFit**: a reduced FITS image, defined by its associated `rawfit` (RawFit). It is built from raw FITS images of LIGHT type, 
+  after applying the appropriate master calibration images and performing the astrometric calibration (giving it a correct WCS).
+
+* **AstroSource**: an astronomical source, in the IOP4 catalog, defined by its `name` (str). It contains information such as its 
+  type (STAR, BLAZAR, CALIBRATOR), its coordinates (RA, DEC), its literature magnitudes (in the case of calibrators), etc.
 
 * **AperPhotResult**: a result of aperture photometry, defined by its associated 
   `reducedfit` (ReducedFit), the `astrosource` (AstroSource) for which it was computed, 
@@ -78,18 +83,20 @@ This should open a tab in your browser with the IOP4 web interface.
    The `iop4site` submodule is written to enable the use of Django's debug server and should be reconfigured when 
    used in production, or entirely replaced by a new Django project and used only as a guide.
 
-Telescope Specific Code
------------------------
+Telescope and Instrument Specific Code
+--------------------------------------
 
 The procedure to analyze and reduce photometric and polarimetric images is similar from one 
 observatory to another, but there are many instrument-specific details, for example, non-standard
 FITS header keywords, different polarimeters, different pixel scales, etc. IOP4 is designed to abstract these
-details from the main code, and relegate telescope-specific code to the :code:`iop4lib.telescopes` submodule.
-Adding a new telescope or instrument to IOP4 is as simple as adding a new class to this submodule, inheriting the 
-:code:`iop4lib.telescopes.Telescope` base class, and implementing the required methods (like methods to list the available
-data in the remote observatory archives, reading of non-standard FITS header keywords, etc).
+details from the main code. Telescope-specific code to is relegated to the :code:`iop4lib.telescopes` submodule, while 
+instrument-specific code is relegated to the :code:`iop4lib.instruments` submodule.
+Adding a new telescope or instrument to IOP4 is as simple as adding a new class to these submodules, inheriting the 
+:code:`iop4lib.telescopes.Telescope` or code:`iop4lib.instrument.Instrument` base classes, and implementing the required methods 
+(like methods to list the available data in the remote observatory archives, reading of non-standard FITS header keywords, or 
+specific reduction steps).
 
-Information about the different telescope details can be found at :ref:`data_reduction_details`.
+Information and details about the different telescopes and instruments can be found at :ref:`data_reduction_details`.
 
 
 .. rubric:: Footnotes

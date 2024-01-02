@@ -9,31 +9,25 @@ Data reduction details
 Introduction
 ------------
 
-The following steps are done by IOP4 to reduce data from one epoch.
+The following steps are done by IOP4 to reduce data from one epoch (when invoked as `iop4 --epoch-list <epochname>`):
 
-#. Registring the epoch in the database, listing, registring and downloading the raw files.
+#. Registering the epoch in the database, listing, registering and downloading the raw files.
 
-#. Classifying the files from their FITS header (FLAT, BIAS, LIGHT -science-; image sizes, band, exposure time). Many of these are telescope-dependent and the implementation is relegated to the corresponding telescope class.
+#. Classifying the files from their FITS header (FLAT, BIAS, DARK, LIGHT -science-; image sizes, band, exposure time). Many of these are telescope or instrument dependent and the implementation is relegated to the corresponding telescope or instrument class.
 
-#. Create MasterBias images.
+#. Create MasterBias, MasterDark and MasterFlat images.
 
-   Following standard procedures, the master bias is created by taking the median of all bias images in the epoch (for each image size available).
+   Following standard procedures, the master calibration frames are created by grouping all images of that type in the epoch (for each image size, exposure time, band, etc).
 
-#. Create MasterFlat images.
-
-   Following standard procedures, the master flat is created by taking the median of all flat images in the epoch, each image normalized to its median value (for each band, etc, available).
-
-#. No dark flat images / dark current correction currently, but it should be pretty low anyway.
+   Currently, MasterDark are created only for DIPOL. The dark current in the other instruments is negligible.
 
 #. Calibrate science images, which creates a ReducedFit for each RawFit of type LIGHT. This includes:
 
-   #. Subtract master bias
-   #. Divide by master flat
-   #. Astrometrically calibrate the images (find the WCS).
+   #. Apply the MasterBias, MasterDark (if any) and MasterFlat to the RawFit.
+   #. Astrometrically calibrate the images (giving it a correct WCS).
 
-#. Compute the aperture photometry for each source in the catalog and reduced image.
-#. Compute the results of relative photometry for each source in the catalog and reduced image.
-#. Compute the results of relative polarimetry for each source in the catalog and group of reduced images.
+#. Compute relative photometry and relative polarimetry results.
+#. Correct the resulting flux and polarization to account for host galaxy contamination (:cite:t:`Nilsson:2007`).
 
 CAHA T220 Information
 ---------------------
