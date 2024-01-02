@@ -1,3 +1,8 @@
+import os, subprocess
+GIT_COMMIT_HASH = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=os.path.dirname(os.path.realpath(__file__))).decode('ascii').strip()
+GIT_BRANCH = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], cwd=os.path.dirname(os.path.realpath(__file__))).decode('ascii').strip()
+GIT_DESCRIBE = subprocess.check_output(['git', 'describe', '--always'], cwd=os.path.dirname(os.path.realpath(__file__))).decode('ascii').strip()
+
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
@@ -6,10 +11,12 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+# Get exact version from git
+
 project = 'IOP4'
 copyright = '2023, Juan Escudero Pedrosa'
 author = 'Juan Escudero Pedrosa'
-release = '0.0.1'
+release = GIT_DESCRIBE
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -149,7 +156,7 @@ def linkcode_resolve(domain, info):
         print(f"basedir: {iop4conf.basedir}")
         rel_path = os.path.relpath(file_path, iop4conf.basedir)
         print(f"rel_path: {rel_path}")
-        url = f'{repo_url}/blob/main/{rel_path}'
+        url = f'{repo_url}/blob/{GIT_COMMIT_HASH}/{rel_path}'
         return url
     else:
         return None
