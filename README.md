@@ -146,6 +146,37 @@ To build and show the documentation, run
     $ make docs-show
 ````
 
+Before commiting your changes, remember to clean the notebooks with
+````bash
+    $ make clean-notebooks
+````
+
 ## Contribute
 
 You are welcome to contribute to IOP4. Fork and create a PR!
+
+## Citing IOP4
+
+If you use IOP4, or any result derived with it, we kindly ask you to cite the following references:
+
+<div>
+<a href="https://zenodo.org/doi/10.5281/zenodo.10222722"><img src="https://zenodo.org/badge/636786270.svg" alt="DOI"></img></a>
+</div>
+
+You can use the following BibTeX entry:
+
+```bibtex
+@software{juan_escudero_2023_10222723,
+  author       = {Juan Escudero and
+                  Daniel Morcuende},
+  title        = {juanep97/iop4: v0.1.0},
+  month        = nov,
+  year         = 2023,
+  publisher    = {Zenodo},
+  version      = {v0.1.0},
+  doi          = {10.5281/zenodo.10222723},
+  url          = {https://doi.org/10.5281/zenodo.10222723}
+}
+```
+
+This might change in the future, as IOP4 is still under the process of being published in a peer-reviewed journal. Check this repository for updates :)
