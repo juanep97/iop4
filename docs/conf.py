@@ -17,13 +17,14 @@ release = '0.0.1'
 extensions = [
     'sphinxcontrib.bibtex',
     'sphinx.ext.autodoc',
-    'sphinx_mdinclude',
     'sphinx.ext.linkcode',
     'numpydoc',
+    'sphinx_mdinclude',
 ]
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+source_suffix = ['.rst', '.md']
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
