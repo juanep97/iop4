@@ -660,8 +660,8 @@ def get_host_correction(astrosource, aperas, fwhm=None) -> (float, float):
     
     for table in text.split("#"*80):
         objname = re.findall(r"OBJECT: (.*)", table)[0]
-        if get_invariable_str(astrosource.name) == get_invariable_str(objname) or (astrosource.other_name is not None and \
-            get_invariable_str(astrosource.other_name) == get_invariable_str(objname)):
+        if get_invariable_str(astrosource.name) == get_invariable_str(objname) or \
+            (astrosource.other_name is not None and get_invariable_str(astrosource.other_name) == get_invariable_str(objname)):
             df = pd.read_csv(StringIO(table), comment="#")
             break
 
