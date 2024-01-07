@@ -550,6 +550,7 @@ class Instrument(metaclass=ABCMeta):
 
             aperphotresult = AperPhotResult.objects.get(reducedfit=redf, astrosource=astrosource, aperpix=aperpix, pairs="O")
 
+            result.aperpix = aperpix
             result.bkg_flux_counts = aperphotresult.bkg_flux_counts
             result.bkg_flux_counts_err = aperphotresult.bkg_flux_counts_err
             result.flux_counts = aperphotresult.flux_counts
