@@ -91,7 +91,12 @@ def process_epochs(epochname_list, force_rebuild, check_remote_list):
     for epoch in epoch_L:
         results = PhotoPolResult.objects.filter(epoch=epoch).all()
         for result in results:
-            result.compute_host_galaxy_correction()
+            try:
+                result.compute_host_galaxy_correction()
+            except PhotoPolResult.NoHostCorrectionAvailable:
+                pass
+            except Exception as e:
+                logger.error(f"Error computing host galaxy correction for {result}: {e}")
 
     logger.info("Done.")
 
