@@ -299,6 +299,9 @@ class PhotoPolResult(models.Model):
         
     # Host galaxy correction
         
+    class NoHostCorrectionAvailable(Exception):
+        pass
+
     def compute_host_galaxy_correction(self):
         r""" Computes the host galaxy correction and stores it in the appropriate fields in the DB.
 
@@ -314,15 +317,10 @@ class PhotoPolResult(models.Model):
         """
 
         from iop4lib.utils import get_host_correction
-        
-        if self.astrosource.hostcorr_flux is None:
-            raise Exception('No host galaxy correction available for this source')
-        
+
         if self.band != BANDS.R:
-            raise Exception('Host galaxy correction only available for R band')
-
-        mag, mag_err, p, p_err = self.mag, self.mag_err, self.p, self.p_err
-
+            raise PhotoPolResult.NoHostCorrectionAvailable('Host galaxy correction only available for R band')
+        
         # compute the used aperture in arcseconds
 
         aperas = self.aperpix * self.reducedfits.first().pixscale.to(u.arcsec / u.pix).value
@@ -330,6 +328,11 @@ class PhotoPolResult(models.Model):
         # get the host galaxy flux for this aperture
 
         hostcorr_flux, hostcorr_flux_err = get_host_correction(self.astrosource, aperas)
+
+        if hostcorr_flux is None:
+            raise PhotoPolResult.NoHostCorrectionAvailable('No host galaxy correction available for this source')
+
+        mag, mag_err, p, p_err = self.mag, self.mag_err, self.p, self.p_err
 
         # compute the corrected magnitude and polarization
         # it is just a matter of substracting the host galaxy flux from the observed flux
@@ -349,6 +352,7 @@ class PhotoPolResult(models.Model):
         # store results in DB and return
 
         self.mag_corr = mag_corr
+        self.mag_corr_err = mag_corr_err
         self.p_corr = p_corr
         self.p_corr_err = p_corr_err
         self.aperas = aperas
