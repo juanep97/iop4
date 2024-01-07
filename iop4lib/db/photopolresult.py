@@ -310,7 +310,7 @@ class PhotoPolResult(models.Model):
         References
         ----------
         [1] Nilsson, K., “Host galaxy subtraction of TeV candidate BL Lacertae objects”
-            Astronomy and Astrophysics, vol. 475, no. 1, pp. 199–207, 2007. 
+            Astronomy and Astrophysics, vol. 475, no. 1, pp. 199-207, 2007. 
             doi:10.1051/0004-6361:20077624. 
             URL: https://ui.adsabs.harvard.edu/abs/2007A%26A...475..199N/abstract
 
