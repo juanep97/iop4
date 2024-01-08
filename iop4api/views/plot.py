@@ -77,7 +77,7 @@ def plot(request):
     column_names = ['id', 'juliandate', 'band', 'instrument', 'mag', 'mag_err', 'p', 'p_err', 'chi', 'chi_err', 'flags']
 
     if use_hostcorrected:
-        column_names += ['mag_corr', 'mag_corr_err', 'p_corr', 'p_corr_err', 'chi_corr', 'chi_corr_err']
+        column_names += ['mag_corr', 'mag_corr_err', 'p_corr', 'p_corr_err']
 
     qs = PhotoPolResult.objects.filter(astrosource__name=source_name, band=band).all()
 
@@ -156,8 +156,6 @@ def plot(request):
             vals['mag_err'] = vals['mag_corr_err']
             vals['p'] = vals['p_corr']
             vals['p_err'] = vals['p_corr_err']
-            vals['chi'] = vals['chi_corr']
-            vals['chi_err'] = vals['chi_corr_err']
     else:
         vals = {k:np.array([]) for k in column_names}
 

@@ -112,8 +112,6 @@ class PhotoPolResult(models.Model):
     mag_corr_err = models.FloatField(null=True, help_text="Error for mag_corr.")
     p_corr = models.FloatField(null=True, help_text="Polarization corrected for host galaxy.")
     p_corr_err = models.FloatField(null=True, help_text="Error for p_corr.")
-    chi_corr = models.FloatField(null=True, help_text="Polarization angle corrected for host galaxy.")
-    chi_corr_err = models.FloatField(null=True, help_text="Error for chi_corr.")
     used_mag_for_corr = models.FloatField(null=True, help_text="Magnitude used for host galaxy correction (when mag is not available).")
     used_mag_err_for_corr = models.FloatField(null=True, help_text="Error for used_mag_for_corr.")
 
