@@ -336,15 +336,17 @@ class PhotoPolResult(models.Model):
 
         mag, mag_err, p, p_err = self.mag, self.mag_err, self.p, self.p_err
 
-        # if there is no magnitude for this source, interpolate the lightcurve
+        # if there is no magnitude in this result, interpolate the lightcurve
 
         if mag is None:
             from iop4lib.utils import get_column_values
             qs = PhotoPolResult.objects.filter(astrosource=self.astrosource, band=self.band, mag__isnull=False).order_by('juliandate')
             vals = get_column_values(qs, column_names=['juliandate', 'mag', 'mag_err'])
             mag, mag_err = np.interp(self.juliandate, vals['juliandate'], vals['mag']), np.interp(self.juliandate, vals['juliandate'], vals['mag_err'])
-            self.used_mag_for_corr = mag
-            self.used_mag_err_for_corr = mag_err
+            used_mag_for_corr = mag
+            used_mag_err_for_corr = mag_err
+        else:
+            used_mag_for_corr, used_mag_err_for_corr = None, None
 
         # compute the corrected magnitude and polarization
         # it is just a matter of substracting the host galaxy flux from the observed flux
@@ -358,8 +360,11 @@ class PhotoPolResult(models.Model):
         mag_corr = -2.5 * math.log10( flux_corr / (3.080e6) )
         mag_corr_err = abs( 2.5 * 1 / (flux_corr * math.log(10)) * flux_corr_err )
 
-        p_corr = self.p * obsflux / flux_corr 
-        p_corr_err = p_corr * math.sqrt( (p_err/p)**2 + (obsflux_err/obsflux)**2 + (flux_corr_err/flux_corr)**2 )
+        if p is None:
+            p_corr, p_corr_err = None, None
+        else:
+            p_corr = self.p * obsflux / flux_corr 
+            p_corr_err = p_corr * math.sqrt( (p_err/p)**2 + (obsflux_err/obsflux)**2 + (flux_corr_err/flux_corr)**2 )
 
         # store results in DB and return
 
@@ -368,6 +373,8 @@ class PhotoPolResult(models.Model):
         self.p_corr = p_corr
         self.p_corr_err = p_corr_err
         self.aperas = aperas
+        self.used_mag_for_corr = used_mag_for_corr
+        self.used_mag_err_for_corr = used_mag_err_for_corr
 
         self.save()
 
