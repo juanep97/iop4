@@ -684,3 +684,26 @@ form label {
 .modal_body > label > span {
     padding-left: 0.6em;
 }
+
+/* table filters */
+
+.filter-field, .filter-type, .filter-value, .filter-add, .filter-remove {
+    padding: 2px;
+    font-size: 16px;
+    margin: 2px;
+  }
+  
+.filter-add, .filter-remove {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    justify-content: center;
+    align-content: center;
+    align-items: center;
+    font-size: 20px;
+    border-radius: 15px;
+  }
+
+#FiltersTable th{
+    font-size: 18px;
+}

@@ -31,7 +31,7 @@
             </q-card-section>
         </q-card>
         <q-markup-table v-if="DataTableFilters.length != 0" style="max-width: 95vw !important;">
-            <table>
+            <table id="FiltersTable">
                 <thead>
                     <tr>
                         <!--<th>CDS index</th>-->
@@ -69,8 +69,8 @@
                         </td>
                         <td><input v-model="DataTableFilters[filter_idx].value" class="filter-value" type="text" placeholder="value to filter" title="Values will be interpreted as in the following order: &#10; 1) null if value is empty; &#10; 2) as a date if the type is 'after date' or 'before date' and the input is in the ISO 8601 date format (yyy/mm/dd); &#10; 3) as a number."></td>
                         <td>
-                            <button class="filter-remove" @click="DataTableFilters.splice(filter_idx, 1, {'field':'','type':'','value':''})">&#8854;</button>
-                            <button class="filter-add" @click="DataTableFilters.splice(filter_idx, 0, {'field':'','type':'','value':''})">&#8853;</button>
+                            <button class="filter-remove" @click="DataTableFilters.splice(filter_idx, 1)"><span class="material-symbols-outlined">delete</span></button>
+                            <button class="filter-add" @click="DataTableFilters.splice(filter_idx, 0, {'field':'','type':'','value':''})"><span class="material-symbols-outlined">add</span></button>
                         </td>
                     </tr>
                 </tbody>

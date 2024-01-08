@@ -161,6 +161,7 @@ function show_column_visibility_modal_form() {
 
         let span = document.createElement("span");
         span.innerHTML = column.getDefinition().title;
+        span.title = column.getDefinition().headerTooltip;
 
         let checkbox = document.createElement("input");
         checkbox.setAttribute('type', "checkbox");
