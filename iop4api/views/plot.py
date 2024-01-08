@@ -36,6 +36,7 @@ def plot(request):
     enable_crosscheckpts = request.POST.get("enable_crosscheckpts", False)
     enable_full_lc = request.POST.get("enable_full_lc", False)
     enable_errorbars = request.POST.get("enable_errorbars", False)
+    use_hostcorrected = request.POST.get("use_hostcorrected", False)
 
     save_filename = f"IOP4_{source_name}_{band}"
 
@@ -74,6 +75,10 @@ def plot(request):
     
     # Get data from DB
     column_names = ['id', 'juliandate', 'band', 'instrument', 'mag', 'mag_err', 'p', 'p_err', 'chi', 'chi_err', 'flags']
+
+    if use_hostcorrected:
+        column_names += ['mag_corr', 'mag_corr_err', 'p_corr', 'p_corr_err', 'chi_corr', 'chi_corr_err']
+
     qs = PhotoPolResult.objects.filter(astrosource__name=source_name, band=band).all()
 
     if date_start is not None:
@@ -145,6 +150,14 @@ def plot(request):
     # choose  the x and y
     if qs.count() > 0:
         vals = get_column_values(qs, column_names)
+        if use_hostcorrected:
+            # just overwrite the values
+            vals['mag'] = vals['mag_corr']
+            vals['mag_err'] = vals['mag_corr_err']
+            vals['p'] = vals['p_corr']
+            vals['p_err'] = vals['p_corr_err']
+            vals['chi'] = vals['chi_corr']
+            vals['chi_err'] = vals['chi_corr_err']
     else:
         vals = {k:np.array([]) for k in column_names}
 
@@ -394,7 +407,7 @@ def plot(request):
                     'ax1': {
                                 'x':"x1", 
                                 'y':"y1", 
-                                "y_label": "mag",
+                                "y_label": "mag" if not use_hostcorrected else "mag (corr!)",
                                 "err": ["y1_min", "y1_max"],                                  
                                 # "marker": "circle", # better done
                                 "marker": markermap,
@@ -409,7 +422,7 @@ def plot(request):
                     'ax2':  {
                                 'x':"x1", 
                                 'y':"y2", 
-                                "y_label": "p [%]",
+                                "y_label": "p [%]" if not use_hostcorrected else "p (corr!) [%]",
                                 "err": ["y2_min", "y2_max"],
                                 # "marker":"circle",
                                 "marker": markermap,
@@ -424,7 +437,7 @@ def plot(request):
                     'ax3':  {
                                 'x':"x1", 
                                 'y':"y3", 
-                                "y_label": "chi [º]",
+                                "y_label": "chi [º]" if not use_hostcorrected else "chi (corr!) [º]",
                                 "err": ["y3_min", "y3_max"],                                  
                                 # "marker":"circle",
                                 "marker": markermap,
@@ -677,4 +690,5 @@ def plot(request):
                         'n_points':len(x1),
                         'enable_full_lc': enable_full_lc,
                         'enable_crosscheckpts': enable_crosscheckpts,
-                        'enable_errorbars': enable_errorbars})
+                        'enable_errorbars': enable_errorbars,
+                        'use_hostcorrected': use_hostcorrected})
