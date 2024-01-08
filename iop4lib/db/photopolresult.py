@@ -114,6 +114,8 @@ class PhotoPolResult(models.Model):
     p_corr_err = models.FloatField(null=True, help_text="Error for p_corr.")
     chi_corr = models.FloatField(null=True, help_text="Polarization angle corrected for host galaxy.")
     chi_corr_err = models.FloatField(null=True, help_text="Error for chi_corr.")
+    used_mag_for_corr = models.FloatField(null=True, help_text="Magnitude used for host galaxy correction (when mag is not available).")
+    used_mag_err_for_corr = models.FloatField(null=True, help_text="Error for used_mag_for_corr.")
 
     ## flags
     
@@ -333,6 +335,16 @@ class PhotoPolResult(models.Model):
             raise PhotoPolResult.NoHostCorrectionAvailable('No host galaxy correction available for this source')
 
         mag, mag_err, p, p_err = self.mag, self.mag_err, self.p, self.p_err
+
+        # if there is no magnitude for this source, interpolate the lightcurve
+
+        if mag is None:
+            from iop4lib.utils import get_column_values
+            qs = PhotoPolResult.objects.filter(astrosource=self.astrosource, band=self.band, mag__isnull=False, order_by='juliandate')
+            vals = get_column_values(qs, column_names=['mag', 'mag_err'])
+            mag, mag_err = np.interp(self.juliandate, vals['juliandate'], vals['mag']), np.interp(self.juliandate, vals['juliandate'], vals['mag_err'])
+            self.used_mag_for_corr = mag
+            self.used_mag_err_for_corr = mag_err
 
         # compute the corrected magnitude and polarization
         # it is just a matter of substracting the host galaxy flux from the observed flux
