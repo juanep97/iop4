@@ -341,7 +341,7 @@ class PhotoPolResult(models.Model):
         if mag is None:
             from iop4lib.utils import get_column_values
             qs = PhotoPolResult.objects.filter(astrosource=self.astrosource, band=self.band, mag__isnull=False).order_by('juliandate')
-            vals = get_column_values(qs, column_names=['mag', 'mag_err'])
+            vals = get_column_values(qs, column_names=['juliandate', 'mag', 'mag_err'])
             mag, mag_err = np.interp(self.juliandate, vals['juliandate'], vals['mag']), np.interp(self.juliandate, vals['juliandate'], vals['mag_err'])
             self.used_mag_for_corr = mag
             self.used_mag_err_for_corr = mag_err
