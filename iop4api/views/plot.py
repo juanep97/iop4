@@ -435,7 +435,7 @@ def plot(request):
                     'ax3':  {
                                 'x':"x1", 
                                 'y':"y3", 
-                                "y_label": "chi [º]" if not use_hostcorrected else "chi (corr!) [º]",
+                                "y_label": "chi [º]",
                                 "err": ["y3_min", "y3_max"],                                  
                                 # "marker":"circle",
                                 "marker": markermap,
