@@ -689,7 +689,6 @@ form label {
 
 .filter-field, .filter-type, .filter-value, .filter-add, .filter-remove {
     padding: 2px;
-    font-size: 16px;
     margin: 2px;
   }
   
@@ -700,10 +699,9 @@ form label {
     justify-content: center;
     align-content: center;
     align-items: center;
-    font-size: 20px;
     border-radius: 15px;
   }
 
-#FiltersTable th{
-    font-size: 18px;
+#FiltersTable *{
+    font-size: 14px;
 }
