@@ -83,14 +83,15 @@ class CAFOS(Instrument):
     @classmethod
     def classify_band_rawfit(cls, rawfit):
         """
-        INSFLNAM is BesselR ??
+        Older data (.e.g 2007): INSFLNAM = John R
+        New data (e.g. 2022): INSFLNAM = BessellR
         """
 
         from iop4lib.db.rawfit import RawFit
         import astropy.io.fits as fits
 
         if 'INSFLNAM' in rawfit.header:
-            if rawfit.header['INSFLNAM'] == 'BessellR':
+            if rawfit.header['INSFLNAM'] == 'BessellR' or rawfit.header['INSFLNAM'] == 'John R':
                 rawfit.band = BANDS.R
             else:
                 logger.error(f"{rawfit}: unknown filter {rawfit.header['INSFLNAM']}.")
