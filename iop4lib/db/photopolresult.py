@@ -366,11 +366,14 @@ class PhotoPolResult(models.Model):
 
         # store results in DB and return
 
-        self.mag_corr = mag_corr
-        self.mag_corr_err = mag_corr_err
+        self.mag_corr = mag_corr if used_mag_for_corr is None else None # if we used an interpolated magnitude, we don't store the corrected magnitude
+        self.mag_corr_err = mag_corr_err if used_mag_for_corr is None else None
+
         self.p_corr = p_corr
         self.p_corr_err = p_corr_err
+
         self.aperas = aperas
+        
         self.used_mag_for_corr = used_mag_for_corr
         self.used_mag_err_for_corr = used_mag_err_for_corr
 
