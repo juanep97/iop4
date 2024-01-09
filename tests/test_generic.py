@@ -9,6 +9,7 @@ iop4conf = iop4lib.Config(config_path=TEST_CONFIG)
 
 # other imports
 import os
+from pytest import approx
 
 # logging
 import logging
@@ -46,3 +47,16 @@ def test_testconfig_testdb(load_test_catalog):
     # there should be some test sources in the DB, and their calibrators
     assert AstroSource.objects.count() > 0
     assert AstroSource.objects.filter(name="2200+420").exists()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_host_correction_data_load(load_test_catalog):
+    r""" Check that the host correction data can be correctly loaded """
+    from iop4lib.db import AstroSource
+    from iop4lib.utils import get_host_correction
+
+    val, err = get_host_correction(AstroSource.objects.get(name="2200+420"), 5)
+
+    assert val is not None
+    assert val == approx(1.18)
+    assert err == approx(0.06)
