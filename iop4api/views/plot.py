@@ -405,7 +405,7 @@ def plot(request):
                     'ax1': {
                                 'x':"x1", 
                                 'y':"y1", 
-                                "y_label": "mag" if not use_hostcorrected else "mag (corr!)",
+                                "y_label": "mag" if not use_hostcorrected else "mag (corr)",
                                 "err": ["y1_min", "y1_max"],                                  
                                 # "marker": "circle", # better done
                                 "marker": markermap,
@@ -420,7 +420,7 @@ def plot(request):
                     'ax2':  {
                                 'x':"x1", 
                                 'y':"y2", 
-                                "y_label": "p [%]" if not use_hostcorrected else "p (corr!) [%]",
+                                "y_label": "p [%]" if not use_hostcorrected else "p (corr) [%]",
                                 "err": ["y2_min", "y2_max"],
                                 # "marker":"circle",
                                 "marker": markermap,
