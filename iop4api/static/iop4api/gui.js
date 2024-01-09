@@ -220,16 +220,6 @@ function load_source_plot(form_element) {
                     });
                 }()
 
-                // // for json_items:
-                // Bokeh.embed.embed_item(plotData.plot.div_plot, "plotDiv");
-                // bokeh_plot_promise = Bokeh.embed.embed_item(plotData.plot, "plotDiv");
-                // bokeh_legend_promise = Bokeh.embed.embed_item(plotData.legend, "legendDiv");
-                // bokeh_table_promise = Bokeh.embed.embed_item(plotData.table, "tablePlotDiv");
-                // // toggle the errorbars and check the layout when it finishes 
-                // Promise.allSettled([bokeh_plot_promise, bokeh_legend_promise, bokeh_table_promise]).then((v) => { check_plot_layout(); });
-                // // and add a listener to recheck the layout when the window is resized
-                // window.addEventListener('resize', check_plot_layout);
-
                 vueApp.$data.showPlot = true;
                 vueApp.addLogEntry("Plotted " + plotData.n_points + " points", "Plotted " + plotData.n_points + " points", "Plot - Info");
             } else {
