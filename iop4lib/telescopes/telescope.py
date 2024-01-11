@@ -18,6 +18,7 @@ from astropy.coordinates import Angle, SkyCoord
 import astrometry
 import numpy as np
 import math
+import datetime
 
 # iop4lib imports
 from iop4lib.enums import *
@@ -164,7 +165,10 @@ class Telescope(metaclass=ABCMeta):
 
         instrume_header = fits.getheader(rawfit.filepath, ext=0)["INSTRUME"] 
         
-        if instrume_header == "AndorT90":
+        if instrume_header == "RoperT90" and rawfit.epoch.night < datetime.datetime(2021, 10, 23):
+            # RoperT90 was replaced by AndorT90 on 2021-10-23, but the control PC was not updated until some time later
+            rawfit.instrument = INSTRUMENTS.RoperT90
+        elif instrume_header == "AndorT90" or (instrume_header == "RoperT90" and rawfit.epoch.night >= datetime.datetime(2021, 10, 23)):
             rawfit.instrument = INSTRUMENTS.AndorT90
         elif instrume_header == "Andor":
             rawfit.instrument = INSTRUMENTS.AndorT150

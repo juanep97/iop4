@@ -25,8 +25,8 @@ import typing
 if typing.TYPE_CHECKING:
     from iop4lib.db.reducedfit import ReducedFit, RawFit
 
-class Andor(Instrument, metaclass=ABCMeta):
-    r""" Abstract class for OSN Andor cameras."""
+class OSNCCDCamera(Instrument, metaclass=ABCMeta):
+    r""" Abstract class for OSN CCD cameras. """
 
     required_masters = ['masterbias', 'masterflat']
 
@@ -417,7 +417,7 @@ class Andor(Instrument, metaclass=ABCMeta):
             result.save()
 
 
-class AndorT90(Andor):
+class AndorT90(OSNCCDCamera):
     
     name = "AndorT90"
     instrument_kw = "AndorT90"
@@ -446,7 +446,7 @@ class AndorT90(Andor):
         
         return super().build_wcs(reducedfit, *args, **kwargs)
 
-class AndorT150(Andor):
+class AndorT150(OSNCCDCamera):
         
     name = "AndorT150"
     instrument_kw = "Andor"
@@ -456,3 +456,15 @@ class AndorT150(Andor):
     gain_e_adu = 4.5
     field_width_arcmin = 7.92
     field_height_arcmin = 7.92
+
+
+class RoperT90(OSNCCDCamera):
+    name = "RoperT90"
+    instrument_kw = "RoperT90"
+    telescope = OSNT090.name
+
+    arcsec_per_pix = 0.387
+    gain_e_adu = 7.14
+    field_width_arcmin = 13.2
+    field_height_arcmin = 13.2
+

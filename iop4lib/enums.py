@@ -42,6 +42,7 @@ class INSTRUMENTS(models.TextChoices):
 
     NONE = None, "None"
     CAFOS = 'CAFOS2.2', "CAFOS2.2"
+    RoperT90 = 'RoperT90', "RoperT90"
     AndorT90 = 'AndorT90', "AndorT90"
     AndorT150 = 'AndorT150', "AndorT150"
     DIPOL = 'DIPOL', "DIPOL"
