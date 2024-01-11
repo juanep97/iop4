@@ -589,6 +589,7 @@ def plot(request):
     #################################################
 
     # Create a ColumnDataSource with data for Circle and Star glyphs
+
     legend_source = ColumnDataSource(data=dict(x=[0], y=[0]))
 
     label_stylesheet = InlineStyleSheet(css="""
@@ -626,6 +627,8 @@ def plot(request):
 
     legend_row_L = list()
 
+    # Instrument legend entries
+
     for instrument, color in zip(instruments_L, instrument_color_L):
         # Create Div elements for labels
         label = Div(text=f"""<label><span>{instrument}</span><input onclick="plot_hide_instrument(this);" data-instrument="{instrument}" type="checkbox" checked/></label>""", height=21, stylesheets=[label_stylesheet])
@@ -644,9 +647,12 @@ def plot(request):
 
         legend_row_L.append(legend_row)
 
-    for flag_value, flag_label, marker in zip([1,2,3], ["bad photometry", "bad polarimetry", "bad photometry and polarimetry"], ["triangle", "inverted_triangle", "cross"]):
+    # Flag legend entries
+    # values here must match those in PhotoPolResult.FLAGS (0, 1 << 1 = 2, 1 << 2 = 4, 1 << 1 | 1 << 2 = 6)
+        
+    for flag_value, flag_label, marker in zip([2,4,6], ["bad photometry", "bad polarimetry", "bad photometry and polarimetry"], ["triangle", "inverted_triangle", "cross"]):
         # Create Div elements for labels
-        if flag_value in [1,2]:
+        if flag_value in [2,4]:
             cbox = f"""<input onclick="plot_hide_flag(this);" data-flag="{flag_value}" type="checkbox" checked/>"""
             no_pointer = ""
         else:
