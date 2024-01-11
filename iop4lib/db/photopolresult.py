@@ -361,7 +361,7 @@ class PhotoPolResult(models.Model):
         if p is None:
             p_corr, p_corr_err = None, None
         else:
-            p_corr = self.p * obsflux / flux_corr 
+            p_corr = p * obsflux / flux_corr 
             p_corr_err = p_corr * math.sqrt( (p_err/p)**2 + (obsflux_err/obsflux)**2 + (flux_corr_err/flux_corr)**2 )
 
         # store results in DB and return
