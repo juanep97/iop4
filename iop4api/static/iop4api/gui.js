@@ -607,11 +607,11 @@ function flags_to_str(flags) {
         str_arr.push("not set");
     } 
           
-    if (flags & (1 << 0)) { // bad photometry
+    if (flags & (1 << 1)) { // bad photometry
         str_arr.push("bad photometry");
     }
           
-    if (flags & (1 << 1)) { // bad polarimetry
+    if (flags & (1 << 2)) { // bad polarimetry
         str_arr.push("bad polarimetry");
     }
 
