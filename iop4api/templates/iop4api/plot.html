@@ -68,8 +68,8 @@
                             
                             <div class="col-12">
                                 <div class="row q-gutter-x-sm">
-                                    <q-checkbox v-model="selected_plot_pts_flagsummary.bad_photometry" @click="set_flag(1<<0, selected_plot_pts, !!selected_plot_pts_flagsummary.bad_photometry)" :disable="selected_plot_pts.length == 0" label="bad photometry" size="sm"></q-checkbox>
-                                    <q-checkbox v-model="selected_plot_pts_flagsummary.bad_polarimetry"  @click="set_flag(1<<1, selected_plot_pts, !!selected_plot_pts_flagsummary.bad_polarimetry)"  :disable="selected_plot_pts.length == 0" label="bad polarimetry" size="sm"></q-checkbox>
+                                    <q-checkbox v-model="selected_plot_pts_flagsummary.bad_photometry" @click="set_flag(1<<1, selected_plot_pts, !!selected_plot_pts_flagsummary.bad_photometry)" :disable="selected_plot_pts.length == 0" label="bad photometry" size="sm"></q-checkbox>
+                                    <q-checkbox v-model="selected_plot_pts_flagsummary.bad_polarimetry"  @click="set_flag(1<<2, selected_plot_pts, !!selected_plot_pts_flagsummary.bad_polarimetry)"  :disable="selected_plot_pts.length == 0" label="bad polarimetry" size="sm"></q-checkbox>
                                 </div>
                             </div>
                         </q-card-section>                          
@@ -104,8 +104,8 @@
                                     <td>[[ point.flags ]]</td>
                                     <!-- <td>[[ point.flagsstr ]]</td> -->
                                     <td>
-                                        <q-chip :selected="point.has_flag_bad_photometry" @click="toggle_flag(1<<0, [point])" color="black" text-color="white" :outline="!point.has_flag_bad_photometry">bad photometry</q-chip>
-                                        <q-chip :selected="point.has_flag_bad_polarimetry" @click="toggle_flag(1<<1, [point])" color="black" text-color="white" :outline="!point.has_flag_bad_polarimetry">bad polarimetry</q-chip>
+                                        <q-chip :selected="point.has_flag_bad_photometry" @click="toggle_flag(1<<1, [point])" color="black" text-color="white" :outline="!point.has_flag_bad_photometry">bad photometry</q-chip>
+                                        <q-chip :selected="point.has_flag_bad_polarimetry" @click="toggle_flag(1<<2, [point])" color="black" text-color="white" :outline="!point.has_flag_bad_polarimetry">bad polarimetry</q-chip>
                                     </td>
                                 </tr>
                             </tbody>

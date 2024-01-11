@@ -222,15 +222,15 @@ def plot(request):
                                                      
                 let marker = "circle";
                                                                                           
-                if (xs[i] & (1 << 0)) { // bad photometry
+                if (xs[i] & (1 << 1)) { // bad photometry
                     marker = "triangle";
                 } 
 
-                if (xs[i] & (1 << 1)) { // bad polarimetry
+                if (xs[i] & (1 << 2)) { // bad polarimetry
                     marker = "inverted_triangle";
                 }
 
-                if ((xs[i] & (1 << 0)) && (xs[i] & (1 << 1))) { // bad photometry and polarimetry
+                if ((xs[i] & (1 << 1)) && (xs[i] & (1 << 2))) { // bad photometry and polarimetry
                     marker = "cross";                                 
                 }
                                                                                                                        
