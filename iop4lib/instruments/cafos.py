@@ -76,6 +76,8 @@ class CAFOS(Instrument):
                 rawfit.imgtype = IMGTYPES.BIAS
             elif hdul[0].header['IMAGETYP'] == 'science':
                 rawfit.imgtype = IMGTYPES.LIGHT
+            elif hdul[0].header['IMAGETYP'] == 'dark':
+                rawfit.imgtype = IMGTYPES.DARK
             else:
                 logger.error(f"Unknown image type for {rawfit.fileloc}.")
                 rawfit.imgtype = IMGTYPES.ERROR
@@ -84,8 +86,10 @@ class CAFOS(Instrument):
     @classmethod
     def classify_band_rawfit(cls, rawfit):
         """
-        Older data (e.g. 2007): INSFLNAM = John R or INSFLNAM = Cous R
-        New data (e.g. 2022): INSFLNAM = BessellR
+        Older data (e.g. 2007): INSFLNAM = 'John R' or INSFLNAM = 'Cous R'
+        New data (e.g. 2022): INSFLNAM = 'BessellR'
+
+        There are also images in the archive with INSFLNAM = 'John V' and INSFLNAM = 'John I', and INSFLNAM = 'free'
         """
 
         from iop4lib.db.rawfit import RawFit
