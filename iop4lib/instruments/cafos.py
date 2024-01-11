@@ -94,7 +94,7 @@ class CAFOS(Instrument):
         if 'INSFLNAM' in rawfit.header:
             if (rawfit.header['INSFLNAM'] == 'BessellR' or 
                 rawfit.header['INSFLNAM'] == 'John R' or 
-                rawfit.header['INSFLNAM'] == 'Cous R'):
+                rawfit.header['INSFLNAM'] == 'Cous R' or rawfit.header['INSFLNAM'] == 'CousinsR'):
                 rawfit.band = BANDS.R
             else:
                 logger.error(f"{rawfit}: unknown filter {rawfit.header['INSFLNAM']}.")
