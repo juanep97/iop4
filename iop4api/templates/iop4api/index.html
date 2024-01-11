@@ -202,8 +202,8 @@
                         pointData['flagsstr'] = flags_to_str(pointData['flags']);
 
                         // to make it easier
-                        pointData['has_flag_bad_photometry'] = (pointData['flags'] & (1<<0));
-                        pointData['has_flag_bad_polarimetry'] = (pointData['flags'] & (1<<1));
+                        pointData['has_flag_bad_photometry'] = (pointData['flags'] & (1<<1));
+                        pointData['has_flag_bad_polarimetry'] = (pointData['flags'] & (1<<2));
 
                         return pointData;
                     });
@@ -222,17 +222,17 @@
                             notset = false;
                         }
 
-                        if (this.selected_plot_pts.every(pt => (pt['flags'] & (1<<0)))) {
+                        if (this.selected_plot_pts.every(pt => (pt['flags'] & (1<<1)))) {
                             bad_photometry = true;
-                        } else if (this.selected_plot_pts.some(pt => (pt['flags'] & (1<<0)))) {
+                        } else if (this.selected_plot_pts.some(pt => (pt['flags'] & (1<<1)))) {
                             bad_photometry = null;
                         } else {
                             bad_photometry = false;
                         }
 
-                        if (this.selected_plot_pts.every(pt => (pt['flags'] & (1<<1)))) {
+                        if (this.selected_plot_pts.every(pt => (pt['flags'] & (1<<2)))) {
                             bad_polarimetry = true;
-                        } else if (this.selected_plot_pts.some(pt => (pt['flags'] & (1<<1)))) {
+                        } else if (this.selected_plot_pts.some(pt => (pt['flags'] & (1<<2)))) {
                             bad_polarimetry = null;
                         } else {
                             bad_polarimetry = false;
