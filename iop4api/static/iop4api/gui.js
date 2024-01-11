@@ -628,17 +628,20 @@ function toggle_flag(flag, pts) {
 
 function update_local_flags(new_flag_dict) {
 
+    console.log("Updating local flags");
+    
     // update the column data source
     source = Bokeh.documents.slice(-1)[0].get_model_by_name('source')
 
-    source.data['pk'].forEach((pk, index) => {
-        if (new_flag_dict.hasOwnProperty(pk)) {
-            source.data.flags[index] = new_flag_dict[pk];
-        }
-    });
+    for (let pk in new_flag_dict) {
+        console.log("Updating flag for pk " + pk + " from " + source.data.flags[source.data.pk.indexOf(parseInt(pk))] + " to " + new_flag_dict[pk]);
+        source.data.flags[source.data.pk.indexOf(parseInt(pk))] = new_flag_dict[pk];
+    }
 
     vueApp.$data.selected_plot_idx = vueApp.$data.selected_plot_idx;
     vueApp.$data.selected_refresh++;
+
+    console.log("Local flags updated");
 
     source.change.emit();
 }
