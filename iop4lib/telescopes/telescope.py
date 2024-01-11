@@ -168,7 +168,7 @@ class Telescope(metaclass=ABCMeta):
         if instrume_header == "RoperT90" and rawfit.epoch.night < datetime.datetime(2021, 10, 23):
             # RoperT90 was replaced by AndorT90 on 2021-10-23, but the control PC was not updated until some time later
             rawfit.instrument = INSTRUMENTS.RoperT90
-        elif instrume_header == "AndorT90" or (instrume_header == "RoperT90" and rawfit.epoch.night >= datetime.datetime(2021, 10, 23)):
+        elif instrume_header == "AndorT90" or (instrume_header == "RoperT90" and rawfit.epoch.night >= datetime.date(2021, 10, 23)):
             rawfit.instrument = INSTRUMENTS.AndorT90
         elif instrume_header == "Andor" or instrume_header == "AndorT150": # until 2023-01-11, AndorT150 was called simply Andor
             rawfit.instrument = INSTRUMENTS.AndorT150
