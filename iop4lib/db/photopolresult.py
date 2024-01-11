@@ -338,7 +338,7 @@ class PhotoPolResult(models.Model):
 
         if mag is None:
             from iop4lib.utils import get_column_values
-            qs = PhotoPolResult.objects.filter(astrosource=self.astrosource, band=self.band, mag__isnull=False).order_by('juliandate')
+            qs = PhotoPolResult.objects.filter(astrosource=self.astrosource, band=self.band, mag__isnull=False, flags=0).order_by('juliandate')
             vals = get_column_values(qs, column_names=['juliandate', 'mag', 'mag_err'])
             mag, mag_err = np.interp(self.juliandate, vals['juliandate'], vals['mag']), np.interp(self.juliandate, vals['juliandate'], vals['mag_err'])
             used_mag_for_corr = mag
@@ -361,7 +361,7 @@ class PhotoPolResult(models.Model):
         if p is None:
             p_corr, p_corr_err = None, None
         else:
-            p_corr = self.p * obsflux / flux_corr 
+            p_corr = p * obsflux / flux_corr 
             p_corr_err = p_corr * math.sqrt( (p_err/p)**2 + (obsflux_err/obsflux)**2 + (flux_corr_err/flux_corr)**2 )
 
         # store results in DB and return
