@@ -128,8 +128,8 @@ class Instrument(metaclass=ABCMeta):
     @classmethod
     def check_instrument_kw(cls, rawfit):
         """ Check that the instrument keyword is correct. """
-        if rawfit.header["INSTRUME"] != cls.instrument_kw:
-            raise ValueError(f"Raw fit file {rawfit.fileloc} has INSTRUME != {cls.instrument_kw}.")
+        if rawfit.header["INSTRUME"] not in cls.instrument_kw_L:
+            raise ValueError(f"Raw fit file {rawfit.fileloc} has INSTRUME not in {cls.instrument_kw_L}.")
 
     @classmethod
     def classify_imgsize(cls, rawfit):

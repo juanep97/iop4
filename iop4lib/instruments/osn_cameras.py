@@ -420,9 +420,9 @@ class OSNCCDCamera(Instrument, metaclass=ABCMeta):
 class AndorT90(OSNCCDCamera):
     
     name = "AndorT90"
-    instrument_kw = "AndorT90"
     telescope = OSNT090.name
 
+    instrument_kw_L = ["AndorT90", "RoperT90"] # RoperT90 only in some old images before the PC was updated after camera replacement
 
     field_width_arcmin = 13.2 
     field_height_arcmin = 13.2
@@ -449,8 +449,9 @@ class AndorT90(OSNCCDCamera):
 class AndorT150(OSNCCDCamera):
         
     name = "AndorT150"
-    instrument_kw = "Andor"
     telescope = OSNT150.name
+
+    instrument_kw_L = ["Andor", "AndorT150"]
 
     arcsec_per_pix = 0.232
     gain_e_adu = 4.5
@@ -460,8 +461,9 @@ class AndorT150(OSNCCDCamera):
 
 class RoperT90(OSNCCDCamera):
     name = "RoperT90"
-    instrument_kw = "RoperT90"
     telescope = OSNT090.name
+
+    instrument_kw_L = ["RoperT90"]
 
     arcsec_per_pix = 0.387
     gain_e_adu = 7.14

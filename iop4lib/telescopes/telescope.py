@@ -170,7 +170,7 @@ class Telescope(metaclass=ABCMeta):
             rawfit.instrument = INSTRUMENTS.RoperT90
         elif instrume_header == "AndorT90" or (instrume_header == "RoperT90" and rawfit.epoch.night >= datetime.datetime(2021, 10, 23)):
             rawfit.instrument = INSTRUMENTS.AndorT90
-        elif instrume_header == "Andor":
+        elif instrume_header == "Andor" or instrume_header == "AndorT150": # until 2023-01-11, AndorT150 was called simply Andor
             rawfit.instrument = INSTRUMENTS.AndorT150
         elif instrume_header == "CAFOS 2.2":
             rawfit.instrument = INSTRUMENTS.CAFOS

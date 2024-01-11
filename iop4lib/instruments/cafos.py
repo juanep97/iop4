@@ -27,8 +27,9 @@ if typing.TYPE_CHECKING:
 class CAFOS(Instrument):
         
     name = "CAFOS2.2"
-    instrument_kw = "CAFOS 2.2"
     telescope = CAHAT220.name
+
+    instrument_kw_L = ["CAFOS 2.2"]
 
     arcsec_per_pix = 0.530
     gain_e_adu = 1.45
