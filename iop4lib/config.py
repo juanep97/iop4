@@ -7,6 +7,10 @@ import matplotlib, matplotlib.pyplot
 
 matplotlib.pyplot.set_loglevel('warning')
 
+# logging
+import logging
+logger = logging.getLogger(__name__)
+
 # Set journal_mode=WAL and synchronous=NORMAL for sqlite3 databases on 
 # connection, to improve support for concurrent write access to the 
 # database during parallel reduction
@@ -127,7 +131,7 @@ class Config(dict):
         # Allow paths relative to home directory
 
         for k, v in self.items():
-            if (k in ['basedir', 'datadir', 'log_fname'] or 'path' in k) and v is not None: # config variables that are should have ~ expanded
+            if (k in ['basedir', 'datadir', 'log_file'] or 'path' in k) and v is not None: # config variables should have ~ expanded
                 setattr(self, k, str(pathlib.Path(v).expanduser()))
 
         # If data dir does not exist, create it
@@ -202,3 +206,29 @@ class Config(dict):
             return
         
         logging.setLogRecordFactory(record_factory_w_proc_memory)
+
+
+    def is_valid(self):
+        r""" Checks that the configuration file is correct by comparing it with the default one.
+        
+        Returns
+        -------
+        bool
+            True if the configuration file is correct, False otherwise.
+
+        """
+
+        with open(self.config_path, 'r') as f:
+            config_dict = yaml.safe_load(f)
+
+        with open(pathlib.Path(self.basedir) / "config" / "config.example.yaml", 'r') as f:
+            config_dict_example = yaml.safe_load(f)
+
+        wrong = False
+
+        for k, v in config_dict_example.items():
+            if k not in config_dict:
+                logger.error(f"ERROR: {k} missing in config file.")
+                wrong = True
+
+        return not wrong

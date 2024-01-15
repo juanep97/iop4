@@ -29,7 +29,7 @@ def epoch_bulkreduce_multiprocesing(reduced_L, epoch=None):
     """ Reduces a list of ReducedFit instances in a multiprocessing pool.
 
     Invokes the reduction of a list of ReducedFit instances in a multiprocessing pool, with a maximum number of
-    concurrent processes defined by iop4conf.max_concurrent_threads. It can be invoked with a list of ReducedFit 
+    concurrent processes defined by iop4conf.nthreads. It can be invoked with a list of ReducedFit 
     from different epochs.
 
     Parameters
@@ -43,7 +43,7 @@ def epoch_bulkreduce_multiprocesing(reduced_L, epoch=None):
         If provided, it is used only to print the epoch in the log messages of the main thread.
     """
 
-    logger.info(f"{epoch}: starting {iop4conf.max_concurrent_threads} threads to build {len(reduced_L)} reduced files. Current memory usage: {get_mem_current()/1024**3:.2f} GB.")
+    logger.info(f"{epoch}: starting {iop4conf.nthreads} threads to build {len(reduced_L)} reduced files. Current memory usage: {get_mem_current()/1024**3:.2f} GB.")
 
     mp_ctx = multiprocessing.get_context('spawn')
 
@@ -53,7 +53,7 @@ def epoch_bulkreduce_multiprocesing(reduced_L, epoch=None):
     
     counter = mp_ctx.Value('i', 0)
 
-    with mp_ctx.Pool(processes=iop4conf.max_concurrent_threads, 
+    with mp_ctx.Pool(processes=iop4conf.nthreads, 
                               initializer=_epoch_bulkreduce_multiprocessing_init,
                               initargs=(counter, queue, len(reduced_L), iop4conf), 
                               maxtasksperchild=20) as pool:
@@ -210,6 +210,6 @@ def _parallel_relative_polarimetry_helper(keys, group):
         logger.info(f"Finished computing relative polarimetry for {group=}.")
 
 def parallel_relative_polarimetry(keys, groups):
-    with multiprocessing.Pool(iop4conf.max_concurrent_threads) as pool:
+    with multiprocessing.Pool(iop4conf.nthreads) as pool:
         pool.starmap(_parallel_relative_polarimetry_helper, zip(keys, groups))
 

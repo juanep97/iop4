@@ -3,7 +3,7 @@
 
 """This script will create a iop4testdata.tar.gz file in your home directory.
 
-Use it to build a test dataset from you reduced and tested results. The .tar.gz 
+Use it to build a test dataset from your reduced and tested results. The .tar.gz 
 will contain all the raw data needed to reduce the given photo-polarimetry results,
 including raw light, bias, darks, flats and a test catalog file.
 

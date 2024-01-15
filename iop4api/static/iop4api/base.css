@@ -438,8 +438,6 @@ form label {
 }
 
 .pipeline-log-entry {
-    line-height: 12px !important;
-    padding: 2px !important;
     font-size: 10px !important;
 }
 .pipeline-log-entry .highlight {
@@ -685,4 +683,25 @@ form label {
 
 .modal_body > label > span {
     padding-left: 0.6em;
+}
+
+/* table filters */
+
+.filter-field, .filter-type, .filter-value, .filter-add, .filter-remove {
+    padding: 2px;
+    margin: 2px;
+  }
+  
+.filter-add, .filter-remove {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    justify-content: center;
+    align-content: center;
+    align-items: center;
+    border-radius: 15px;
+  }
+
+#FiltersTable *{
+    font-size: 14px;
 }

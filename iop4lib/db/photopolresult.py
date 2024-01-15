@@ -9,6 +9,7 @@ from django.db.models.signals import m2m_changed
 from django.dispatch import receiver
 
 # other imports
+import math
 import numpy as np
 import astropy.units as u
 from astropy.time import Time
@@ -104,6 +105,15 @@ class PhotoPolResult(models.Model):
 
     chi = models.FloatField(null=True, help_text="Polarization angle of the source [deg], result of the reduction.")
     chi_err = models.FloatField(null=True, help_text="Error for chi.")
+
+    ## host galaxy correction 
+    aperas = models.FloatField(null=True, help_text="Aperture radius in arcseconds.")
+    mag_corr = models.FloatField(null=True, help_text="Magnitude corrected for host galaxy.")
+    mag_corr_err = models.FloatField(null=True, help_text="Error for mag_corr.")
+    p_corr = models.FloatField(null=True, help_text="Polarization corrected for host galaxy.")
+    p_corr_err = models.FloatField(null=True, help_text="Error for p_corr.")
+    used_mag_for_corr = models.FloatField(null=True, help_text="Magnitude used for host galaxy correction (when mag is not available).")
+    used_mag_err_for_corr = models.FloatField(null=True, help_text="Error for used_mag_for_corr.")
 
     ## flags
     
@@ -286,6 +296,90 @@ class PhotoPolResult(models.Model):
         """ Overriden to enforce clean() before saving. See PhotoPolResult.__docstring__ for more info."""
         self.clean()
         super().save(*args, **kwargs)
+        
+    # Host galaxy correction
+        
+    class NoHostCorrectionAvailable(Exception):
+        pass
+
+    def compute_host_galaxy_correction(self):
+        r""" Computes the host galaxy correction and stores it in the appropriate fields in the DB.
+
+        See [1] and the docstring of iop4lib.utils.get_host_correction for more info.
+
+        References
+        ----------
+        [1] Nilsson, K., “Host galaxy subtraction of TeV candidate BL Lacertae objects”
+            Astronomy and Astrophysics, vol. 475, no. 1, pp. 199-207, 2007. 
+            doi:10.1051/0004-6361:20077624. 
+            URL: https://ui.adsabs.harvard.edu/abs/2007A%26A...475..199N/abstract
+
+        """
+
+        from iop4lib.utils import get_host_correction
+
+        if self.band != BANDS.R:
+            raise PhotoPolResult.NoHostCorrectionAvailable('Host galaxy correction only available for R band')
+        
+        # compute the used aperture in arcseconds
+
+        aperas = self.aperpix * self.reducedfits.first().pixscale.to(u.arcsec / u.pix).value
+        
+        # get the host galaxy flux for this aperture
+
+        hostcorr_flux, hostcorr_flux_err = get_host_correction(self.astrosource, aperas)
+
+        if hostcorr_flux is None:
+            raise PhotoPolResult.NoHostCorrectionAvailable('No host galaxy correction available for this source')
+
+        mag, mag_err, p, p_err = self.mag, self.mag_err, self.p, self.p_err
+
+        # if there is no magnitude in this result, interpolate the lightcurve
+
+        if mag is None:
+            from iop4lib.utils import get_column_values
+            qs = PhotoPolResult.objects.filter(astrosource=self.astrosource, band=self.band, mag__isnull=False, flags=0).order_by('juliandate')
+            vals = get_column_values(qs, column_names=['juliandate', 'mag', 'mag_err'])
+            mag, mag_err = np.interp(self.juliandate, vals['juliandate'], vals['mag']), np.interp(self.juliandate, vals['juliandate'], vals['mag_err'])
+            used_mag_for_corr = mag
+            used_mag_err_for_corr = mag_err
+        else:
+            used_mag_for_corr, used_mag_err_for_corr = None, None
+
+        # compute the corrected magnitude and polarization
+        # it is just a matter of substracting the host galaxy flux from the observed flux
+
+        obsflux = 3.080e6  * 10 ** (-mag*0.4) # mag R to mJy
+        obsflux_err = abs( 3.080e6 * 10**(-mag*0.4) * math.log(10) * 0.4 * mag_err )
+
+        flux_corr = obsflux - hostcorr_flux
+        flux_corr_err = math.sqrt( obsflux_err**2 + hostcorr_flux_err**2 )
+
+        mag_corr = -2.5 * math.log10( flux_corr / (3.080e6) )
+        mag_corr_err = abs( 2.5 * 1 / (flux_corr * math.log(10)) * flux_corr_err )
+
+        if p is None:
+            p_corr, p_corr_err = None, None
+        else:
+            p_corr = p * obsflux / flux_corr 
+            p_corr_err = p_corr * math.sqrt( (p_err/p)**2 + (obsflux_err/obsflux)**2 + (flux_corr_err/flux_corr)**2 )
+
+        # store results in DB and return
+
+        self.mag_corr = mag_corr if used_mag_for_corr is None else None # if we used an interpolated magnitude, we don't store the corrected magnitude
+        self.mag_corr_err = mag_corr_err if used_mag_for_corr is None else None
+
+        self.p_corr = p_corr
+        self.p_corr_err = p_corr_err
+
+        self.aperas = aperas
+        
+        self.used_mag_for_corr = used_mag_for_corr
+        self.used_mag_err_for_corr = used_mag_err_for_corr
+
+        self.save()
+
+        return mag_corr, p_corr, p_corr_err
         
 
 @receiver(m2m_changed, sender=PhotoPolResult.reducedfits.through)

@@ -35,7 +35,7 @@ class AstroSourceDetailsView(SingleObjView):
         # finding chart
         finding_char_path = Path(obj.filedpropdir) / "finding_chart.png"
 
-        if True: #not os.path.exists(finding_char_path):
+        if not os.path.exists(finding_char_path) or iop4conf.iop4admin['force_rebuild_finding_charts']:
             buf = io.BytesIO()
 
             width, height = 800, 800

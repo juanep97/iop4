@@ -76,7 +76,7 @@ def test_build_single_proc(load_test_catalog):
         epoch.build_master_biases()
         epoch.build_master_flats()
 
-    iop4conf.max_concurrent_threads = 1
+    iop4conf.nthreads = 1
 
     epoch = Epoch.by_epochname("OSN-T090/2022-09-18")
     
@@ -108,7 +108,7 @@ def test_build_multi_proc_photopol(load_test_catalog):
         epoch.build_master_biases()
         epoch.build_master_flats()
 
-    iop4conf.max_concurrent_threads = 6
+    iop4conf.nthreads = 6
 
     rawfits = RawFit.objects.filter(epoch__in=epoch_L, imgtype=IMGTYPES.LIGHT).all()
     

@@ -161,6 +161,7 @@ function show_column_visibility_modal_form() {
 
         let span = document.createElement("span");
         span.innerHTML = column.getDefinition().title;
+        span.title = column.getDefinition().headerTooltip;
 
         let checkbox = document.createElement("input");
         checkbox.setAttribute('type', "checkbox");
@@ -606,11 +607,11 @@ function flags_to_str(flags) {
         str_arr.push("not set");
     } 
           
-    if (flags & (1 << 0)) { // bad photometry
+    if (flags & (1 << 1)) { // bad photometry
         str_arr.push("bad photometry");
     }
           
-    if (flags & (1 << 1)) { // bad polarimetry
+    if (flags & (1 << 2)) { // bad polarimetry
         str_arr.push("bad polarimetry");
     }
 
@@ -690,45 +691,25 @@ function load_catalog() {
 /********** LOGS*** **********/
 /*****************************/
 
-function load_pipeline_log() {
-    const decoder = new TextDecoder('utf-8');
-    
-    let output = '';
-
-    fetch('/iop4/api/log/')
-        .then(response => {
-            vueApp.$data.pipeline_log.isLoaded = false;
-            const reader = response.body.getReader();
-            return new ReadableStream({
-                start(controller) {
-                function push() {
-                    reader.read().then(({ done, value }) => {
-                        if (done) {
-                            controller.close();
-                            vueApp.$data.pipeline_log.isLoaded = true;
-                            vueApp.$data.pipeline_log.data = output;
-                            show_pipeline_log();
-                            return;
-                        }
-                        output += decoder.decode(value);
-                        push();
-                    });
-                }
-                push();
-            }
-        });
-    });
-}
-
 function extractTextFromHTML(html) {
+    /* This function returns the text content of the given html */
     let parser = new DOMParser();
     let doc = parser.parseFromString(html, 'text/html');
     return doc.body.textContent || "";
 }
 
-highlight_parser = new DOMParser();
 
 function highlightTextInHTML(html, re_expr) {
+    /* 
+        This function looks only inside the text nodes of the given html, and highlights the given pattern by substituting the text with a span with class highlight 
+        The re_expr pattern should take care not to break html entities, e.g.
+            const re_expr = new RegExp(`(?<!&#?[a-zA-Z]*)${searchstring}(?![a-zA-Z]*;)`, 'gi');
+        will make sure to match the search string only if it is not part of an html entity. 
+        This is needed because when the value of the text noded is extracted, html entities get 
+        transformed to their unicode representation, e.g. &lt; becomes < and &gt; becomes >. Therefore not to break the html these need to be
+        transformed back to their html entity representation, e.g. < replaced by &lt; and > replaced by &gt;. Then searching for 'g' would 
+        break the entity if it is not excluded from the search.
+    */
     let parser = new DOMParser();
     let doc = parser.parseFromString(html, 'text/html');
 
@@ -737,7 +718,10 @@ function highlightTextInHTML(html, re_expr) {
             const matches = node.nodeValue.match(re_expr);
             if (matches) {
                 const span = document.createElement('span');
-                span.innerHTML = node.nodeValue.replaceAll(re_expr, '<span class="highlight">$&</span>');
+
+                // span.innerHTML = node.nodeValue.replaceAll(re_expr, '<span class="highlight">$&</span>');
+                span.innerHTML = node.nodeValue.replace('<','&lt;').replace('>','&gt;').replaceAll(re_expr, '<span class="highlight">$&</span>');
+
                 node.parentNode.replaceChild(span, node);
             }
         } else if (node.nodeType === 1) { // Node.ELEMENT_NODE
@@ -749,36 +733,122 @@ function highlightTextInHTML(html, re_expr) {
     return doc.body.innerHTML;
 }
 
-function highlightTextInHTML2(html, re_expr) {
-    return html.replaceAll(re_expr, function(match) {
-        return `<span class="highlight">${match}</span>`;
-    });
-}
+async function load_pipeline_log() {
 
-function show_pipeline_log() {
+    this.pipeline_log_options.filter_text = ''; // clear the filter text (it would not make sense to push to the filtered array below otherwise)
 
-    console.log("vueApp.$data.pipeline_log_options", vueApp.$data.pipeline_log_options)
+    console.log(`Loading pipeline log for ${this.log_file}`);
 
-    // Filter the log lines
-    vueApp.$data.pipeline_log.items = vueApp.$data.pipeline_log.data.split('\n').filter((txt) => {
-        // if the filter text is not empty, hide lines that do not contain it
-        if (!!(vueApp.$data.pipeline_log_options.filter_text) && (vueApp.$data.pipeline_log_options.filter_text.length > 0)) {
-            if (!extractTextFromHTML(txt).toUpperCase().includes(vueApp.$data.pipeline_log_options.filter_text.toUpperCase())) { return false; }
+    const log_file = this.log_file;
+    const decoder = new TextDecoder('utf-8');
+    const response = await fetch(`/iop4/api/log/?log_file=${log_file}`);
+
+    let data = ''
+    for await (const chunk of response.body) {
+        if (log_file !== this.log_file) {
+            console.log("Pipeline log loading cancelled due to new input");
+            return; // Exit the loop early
         }
-        // show only lines of the selected logging levels
-        if ((txt.includes('ERROR')) && (vueApp.$data.pipeline_log_options.errors)){ return true; }
-        if ((txt.includes('WARNING')) && (vueApp.$data.pipeline_log_options.warnings)){ return true; }
-        if ((txt.includes('INFO')) && (vueApp.$data.pipeline_log_options.info)){ return true; }
-        if ((txt.includes('DEBUG')) && (vueApp.$data.pipeline_log_options.debug)){ return true; }
-        return false
-    });
-    
-    // Highlight the searched text
-    if ((vueApp.$data.pipeline_log_options.filter_text != null) && (vueApp.$data.pipeline_log_options.filter_text != '' && vueApp.$data.pipeline_log_options.filter_text.length > 0)) {
-        re_expr = new RegExp(vueApp.$data.pipeline_log_options.filter_text, 'gi');
-        for (let i = 0; i < vueApp.$data.pipeline_log.items.length; i++) {
-            vueApp.$data.pipeline_log.items[i] = highlightTextInHTML(vueApp.$data.pipeline_log.items[i], re_expr);
-        }
+
+        data += decoder.decode(chunk);
+        new_items = data.split('\n').slice(vueApp.$data.pipeline_log.items.length,-1);
+        vueApp.$data.pipeline_log.items.push(...new_items);
+        // initially put them also in the filtered array so the log appears as they are received
+        vueApp.$data.pipeline_log.items_filtered.push(...new_items.filter(is_log_visible)); 
     }
 
+    console.log("Pipeline log loaded!");
 }
+
+function is_log_visible(txt) {
+    /* whether the given log line should be visible or not */
+    
+    // show only lines of the selected logging levels
+    if ((txt.includes('ERROR')) && (!vueApp.$data.pipeline_log_options.errors)){ return false; }
+    if ((txt.includes('WARNING')) && (!vueApp.$data.pipeline_log_options.warnings)){ return false; }
+    if ((txt.includes('INFO')) && (!vueApp.$data.pipeline_log_options.info)){ return false; }
+    if ((txt.includes('DEBUG')) && (!vueApp.$data.pipeline_log_options.debug)){ return false; }
+    if (!(txt.includes('ERROR') || txt.includes('WARNING') || txt.includes('INFO') || txt.includes('DEBUG'))) { return false; }
+
+    // if the filter text is not empty, hide lines that do not contain it
+    if (!!(vueApp.$data.pipeline_log_options.filter_text) && (vueApp.$data.pipeline_log_options.filter_text.length > 0)) {
+        if (!extractTextFromHTML(txt).toUpperCase().includes(vueApp.$data.pipeline_log_options.filter_text.toUpperCase())) { return false; }
+    }
+
+    return true;
+}
+
+
+/* The following code implements the filtering (by is_log_visible) of the pipeline log, and its formatting (by highlightTextInHTML) in a way that
+the page does not freeze when the user types in the filter text input. 
+It does it by:
+    - using a debounce function that waits for the user to stop typing for a given amount of time (debounceDelay) before processing the log items.
+    - canceling the processing if a new filtering request has been made. 
+    - processing is done in chunks of 100 items, and the next chunk is scheduled to be processed after the current one has finished.
+    - using async functions.
+This solution is obviously a bit slower but it is much more responsive.
+*/
+
+let debounceTimer;
+const debounceDelay = 10; // milliseconds
+let currentFilterTimestamp = 0;
+
+async function format_pipeline_logs() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+        processLogItems();
+    }, debounceDelay);
+}
+
+async function processLogItems() {
+
+    vueApp.$data.pipeline_log.filter_in_progress = true;
+
+    const startTime = Date.now();
+    currentFilterTimestamp = startTime;
+    console.log("Filtering pipeline log");
+
+    // Clear the existing array
+    vueApp.$data.pipeline_log.items_filtered = [];
+
+    const processChunk = async (start, chunkSize) => {
+        for (let i = start; i < start + chunkSize && i < vueApp.$data.pipeline_log.items.length; i++) {
+            const txt = vueApp.$data.pipeline_log.items[i];
+
+            // Check if a new filtering request has been made
+            if (currentFilterTimestamp !== startTime) {
+                console.log("Filtering cancelled due to new input");
+                return; // Exit the loop early
+            }
+
+            // Check if log is visible
+            if (is_log_visible(txt)) {
+                let formattedText = txt;
+
+                // Check for highlight condition
+                if (vueApp.$data.pipeline_log_options.filter_text) {
+                    // const re_expr = new RegExp(vueApp.$data.pipeline_log_options.filter_text, 'gi');
+                    const re_expr = new RegExp(`(?<!&#?[a-zA-Z]*)${vueApp.$data.pipeline_log_options.filter_text}(?![a-zA-Z]*;)`, 'gi');
+                    formattedText = highlightTextInHTML(txt, re_expr);
+                }
+
+                // Push individually
+                vueApp.$data.pipeline_log.items_filtered.push(formattedText);
+            }
+        }
+
+        if (start + chunkSize < vueApp.$data.pipeline_log.items.length) {
+            // Schedule next chunk
+            setTimeout(() => processChunk(start + chunkSize, chunkSize), 0);
+        } else if (currentFilterTimestamp === startTime) {
+            console.log("Pipeline log filtered");
+            vueApp.$data.pipeline_log.filter_in_progress = false;
+        }
+    };
+
+    const chunkSize = 100; // Adjust based on performance
+    processChunk(0, chunkSize);
+
+}
+
+/*****************************/

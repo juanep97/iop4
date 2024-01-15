@@ -280,12 +280,12 @@ class Instrument(metaclass=ABCMeta):
         args.pop("exptime", None) # exptime might be a building keywords (for flats and darks), but masters with different exptime can be applied
         args["epoch"] = rawfit.epoch # from .values() we only get epoch__id 
 
-        master = model.objects.filter(**args).first()
+        master = model.objects.filter(**args, flags__hasnot=model.FLAGS.IGNORE).first()
         
         if master is None and other_epochs == True:
             args.pop("epoch")
 
-            master_other_epochs = np.array(model.objects.filter(**args).all())
+            master_other_epochs = np.array(model.objects.filter(**args, flags__hasnot=model.FLAGS.IGNORE).all())
 
             if len(master_other_epochs) == 0:
                 logger.debug(f"No {model._meta.verbose_name} for {args} in DB, None will be returned.")
@@ -550,6 +550,7 @@ class Instrument(metaclass=ABCMeta):
 
             aperphotresult = AperPhotResult.objects.get(reducedfit=redf, astrosource=astrosource, aperpix=aperpix, pairs="O")
 
+            result.aperpix = aperpix
             result.bkg_flux_counts = aperphotresult.bkg_flux_counts
             result.bkg_flux_counts_err = aperphotresult.bkg_flux_counts_err
             result.flux_counts = aperphotresult.flux_counts
@@ -667,7 +668,7 @@ class Instrument(metaclass=ABCMeta):
                 if not (fwhm_min < fwhm < fwhm_max):
                     logger.warning(f"ReducedFit {redf.id} {target.name}: fwhm = {fwhm} px, skipping this reduced fit")
                     continue
-                logger.debug(f"{target.name}: Gaussian FWHM: {fwhm:.1f} px")
+                logger.debug(f"ReducedFit {redf.id} [{target.name}] Gaussian FWHM: {fwhm:.1f} px")
                 fwhm_L.append(fwhm)
             except Exception as e:
                 logger.warning(f"ReducedFit {redf.id} {target.name}: error in gaussian fit, skipping this reduced fit ({e})")
@@ -682,6 +683,6 @@ class Instrument(metaclass=ABCMeta):
         sigma = mean_fwhm / (2*np.sqrt(2*math.log(2)))
         r = sigma
         
-        return 3.0*r, 7.0*r, 15.0*r, {'mean_fwhm':mean_fwhm, 'sigma':sigma}
+        return 6.0*r, 7.0*r, 15.0*r, {'mean_fwhm':mean_fwhm, 'sigma':sigma}
     
 

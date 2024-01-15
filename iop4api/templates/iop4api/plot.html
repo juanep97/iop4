@@ -15,7 +15,9 @@
                         <div class="form-row wrappable">
                             <input v-model="input_date_start" type="text" name="date_start" placeholder="From..." title="Select a start date (yyyy-mm-dd HH:MM)">
                             <input v-model="input_date_end" type="text" name="date_end" placeholder="To..." title="Select an end date (yyyy-mm-dd HH:MM)">
-
+                        </div>
+                        <div class="form-row wrappable">
+                            <q-select label="band" v-model="plot_config_band" name="band" :options="plot_config_band_options" required></q-select>
                             <label><q-toggle v-model="plot_config_fast" color="blue"></q-toggle><span>fast</span></label>
                             <input type="checkbox" style="display:none" name="plot_config_fast" v-model="plot_config_fast" hidden />
                         </div>
@@ -32,6 +34,7 @@
                                         <div><label><input type="checkbox" name="enable_full_lc" v-model="enable_full_lc" :disabled="plot_config_fast"/><span style="margin-left: 0.8em;">Full curve</span></label></div>
                                         <div><label><input type="checkbox" name="enable_errorbars" v-model="enable_errorbars" :disabled="plot_config_fast"/><span style="margin-left: 0.8em;">Enable errorbars</span></label></div>
                                         <div><label><input type="checkbox" name="enable_crosscheckpts" v-model="enable_crosscheckpts" :disabled="plot_config_fast"/><span style="margin-left: 0.8em;">Crosscheck data</span></label></div>
+                                        <div><label><input type="checkbox" name="use_hostcorrected" v-model="use_hostcorrected" :disabled="plot_config_fast"/><span style="margin-left: 0.8em;">Plot host-corrected values</span></label></div>
                                     </div>
                                 </q-card-section>
                               </q-card>
@@ -65,8 +68,8 @@
                             
                             <div class="col-12">
                                 <div class="row q-gutter-x-sm">
-                                    <q-checkbox v-model="selected_plot_pts_flagsummary.bad_photometry" @click="set_flag(1<<0, selected_plot_pts, !!selected_plot_pts_flagsummary.bad_photometry)" :disable="selected_plot_pts.length == 0" label="bad photometry" size="sm"></q-checkbox>
-                                    <q-checkbox v-model="selected_plot_pts_flagsummary.bad_polarimetry"  @click="set_flag(1<<1, selected_plot_pts, !!selected_plot_pts_flagsummary.bad_polarimetry)"  :disable="selected_plot_pts.length == 0" label="bad polarimetry" size="sm"></q-checkbox>
+                                    <q-checkbox v-model="selected_plot_pts_flagsummary.bad_photometry" @click="set_flag(1<<1, selected_plot_pts, !!selected_plot_pts_flagsummary.bad_photometry)" :disable="selected_plot_pts.length == 0" label="bad photometry" size="sm"></q-checkbox>
+                                    <q-checkbox v-model="selected_plot_pts_flagsummary.bad_polarimetry"  @click="set_flag(1<<2, selected_plot_pts, !!selected_plot_pts_flagsummary.bad_polarimetry)"  :disable="selected_plot_pts.length == 0" label="bad polarimetry" size="sm"></q-checkbox>
                                 </div>
                             </div>
                         </q-card-section>                          
@@ -101,8 +104,8 @@
                                     <td>[[ point.flags ]]</td>
                                     <!-- <td>[[ point.flagsstr ]]</td> -->
                                     <td>
-                                        <q-chip :selected="point.has_flag_bad_photometry" @click="toggle_flag(1<<0, [point])" color="black" text-color="white" :outline="!point.has_flag_bad_photometry">bad photometry</q-chip>
-                                        <q-chip :selected="point.has_flag_bad_polarimetry" @click="toggle_flag(1<<1, [point])" color="black" text-color="white" :outline="!point.has_flag_bad_polarimetry">bad polarimetry</q-chip>
+                                        <q-chip :selected="point.has_flag_bad_photometry" @click="toggle_flag(1<<1, [point])" color="black" text-color="white" :outline="!point.has_flag_bad_photometry">bad photometry</q-chip>
+                                        <q-chip :selected="point.has_flag_bad_polarimetry" @click="toggle_flag(1<<2, [point])" color="black" text-color="white" :outline="!point.has_flag_bad_polarimetry">bad polarimetry</q-chip>
                                     </td>
                                 </tr>
                             </tbody>

@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 @permission_required(["iop4api.view_astrosource"])
 def catalog(request):
-    qs = AstroSource.objects.exclude(srctype=SRCTYPES.CALIBRATOR).exclude(srctype=SRCTYPES.UNPOLARIZED_FIELD_STAR)
+    qs = AstroSource.objects.exclude(srctype=SRCTYPES.CALIBRATOR)
 
     all_column_names = [f.name for f in AstroSource._meta.get_fields() if hasattr(f, 'verbose_name')]
 

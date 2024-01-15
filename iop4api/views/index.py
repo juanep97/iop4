@@ -15,6 +15,7 @@ from iop4lib.enums import SRCTYPES
 import json
 import os
 import subprocess
+from pathlib import Path
 
 #logging
 import logging
@@ -46,11 +47,14 @@ def index(request, tabs=None):
 
     # if the user is logged, pass source names to the template
     if request.user.is_authenticated:
-        context['source_name_list'] = AstroSource.objects.exclude(srctype=SRCTYPES.CALIBRATOR).exclude(srctype=SRCTYPES.UNPOLARIZED_FIELD_STAR).values_list('name', flat="True")
+        context['source_name_list'] = AstroSource.objects.exclude(srctype=SRCTYPES.CALIBRATOR).values_list('name', flat="True")
 
     # add the hash of the current commit installed 
     context['git_commit_hash'] = GIT_COMMIT_HASH
     context['git_branch'] = GIT_BRANCH
     context['git_describe'] = GIT_DESCRIBE
+
+    # add the available log files
+    context['log_files'] = json.dumps([os.path.basename(f) for f in os.listdir(Path(iop4conf.datadir) / "logs") if f.endswith(".log")])
 
     return render(request, 'iop4api/index.html', context)

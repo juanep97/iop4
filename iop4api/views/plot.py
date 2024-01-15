@@ -30,15 +30,13 @@ def plot(request):
 
     source_name = request.POST.get("source_name", None)
     band = request.POST.get("band", "R")
-    fmt = request.POST.get("fmt", "items") 
-    date_start = request.POST.get("date_start", None)
-    date_start = None if date_start == "" else date_start
-    date_end = request.POST.get("date_end", None)
-    date_end = None if date_end == "" else date_end
+    date_start = request.POST.get("date_start", None) or None # it might be an empty string, this converts it to None
+    date_end = request.POST.get("date_end", None) or None
 
     enable_crosscheckpts = request.POST.get("enable_crosscheckpts", False)
     enable_full_lc = request.POST.get("enable_full_lc", False)
     enable_errorbars = request.POST.get("enable_errorbars", False)
+    use_hostcorrected = request.POST.get("use_hostcorrected", False)
 
     save_filename = f"IOP4_{source_name}_{band}"
 
@@ -48,7 +46,7 @@ def plot(request):
     
     target_src = AstroSource.objects.get(name=source_name)
 
-    logger.debug(f"Serving results for {target_src}")
+    logger.debug(f"Serving results for {target_src} band {band} from {date_start} to {date_end}")
 
     # build plot
 
@@ -77,6 +75,10 @@ def plot(request):
     
     # Get data from DB
     column_names = ['id', 'juliandate', 'band', 'instrument', 'mag', 'mag_err', 'p', 'p_err', 'chi', 'chi_err', 'flags']
+
+    if use_hostcorrected:
+        column_names += ['mag_corr', 'mag_corr_err', 'p_corr', 'p_corr_err']
+
     qs = PhotoPolResult.objects.filter(astrosource__name=source_name, band=band).all()
 
     if date_start is not None:
@@ -148,6 +150,12 @@ def plot(request):
     # choose  the x and y
     if qs.count() > 0:
         vals = get_column_values(qs, column_names)
+        if use_hostcorrected:
+            # just overwrite the values
+            vals['mag'] = vals['mag_corr']
+            vals['mag_err'] = vals['mag_corr_err']
+            vals['p'] = vals['p_corr']
+            vals['p_err'] = vals['p_corr_err']
     else:
         vals = {k:np.array([]) for k in column_names}
 
@@ -214,15 +222,15 @@ def plot(request):
                                                      
                 let marker = "circle";
                                                                                           
-                if (xs[i] & (1 << 0)) { // bad photometry
+                if (xs[i] & (1 << 1)) { // bad photometry
                     marker = "triangle";
                 } 
 
-                if (xs[i] & (1 << 1)) { // bad polarimetry
+                if (xs[i] & (1 << 2)) { // bad polarimetry
                     marker = "inverted_triangle";
                 }
 
-                if ((xs[i] & (1 << 0)) && (xs[i] & (1 << 1))) { // bad photometry and polarimetry
+                if ((xs[i] & (1 << 1)) && (xs[i] & (1 << 2))) { // bad photometry and polarimetry
                     marker = "cross";                                 
                 }
                                                                                                                        
@@ -397,7 +405,7 @@ def plot(request):
                     'ax1': {
                                 'x':"x1", 
                                 'y':"y1", 
-                                "y_label": "mag",
+                                "y_label": "mag" if not use_hostcorrected else "mag (corr)",
                                 "err": ["y1_min", "y1_max"],                                  
                                 # "marker": "circle", # better done
                                 "marker": markermap,
@@ -412,7 +420,7 @@ def plot(request):
                     'ax2':  {
                                 'x':"x1", 
                                 'y':"y2", 
-                                "y_label": "p [%]",
+                                "y_label": "p [%]" if not use_hostcorrected else "p (corr) [%]",
                                 "err": ["y2_min", "y2_max"],
                                 # "marker":"circle",
                                 "marker": markermap,
@@ -581,6 +589,7 @@ def plot(request):
     #################################################
 
     # Create a ColumnDataSource with data for Circle and Star glyphs
+
     legend_source = ColumnDataSource(data=dict(x=[0], y=[0]))
 
     label_stylesheet = InlineStyleSheet(css="""
@@ -618,6 +627,8 @@ def plot(request):
 
     legend_row_L = list()
 
+    # Instrument legend entries
+
     for instrument, color in zip(instruments_L, instrument_color_L):
         # Create Div elements for labels
         label = Div(text=f"""<label><span>{instrument}</span><input onclick="plot_hide_instrument(this);" data-instrument="{instrument}" type="checkbox" checked/></label>""", height=21, stylesheets=[label_stylesheet])
@@ -636,9 +647,12 @@ def plot(request):
 
         legend_row_L.append(legend_row)
 
-    for flag_value, flag_label, marker in zip([1,2,3], ["bad photometry", "bad polarimetry", "bad photometry and polarimetry"], ["triangle", "inverted_triangle", "cross"]):
+    # Flag legend entries
+    # values here must match those in PhotoPolResult.FLAGS (0, 1 << 1 = 2, 1 << 2 = 4, 1 << 1 | 1 << 2 = 6)
+        
+    for flag_value, flag_label, marker in zip([2,4,6], ["bad photometry", "bad polarimetry", "bad photometry and polarimetry"], ["triangle", "inverted_triangle", "cross"]):
         # Create Div elements for labels
-        if flag_value in [1,2]:
+        if flag_value in [2,4]:
             cbox = f"""<input onclick="plot_hide_flag(this);" data-flag="{flag_value}" type="checkbox" checked/>"""
             no_pointer = ""
         else:
@@ -673,44 +687,12 @@ def plot(request):
     doc.add_root(data_table)
     doc.add_root(legend_layout)
     
-    if fmt == "components":
-        # these can be loaded independently in the template and will be connected, but no control on the load process
-        script, (div_plot, div_table, div_legend) = components([plot_layout, data_table, legend_layout], wrap_script=False)
-        return JsonResponse({
-                                'plot': {
-                                        'script': script,
-                                        'div_plot': div_plot,
-                                        'div_table': div_table,
-                                        'div_legend': div_legend,
-                                    }, 
-                                'n_points':len(x1),
-                                'enable_full_lc': enable_full_lc,
-                                'enable_crosscheckpts': enable_crosscheckpts,
-                                'enable_errorbars': enable_errorbars,
-                            })
-    
-    elif fmt == "json_item":
-        # this will make them indepenedent, so table wont be connected to plot
-        return JsonResponse({'plot':json_item(plot_layout), 
-                             'legend':json_item(legend_layout),
-                             'table':json_item(data_table),
-                             'n_points':len(x1),
-                             'enable_full_lc': enable_full_lc,
-                             'enable_crosscheckpts': enable_crosscheckpts,
-                             'enable_errorbars': enable_errorbars})
-    
-    elif fmt == "items":
-        # to implement my own load process
-        from bokeh.embed.util import standalone_docs_json_and_render_items
-        doc, render_items = standalone_docs_json_and_render_items([plot_layout, data_table, legend_layout])
-        return JsonResponse({'doc':doc,
-                            'render_items':[item.to_json() for item in render_items],
-                            'n_points':len(x1),
-                            'enable_full_lc': enable_full_lc,
-                            'enable_crosscheckpts': enable_crosscheckpts,
-                            'enable_errorbars': enable_errorbars})
-    
-    else:
-
-        return HttpResponseBadRequest("Invalid format parameter")
-
+    from bokeh.embed.util import standalone_docs_json_and_render_items
+    doc, render_items = standalone_docs_json_and_render_items([plot_layout, data_table, legend_layout])
+    return JsonResponse({'doc':doc,
+                        'render_items':[item.to_json() for item in render_items],
+                        'n_points':len(x1),
+                        'enable_full_lc': enable_full_lc,
+                        'enable_crosscheckpts': enable_crosscheckpts,
+                        'enable_errorbars': enable_errorbars,
+                        'use_hostcorrected': use_hostcorrected})
