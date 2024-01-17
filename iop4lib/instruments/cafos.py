@@ -27,8 +27,9 @@ if typing.TYPE_CHECKING:
 class CAFOS(Instrument):
         
     name = "CAFOS2.2"
-    instrument_kw = "CAFOS 2.2"
     telescope = CAHAT220.name
+
+    instrument_kw_L = ["CAFOS 2.2"]
 
     arcsec_per_pix = 0.530
     gain_e_adu = 1.45
@@ -75,6 +76,8 @@ class CAFOS(Instrument):
                 rawfit.imgtype = IMGTYPES.BIAS
             elif hdul[0].header['IMAGETYP'] == 'science':
                 rawfit.imgtype = IMGTYPES.LIGHT
+            elif hdul[0].header['IMAGETYP'] == 'dark':
+                rawfit.imgtype = IMGTYPES.DARK
             else:
                 logger.error(f"Unknown image type for {rawfit.fileloc}.")
                 rawfit.imgtype = IMGTYPES.ERROR
@@ -83,14 +86,19 @@ class CAFOS(Instrument):
     @classmethod
     def classify_band_rawfit(cls, rawfit):
         """
-        INSFLNAM is BesselR ??
+        Older data (e.g. 2007): INSFLNAM = 'John R' or INSFLNAM = 'Cous R'
+        New data (e.g. 2022): INSFLNAM = 'BessellR'
+
+        There are also images in the archive with INSFLNAM = 'John V' and INSFLNAM = 'John I', and INSFLNAM = 'free'
         """
 
         from iop4lib.db.rawfit import RawFit
         import astropy.io.fits as fits
 
         if 'INSFLNAM' in rawfit.header:
-            if rawfit.header['INSFLNAM'] == 'BessellR':
+            if (rawfit.header['INSFLNAM'] == 'BessellR' or 
+                rawfit.header['INSFLNAM'] == 'John R' or 
+                rawfit.header['INSFLNAM'] == 'Cous R' or rawfit.header['INSFLNAM'] == 'CousinsR'):
                 rawfit.band = BANDS.R
             else:
                 logger.error(f"{rawfit}: unknown filter {rawfit.header['INSFLNAM']}.")
