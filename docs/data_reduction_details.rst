@@ -54,11 +54,11 @@ OSN T090 Information
 
 RoperT90 instrument (photometry, polarimetry with filters). Retired 23rd October 2021.
 
-* Old camera: https://www.osn.iaa.csic.es/page/camara-versarray-t90-retirada
+* More information about the RoperT90 camera: https://www.osn.iaa.csic.es/page/camara-versarray-t90-retirada
 
 AndorT90 instrument (photometry, polarimetry with filters):
 
-* Information about the camera: https://www.osn.iaa.csic.es/page/camaras-ccdt150-y-ccdt90
+* Information about the AndorT90 camera: https://www.osn.iaa.csic.es/page/camaras-ccdt150-y-ccdt90
 
 DIPOL polarimeter: :cite:t:`dipol:2020`.
 
