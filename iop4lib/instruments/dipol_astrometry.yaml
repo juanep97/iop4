@@ -121,7 +121,7 @@ rules:
       - 'blazar_photo_quads'
       - 'blazar_catalog_matching'
 
-  # 1243+362 (TON 116), same case as 1308+326 (OP313)
+  # 1243+362 (TON 116), same case as 1308+326
   - conds:
       srcname: '1243+362'
     attempts:
