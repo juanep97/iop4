@@ -37,7 +37,7 @@ from iop4lib.utils import imshow_w_sources, get_candidate_rank_by_matchs, get_an
 from iop4lib.utils.sourcedetection import get_sources_daofind, get_segmentation, get_cat_sources_from_segment_map, get_bkg
 from iop4lib.utils.plotting import plot_preview_astrometry
 from iop4lib.utils.astrometry import BuildWCSResult
-
+from iop4lib.telescopes import OSNT090
 
 # logging
 import logging
@@ -51,8 +51,10 @@ if typing.TYPE_CHECKING:
 class DIPOL(Instrument):
 
     name = "DIPOL"
-    instrument_kw = "ASI Camera (1)"
-    
+    telescope = OSNT090.name
+
+    instrument_kw_L = ["ASI Camera (1)"]
+
     arcsec_per_pix = 0.134
     field_width_arcmin = 9.22
     field_height_arcmin = 6.28 

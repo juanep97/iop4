@@ -50,11 +50,15 @@ CAHA T220 Information
 OSN T090 Information
 --------------------
 
+* Information about the telescope: https://www.osn.iaa.csic.es/page/telescopio-90-cm
+
+RoperT90 instrument (photometry, polarimetry with filters). Retired 23rd October 2021.
+
+* More information about the RoperT90 camera: https://www.osn.iaa.csic.es/page/camara-versarray-t90-retirada
+
 AndorT90 instrument (photometry, polarimetry with filters):
 
-* Information about the telescope: https://www.osn.iaa.csic.es/page/telescopio-90-cm
-* Information about the camera: https://www.osn.iaa.csic.es/page/camaras-ccdt150-y-ccdt90
-* Old camera: https://www.osn.iaa.csic.es/page/camara-versarray-t90-retirada
+* Information about the AndorT90 camera: https://www.osn.iaa.csic.es/page/camaras-ccdt150-y-ccdt90
 
 DIPOL polarimeter: :cite:t:`dipol:2020`.
 
