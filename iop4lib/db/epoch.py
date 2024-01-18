@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from iop4lib.db import RawFit, ReducedFit, Epoch
     
 class Epoch(models.Model):
-    r"""A class representing an epoch.
+    """A class representing an epoch.
     
     Identified by the telescope and date of the night. Provides method for fetching the data
     from the telescope archives and reducing the data.
@@ -77,49 +77,49 @@ class Epoch(models.Model):
 
     @property
     def epochname(self):
-        r""" Returns a human readable string that uniquely identifies the epoch, as an alternative to the id. """
+        """Returns a human readable string that uniquely identifies the epoch, as an alternative to the id."""
         return f"{self.telescope}/{self.night.strftime('%Y-%m-%d')}"
 
     @property
     def rawfitsdir(self):
-        r""" Returns the path to the directory where the raw fits of this epoch are stored. """
+        """Returns the path to the directory where the raw fits of this epoch are stored."""
         return os.path.join(iop4conf.datadir, "raw", self.epochname)
     
     @property
     def calibrationdir(self):
-        r""" Returns the path to the directory where the calibration files of this epoch are stored. """
+        """Returns the path to the directory where the calibration files of this epoch are stored."""
         return os.path.join(iop4conf.datadir, "calibration", self.epochname)
     
     @property
     def masterbiasdir(self):
-        r""" Returns the path to the directory where the masterbias files of this epoch are stored. """
+        """Returns the path to the directory where the masterbias files of this epoch are stored."""
         return os.path.join(iop4conf.datadir, "masterbias", self.epochname)
 
     @property
     def masterflatdir(self):
-        r""" Returns the path to the directory where the masterflat files of this epoch are stored. """
+        """Returns the path to the directory where the masterflat files of this epoch are stored."""
         return os.path.join(iop4conf.datadir, "masterflat", self.epochname)
 
     @property 
     def masterdarkdir(self):
-        r""" Returns the path to the directory where the masterdark files of this epoch are stored."""
+        """Returns the path to the directory where the masterdark files of this epoch are stored."""
         return os.path.join(iop4conf.datadir, "masterdark", self.epochname)
 
     @property
     def yyyymmdd(self):
-        r""" Returns the date of the epoch in the format YYYYMMDD. """
+        """Returns the date of the epoch in the format YYYYMMDD."""
         return self.night.strftime("%Y%m%d")
     
     @property
     def yymmdd(self):
-        r""" Returns the date of the epoch in the format YYMMDD. """
+        """Returns the date of the epoch in the format YYMMDD."""
         return self.night.strftime("%y%m%d")
     
     # helper property to return the jyear of the epoch at noon (12:00)
 
     @property
     def jyear(self):
-        r""" Returns the jyear of the epoch at noon (before the night). """
+        """Returns the jyear of the epoch at noon (before the night)."""
 
         from astropy.time import Time
         from datetime import datetime, date, time
@@ -193,7 +193,7 @@ class Epoch(models.Model):
 
     @staticmethod
     def epochname_to_tel_night(epochname : str) -> tuple[str, datetime.date]:
-        r""" Parses an epochname to a telescope and night. """
+        """Parses an epochname to a telescope and night."""
         
         matches = re.findall(r"([a-zA-Z0-9]+)/([0-9]{2,4}-?[0-9]{2}-?[0-9]{2})$", epochname)
 
@@ -231,7 +231,7 @@ class Epoch(models.Model):
                  fallback_to_local=True,
                  auto_merge_to_db=True,
                  rawfits_kwargs=dict()):
-        r"""Create an Epoch object for the given telescope and night, reusing an existing DB entry if it exists.
+        """Create an Epoch object for the given telescope and night, reusing an existing DB entry if it exists.
 
         Parameters
         ----------
@@ -276,9 +276,9 @@ class Epoch(models.Model):
         return epoch
 
     def __init__(self, *args, **kwargs):
-        r"""Provides some defaults for attributes that are not stores in DB.
+        """Provides some defaults for attributes that are not stores in DB.
 
-        Should be the same as default kwargs in `.create()` for consistency.
+        Should be the same as default kwargs in .create() for consistency.
         """
         super().__init__(*args, **kwargs)
         self.auto_link_rawfits = True
@@ -291,12 +291,13 @@ class Epoch(models.Model):
     # methods
 
     def list_remote_raw_fnames(self):
-        r"""Checks remote file list and builds self.rawfits from them. """
+        """Checks remote file list and builds self.rawfits from them.
+        """
         return Telescope.by_name(self.telescope).list_remote_raw_fnames(self)
 
             
     def link_rawfits(self):
-        r""" Links rawfits to this epoch. """
+        """ Links rawfits to this epoch. """
 
         from iop4lib.db import RawFit
 
@@ -354,7 +355,9 @@ class Epoch(models.Model):
 
 
     def get_summary_rawfits_status(self):
-        r""" Returns list of flags present in the rawfits of this epoch. """
+        """
+            Returns list of flags present in the rawfits of this epoch.
+        """
         from iop4lib.db import RawFit
 
         flag_vals_present = self.rawfits.all().values_list('flags', flat=True).distinct()
@@ -409,7 +412,7 @@ class Epoch(models.Model):
         return self.build_masters(MasterDark, **kwargs)
 
     def reduce(self, force_rebuild=False):
-        r""" Reduces all (LIGHT) rawfits of this epoch. 
+        """ Reduces all (LIGHT) rawfits of this epoch. 
         
         If force_rebuild is False, only rawfits that have not been reduced yet (that do not have 
         the BUILT_REDUCED flag) will be reduced, else all rawfits of this epoch of type LIGHT be 
@@ -426,7 +429,7 @@ class Epoch(models.Model):
 
     @staticmethod
     def reduce_rawfits(rawfits, force_rebuild=False, epoch=None):
-        r""" Bulk reduces a list of RawFit in a multiprocessing pool. `rawfits` can be an iterable such as a QuerySet. 
+        """ Bulk reduces a list of RawFit in a multiprocessing pool. `rawfits` can be an iterable such as a QuerySet. 
         
         If force_rebuild is False, only rawfits that have not been reduced yet (that do not have 
         the BUILT_REDUCED flag) will be reduced, else all rawfits in the list will be reduced.
@@ -457,7 +460,7 @@ class Epoch(models.Model):
     
     @staticmethod
     def reduce_reducedfits(reduced_L, epoch=None):
-        r""" Bulk reduces a list of ReducedFit in a multiprocessing pool. 
+        """ Bulk reduces a list of ReducedFit in a multiprocessing pool. 
         
         If iop4conf.nthreads > 1, the reduction will be done in parallel processes.
 
