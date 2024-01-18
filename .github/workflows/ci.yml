@@ -137,7 +137,7 @@ jobs:
 
       - name: Try to restore test datafrom cache
         id: cache-testdataset
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v3
         with:
           path: ${{ env.HOME }}/.iop4data/
           key: ${{ env.TESTDATA_MD5SUM }}
@@ -154,7 +154,7 @@ jobs:
       
       - name: Save to cache if cache was not found
         if: steps.cache.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache/save@v3
         with:
           path: ${{ env.HOME }}/.iop4data/
           key: ${{ env.TESTDATA_MD5SUM }}
