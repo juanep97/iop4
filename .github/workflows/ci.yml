@@ -139,7 +139,7 @@ jobs:
         id: cache-testdataset
         uses: actions/cache/restore@v3
         with:
-          path: ${{ env.HOME }}/.iop4data/
+          path: $HOME/.iop4data
           key: ${{ env.TESTDATA_MD5SUM }}
 
       - name: Download and extract test data if cache was not found
@@ -156,7 +156,7 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v3
         with:
-          path: ${{ env.HOME }}/.iop4data/
+          path: $HOME/.iop4data
           key: ${{ env.TESTDATA_MD5SUM }}
 
       # create the DB
@@ -166,7 +166,7 @@ jobs:
           python manage.py makemigrations
           python manage.py makemigrations iop4api
           python manage.py migrate --no-input
-          ls -lh ${{ env.HOME }}/.iop4data/
+          ls -lh $HOME/.iop4data/
 
       - name: Build docs
         run: cd docs && make html
