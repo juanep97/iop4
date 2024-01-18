@@ -28,17 +28,11 @@ extensions = [
     'sphinx.ext.linkcode',
     'numpydoc',
     'sphinx_mdinclude',
-    # "myst_nb",
 ]
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 source_suffix = ['.rst', '.md']
-
-# source_suffix = {'.rst' : 'restructuredtext', 
-#                  '.md': 'markdown', 
-#                  '.myst': 'myst-nb'}
-# nb_execution_in_temp = True
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
