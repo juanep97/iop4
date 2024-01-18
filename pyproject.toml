@@ -74,6 +74,7 @@ doc = [
     "nbsphinx",
     "nbstripout",
     "jupytext",
+    "ipykernel",
 ]
 dev = [
   "setuptools_scm",
