@@ -1,12 +1,9 @@
 # %% [markdown]
-# Before using IOP4 inside a jupyter notebook, you need to configure the DB with the following lines:
+# # Notebook configuration
+# Before using IOP4 inside a jupyter notebook, you need to configure the DB with the following lines
 
 # %%
-!ls 
-
-# %%
-%autoawait off
-
+# %autoawait off
 import iop4lib.config
 iop4conf = iop4lib.Config(config_db=True, gonogui=False, jupytermode=True) 
 
@@ -55,5 +52,3 @@ logger_handler.setFormatter(coloredlogs.ColoredFormatter(iop4conf.log_format, da
 
 # %% [markdown]
 # Now you are ready to start using IOP4 inside your notebook.
-
-

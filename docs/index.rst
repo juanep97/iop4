@@ -20,4 +20,6 @@ Table of Contents
 
    data_reduction_details
 
+   recipes/index
+
    iop4lib

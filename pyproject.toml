@@ -73,6 +73,7 @@ doc = [
     "docutils>=0.20",
     "nbsphinx",
     "nbstripout",
+    "jupytext",
 ]
 dev = [
   "setuptools_scm",
