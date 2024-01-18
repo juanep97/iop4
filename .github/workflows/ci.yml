@@ -164,8 +164,9 @@ jobs:
         run: |
           cd iop4site
           python manage.py makemigrations
+          python manage.py makemigrations iop4api
           python manage.py migrate --no-input
-          ls -lh $HOME/.iop4data/
+          ls -lh ${{ env.HOME }}/.iop4data/
 
       - name: Build docs
         run: cd docs && make html
