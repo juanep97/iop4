@@ -20,7 +20,7 @@ runs:
         id: cache-testdataset
         uses: actions/cache/restore@v3
         with:
-          path: $HOME/iop4testdata.tar.gz
+          path: /home/runner/iop4testdata.tar.gz
           key: ${{ env.TESTDATA_MD5SUM }}
 
       - name: Download test data if cache was not found
@@ -36,5 +36,5 @@ runs:
         if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v3
         with:
-          path: $HOME/iop4testdata.tar.gz
+          path: /home/runner/iop4testdata.tar.gz
           key: ${{ env.TESTDATA_MD5SUM }}
