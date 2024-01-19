@@ -26,7 +26,7 @@ runs:
       - name: Download test data if cache was not found
         if: steps.cache.outputs.cache-hit != 'true'
         env:
-          TEST_DATA_PASSWORD: ${{ input.TEST_DATA_PASSWORD }}
+          TEST_DATA_PASSWORD: ${{ inputs.TEST_DATA_PASSWORD }}
           TESTDATA_MD5SUM: ${{ env.TESTDATA_MD5SUM }}
         run:  | 
           wget --post-data "pass=$TEST_DATA_PASSWORD" "https://vhega.iaa.es/iop4/iop4testdata.tar.gz?md5sum=$TESTDATA_MD5SUM" -O $HOME/iop4testdata.tar.gz
