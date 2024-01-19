@@ -1,3 +1,7 @@
+name: Use cache for test data
+
+runs:
+  steps:
       - name: Get test data md5sum
         run: |
           export TESTDATA_MD5SUM=`grep 'TESTDATA_MD5SUM' ./tests/conftest.py | awk -F"'" '{print $2}' | tr -d '\n'`

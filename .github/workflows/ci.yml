@@ -128,7 +128,7 @@ jobs:
           python -c 'import iop4lib; print(iop4lib.__version__)'
 
       - name: Get test data from cache
-        uses: ./.github/actions/cache-dataset.yaml
+        uses: ./.github/cache-dataset
 
       - name: Extract test data in the default data folder
         run: |
