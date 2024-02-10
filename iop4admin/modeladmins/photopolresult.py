@@ -15,7 +15,7 @@ from astropy.time import Time
 
 class AdminPhotoPolResult(admin.ModelAdmin):
     model = PhotoPolResult
-    list_display = ['id', 'get_telescope', 'get_juliandate', 'get_datetime', 'get_src_name', 'get_src_type', 'get_reducedfits', 'obsmode', 'band', 'exptime', 'get_mag', 'get_mag_err', 'get_p', 'get_p_err', 'get_chi', 'get_chi_err', 'get_flags', 'modified']
+    list_display = ['id', 'get_telescope', 'get_juliandate', 'get_datetime', 'get_src_name', 'get_src_type', 'get_reducedfits', 'obsmode', 'band', 'exptime', 'get_mag', 'get_mag_err', 'get_p', 'get_p_err', 'get_chi', 'get_chi_err', 'get_aperpix', 'get_aperas', 'get_flags', 'modified']
     readonly_fields = [field.name for field in PhotoPolResult._meta.fields]
     search_fields = ['id', 'astrosource__name', 'astrosource__srctype', 'epoch__night']
     ordering = ['-juliandate']
@@ -27,7 +27,7 @@ class AdminPhotoPolResult(admin.ModelAdmin):
     def get_telescope(self, obj):
         return obj.epoch.telescope
 
-    @admin.display(description="DATETIME")
+    @admin.display(description="DATETIME", ordering='-juliandate')
     def get_datetime(self, obj):
         return Time(obj.juliandate, format='jd').strftime('%Y-%m-%d %H:%M:%S')
     
@@ -48,7 +48,7 @@ class AdminPhotoPolResult(admin.ModelAdmin):
         a_text = ", ".join(ids_str_L)
         return mark_safe(f'<a href="{a_href}">{a_text}</a>')
     
-    @admin.display(description="JD")
+    @admin.display(description="JD", ordering='-juliandate')
     def get_juliandate(self, obj):
         return f"{obj.juliandate:.6f}"
     
@@ -75,6 +75,14 @@ class AdminPhotoPolResult(admin.ModelAdmin):
     @admin.display(description="CHIERR [º]", ordering='-chi_err')
     def get_chi_err(self, obj):
         return f"{obj.chi_err:.2f}" if obj.chi_err is not None else None
+    
+    @admin.display(description='aperpix', ordering='-aperpix')
+    def get_aperpix(self, obj):
+        return f"{obj.aperpix:.2f}" if obj.aperpix is not None else None
+    
+    @admin.display(description='aperas', ordering='-aperas')
+    def get_aperas(self, obj):
+        return f"{obj.aperas:.2f}" if obj.aperas is not None else None
     
     @admin.display(description='Status')
     def get_flags(self, obj):
