@@ -55,6 +55,6 @@ def index(request, tabs=None):
     context['git_describe'] = GIT_DESCRIBE
 
     # add the available log files
-    context['log_files'] = json.dumps([os.path.basename(f) for f in os.listdir(Path(iop4conf.datadir) / "logs") if f.endswith(".log")])
+    context['log_files'] = json.dumps(sorted([os.path.basename(f) for f in os.listdir(Path(iop4conf.datadir) / "logs") if f.endswith(".log")]))
 
     return render(request, 'iop4api/index.html', context)
