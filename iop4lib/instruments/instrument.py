@@ -532,7 +532,7 @@ class Instrument(metaclass=ABCMeta):
 
         # 1. Compute all aperture photometries
 
-        logger.debug(f"{redf}: computing aperture photometries for {redf}.")
+        logger.debug(f"{redf}: computing aperture photometries for {redf} (target_fwhm = {target_fwhm:.1f} px, aperpix = {aperpix:.1f} px, r_in = {r_in:.1f} px, r_out = {r_out:.1f} px).")
 
         cls.compute_aperture_photometry(redf, aperpix, r_in, r_out)
 
@@ -590,31 +590,37 @@ class Instrument(metaclass=ABCMeta):
 
             photopolresult_L.append(result)
 
-        # 3. Average the zero points
-
-        calib_mag_zp_array = np.array([result.mag_zp or np.nan for result in photopolresult_L if result.astrosource.srctype == SRCTYPES.CALIBRATOR]) # else it fills with None also and the dtype becomes object
-        calib_mag_zp_array = calib_mag_zp_array[~np.isnan(calib_mag_zp_array)]
-
-        calib_mag_zp_array_err = np.array([result.mag_zp_err or np.nan for result in photopolresult_L if result.astrosource.srctype == SRCTYPES.CALIBRATOR])
-        calib_mag_zp_array_err = calib_mag_zp_array_err[~np.isnan(calib_mag_zp_array_err)]
-
-        if len(calib_mag_zp_array) == 0:
-            logger.error(f"{redf}: can not perform relative photometry without any calibrators for this reduced fit. Deleting results.")
-            [result.delete() for result in redf.photopolresults.all()]
-            return #raise Exception(f"{self}: can not perform relative photometry without any calibrators for this reduced fit.") 
-
-        zp_avg = np.nanmean(calib_mag_zp_array)
-        zp_std = np.nanstd(calib_mag_zp_array)
-
-        zp_err = math.sqrt(np.sum(calib_mag_zp_array_err**2)) / len(calib_mag_zp_array_err)
-        zp_err = math.sqrt(zp_std**2 + zp_err**2)
-
-        # 4. Compute the calibrated magnitudes
+        # 3. Compute the calibrated magnitudes
 
         for result in photopolresult_L:
 
             if result.astrosource.srctype == SRCTYPES.CALIBRATOR:
                 continue
+
+            # 3.a Average the zero points
+
+            # get all the computed photopolresults that calibrate this source
+            calibrator_results_L = [r for r in photopolresult_L if r.astrosource.calibrates.filter(pk=result.astrosource.pk).exists()]
+
+            # Create an array with nan instead of None (this avoids the dtype becoming object)
+            calib_mag_zp_array = np.array([result.mag_zp or np.nan for result in calibrator_results_L if result.astrosource.srctype == SRCTYPES.CALIBRATOR]) 
+            calib_mag_zp_array = calib_mag_zp_array[~np.isnan(calib_mag_zp_array)]
+
+            calib_mag_zp_array_err = np.array([result.mag_zp_err or np.nan for result in calibrator_results_L if result.astrosource.srctype == SRCTYPES.CALIBRATOR])
+            calib_mag_zp_array_err = calib_mag_zp_array_err[~np.isnan(calib_mag_zp_array_err)]
+
+            if len(calib_mag_zp_array) == 0:
+                logger.error(f"{redf}: can not perform relative photometry without any calibrators for this reduced fit. Deleting results.")
+                [result.delete() for result in redf.photopolresults.all()]
+                return
+
+            zp_avg = np.nanmean(calib_mag_zp_array)
+            zp_std = np.nanstd(calib_mag_zp_array)
+
+            zp_err = math.sqrt(np.sum(calib_mag_zp_array_err**2)) / len(calib_mag_zp_array_err)
+            zp_err = math.sqrt(zp_std**2 + zp_err**2)
+
+            # 3.b Compute the calibrated magnitude
 
             # save the zp (to be) used
             result.mag_zp = zp_avg
