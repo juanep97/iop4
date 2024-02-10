@@ -506,6 +506,7 @@ class DIPOL(Instrument):
                 
                 build_wcs.info["attempt"] = attempt
                 build_wcs.info["m.__name__"] = m.__name__
+                build_wcs.info["args"] = args_dict
                 build_wcs.info["n_estimate"] = n_estimate
                 build_wcs.info["n_estimate_centered"] = n_estimate_centered
                 build_wcs.info["n_expected_simbad_sources"] = n_expected_simbad_sources
