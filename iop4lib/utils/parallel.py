@@ -210,6 +210,6 @@ def _parallel_relative_polarimetry_helper(keys, group):
         logger.info(f"Finished computing relative polarimetry for {group=}.")
 
 def parallel_relative_polarimetry(keys, groups):
-    with multiprocessing.Pool(iop4conf.nthreads) as pool:
+    mp_ctx = multiprocessing.get_context('fork') # fork is faster and does not need configuring again
+    with mp_ctx.Pool(iop4conf.nthreads) as pool:
         pool.starmap(_parallel_relative_polarimetry_helper, zip(keys, groups))
-
