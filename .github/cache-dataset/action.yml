@@ -24,7 +24,7 @@ runs:
           key: ${{ env.TESTDATA_MD5SUM }}
 
       - name: Download test data if cache was not found
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: steps.cache-testdataset.outputs.cache-hit != 'true'
         env:
           TEST_DATA_PASSWORD: ${{ inputs.TEST_DATA_PASSWORD }}
           TESTDATA_MD5SUM: ${{ env.TESTDATA_MD5SUM }}
@@ -33,7 +33,7 @@ runs:
         shell: bash
       
       - name: Save to cache if cache was not found
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: steps.cache-testdataset.outputs.cache-hit != 'true'
         uses: actions/cache/save@v3
         with:
           path: /home/runner/iop4testdata.tar.gz
