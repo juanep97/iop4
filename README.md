@@ -21,7 +21,7 @@ If you don't have Python 3.10 or later, you can install [pyenv](https://github.c
     $ curl https://pyenv.run | bash
 ```
 
-Follow the instruction that these command output to add `pyenv`to `PATH` (or copy the commands from https://github.com/pyenv/pyenv for your shell). Restart your terminal, or source the file (e.g. `. ~/.bashrc` or `. ~/.zshrc`) Then, run 
+Follow the instruction that these command output to add `pyenv` to `PATH` (or copy the commands from https://github.com/pyenv/pyenv for your shell). Restart your terminal, or source the file (e.g. `. ~/.bashrc` or `. ~/.zshrc`) Then, run 
 ```bash 
     $ pyenv install 3.10
     $ pyenv virtualenv 3.10 iop4-venv
