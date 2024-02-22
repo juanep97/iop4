@@ -18,7 +18,16 @@ class TabsConverter:
 from django.urls import register_converter
 register_converter(TabsConverter, 'tabs')
 
-urlpatterns = [
+urlpatterns = []
+
+if settings.DEBUG:
+    # local docs only accesible in debug server, in production you should 
+    # configure it yourself (if you want it to be public, etc)
+    urlpatterns += [path(r'docs/', views.docs, name='docs')]
+    urlpatterns += [path(r'docs/<path:file_path>', views.docs)]
+
+
+urlpatterns = urlpatterns + [
     path('', views.index, name='index'),
     path('api/login/', views.login_view, name='login_view'),
     path('api/logout/', views.logout_view, name='logout_view'),
