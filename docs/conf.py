@@ -22,20 +22,23 @@ release = GIT_DESCRIBE
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
+    'myst_nb',
     "nbsphinx",
     'sphinxcontrib.bibtex',
     'sphinx.ext.autodoc',
     'sphinx.ext.linkcode',
     'numpydoc',
-    'sphinx_mdinclude',
 ]
 
 templates_path = ['_templates']
 exclude_patterns = ['conf.py', '_build', '.*']
 source_suffix = ['.rst', '.md']
-nbsphinx_custom_formats = {
+
+nb_custom_formats = {
     '.py': ['jupytext.reads', {'fmt': 'py:percent'}],
 }
+
+nb_merge_streams = True # otherwise several prints stmts result in multiple chunks
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
