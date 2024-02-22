@@ -76,6 +76,7 @@ doc = [
     "jupytext",
     "ipykernel",
     "sphinx-gallery",
+    "myst-nb",
 ]
 dev = [
   "setuptools_scm",
