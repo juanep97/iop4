@@ -1,3 +1,6 @@
+.. _iop4lib:
+
+
 Reference
 =========
 
@@ -80,4 +83,11 @@ Reference
       :members:
 
    .. automodule:: iop4lib.telescopes.cahat220
+      :members:
+
+   iop4lib.instruments
+   ===================
+   Instrument specific code.
+
+   .. automodule:: iop4lib.instruments
       :members:

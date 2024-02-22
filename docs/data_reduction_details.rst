@@ -1,4 +1,3 @@
-
 .. _data_reduction_details:
 
 Data reduction details

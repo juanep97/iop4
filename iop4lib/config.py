@@ -185,6 +185,7 @@ class Config(dict):
                 }
             },
             DEBUG = False,
+            LOGGING_CONFIG = None, # otherwise breaks logging colors inside docs notebooks
         )
         
         apps.populate(settings.INSTALLED_APPS)

@@ -82,6 +82,14 @@ This should open a tab in your browser with the IOP4 web interface.
    in production (`see Django documentation <https://docs.djangoproject.com/en/dev/ref/django-admin/#runserver>`_).
    The `iop4site` submodule is written to enable the use of Django's debug server and should be reconfigured when 
    used in production, or entirely replaced by a new Django project and used only as a guide.
+   See :doc:`serving iop4 in production <serving_iop4_in_production>` for more information.
+
+After login in with the credentials that you suplied in during the `set up` 
+</iop4/docs/#usage> you will have access to the following tabs:
+
+* Explore > Plot: to plot and inspect the photometry and polarimetry results, flag data and download plots.
+* Explore > Data: to inspect, filter and download data (e.g. in CSV format).
+* Admin: to inspect the database.
 
 Telescope and Instrument Specific Code
 --------------------------------------

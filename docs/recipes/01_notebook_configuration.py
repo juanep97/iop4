@@ -21,13 +21,12 @@ from iop4lib.enums import *
 # ```
 # at the top of your notebook. You might encounter some problems when the modifications affect the DB models. In that case, re-executing the import statement a few times should help, otherwise you will need to restart the kernel.
 
-# %% [markdown]
 # Since you are not using the `iop4.py` script, you will need to configure logging to suit your needs. E.g, to log to standard output, you can use:
 
 # %%
-# configure logging
-
 import sys
+
+# configure logging
 import coloredlogs
 import logging
 
@@ -46,7 +45,7 @@ logger_handler = logging.StreamHandler(stream=sys.stdout)
 logger.addHandler(logger_handler)
 
 iop4conf.log_date_format = '%Y-%m-%d %H:%M'
-iop4conf.log_format = '%(asctime)s - pid %(process)d) [%(filename)s:%(lineno)d] - %(levelname)s - %(message)s'
+iop4conf.log_format = '%(asctime)s - pid %(process)d - [%(filename)s:%(lineno)d] - %(levelname)s - %(message)s'
 
 logger_handler.setFormatter(coloredlogs.ColoredFormatter(iop4conf.log_format, datefmt=iop4conf.log_date_format))
 

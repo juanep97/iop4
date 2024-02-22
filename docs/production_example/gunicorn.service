@@ -1,0 +1,19 @@
+[Unit]
+Description=gunicorn daemon
+Requires=gunicorn.socket
+After=network.target
+
+[Service]
+User=vhega
+Group=www-data
+WorkingDirectory=/path/to/your/django/site
+ExecStart=/path/to/gunicorn/executable \
+          --access-logfile - \
+      --worker-class 'gevent' \
+          --workers 8 \
+      --timeout 30 \
+          --bind unix:/run/gunicorn.sock \
+          vhegasite.wsgi:application
+
+[Install]
+WantedBy=multi-user.target
