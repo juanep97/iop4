@@ -56,7 +56,7 @@ class BuildWCSResult():
         return self.success 
 
 
-def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict() = None, hard : bool = False, summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}) -> BuildWCSResult:
+def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict = None, hard : bool = False, summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}) -> BuildWCSResult:
     """ Build the appropiate WCSs for a ReducedFit image, trying different parameters. See `build_wcs` for more info.
 
     Note: at the moment, this function tries source extraction with different combination of parameters and thresholds for 
