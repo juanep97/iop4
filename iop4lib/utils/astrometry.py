@@ -63,11 +63,13 @@ def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict = 
     source extraction by calling a helper func (`_build_wcs_detect_and_try_solve`) with these parameters, which detects 
     the  sources with `photutils` image segmentation and tries to solve the WCS with the `astrometry.net` python wrapper. 
     The parameter combinations are chosen depending on the exposure time and the presence of pairs in the image.
+    
     TODO:
-      - Implement a more robust way to choose the parameters for source extraction such that the astrometry solver works  with less 
+
+    - Implement a more robust way to choose the parameters for source extraction such that the astrometry solver works  with less 
       attempts.
-      - Explore other detectors and solvers if necessary to improve speed, sucess rate and accuracy.
-      - Use pre-computed pair distances.
+    - Explore other detectors and solvers if necessary to improve speed, sucess rate and accuracy.
+    - Use pre-computed pair distances.
     """
 
     param_dicts_L = []
