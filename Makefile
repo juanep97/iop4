@@ -26,11 +26,3 @@ docs-sphinx:
 
 docs-show:
 	open docs/_build/html/index.html
-
-clean-notebooks:
-	# clean cell outputs and metadata
-	nbstripout docs/recipes/*.ipynb --extra-keys "metadata.kernelspec"
-	# clean cell ids
-	for nb in docs/recipes/*.ipynb; do \
-		jq '(.cells[] | select(has("id"))).id |= null' "$$nb" > temp.ipynb && mv temp.ipynb "$$nb"; \
-	done

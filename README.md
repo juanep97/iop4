@@ -141,15 +141,10 @@ You can get an IPython interactive terminal after running iop4 using the `-i` op
 
 ## Documentation
 To build and show the documentation, run
-````bash
+```bash
     $ make docs-sphinx
     $ make docs-show
-````
-
-Before commiting your changes, remember to clean the notebooks with
-````bash
-    $ make clean-notebooks
-````
+```
 
 ## Contribute
 
