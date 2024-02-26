@@ -55,6 +55,4 @@ your Django project are:
     ALLOWED_HOSTS = ["domain", "domain2"]
 
     # Configure static files to the path served by nginx
-    STATIC_URL = "/static/"
     STATIC_ROOT = '/path/to/static/'
-    STATICFILES_DIRS = [BASE_DIR / "vhegasite/static",]
