@@ -4,8 +4,6 @@
 Reference
 =========
 
-##################
-
 :code:`iop4lib` is the module at the core of IOP4.
 
 * :ref:`genindex`
