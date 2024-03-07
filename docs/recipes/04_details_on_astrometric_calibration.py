@@ -146,7 +146,7 @@ border_margin_px = 20 # remove any pixels less than this distance from the borde
 # `photutils` package (you could do the same, or try different methods following
 # [its docs](https://photutils.readthedocs.io/en/stable/index.html).
 
-## Background substraction
+# ### Background substraction
 
 # %%
 from iop4lib.utils.sourcedetection import get_bkg, get_segmentation, get_cat_sources_from_segment_map
@@ -154,10 +154,14 @@ bkg = get_bkg(redf.mdata, filter_size=bkg_filter_size, box_size=bkg_box_size)
 imgdata_bkg_substracted = redf.mdata - bkg.background
 
 from iop4lib.utils.plotting import plot_preview_background_substraction_1row
-plot_preview_background_substraction_1row(redf, bkg)
+import matplotlib.pyplot as plt
+import matplotlib as mplt
+fig = plt.figure(figsize=(12, 5))
+plot_preview_background_substraction_1row(redf, bkg, fig=fig)
+plt.show()
 
 # %% [markdown]
-## Image Segmentation
+# ### Image Segmentation
 
 # %%
 seg_threshold = n_rms_seg * bkg.background_rms
@@ -165,8 +169,6 @@ segment_map, convolved_data = get_segmentation(imgdata_bkg_substracted, fwhm=seg
 seg_cat, pos_seg, tb = get_cat_sources_from_segment_map(segment_map, imgdata_bkg_substracted, convolved_data)
 
 # %%
-import matplotlib.pyplot as plt
-import matplotlib as mplt
 from astropy.visualization import SqrtStretch, LogStretch, AsymmetricPercentileInterval
 from astropy.visualization.mpl_normalize import ImageNormalize
 fig, ax = plt.subplots()
@@ -175,6 +177,7 @@ seg_cat.plot_kron_apertures(color='r', lw=1.5)
 plt.show()
 
 # %% [markdown]
+# ### Source pairing
 # Now we need to distinguish between ordinary and extraordinary sources. To facilitate 
 # this, you can use the `get_pairs_dxy` function, which will try to separate 
 # them by looking at the most common distance between sources.
@@ -225,9 +228,13 @@ paired = [(p1,p2) for p1,p2 in pairs if ( dx_min < abs( p1[0] - p2[0] ) < dx_max
 len(paired)
 
 # %%
+fig, ax = plt.subplots()
 for i in [0,1]:
     distances = [abs(p1[i]-p2[i]) for p1,p2 in paired]
-    plt.hist(distances, bins=60, range=(0,60))
+    plt.hist(distances, bins=60, range=(0,60), alpha=0.7)
+plt.xlabel('Distance (px)')
+plt.ylabel('Number of pairs')
+plt.show()
 
 # %% [markdown]
 # Finally, we need to invoke the local astrometry.net solver to calibrate the image.
@@ -259,9 +266,11 @@ fig, ax = plt.subplots(subplot_kw={'projection': wcs1})
 imshow_w_sources(redf.mdata, ax=ax)
 
 from iop4lib.db import AstroSource
+from photutils.aperture import CircularAperture
+
 for src in AstroSource.get_sources_in_field(wcs1, width=redf.mdata.shape[1], height=redf.mdata.shape[0]):
     ax.plot(*src.coord.to_pixel(wcs1), 'rx')
-    ax.annotate(src.name, src.coord.to_pixel(wcs1), xytext=(10,10), textcoords='offset points', color='red')
+    ax.annotate(src.name, src.coord.to_pixel(wcs1), xytext=(20,0), textcoords='offset points', color='red', weight='bold')
 
 ax.coords.grid(color='white', linestyle='solid')
 
@@ -273,7 +282,6 @@ ax.coords['dec'].set_axislabel('Declination')
 ax.coords['dec'].set_ticklabel_visible(True)
 ax.coords['dec'].set_ticklabel_position('lb')
 
-ax.set_title('Astrometric Calibration')
 plt.show()
 
 # %% [markdown]
@@ -292,6 +300,32 @@ redf.wcs1
 
 # %%
 redf.wcs2
+
+# %% 
+fig, ax = plt.subplots(subplot_kw={'projection': wcs1})
+
+imshow_w_sources(redf.mdata, ax=ax)
+
+from iop4lib.db import AstroSource
+from photutils.aperture import CircularAperture
+
+for src in AstroSource.get_sources_in_field(wcs1, width=redf.mdata.shape[1], height=redf.mdata.shape[0]):
+    CircularAperture([*src.coord.to_pixel(redf.wcs1)], r=20).plot(ax=ax, color='r')
+    ax.annotate(src.name, src.coord.to_pixel(redf.wcs1), xytext=(20,0), textcoords='offset points', color='red', weight='bold', verticalalignment='center')
+    ax.plot(*src.coord.to_pixel(redf.wcs2), 'rx')
+
+ax.coords.grid(color='white', linestyle='solid')
+
+ax.coords['ra'].set_axislabel('Right Ascension')
+ax.coords['ra'].set_ticklabel_visible(True)
+ax.coords['ra'].set_ticklabel_position('bl')
+
+ax.coords['dec'].set_axislabel('Declination')
+ax.coords['dec'].set_ticklabel_visible(True)
+ax.coords['dec'].set_ticklabel_position('lb')
+#ax.coords['dec'].set_ticklabel(rotation='vertical')
+
+plt.show()
 
 # %% [markdown]
 # If the calibration was successful, summary images containing more or less the 
