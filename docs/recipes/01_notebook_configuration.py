@@ -8,10 +8,10 @@ import iop4lib.config
 iop4conf = iop4lib.Config(config_db=True, gonogui=False, jupytermode=True) 
 
 # %% [markdown]
-# Now that IOP4 is configured, you can import and use the DB models:
-
-# %%
-from iop4lib.enums import *
+# Now that IOP4 is configured, you can import and use the DB models. E.g.:
+# ```ipython
+# from iop4lib.db import RawFit, ReducedFit
+# ```
 
 # %% [markdown]
 # If you want to use the autoreload extension, e.g. with
