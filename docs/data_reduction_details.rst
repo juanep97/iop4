@@ -31,7 +31,7 @@ The following steps are done by IOP4 to reduce data from one epoch (when invoked
 CAHA T220 Information
 ---------------------
 
-* Information about the telescope: https://www.caha.es/CAHA/Telescopes/2.2m.html
+Information about the telescope: https://www.caha.es/CAHA/Telescopes/2.2m.html
 
 * Information about the camera: 
 
@@ -43,25 +43,29 @@ CAHA T220 Information
 OSN T090 Information
 --------------------
 
-* Information about the telescope: https://www.osn.iaa.csic.es/page/telescopio-90-cm
+Information about the telescope: https://www.osn.iaa.csic.es/page/telescopio-90-cm
 
-RoperT90 instrument (photometry, polarimetry with filters). Retired 23rd October 2021.
+* RoperT90 instrument (photometry, polarimetry with filters). Retired 23rd October 2021.
 
-* More information about the RoperT90 camera: https://www.osn.iaa.csic.es/page/camara-versarray-t90-retirada
+  More information about the RoperT90 camera: https://www.osn.iaa.csic.es/page/camara-versarray-t90-retirada
 
-AndorT90 instrument (photometry, polarimetry with filters):
+* AndorT90 instrument (photometry, polarimetry with filters):
 
-* Information about the AndorT90 camera: https://www.osn.iaa.csic.es/page/camaras-ccdt150-y-ccdt90
+  Information about the AndorT90 camera: https://www.osn.iaa.csic.es/page/camaras-ccdt150-y-ccdt90
 
-DIPOL polarimeter: :cite:t:`dipol:2020`.
+* DIPOL polarimeter: :cite:t:`dipol:Piirola:2020`, :cite:t:`dipol:Jorge:2024`.
 
 
 OSN T150 Information
 --------------------
 
-* Information about the telescope: https://www.osn.iaa.csic.es/page/telescopio-15-m
-* Information about the camera:  https://www.osn.iaa.csic.es/page/camaras-ccdt150-y-ccdt90
-* Old camera: https://www.osn.iaa.csic.es/page/camara-ccd-roper
+Information about the telescope: https://www.osn.iaa.csic.es/page/telescopio-15-m
+
+* Old camera (RoperT150): https://www.osn.iaa.csic.es/page/camara-ccd-roper
+
+* AndorT150 instrument (photometry, polarimetry with filters). 
+  
+  Information about the camera:  https://www.osn.iaa.csic.es/page/camaras-ccdt150-y-ccdt90
 
 
 References
