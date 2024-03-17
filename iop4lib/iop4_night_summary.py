@@ -86,9 +86,9 @@ def gather_context(args):
         # get the results for this source from the previous night, or for this night if there is no previous night
 
         if prev_night is not None:
-            qs0 = PhotoPolResult.objects.filter(astrosource=source).filter(epoch__night__gte=args.date).order_by('-juliandate')
+            qs0 = PhotoPolResult.objects.filter(astrosource=source, band="R").filter(epoch__night__gte=args.date).order_by('-juliandate')
         else:
-            qs0 = PhotoPolResult.objects.filter(astrosource=source).filter(epoch__night=args.date).order_by('-juliandate')
+            qs0 = PhotoPolResult.objects.filter(astrosource=source, band="R").filter(epoch__night=args.date).order_by('-juliandate')
 
 
         fig = mplt.figure.Figure(figsize=(800/100, 600/100), dpi=100)
