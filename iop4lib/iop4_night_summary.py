@@ -133,7 +133,7 @@ def gather_context(args):
 
         # legend
         legend_handles = [axs[0].plot([],[],color=color, marker=".", linestyle="none", label=instrument)[0] for color, instrument in zip(colors, instruments)]
-        fig.legend(handles=legend_handles, loc="lower left", ncols=3)
+        fig.legend(handles=legend_handles, ncols=3, loc='upper left', bbox_to_anchor=(0, 0))
 
         # save the figure to a buffer and encode it to base64
         buf = io.BytesIO()
