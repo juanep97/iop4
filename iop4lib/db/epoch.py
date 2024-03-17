@@ -139,6 +139,11 @@ class Epoch(models.Model):
         return self.rawfits.filter(imgtype=IMGTYPES.BIAS).count()
     
     @property
+    def rawdarkcount(self):
+        from iop4lib.db import RawFit
+        return self.rawfits.filter(imgtype=IMGTYPES.DARK).count()
+    
+    @property
     def rawflatcount(self):
         from iop4lib.db import RawFit
         return self.rawfits.filter(imgtype=IMGTYPES.FLAT).count()
