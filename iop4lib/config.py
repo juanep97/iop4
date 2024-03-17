@@ -185,6 +185,13 @@ class Config(dict):
                 }
             },
             DEBUG = False,
+            LOGGING_CONFIG = None, # otherwise breaks logging colors inside docs notebooks
+            TEMPLATES = [ # template engine needed for the automatic summary emails
+                {
+                    'BACKEND': 'django.template.backends.django.DjangoTemplates',
+                    'DIRS': [],
+                },
+            ],
         )
         
         apps.populate(settings.INSTALLED_APPS)
