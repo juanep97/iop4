@@ -167,10 +167,6 @@ def generate_html_summary(args, context):
 
 def send_email(args, summary_html):
     """ Send the html summary by email."""
-    
-    # at the moment, save it to a file
-    with open(f'summary_test.html', 'w') as f:
-        f.write(summary_html)
 
     msg = email.message.EmailMessage()
 
