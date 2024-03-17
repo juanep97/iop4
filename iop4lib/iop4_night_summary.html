@@ -101,8 +101,9 @@
 
         <!-- footer -->
         <hr/>
-
-        <small>You can consult the full log at the IOP4 portal.</small>
+        
+        <small>This night summary was generated on {% now "Y/m/d H:i" %}.</small><br>
+        <small>You can consult the full log at the IOP4 portal.</small><br>
         <small>If you do not want to receive these emails, contact {% if args.contact_name %}{{args.contact_name}} ({% endif %}<code>{{args.contact_email}}</code>{% if args.contact_name %}){% endif %}.</small>
 
     </body>
