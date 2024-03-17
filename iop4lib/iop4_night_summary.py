@@ -115,6 +115,7 @@ def gather_context(args):
         mjd_min, mjd_max = Time([datetime_min, datetime_max]).mjd
         ax0_2 = axs[0].twiny()
         ax0_2.set_xlim([mjd_min, mjd_max])
+        ax0_2.ticklabel_format(useOffset=False)
 
         # x and secondary x labels
 
