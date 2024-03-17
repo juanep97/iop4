@@ -67,7 +67,7 @@ def gather_context(args):
     
     # get list of all sources for which there are results in this night
         
-    sources = AstroSource.objects.exclude(srctype=SRCTYPES.CALIBRATOR).filter(photopolresults__epoch__night=args.date)
+    sources = AstroSource.objects.exclude(srctype=SRCTYPES.CALIBRATOR).filter(photopolresults__epoch__night=args.date).distinct()
 
     results_summary_images = dict()
 
