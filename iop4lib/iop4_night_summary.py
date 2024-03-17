@@ -117,13 +117,14 @@ def gather_context(args):
         ax0_2.set_xlim([mjd_min, mjd_max])
         ax0_2.ticklabel_format(useOffset=False)
 
+        # major x and secondary x ticks
+        ax0_2.xaxis.set_major_locator(mplt.ticker.MaxNLocator(5))
+        
         # x and secondary x labels
-
         axs[-1].set_xlabel('date')
         ax0_2.set_xlabel('MJD')
 
         # y labels
-
         axs[0].set_ylabel(f"mag (R)")
         axs[1].set_ylabel("p")
         axs[1].yaxis.set_major_formatter(mplt.ticker.PercentFormatter(1.0, decimals=1))
