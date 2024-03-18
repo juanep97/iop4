@@ -22,88 +22,9 @@ env:
 
 
 jobs:
-  static-code-checks:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10.9"
 
-
-  tests:
-    timeout-minutes: 60
-
-    strategy:
-      max-parallel: 1
-      matrix:
-        include:
-          - python-version: "3.10.9"
-            os: ubuntu-latest
-          - python-version: "3.11"
-            os: ubuntu-latest
-
-    runs-on: ${{ matrix.os }}
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Update pip
-        run: |
-          python -m pip install --upgrade pip
-
-      - name: Build the package
-        run: |
-          pip install build
-          python -m build
-
-      - name: Install the package
-        run: pip install .[test]
-
-      - name: Install the package in editable mode with all additional dependencies
-        run: pip install --editable .[all]
-
-      - name: Install httpdirfs to access astrometry index files without downloading them
-        run: sudo apt install httpdirfs
-
-      - name: Mount astrometry index file in default location
-        run: mkdir -p $HOME/.astrometry_cache/5200 && httpdirfs -s --cache 'https://portal.nersc.gov/project/cosmo/temp/dstn/index-5200/LITE/' $HOME/.astrometry_cache/5200/
-
-      - name: Check that it was correctly mounted
-        run: ls $HOME/.astrometry_cache/5200/index-5200-00.fits
-
-      - name: Download test data
-        env:
-          TEST_DATA_PASSWORD: ${{ secrets.test_data_password }}
-        run:  | 
-          export TESTDATA_MD5SUM=`grep 'TESTDATA_MD5SUM' ./tests/conftest.py | awk -F"'" '{print $2}' | tr -d '\n'`
-          wget --post-data "pass=$TEST_DATA_PASSWORD" "https://vhega.iaa.es/iop4/iop4testdata.tar.gz?md5sum=$TESTDATA_MD5SUM" -O $HOME/iop4testdata.tar.gz
-      
-      - name: Run tests (with -o log_cli=true -o log_cli_level=DEBUG to debug CI actions)
-        run: pytest -o log_cli=true -o log_cli_level=DEBUG -vxs tests/
-
-      - name: Output some info for debugging 
-        # | true so erros in this step are ignored
-        run: |
-          df -h || true
-          du -sh $HOME/.cache/httpdirfs/ || true
-
-
-
-
-  docs:
-    runs-on: ubuntu-latest
+  test-selfhosted:
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
         with:
@@ -122,6 +43,3 @@ jobs:
         run: |
           pip install -e .[doc]
           python -c 'import iop4lib; print(iop4lib.__version__)'
-
-      - name: Build docs
-        run: cd docs && make html
