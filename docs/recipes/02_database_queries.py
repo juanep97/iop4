@@ -122,7 +122,7 @@ RawFit.by_fileloc("OSN-T090/2023-11-06/BLLAC_R_IAR-0760.fts").pk == RawFit.objec
 # exception if there is none or multiple.
 
 # In addition, we have inadvertently used the `field__query` syntax to access 
-# methods or related fields. At the begining we used `filename__icontains`
+# methods or related fields. At the beginning we used `filename__icontains`
 # instead of simply `filename` to search for a case-insensitive string in the 
 # field. And now we have used `epoch__telescope` to access the `telescope` field
 # of the related Epoch objects, since RawFit contains simply a reference to 
