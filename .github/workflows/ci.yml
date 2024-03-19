@@ -80,7 +80,7 @@ jobs:
       - name: Run tests (with -o log_cli=true -o log_cli_level=DEBUG to debug CI actions)
         run: pytest -o log_cli=true -o log_cli_level=DEBUG -vxs tests
 
-  test-selfhosted:
+  docs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
