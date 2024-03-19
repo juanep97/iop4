@@ -11,7 +11,7 @@ results. However, it should only be used for **local** debugging and not offered
 to the public. For production use, you should use a proper web server. Here we 
 provide some details on how to set up IOP4 with nginx and gunicorn. This guide 
 is not complete and should be taken only as a starting point, since setting up
-a real server is a complex task and depends on how do you want to integrate
+a real server is a complex task and depends on how you want to integrate
 IOP4 with your existing infrastructure.
 
 This setup has been tested on Ubuntu Server 22.04 LTS. You need to install nginx
