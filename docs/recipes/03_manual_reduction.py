@@ -1,7 +1,7 @@
 # %% [markdown]
 # # Step-by-step reduction
 
-# The most common way to use IOP4 should by launching the `iop4` command to 
+# The most common way to use IOP4 is by launching the `iop4` command to 
 # automatically reduce some nights. However, you might be interested in reducing
 # some images step by step (when debugging problems, or implementing new 
 # instruments). In this notebook we will do exactly that, which is more or less 
