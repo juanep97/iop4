@@ -27,7 +27,7 @@ epoch
 
 # When an epoch is created and `auto_link_rawfits=True`, IOP4 first attempts to
 # list the remote telescope archive, then it reads the local archive. It tries
-# to download missing files. If the it cannot list the remote, but finds the
+# to download missing files. If it cannot list the remote, but finds the
 # local folder for that epoch, it will just give a warning. If it fails at
 # both, it will return an error. This behavior can be tunned with
 # `check_remote_list`, `force_redownload` and `fallback_to_local` arguments to
