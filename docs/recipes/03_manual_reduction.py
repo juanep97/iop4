@@ -13,7 +13,7 @@
 # %% [markdown]
 # ## Fetching the data from the telescope archive.
 
-# We might be interested to download all files from one night, or just a single 
+# We might be interested in downloading all files from one night, or just a single 
 # night. In any case, you can directly do
 
 # %%
