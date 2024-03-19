@@ -34,7 +34,7 @@
 # reasons: to re-use them and to easy debugging of the final results.
 # - PhotoPolResult: final result of photo-polarimetry.
 
-# Each of the models are linked through attributes to the rest of models.
+# Each of the models is linked through attributes to the rest of models.
 
 # Database queries can be made through the `.objects` attribute of this models, 
 # which allows for filtering, ordering, etc of these.
