@@ -87,7 +87,7 @@ redf
 # function.
 
 # By default, ReducedFit.create will not create the reduced FITS file unless
-# you explicitelt pass `auto_build=True`. If you didn't, you can do it with
+# you explicitly pass `auto_build=True`. If you didn't, you can do it with
 
 # %% 
 redf.build_file()
