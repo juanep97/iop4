@@ -22,6 +22,7 @@ env:
 
 
 jobs:
+
   static-code-checks:
     runs-on: ubuntu-latest
     steps:
@@ -34,21 +35,12 @@ jobs:
         with:
           python-version: "3.10.9"
 
-
   tests:
-    timeout-minutes: 60
-
+    runs-on: [self-hosted, x64, Linux, ubuntu, generic]
     strategy:
       max-parallel: 1
       matrix:
-        include:
-          - python-version: "3.10.9"
-            os: ubuntu-latest
-          - python-version: "3.11"
-            os: ubuntu-latest
-
-    runs-on: ${{ matrix.os }}
-
+        python-version: ["3.10.9"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -74,31 +66,15 @@ jobs:
       - name: Install the package in editable mode with all additional dependencies
         run: pip install --editable .[all]
 
-      - name: Get test data from cache
-        uses: ./.github/cache-dataset
-        with:
-          TEST_DATA_PASSWORD: ${{ secrets.test_data_password }}
-
-      - name: Install httpdirfs to access astrometry index files without downloading them
-        run: sudo apt install httpdirfs
-
-      - name: Mount astrometry index file in default location
-        run: mkdir -p $HOME/.astrometry_cache/5200 && httpdirfs -s --cache 'https://portal.nersc.gov/project/cosmo/temp/dstn/index-5200/LITE/' $HOME/.astrometry_cache/5200/
-
-      - name: Check that it was correctly mounted
+      - name: Use mounted astrometry index files
+        run: |
+          ln -s /mnt/astrometry_cache $HOME/.astrometry_cache
+    
+      - name: Check astrometry index files were correctly mounted
         run: ls $HOME/.astrometry_cache/5200/index-5200-00.fits
       
       - name: Run tests (with -o log_cli=true -o log_cli_level=DEBUG to debug CI actions)
-        run: pytest -o log_cli=true -o log_cli_level=DEBUG -vxs tests/
-
-      - name: Output some info for debugging 
-        # | true so erros in this step are ignored
-        run: |
-          df -h || true
-          du -sh $HOME/.cache/httpdirfs/ || true
-
-
-
+        run: pytest -o log_cli=true -o log_cli_level=DEBUG -vxs tests
 
   docs:
     runs-on: ubuntu-latest
@@ -125,11 +101,6 @@ jobs:
           pip install -e .[doc]
           python -c 'import iop4lib; print(iop4lib.__version__)'
 
-      - name: Get test data from cache
-        uses: ./.github/cache-dataset
-        with:
-          TEST_DATA_PASSWORD: ${{ secrets.test_data_password }}
-
       - name: Extract test data in the default data folder
         run: |
           tar -xzf $HOME/iop4testdata.tar.gz -C $HOME
@@ -144,4 +115,4 @@ jobs:
           ls -lh $HOME/.iop4data/
 
       - name: Build docs
-        run: cd docs && make html
+        run: make docs-sphinx
