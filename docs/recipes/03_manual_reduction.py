@@ -81,7 +81,7 @@ redf = ReducedFit.create(rawfit=rf)
 redf
 
 # %% [markdown]
-# This will automatically select the appropiate master calibration frames from 
+# This will automatically select the appropriate master calibration frames from 
 # its night (if they exist) or from the closest night. Otherwise, you can 
 # specify which files to use by passing it as an argument to the creation 
 # function.
