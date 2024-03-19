@@ -23,7 +23,7 @@ Example nginx site configuration (to be placed at ``/etc/nginx/sites-available/`
   :language: nginx
 
 where you should replace ``domain``, ``domain2`` with the domain names that you
-will be using, and ``/path/to/static/`` should be accesible by the user 
+will be using, and ``/path/to/static/`` should be accessible by the user 
 running nginx (e.g. under ``/var/www/html/mysite/static/``).
 
 Example gunicorn socket configuration (to be placed at ``/etc/systemd/system/``)
