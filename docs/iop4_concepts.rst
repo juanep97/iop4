@@ -84,7 +84,7 @@ This should open a tab in your browser with the IOP4 web interface.
    used in production, or entirely replaced by a new Django project and used only as a guide.
    See :doc:`serving iop4 in production <serving_iop4_in_production>` for more information.
 
-After login in with the credentials that you suplied in during the `set up` 
+After login in with the credentials that you supplied during the `set up` 
 </iop4/docs/#usage> you will have access to the following tabs:
 
 * Explore > Plot: to plot and inspect the photometry and polarimetry results, flag data and download plots.
@@ -94,10 +94,10 @@ After login in with the credentials that you suplied in during the `set up`
 Telescope and Instrument Specific Code
 --------------------------------------
 
-The procedure to analyze and reduce photometric and polarimetric images is similar from one 
+The procedure to analyze and reduce photometric and polarimetric images is similar to one 
 observatory to another, but there are many instrument-specific details, for example, non-standard
 FITS header keywords, different polarimeters, different pixel scales, etc. IOP4 is designed to abstract these
-details from the main code. Telescope-specific code to is relegated to the :code:`iop4lib.telescopes` submodule, while 
+details from the main code. Telescope-specific code is relegated to the :code:`iop4lib.telescopes` submodule, while 
 instrument-specific code is relegated to the :code:`iop4lib.instruments` submodule.
 Adding a new telescope or instrument to IOP4 is as simple as adding a new class to these submodules, inheriting the 
 :code:`iop4lib.telescopes.Telescope` or code:`iop4lib.instrument.Instrument` base classes, and implementing the required methods 

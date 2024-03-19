@@ -1,7 +1,7 @@
 # %% [markdown]
 # # Step-by-step reduction
 
-# The most common way to use IOP4 should by launching the `iop4` command to 
+# The most common way to use IOP4 is by launching the `iop4` command to 
 # automatically reduce some nights. However, you might be interested in reducing
 # some images step by step (when debugging problems, or implementing new 
 # instruments). In this notebook we will do exactly that, which is more or less 
@@ -13,7 +13,7 @@
 # %% [markdown]
 # ## Fetching the data from the telescope archive.
 
-# We might be interested to download all files from one night, or just a single 
+# We might be interested in downloading all files from one night, or just a single 
 # night. In any case, you can directly do
 
 # %%
@@ -27,9 +27,9 @@ epoch
 
 # When an epoch is created and `auto_link_rawfits=True`, IOP4 first attempts to
 # list the remote telescope archive, then it reads the local archive. It tries
-# to download missing files. If the it cannot list the remote, but finds the
+# to download missing files. If it cannot list the remote, but finds the
 # local folder for that epoch, it will just give a warning. If it fails at
-# both, it will return an error. This behavior can be tunned with
+# both, it will return an error. This behavior can be tuned with 
 # `check_remote_list`, `force_redownload` and `fallback_to_local` arguments to
 # `create()`. Keep in mind that this will create the corresponding RawFit 
 # instances if necessary.
@@ -81,20 +81,20 @@ redf = ReducedFit.create(rawfit=rf)
 redf
 
 # %% [markdown]
-# This will automatically select the appropiate master calibration frames from 
+# This will automatically select the appropriate master calibration frames from 
 # its night (if they exist) or from the closest night. Otherwise, you can 
 # specify which files to use by passing it as an argument to the creation 
 # function.
 
 # By default, ReducedFit.create will not create the reduced FITS file unless
-# you explicitelt pass `auto_build=True`. If you didn't, you can do it with
+# you explicitly pass `auto_build=True`. If you didn't, you can do it with
 
 # %% 
 redf.build_file()
 
 # %% [markdown]
 # This will create the reduced FITS file by applying the calibration frames to 
-# the raw image, and will give it an appropiate WCS. To check the result, with 
+# the raw image, and will give it an appropriate WCS. To check the result, with 
 # the astrometry included, you can use the utility function 
 # `plot_preview_astrometry`:
 

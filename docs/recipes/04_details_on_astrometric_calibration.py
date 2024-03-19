@@ -19,7 +19,7 @@ redf.build_file()
 # For simple photometry images such as those from the Andor cameras, tries to
 # detect sources in the image with different sets of parameters and 
 # feeds them to a local astrometry.net solver. It tries with several sets until 
-# it successfuly calibrates the image. When done through `build_file()`, if 
+# it successfully calibrates the image. When done through `build_file()`, if 
 # calibration is not achieved, it will give the ERROR_ASTROMETRY flag, 
 # otherwise it will give it the BUILT_REDUCED flag.
 
@@ -65,7 +65,7 @@ redf = ReducedFit.create(rawfit=rf)
 redf.apply_masters()
 
 # %% [markdown]
-# The `.has_pairs` property tells whether an image is expected have pairs:
+# The `.has_pairs` property tells whether an image is expected to have pairs:
 
 # %%
 redf.has_pairs

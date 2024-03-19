@@ -29,12 +29,12 @@
 # corresponding raw files for each epoch.
 # - ReducedFit: a reduced FITS file, built from the corresponding raw file after 
 # applying calibration frames, astronometric calibration, etc.
-# - AperPhotResult: result of performing aperture photometry on a image. It is 
+# - AperPhotResult: result of performing aperture photometry on an image. It is 
 # used as an intermediate object to compute photo-polarimetry because of two 
 # reasons: to re-use them and to easy debugging of the final results.
 # - PhotoPolResult: final result of photo-polarimetry.
 
-# Each of the models are linked through attributes to the rest of models.
+# Each of the models is linked through attributes to the rest of models.
 
 # Database queries can be made through the `.objects` attribute of this models, 
 # which allows for filtering, ordering, etc of these.
@@ -121,8 +121,8 @@ RawFit.by_fileloc("OSN-T090/2023-11-06/BLLAC_R_IAR-0760.fts").pk == RawFit.objec
 # later will return the single instance matching the query, and raise an 
 # exception if there is none or multiple.
 
-# In addition, we have inadvertely used the `field__query` syntax to access 
-# methods or related fields. At the begining we used `filename__icontains`
+# In addition, we have inadvertently used the `field__query` syntax to access 
+# methods or related fields. At the beginning we used `filename__icontains`
 # instead of simply `filename` to search for a case-insensitive string in the 
 # field. And now we have used `epoch__telescope` to access the `telescope` field
 # of the related Epoch objects, since RawFit contains simply a reference to 
