@@ -103,3 +103,7 @@ jobs:
         run: |
           pip install -e .[doc]
           python -c 'import iop4lib; print(iop4lib.__version__)'
+
+      - name: Build the docs
+        run: | 
+          make docs-sphinx
