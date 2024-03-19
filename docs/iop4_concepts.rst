@@ -94,7 +94,7 @@ After login in with the credentials that you supplied during the `set up`
 Telescope and Instrument Specific Code
 --------------------------------------
 
-The procedure to analyze and reduce photometric and polarimetric images is similar from one 
+The procedure to analyze and reduce photometric and polarimetric images is similar to one 
 observatory to another, but there are many instrument-specific details, for example, non-standard
 FITS header keywords, different polarimeters, different pixel scales, etc. IOP4 is designed to abstract these
 details from the main code. Telescope-specific code to is relegated to the :code:`iop4lib.telescopes` submodule, while 
