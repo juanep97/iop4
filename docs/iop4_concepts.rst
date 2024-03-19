@@ -84,7 +84,7 @@ This should open a tab in your browser with the IOP4 web interface.
    used in production, or entirely replaced by a new Django project and used only as a guide.
    See :doc:`serving iop4 in production <serving_iop4_in_production>` for more information.
 
-After login in with the credentials that you suplied in during the `set up` 
+After login in with the credentials that you supplied during the `set up` 
 </iop4/docs/#usage> you will have access to the following tabs:
 
 * Explore > Plot: to plot and inspect the photometry and polarimetry results, flag data and download plots.
