@@ -97,7 +97,7 @@ Telescope and Instrument Specific Code
 The procedure to analyze and reduce photometric and polarimetric images is similar to one 
 observatory to another, but there are many instrument-specific details, for example, non-standard
 FITS header keywords, different polarimeters, different pixel scales, etc. IOP4 is designed to abstract these
-details from the main code. Telescope-specific code to is relegated to the :code:`iop4lib.telescopes` submodule, while 
+details from the main code. Telescope-specific code is relegated to the :code:`iop4lib.telescopes` submodule, while 
 instrument-specific code is relegated to the :code:`iop4lib.instruments` submodule.
 Adding a new telescope or instrument to IOP4 is as simple as adding a new class to these submodules, inheriting the 
 :code:`iop4lib.telescopes.Telescope` or code:`iop4lib.instrument.Instrument` base classes, and implementing the required methods 
