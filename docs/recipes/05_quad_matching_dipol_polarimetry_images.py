@@ -69,7 +69,7 @@ Image(filename=f"{redf_pol.filedpropdir}/astrometry_matched_quads.png")
 # field is not enough for the astrometry.net solver to work, plus the scale of the
 # images is too smal for the default index files. This quad matching needs at 
 # least 4 (ideally a few more) stars in the image, and a previously calibrated 
-# photometry field. If any of these conditions are not met, others methods must
+# photometry field. If any of these conditions are not met, other methods must
 # be used to calibrate the image (if there are only two bright sources at the 
 # right distance, can be assumed that they are the target star, and if there are
 # between 3 and 4-6 stars, we can try to match to known sources in the field).
