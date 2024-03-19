@@ -29,7 +29,7 @@
 # corresponding raw files for each epoch.
 # - ReducedFit: a reduced FITS file, built from the corresponding raw file after 
 # applying calibration frames, astronometric calibration, etc.
-# - AperPhotResult: result of performing aperture photometry on a image. It is 
+# - AperPhotResult: result of performing aperture photometry on an image. It is 
 # used as an intermediate object to compute photo-polarimetry because of two 
 # reasons: to re-use them and to easy debugging of the final results.
 # - PhotoPolResult: final result of photo-polarimetry.
