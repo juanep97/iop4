@@ -94,7 +94,7 @@ redf.build_file()
 
 # %% [markdown]
 # This will create the reduced FITS file by applying the calibration frames to 
-# the raw image, and will give it an appropiate WCS. To check the result, with 
+# the raw image, and will give it an appropriate WCS. To check the result, with 
 # the astrometry included, you can use the utility function 
 # `plot_preview_astrometry`:
 
