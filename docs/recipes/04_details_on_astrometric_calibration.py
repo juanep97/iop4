@@ -65,7 +65,7 @@ redf = ReducedFit.create(rawfit=rf)
 redf.apply_masters()
 
 # %% [markdown]
-# The `.has_pairs` property tells whether an image is expected have pairs:
+# The `.has_pairs` property tells whether an image is expected to have pairs:
 
 # %%
 redf.has_pairs
