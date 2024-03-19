@@ -36,7 +36,6 @@ jobs:
           python-version: "3.10.9"
 
   tests:
-    timeout-minutes: 30
     runs-on: [self-hosted, x64, Linux, ubuntu, generic]
     strategy:
       max-parallel: 1
