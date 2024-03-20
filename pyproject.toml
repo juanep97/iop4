@@ -46,6 +46,7 @@ repository = "https://github.com/juanep97/iop4"
 
 [project.scripts]
 iop4 = "iop4lib.iop4:main"
+iop4-night-summary = "iop4lib.iop4_night_summary:main"
 
 [tool.setuptools.packages.find]
 include = ["iop4*"]
