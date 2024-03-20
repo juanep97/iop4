@@ -109,6 +109,8 @@ jobs:
           python -c 'import iop4lib; print(iop4lib.__version__)'
 
       - name: Download test data
+        env:
+          TEST_DATA_PASSWORD: ${{ secrets.test_data_password }}
         run: |
           wget --post-data "pass=$TEST_DATA_PASSWORD" "https://vhega.iaa.es/iop4/iop4testdata.tar.gz?md5sum=$TESTDATA_MD5SUM" -O $HOME/iop4testdata.tar.gz
 
