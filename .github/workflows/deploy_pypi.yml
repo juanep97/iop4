@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,17 +16,35 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.10
+          python-version: 3.10.9
 
       - name: Install dependencies
         run: |
           python --version
           pip install -U build
           python -m build
-
-      - name: Publish package to PyPI
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-        uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Store the distribution packages
+        uses: actions/upload-artifact@v3
         with:
-          user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          name: python-package-distributions
+          path: dist/
+
+  publish-to-pypi:
+      name: Publish Python distribution to PyPI
+      if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
+      needs:
+      - build
+      runs-on: ubuntu-latest
+      environment:
+        name: pypi
+        url: https://pypi.org/p/iop4 
+      permissions:
+        id-token: write 
+      steps:
+        - name: Download all the dists
+          uses: actions/download-artifact@v3
+          with:
+            name: python-package-distributions
+            path: dist/
+        - name: Publish distribution to PyPI
+          uses: pypa/gh-action-pypi-publish@release/v1
