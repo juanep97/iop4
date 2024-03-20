@@ -36,8 +36,8 @@ jobs:
       - build
       runs-on: ubuntu-latest
       environment:
-        name: testpypi
-        url: https://test.pypi.org/p/iop4 
+        name: pypi
+        url: https://pypi.org/p/iop4 
       permissions:
         id-token: write 
       steps:
@@ -48,5 +48,3 @@ jobs:
             path: dist/
         - name: Publish distribution to PyPI
           uses: pypa/gh-action-pypi-publish@release/v1
-          with:
-            repository-url: https://test.pypi.org/legacy/
