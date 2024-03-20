@@ -13,7 +13,7 @@ import itertools
 
 class AdminEpoch(admin.ModelAdmin):
     model = Epoch
-    list_display = ['id', 'telescope', 'night', 'status', 'count_rawfits', 'count_bias', 'count_flats', 'count_light', 'count_reduced', 'count_calibrated', 'summary_rawfits_status', 'details']
+    list_display = ['id', 'telescope', 'night', 'status', 'count_rawfits', 'count_bias', 'count_darks', 'count_flats', 'count_light', 'count_reduced', 'count_calibrated', 'summary_rawfits_status', 'details']
     search_fields = ['id', 'telescope', 'night']
     readonly_fields = [field.name for field in Epoch._meta.fields] 
     ordering = ['-night','-telescope']
@@ -36,6 +36,10 @@ class AdminEpoch(admin.ModelAdmin):
     @admin.display(description='Nº of flats')
     def count_flats(self, obj):
         return obj.rawflatcount
+    
+    @admin.display(description='Nº of darks')
+    def count_darks(self, obj):
+        return obj.rawdarkcount
     
     @admin.display(description='Nº of science files')
     def count_light(self, obj):

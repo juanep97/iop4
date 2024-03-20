@@ -1,0 +1,110 @@
+<html>
+    <head>
+        <title>iop4 summary {{night|date:"Y/m/d"}}</title>
+    </head>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        hr {
+            border: 1px solid black;
+            margin: 1em 0;
+        }
+
+    </style>
+    <body>
+        <h1>IOP4 summary {{night|date:"Y/m/d"}}</h1>
+
+        <small>
+            Automatically generated.
+            This summary might be incomplete or wrong, check the admin after 
+            reading the observer summary for this night.
+        </small>
+
+        <hr/>
+
+        <h2>Overview</h2>
+        
+        {% if epochs %}
+
+            <!-- summary table of epochs -->
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>epochname</th>
+                        <th>bias</th>
+                        <th>darks</th>
+                        <th>flats</th>
+                        <th>science</th>
+                        <th>reduced</th>
+                        <th>status</th>
+                        <th>sources</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for epoch in epochs %}
+                        <tr>
+                            <td>{{ epoch.epochname }}</td>
+                            <td>{{ epoch.rawbiascount }}</td>
+                            <td>{{ epoch.rawdarkcount }}</td>
+                            <td>{{ epoch.rawflatcount }}</td>
+                            <td>{{ epoch.rawlightcount }}</td>
+                            <td>{{ epoch.reducedcount }}</td>
+                            <td>
+                                {% if epoch.files_with_error_astrometry %}
+                                    Err!
+                                {% else %}
+                                    OK
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% for srcname in epoch.srcname_list %}
+                                    {{ srcname }}
+                                    {% if not forloop.last %}, {% endif %}
+                                {% endfor %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+            </table>
+
+            <!-- summary of results -->
+
+            <h2>Summary of results (band R only)</h2>
+
+            <p>Some of these plots might include the previous existing night for the source for comparison.</p>
+
+            {% for srcname, imgb64 in results_summary_images.items %}
+                <img src="data:image/png;base64,{{ imgb64 }}" alt="{{ srcname }}"/>
+            {% endfor %}
+
+        {% else %}
+            <p><b>No epochs in the database were found for this night.</b></p>
+            <p>If you think this is an error, contact {% if args.contact_name %}{{args.contact_name}} ({% endif %}<code>{{args.contact_email}}</code>{% if args.contact_name %}){% endif %}.</p>
+        {% endif %}
+
+        <!-- footer -->
+        <hr/>
+        
+        <small>This night summary was generated on {% now "Y/m/d H:i" %}.</small><br>
+        <small>You can consult the full log at the IOP4 portal.</small><br>
+        <small>If you do not want to receive these emails, contact {% if args.contact_name %}{{args.contact_name}} ({% endif %}<code>{{args.contact_email}}</code>{% if args.contact_name %}){% endif %}.</small>
+
+    </body>
+</html>
