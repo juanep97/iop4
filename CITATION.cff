@@ -15,14 +15,17 @@ authors:
     email: dmorcuende@iaa.es
     affiliation: IAA-CSIC
     orcid: 'https://orcid.org/0000-0001-9400-0922'
+  - given-names: Jorge
+    family-names: Otero-Santos
+    email: joteros@iaa.es
+    affiliation: IAA-CSIC
+    orcid: 'https://orcid.org/0000-0002-4241-5875'
 identifiers:
   - type: doi
     value: 10.5281/zenodo.10222722
 repository-code: 'https://github.com/juanep97/iop4'
 url: 'https://vhega.iaa.es/iop4/about/'
-abstract: >-
-  IOP4, the Interactive Optical Photo-Polarimetric Python
-  Pipeline.
+abstract: IOP4, the Interactive Optical Photo-Polarimetric Python Pipeline.
 keywords:
   - astronomy
   - photometry
