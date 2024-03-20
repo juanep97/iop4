@@ -92,7 +92,7 @@ class NotebookGenerator:
 
 def main(app, e):
 
-    nb_paths = glob(f"recipes/*.py")
+    nb_paths = glob("recipes/*.py")
     nb_names = [Path(nb_path).with_suffix('.ipynb').name for nb_path in nb_paths]
     ipynb_paths = [str(DOC_SRC / "_build" / "jupyter_execute" / "recipes" / nb_name) for nb_name in nb_names]
 
