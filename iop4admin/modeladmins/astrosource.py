@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 class AdminAstroSource(admin.ModelAdmin):
     model = AstroSource
-    list_display = ['name', 'other_name', 'ra_hms', 'dec_dms', 'srctype', 'get_last_reducedfit', 'get_details']
+    list_display = ['name', 'other_name', 'ra_hms', 'dec_dms', 'srctype', 'get_last_reducedfit', 'get_calibrates', 'get_comment_firstline', 'get_details']
     search_fields = ['name', 'other_name', 'ra_hms', 'dec_dms', 'srctype', 'comment']
     list_filter = ('srctype',)
     
@@ -33,14 +33,13 @@ class AdminAstroSource(admin.ModelAdmin):
         stars_str_L = obj.calibrates.all().values_list('name', flat=True)
         return "\n".join(stars_str_L)
     
-    @admin.display(description='CALIBRATORS')
-    def get_calibrators(self, obj):
-        stars_str_L = obj.calibrators.all().values_list('name', flat=True)
-        return "\n".join(stars_str_L)
-    
-    @admin.display(description='COMMENT')
-    def get_comment_html(self, obj):
-        return format_html(obj.comment_html) 
+    @admin.display(description='COMMENTS')
+    def get_comment_firstline(self, obj):
+        lines = obj.comment.split("\n")
+        txt = lines[0]
+        if len(lines) > 0 or len(lines[0]) > 30:
+            txt = txt[:30] + "..."
+        return txt
     
     @admin.display(description='LAST REDUCEDFIT')
     def get_last_reducedfit(self, obj):

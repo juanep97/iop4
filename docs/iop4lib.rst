@@ -1,7 +1,8 @@
-iop4lib reference
-=================
+.. _iop4lib:
 
-##################
+
+Reference
+=========
 
 :code:`iop4lib` is the module at the core of IOP4.
 
@@ -80,4 +81,11 @@ iop4lib reference
       :members:
 
    .. automodule:: iop4lib.telescopes.cahat220
+      :members:
+
+   iop4lib.instruments
+   ===================
+   Instrument specific code.
+
+   .. automodule:: iop4lib.instruments
       :members:

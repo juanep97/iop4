@@ -73,6 +73,11 @@ doc = [
     "sphinxcontrib-bibtex",
     "docutils>=0.20",
     "nbsphinx",
+    "nbstripout",
+    "jupytext",
+    "ipykernel",
+    "sphinx-gallery",
+    "myst-nb",
 ]
 dev = [
   "setuptools_scm",

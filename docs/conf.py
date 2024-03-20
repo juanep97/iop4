@@ -1,3 +1,12 @@
+import sys, os, subprocess
+GIT_COMMIT_HASH = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=os.path.dirname(os.path.realpath(__file__))).decode('ascii').strip()
+GIT_BRANCH = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], cwd=os.path.dirname(os.path.realpath(__file__))).decode('ascii').strip()
+GIT_DESCRIBE = subprocess.check_output(['git', 'describe', '--always'], cwd=os.path.dirname(os.path.realpath(__file__))).decode('ascii').strip()
+
+# thumnail_gallery extension
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent / "sphinxext"))
+
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
@@ -6,24 +15,50 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+# Get exact version from git
+
 project = 'IOP4'
 copyright = '2023, Juan Escudero Pedrosa'
 author = 'Juan Escudero Pedrosa'
-release = '0.0.1'
+release = GIT_DESCRIBE
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
+    'myst_nb',
+    "nbsphinx",
+    'thumbnail_gallery',
     'sphinxcontrib.bibtex',
     'sphinx.ext.autodoc',
-    'sphinx_mdinclude',
     'sphinx.ext.linkcode',
     'numpydoc',
 ]
 
 templates_path = ['_templates']
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ['conf.py', '_build', 'sphinxext', '.*']
+source_suffix = ['.rst', '.md']
+
+nb_custom_formats = {
+    '.py': ['jupytext.reads', {'fmt': 'py:percent'}],
+}
+
+nb_merge_streams = True # otherwise several prints stmts result in multiple chunks
+nb_execution_timeout = 60 # seconds
+
+# automatically extract thumbnails from notebooks (with sphinxext/thumbnail_gallery)
+
+def get_thumbnails():
+    from glob import glob
+    from pathlib import Path
+
+    nb_paths = glob(f"recipes/*.py")
+    nb_names = [Path(nb_path).stem for nb_path in nb_paths]
+    nbsphinx_thumbnails = {f"recipes/{nb_name}":f"_thumbnails/{nb_name}.png" for nb_name in nb_names}
+
+    return nbsphinx_thumbnails
+
+nbsphinx_thumbnails = get_thumbnails()
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
@@ -147,7 +182,7 @@ def linkcode_resolve(domain, info):
         print(f"basedir: {iop4conf.basedir}")
         rel_path = os.path.relpath(file_path, iop4conf.basedir)
         print(f"rel_path: {rel_path}")
-        url = f'{repo_url}/blob/main/{rel_path}'
+        url = f'{repo_url}/blob/{GIT_COMMIT_HASH}/{rel_path}'
         return url
     else:
         return None

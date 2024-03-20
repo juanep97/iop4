@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+title: IOP4
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Juan
+    family-names: Escudero Pedrosa
+    email: jescudero@iaa.es
+    affiliation: IAA-CSIC
+    orcid: 'https://orcid.org/0000-0002-4131-655X'
+  - given-names: Daniel
+    family-names: Morcuende Parrilla
+    email: dmorcuende@iaa.es
+    affiliation: IAA-CSIC
+    orcid: 'https://orcid.org/0000-0001-9400-0922'
+  - given-names: Jorge
+    family-names: Otero-Santos
+    email: joteros@iaa.es
+    affiliation: IAA-CSIC
+    orcid: 'https://orcid.org/0000-0002-4241-5875'
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.10222722
+repository-code: 'https://github.com/juanep97/iop4'
+url: 'https://vhega.iaa.es/iop4/about/'
+abstract: IOP4, the Interactive Optical Photo-Polarimetric Python Pipeline.
+keywords:
+  - astronomy
+  - photometry
+  - polarimetry
+  - database
+  - pipeline
+  - python
+  - interactive
+  - blazars
+license: BSD-3-Clause

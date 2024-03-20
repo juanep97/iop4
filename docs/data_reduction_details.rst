@@ -1,4 +1,3 @@
-
 .. _data_reduction_details:
 
 Data reduction details
@@ -9,36 +8,30 @@ Data reduction details
 Introduction
 ------------
 
-The following steps are done by IOP4 to reduce data from one epoch.
+The following steps are done by IOP4 to reduce data from one epoch (when invoked as `iop4 --epoch-list <epochname>`):
 
-#. Registring the epoch in the database, listing, registring and downloading the raw files.
+#. Registering the epoch in the database, listing, registering and downloading the raw files.
 
-#. Classifying the files from their FITS header (FLAT, BIAS, LIGHT -science-; image sizes, band, exposure time). Many of these are telescope-dependent and the implementation is relegated to the corresponding telescope class.
+#. Classifying the files from their FITS header (FLAT, BIAS, DARK, LIGHT -science-; image sizes, band, exposure time). Many of these are telescope or instrument dependent and the implementation is relegated to the corresponding telescope or instrument class.
 
-#. Create MasterBias images.
+#. Create MasterBias, MasterDark and MasterFlat images.
 
-   Following standard procedures, the master bias is created by taking the median of all bias images in the epoch (for each image size available).
+   Following standard procedures, the master calibration frames are created by grouping all images of that type in the epoch (for each image size, exposure time, band, etc).
 
-#. Create MasterFlat images.
-
-   Following standard procedures, the master flat is created by taking the median of all flat images in the epoch, each image normalized to its median value (for each band, etc, available).
-
-#. No dark flat images / dark current correction currently, but it should be pretty low anyway.
+   Currently, MasterDark are created only for DIPOL. The dark current in the other instruments is negligible.
 
 #. Calibrate science images, which creates a ReducedFit for each RawFit of type LIGHT. This includes:
 
-   #. Subtract master bias
-   #. Divide by master flat
-   #. Astrometrically calibrate the images (find the WCS).
+   #. Apply the MasterBias, MasterDark (if any) and MasterFlat to the RawFit.
+   #. Astrometrically calibrate the images (giving it a correct WCS).
 
-#. Compute the aperture photometry for each source in the catalog and reduced image.
-#. Compute the results of relative photometry for each source in the catalog and reduced image.
-#. Compute the results of relative polarimetry for each source in the catalog and group of reduced images.
+#. Compute relative photometry and relative polarimetry results.
+#. Correct the resulting flux and polarization to account for host galaxy contamination (:cite:t:`Nilsson:2007`).
 
 CAHA T220 Information
 ---------------------
 
-* Information about the telescope: https://www.caha.es/CAHA/Telescopes/2.2m.html
+Information about the telescope: https://www.caha.es/CAHA/Telescopes/2.2m.html
 
 * Information about the camera: 
 
@@ -50,25 +43,29 @@ CAHA T220 Information
 OSN T090 Information
 --------------------
 
-* Information about the telescope: https://www.osn.iaa.csic.es/page/telescopio-90-cm
+Information about the telescope: https://www.osn.iaa.csic.es/page/telescopio-90-cm
 
-RoperT90 instrument (photometry, polarimetry with filters). Retired 23rd October 2021.
+* RoperT90 instrument (photometry, polarimetry with filters). Retired 23rd October 2021.
 
-* More information about the RoperT90 camera: https://www.osn.iaa.csic.es/page/camara-versarray-t90-retirada
+  More information about the RoperT90 camera: https://www.osn.iaa.csic.es/page/camara-versarray-t90-retirada
 
-AndorT90 instrument (photometry, polarimetry with filters):
+* AndorT90 instrument (photometry, polarimetry with filters):
 
-* Information about the AndorT90 camera: https://www.osn.iaa.csic.es/page/camaras-ccdt150-y-ccdt90
+  Information about the AndorT90 camera: https://www.osn.iaa.csic.es/page/camaras-ccdt150-y-ccdt90
 
-DIPOL polarimeter: :cite:t:`dipol:2020`.
+* DIPOL polarimeter: :cite:t:`dipol:Piirola:2020`, :cite:t:`dipol:Jorge:2024`.
 
 
 OSN T150 Information
 --------------------
 
-* Information about the telescope: https://www.osn.iaa.csic.es/page/telescopio-15-m
-* Information about the camera:  https://www.osn.iaa.csic.es/page/camaras-ccdt150-y-ccdt90
-* Old camera: https://www.osn.iaa.csic.es/page/camara-ccd-roper
+Information about the telescope: https://www.osn.iaa.csic.es/page/telescopio-15-m
+
+* Old camera (RoperT150): https://www.osn.iaa.csic.es/page/camara-ccd-roper
+
+* AndorT150 instrument (photometry, polarimetry with filters). 
+  
+  Information about the camera:  https://www.osn.iaa.csic.es/page/camaras-ccdt150-y-ccdt90
 
 
 References

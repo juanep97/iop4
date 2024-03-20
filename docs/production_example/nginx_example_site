@@ -1,0 +1,23 @@
+server {
+    listen 80;
+    server_name _;
+    return 301 $scheme://domain$request_uri;
+}
+
+server {
+    server_name domain domain2;
+
+    location = /favicon.ico { access_log off; log_not_found off; }
+
+    location /static/ {
+        alias /path/to/static/;
+    }
+
+    location / {
+        include proxy_params;
+        client_max_body_size 300M;
+        proxy_redirect off;
+        proxy_buffering off;
+        proxy_pass http://unix:/run/gunicorn.sock:/;
+    }
+}

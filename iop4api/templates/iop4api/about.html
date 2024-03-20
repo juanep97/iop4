@@ -8,6 +8,14 @@
         Check <a href="https://github.com/juanep97/iop4">the code in GitHub</a>. 
         Documentation can be found at <a href="https://vhega.iaa.es/iop4/docs/">the VHEGA site</a>.
     </p>
+    
+    {% if debug %}
+        <p>
+            You can browse your local version of the docs at 
+            <a href="{% url 'iop4api:docs' %}">/iop4/docs/</a>
+            (you need to build it first with make <code>docs-sphinx</code>).
+        </p>
+    {% endif %}
 
     <p>
         The test dataset can be downloaded at <a href="https://vhega.iaa.es/iop4/iop4testdata.tar.gz">this link</a>.
@@ -15,7 +23,11 @@
 
     {% if request.user.is_authenticated %}
         <p class="styled-box">
-            This site is currently running IOP4 <i>{{ git_branch }} @ <a href="https://github.com/juanep97/iop4/commit/{{ git_commit_hash }}">{{ git_describe }}</a> </i>.
+            This site is currently running IOP4 <i>{{ git_branch }} @ <a href="https://github.com/juanep97/iop4/commit/{{ git_commit_hash }}">{{ git_describe }}</a></i>.<br>
+            <br>
+            <span style="font-size:small;">
+                This message is visible only to authenticated users.
+            </span>
         </p>
     {% endif %}
     

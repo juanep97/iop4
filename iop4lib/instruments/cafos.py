@@ -206,7 +206,7 @@ class CAFOS(Instrument):
             fo(45º) = <HW(45)v,e_1> = <R(90)v,e_1> = <v,R(-90)e_1> = -<v,e_2> = fe(0º)
             fo(67º) = <HW(67)v,e_1> = <R(135)v,e_1> = <R(90)R(45)v,e_1> = <R(45)v,R(-90)e_1> = <HW(22),R(-90)e_1> = fe(22º)
 
-            See https://arxiv.org/pdf/astro-ph/0509153.pdf (doi 10.1086/497581) for the formulas relating these fluxes to 
+            See https://arxiv.org/pdf/astro-ph/0509153 (doi 10.1086/497581) for the formulas relating these fluxes to 
             the Stokes parameters.
 
         .. note::

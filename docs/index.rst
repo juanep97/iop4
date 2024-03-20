@@ -6,8 +6,9 @@
 About IOP4
 =======================
 
-.. mdinclude:: ../README.md
-
+.. include:: ../README.md
+  :parser: myst_parser.sphinx_
+  
 #######################
 
 Table of Contents
@@ -20,4 +21,8 @@ Table of Contents
 
    data_reduction_details
 
+   recipes/index
+
    iop4lib
+
+   serving_iop4_in_production

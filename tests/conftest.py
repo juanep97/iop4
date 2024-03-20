@@ -78,5 +78,9 @@ def setUpClass():
         sys.exit(-1)
 
 def tearDownClass():
+    # check if test data dir is the right one, else exist inmediately (to avoid deleting wrong dir)
+    if Path(iop4conf.datadir).name != "iop4testdata":
+        print("DANGER!")
+        sys.exit(-1)
     # remove test data dir
     os.system(f"rm -rf {iop4conf.datadir}")
