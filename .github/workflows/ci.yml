@@ -112,6 +112,7 @@ jobs:
         env:
           TEST_DATA_PASSWORD: ${{ secrets.test_data_password }}
         run: |
+          export TESTDATA_MD5SUM=`grep 'TESTDATA_MD5SUM' ./tests/conftest.py | awk -F"'" '{print $2}' | tr -d '\n'`
           wget --post-data "pass=$TEST_DATA_PASSWORD" "https://vhega.iaa.es/iop4/iop4testdata.tar.gz?md5sum=$TESTDATA_MD5SUM" -O $HOME/iop4testdata.tar.gz
 
       - name: Extract test data in the default data folder
