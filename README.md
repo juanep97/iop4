@@ -7,10 +7,11 @@
 
 **IOP4** is a complete rewrite of IOP3, a pipeline to work with **photometry** and **polarimetry** of **optical data** from [CAHA](https://www.caha.es/es/) and [OSN](https://www.osn.iaa.csic.es/) observatories. It is built to ease debugging and inspection of data.
 
-IOP4 implements _Object Relational Mapping_ (**ORM**) to seamlessly integrate all information about the reduction and results in a database which can be used to query and plot results, flag data and inspect the reduction process in a integrated fashion with the whole pipeline. It also ships with an already **built-in web interface** which can be used out of the box to browse the database and supervise all pipeline processes.
+IOP4 implements _Object Relational Mapping_ (**ORM**) to seamlessly integrate all information about the reduction and results in a database which can be used to query and plot results, flag data and inspect the reduction process in an integrated fashion with the whole pipeline. It also ships with an already **built-in web interface** which can be used out of the box to browse the database and supervise all pipeline processes.
 
 
 ## Installation
+We recommend installing IOP4 in an isolated environtment as described below. IOP4 is hosted in [PyPI software repository](https://pypi.org/project/iop4/).
 
 ### Option 1: Using a virtual environment
 
@@ -22,7 +23,7 @@ If you don't have Python 3.10 or later, you can install [pyenv](https://github.c
     $ curl https://pyenv.run | bash
 ```
 
-Follow the instruction that these command output to add `pyenv` to `PATH` (or copy the commands from https://github.com/pyenv/pyenv for your shell). Restart your terminal, or source the file (e.g. `. ~/.bashrc` or `. ~/.zshrc`) Then, run 
+Follow the instructions that this command outputs to add `pyenv` to `PATH` (or copy the commands from https://github.com/pyenv/pyenv for your shell). Restart your terminal, or source the file (e.g. `. ~/.bashrc` or `. ~/.zshrc`) Then, run 
 ```bash 
     $ pyenv install 3.10
     $ pyenv virtualenv 3.10 iop4-venv
@@ -30,7 +31,12 @@ Follow the instruction that these command output to add `pyenv` to `PATH` (or co
 ```
 Now you will have a virtual environment with the right Python version, and you can continue with the next step. To deactivate, just run `pyenv deactivate`.
 
-Now you can clone this repository and install IOP4:
+With the environment activated, you can install IOP4 latest version by running:
+```bash
+    $ pip install iop4
+```
+
+Alternatively, you can clone this repository and install IOP4:
 ```bash
     $ git clone 'git@github.com:juanep97/iop4.git'
     $ cd iop4
@@ -39,12 +45,20 @@ Now you can clone this repository and install IOP4:
 or `pip install -e .` if you want to install it in developer mode.
 
 
-### Option 2: Using conda
-
-Clone this repository and run from a terminal
+### Option 2: Using conda/mamba
+As the previous option, create and activate the environment as follows:
 ```bash
     $ conda create -n iop4 python=3.10
     $ conda activate iop4
+```
+
+Then run:
+```bash
+    $ pip install iop4
+```
+
+Alternatively, you can also clone this repository and run (inside the root directory of the cloned repository):
+```bash
     $ pip install .
 ```
 or `pip install -e .` if you want to install it in developer mode.
@@ -153,7 +167,7 @@ You are welcome to contribute to IOP4. Fork and create a PR!
 
 ## Citing IOP4
 
-If you use IOP4, or any result derived with it, we kindly ask you to cite the following references:
+If you use IOP4, or any result derived from it, we kindly ask you to cite the following references:
 
 <div>
 <a href="https://zenodo.org/doi/10.5281/zenodo.10222722"><img src="https://zenodo.org/badge/636786270.svg" alt="DOI"></img></a>
@@ -162,16 +176,17 @@ If you use IOP4, or any result derived with it, we kindly ask you to cite the fo
 You can use the following BibTeX entry:
 
 ```bibtex
-@software{juan_escudero_2023_10222723,
-  author       = {Juan Escudero and
-                  Daniel Morcuende},
-  title        = {juanep97/iop4: v0.1.0},
-  month        = nov,
-  year         = 2023,
+@software{escudero_pedrosa_2024_10845509,
+  author       = {Escudero Pedrosa, Juan and
+                  Morcuende Parrilla, Daniel and
+                  Otero-Santos, Jorge},
+  title        = {IOP4},
+  month        = mar,
+  year         = 2024,
   publisher    = {Zenodo},
-  version      = {v0.1.0},
-  doi          = {10.5281/zenodo.10222723},
-  url          = {https://doi.org/10.5281/zenodo.10222723}
+  version      = {v1.0.0},
+  doi          = {10.5281/zenodo.10845509},
+  url          = {https://doi.org/10.5281/zenodo.10845509}
 }
 ```
 
