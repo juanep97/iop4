@@ -185,8 +185,8 @@ You can use the following BibTeX entry:
   year         = 2024,
   publisher    = {Zenodo},
   version      = {v1.0.0},
-  doi          = {10.5281/zenodo.10845509},
-  url          = {https://doi.org/10.5281/zenodo.10845509}
+  doi          = {10.5281/zenodo.10222722},
+  url          = {https://zenodo.org/doi/10.5281/zenodo.10222722}
 }
 ```
 
