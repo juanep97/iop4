@@ -96,10 +96,16 @@ class CAFOS(Instrument):
         import astropy.io.fits as fits
 
         if 'INSFLNAM' in rawfit.header:
-            if (rawfit.header['INSFLNAM'] == 'BessellR' or 
-                rawfit.header['INSFLNAM'] == 'John R' or 
-                rawfit.header['INSFLNAM'] == 'Cous R' or rawfit.header['INSFLNAM'] == 'CousinsR'):
+            if any([rawfit.header['INSFLNAM'] == kw for kw in ['BessellR', 'John R', 'Cous R', 'CousinsR', 'JohnsonR']]):
                 rawfit.band = BANDS.R
+            elif any([rawfit.header['INSFLNAM'] == kw for kw in ['BessellI', 'John I', 'Cous I', 'CousinsI', 'JohnsonI']]):
+                rawfit.band = BANDS.I
+            elif any([rawfit.header['INSFLNAM'] == kw for kw in ['BessellV', 'John V', 'Cous V', 'CousinsV', 'JohnsonV']]):
+                rawfit.band = BANDS.V
+            elif any([rawfit.header['INSFLNAM'] == kw for kw in ['BessellB', 'John B', 'Cous B', 'CousinsB', 'JohnsonB']]):
+                rawfit.band = BANDS.B
+            elif any([rawfit.header['INSFLNAM'] == kw for kw in ['BessellU', 'John U', 'Cous U', 'CousinsU', 'JohnsonU']]):
+                rawfit.band = BANDS.U
             else:
                 logger.error(f"{rawfit}: unknown filter {rawfit.header['INSFLNAM']}.")
                 rawfit.band = BANDS.ERROR
@@ -126,6 +132,8 @@ class CAFOS(Instrument):
 
             if rawfit.imgtype == IMGTYPES.BIAS:
                 logger.debug(f"Probably not important, but {rawfit.fileloc} is BIAS but has polarimetry keywords, does it makes sense?")
+        elif rawfit.header['INSTRMOD'] == 'Polarizer' and rawfit.header['INSPOFPI'] == 'FREE':
+            rawfit.obsmode = OBSMODES.PHOTOMETRY
         else:
             logger.error("Not implemented, please check the code.")
 
