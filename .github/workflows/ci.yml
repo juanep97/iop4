@@ -136,10 +136,10 @@ jobs:
     needs: [docs]
     steps:
       - name: Upload Pages artifact
-      uses: actions/upload-pages-artifact@v3
-      with:
-        name: docs
-        path: docs/_build/html
+        uses: actions/upload-pages-artifact@v3
+        with:
+          name: docs
+          path: docs/_build/html
         
   deploy_docs:
     runs-on: [self-hosted, x64, Linux, ubuntu, generic]
