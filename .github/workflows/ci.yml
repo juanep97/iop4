@@ -149,5 +149,5 @@ jobs:
           path: docs/_build/html
         
       - name: Deploy to GitHub Pages
-        id: deploy_docs
+        id: deployment
         uses: actions/deploy-pages@v4
