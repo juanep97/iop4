@@ -84,7 +84,7 @@ jobs:
         run: pytest -o log_cli=true -o log_cli_level=DEBUG -vxs tests
 
   docs:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, x64, Linux, ubuntu, generic]
     
     # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
     permissions:
