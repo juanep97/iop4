@@ -9,6 +9,7 @@ on:
     tags:
       - '**'
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   # cancel previous runs of the same workflow for the same PR when new commits are pushed
