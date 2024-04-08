@@ -113,7 +113,7 @@ jobs:
 
       - name: Install pandoc
         run: |
-          sudo apt install pandoc
+          sudo apt-get -y install pandoc
 
       - name: Install doc dependencies
         run: |
