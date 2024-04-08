@@ -111,9 +111,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
 
-      - name: Install pandoc
+      - name: Install required packages
         run: |
-          sudo apt-get -y install pandoc
+          sudo apt-get -y install pandoc make
 
       - name: Install doc dependencies
         run: |
