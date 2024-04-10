@@ -175,6 +175,7 @@ def send_email(args, summary_html):
     msg['Subject'] = f"IOP4 summary {args.date}"
     msg['From'] = args.fromaddr 
     msg['To'] = args.mailto
+    msg['reply-to'] = args.contact_email
     msg.set_content(summary_html, subtype="html")
 
     logger.debug("Sending email")
