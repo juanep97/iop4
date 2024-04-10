@@ -139,6 +139,11 @@ class Config(dict):
         if not os.path.exists(self.datadir):
             os.makedirs(self.datadir)
 
+        # Check if the logs subdirectory exists, if not, create it
+        
+        if not os.path.exists(os.path.join(self.datadir, "logs")):
+            os.makedirs(os.path.join(self.datadir, "logs"))
+
         # Load OSN names from external file if indicated, load them into patterns like name*.fit, name*.fits, or name*.fts.
 
         if self.osn_source_list_path is not None and os.path.exists(self.osn_source_list_path):
