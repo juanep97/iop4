@@ -71,6 +71,9 @@ jobs:
           python manage.py migrate --no-input
           ls -lh $HOME/.iop4data/
 
+      - name: Run iop4 on the test data
+        run: iop4 --list-local
+  
       - name: Build docs
         run: make docs-sphinx
 
