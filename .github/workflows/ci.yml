@@ -124,6 +124,7 @@ jobs:
       - name: Extract test data in the default data folder
         run: |
           tar -xzf $HOME/iop4testdata.tar.gz -C $HOME
+          rm $HOME/iop4testdata.tar.gz
           mv $HOME/iop4testdata $HOME/.iop4data  
 
       - name: Create the DB
