@@ -133,7 +133,7 @@ jobs:
           ls -lh $HOME/.iop4data/
 
       - name: Run iop4 on the test data
-        run: iop4 --list-local
+        run: iop4 --list-local -o log_level=10
   
       - name: Build docs
         run: make docs-sphinx
