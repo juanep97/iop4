@@ -232,7 +232,7 @@ def parse_config_overrides(overrides):
     # correct the type of the config options
     for k, v in config.items():
         # interpret the log_level option
-        if k == "log_level":
+        if k == "log_level" and not v.isnumeric():
             v = config[k] = getattr(logging, v.upper())
         # check the type of the config option, if it is an int, convert it
         if k in iop4conf and isinstance(iop4conf[k], int):
