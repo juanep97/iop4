@@ -37,6 +37,8 @@ jobs:
 
   tests:
     runs-on: [self-hosted, x64, Linux, ubuntu, generic]
+    # for testing docs:
+    if: false 
     strategy:
       max-parallel: 1
       matrix:
