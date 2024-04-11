@@ -198,7 +198,7 @@ class MasterDark(FitFileModel):
                 data = (hdul[0].data - self.masterbias.data) / self.exptime
                 data_L.append(data)
 
-        data = np.nanmedian(data_L, axis=0, overwrite_input=True)
+        data = np.nanmedian(data_L, axis=0)
 
         logger.debug(f"Building header")
 
