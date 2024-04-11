@@ -86,6 +86,8 @@ jobs:
 
   docs:
     runs-on: [self-hosted, x64, Linux, ubuntu, generic]
+    # Don't run if this is a tag push, already done during docs deployment (docs.yml)
+    if:  ${{ !startsWith(github.ref, 'refs/tags/v') }}
     
     steps:
       - uses: actions/checkout@v4
@@ -110,6 +112,13 @@ jobs:
           pip install -e .[doc]
           python -c 'import iop4lib; print(iop4lib.__version__)'
 
+      - name: Use mounted astrometry index files
+        run: |
+          ln -s /mnt/astrometry_cache $HOME/.astrometry_cache
+      
+      - name: Check astrometry index files were correctly mounted
+        run: ls $HOME/.astrometry_cache/5200/index-5200-00.fits
+
       - name: Download test data
         env:
           TEST_DATA_PASSWORD: ${{ secrets.test_data_password }}
@@ -130,5 +139,8 @@ jobs:
           python manage.py migrate --no-input
           ls -lh $HOME/.iop4data/
 
+      - name: Run iop4 on the test data
+        run: iop4 --list-local
+  
       - name: Build docs
         run: make docs-sphinx
