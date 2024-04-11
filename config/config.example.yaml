@@ -27,8 +27,7 @@ mplt_default_dpi: 100 # <int> dpi for matplotlib (e.g. 100)
 
 log_file: ~/.iop4data/logs/iop4.log # <str> Path to log file.
 log_date_format: '%Y-%m-%d %H:%M:%S' # <log date format>
-#log_format: '%(asctime)s - %(name)s [%(filename)s:%(lineno)d] - %(levelname)s - %(message)s' # <log format> You can also add '%(process)d (%(proc_memory)s)' to the format to show pid and memory usage per process.
-log_format: '%(asctime)s - %(process)d (%(proc_memory)s) [%(filename)s:%(lineno)d] - %(levelname)s - %(message)s' # <log format> You can also add '%(process)d (%(proc_memory)s)' to the format to show pid and memory usage per process.
+log_format: '%(asctime)s - %(name)s [%(filename)s:%(lineno)d] - %(levelname)s - %(message)s' # <log format> You can also add '%(process)d (%(proc_memory)s)' to the format to show pid and memory usage per process.
 log_level: 20 # <int>. Possible values are: 10 (DEBUG), 20 (INFO), 30 (WARNING), 40 (ERROR), 50 (CRITICAL).
 
 ############
