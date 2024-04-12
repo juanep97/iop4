@@ -2,6 +2,8 @@
 # # Details on astrometric calibration
 
 # %%
+# %autoawait off
+# %matplotlib inline
 # %run 01_notebook_configuration.py
 
 # %% [markdown]
