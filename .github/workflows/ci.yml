@@ -157,3 +157,6 @@ jobs:
 
       - name: Check 4
         run: ls -lh docs/_build/html/_images/
+
+      - name: Check 5
+        run: find docs/_build -iname '*.png'
