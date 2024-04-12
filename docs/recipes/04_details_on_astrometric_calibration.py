@@ -2,7 +2,7 @@
 # # Details on astrometric calibration
 
 # %%
-# %run 01_notebook_configuration.py
+# %run -i 01_notebook_configuration.py
 
 # %% [markdown]
 # The header of raw FITS files does not usually contain a valid WCS. The 

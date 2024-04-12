@@ -8,7 +8,7 @@
 # what `iop4.py` does when launched from the command line.
 
 # %%
-# %run 01_notebook_configuration.py
+# %run -i 01_notebook_configuration.py
 
 # %% [markdown]
 # ## Fetching the data from the telescope archive.

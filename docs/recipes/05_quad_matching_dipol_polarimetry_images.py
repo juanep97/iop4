@@ -2,7 +2,7 @@
 # # Quad matching in DIPOL polarimetry images
 
 # %%
-# %run 01_notebook_configuration.py
+# %run -i 01_notebook_configuration.py
 
 # To reduce disk usage, only a central cut of of the full field of the DIPOL 
 # camera is actually saved.
