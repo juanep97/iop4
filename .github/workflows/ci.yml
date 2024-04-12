@@ -151,3 +151,9 @@ jobs:
 
       - name: Check 2
         run: grep -F '.png' docs/_build/html/recipes/05_quad_matching_dipol_polarimetry_images.html
+
+      - name: Check 3
+        run: ls -lh docs/_build/jupyter_execute/**
+
+      - name: Check 4
+        run: ls -lh docs/_build/html/_images/
