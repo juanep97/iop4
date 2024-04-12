@@ -22,7 +22,7 @@ test-cov:
 
 docs-sphinx:
 	#cd docs && make clean && make html
-	cd docs && python -m sphinx . _build/html -b html
+	cd docs && python -m sphinx . _build/html -b html -vvv
 
 docs-show:
 	open docs/_build/html/index.html
