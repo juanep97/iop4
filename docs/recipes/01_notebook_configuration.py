@@ -50,4 +50,8 @@ iop4conf.log_format = '%(asctime)s - pid %(process)d - [%(filename)s:%(lineno)d]
 logger_handler.setFormatter(coloredlogs.ColoredFormatter(iop4conf.log_format, datefmt=iop4conf.log_date_format))
 
 # %% [markdown]
+# Make sure matplotlib is configured to display plots inline:
+# %matplotlib inline
+
+# %% [markdown]
 # Now you are ready to start using IOP4 inside your notebook.
