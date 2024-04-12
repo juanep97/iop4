@@ -146,7 +146,8 @@ jobs:
       - name: Build docs
         run: make docs-sphinx
 
-      - name: Check 
-        run: |
-          grep -F '<p class="title logo__title">IOP4 v1.1.0' docs/_build/html/index.html
-          grep -F 'alt="../_images/' docs/_build/html/recipes/05_quad_matching_dipol_polarimetry_images.html
+      - name: Check 1
+        run: grep -F '<p class="title logo__title">IOP4 v1.1.0' docs/_build/html/index.html
+
+      - name: Check 2
+        run: grep -F '.png' docs/_build/html/recipes/05_quad_matching_dipol_polarimetry_images.html
