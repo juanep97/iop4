@@ -51,6 +51,8 @@ logger_handler.setFormatter(coloredlogs.ColoredFormatter(iop4conf.log_format, da
 
 # %% [markdown]
 # Make sure matplotlib is configured to display plots inline:
+
+# %%
 # %matplotlib inline
 
 # %% [markdown]
