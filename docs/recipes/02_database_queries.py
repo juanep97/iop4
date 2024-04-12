@@ -11,6 +11,9 @@
 # %%
 # %run 01_notebook_configuration.py
 
+# %%
+# %matplotlib inline
+
 # %% [markdown]
 # In IOP4, observing sessions, FITS files and observational results are all 
 # represented by a Python class, and each instance of them is a row in the 
