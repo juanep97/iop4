@@ -75,7 +75,7 @@ jobs:
           python iop4site/manage.py makemigrations
           python iop4site/manage.py makemigrations iop4api
           python iop4site/manage.py migrate --no-input
-          python iop4site/manage.py loaddata $HOME/.iop4data/testcatalog.yaml 
+          python iop4site/manage.py loaddata $HOME/.iop4data/testcatalog.yaml
           ls -lh $HOME/.iop4data/
 
       - name: Run iop4 on the test data

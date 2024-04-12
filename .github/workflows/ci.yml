@@ -37,7 +37,6 @@ jobs:
 
   tests:
     runs-on: [self-hosted, x64, Linux, ubuntu, generic]
-    if: false
     strategy:
       max-parallel: 1
       matrix:
@@ -137,7 +136,7 @@ jobs:
           python iop4site/manage.py makemigrations
           python iop4site/manage.py makemigrations iop4api
           python iop4site/manage.py migrate --no-input
-          python iop4site/manage.py loaddata $HOME/.iop4data/testcatalog.yaml 
+          python iop4site/manage.py loaddata $HOME/.iop4data/testcatalog.yaml
           ls -lh $HOME/.iop4data/
 
       - name: Run iop4 on the test data
@@ -145,18 +144,3 @@ jobs:
   
       - name: Build docs
         run: make docs-sphinx
-
-      - name: Check 1
-        run: grep -F '<p class="title logo__title">IOP4 v1.1.0' docs/_build/html/index.html
-
-      - name: Check 2
-        run: grep -F '.png' docs/_build/html/recipes/05_quad_matching_dipol_polarimetry_images.html
-
-      - name: Check 3
-        run: ls -lh docs/_build/jupyter_execute/**
-
-      - name: Check 4
-        run: ls -lh docs/_build/html/_images/
-
-      - name: Check 5
-        run: find docs/_build -iname '*.png'
