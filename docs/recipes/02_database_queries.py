@@ -9,7 +9,7 @@
 # %% [markdown]
 # Configure IOP4 and logging (see examples)
 # %%
-# %run -i 01_notebook_configuration.py
+# %run 01_notebook_configuration.py
 
 # %% [markdown]
 # In IOP4, observing sessions, FITS files and observational results are all 
