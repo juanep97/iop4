@@ -9,6 +9,8 @@
 # %% [markdown]
 # Configure IOP4 and logging (see examples)
 # %%
+# %autoawait off
+# %matplotlib inline
 # %run 01_notebook_configuration.py
 
 # %% [markdown]

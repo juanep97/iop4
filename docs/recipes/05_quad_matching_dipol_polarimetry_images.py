@@ -2,6 +2,8 @@
 # # Quad matching in DIPOL polarimetry images
 
 # %%
+# %autoawait off
+# %matplotlib inline
 # %run 01_notebook_configuration.py
 
 # To reduce disk usage, only a central cut of of the full field of the DIPOL 

@@ -8,6 +8,8 @@
 # what `iop4.py` does when launched from the command line.
 
 # %%
+# %autoawait off
+# %matplotlib inline
 # %run 01_notebook_configuration.py
 
 # %% [markdown]
