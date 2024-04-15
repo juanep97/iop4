@@ -33,6 +33,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Workaround for https://github.com/actions/checkout/issues/882
+        run: git fetch --tags --force origin
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
