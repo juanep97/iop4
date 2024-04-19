@@ -176,15 +176,13 @@ If you use IOP4, or any result derived from it, we kindly ask you to cite the fo
 You can use the following BibTeX entry:
 
 ```bibtex
-@software{escudero_pedrosa_2024_10845509,
-  author       = {Escudero Pedrosa, Juan and
-                  Morcuende Parrilla, Daniel and
+@software{escudero_pedrosa_2024,
+  author       = {{Escudero Pedrosa}, Juan and
+                  {Morcuende Parrilla}, Daniel and
                   Otero-Santos, Jorge},
   title        = {IOP4},
-  month        = mar,
   year         = 2024,
   publisher    = {Zenodo},
-  version      = {v1.0.0},
   doi          = {10.5281/zenodo.10222722},
   url          = {https://zenodo.org/doi/10.5281/zenodo.10222722}
 }
