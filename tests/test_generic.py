@@ -65,4 +65,5 @@ def test_host_correction_data_load(load_test_catalog):
 def test_iop4_script():
     """ Test that the iop4 script is available """
     import subprocess
-    assert subprocess.run(["iop4", "--help"]).returncode == 0
+    assert subprocess.run(["iop4", "--help"]).returncode == 0, "iop4 help invokation"
+    assert subprocess.run(["iop4", "--check-config"]).returncode == 0, "iop4 configuration check"
