@@ -29,13 +29,6 @@ class Config(dict):
     r""" Configuration class for IOP4.
     
     This class is a singleton, that is, it always returns the same instance of the class.
-
-    .. note::
-        OSN_SourceList.txt contains the starting characters of the filenames of the sources in the OSN
-        repo. For each entry, it is loaded in the osn_fnames_patterns list as a regular 
-        expression (^<entry>.*\.fit(?:s+)$), where <entry> is the entry in the file. This will match any 
-        filename starting as the file entry and ending in either .fit or .fits.
-        
     """
 
     # PATH CONFIG
