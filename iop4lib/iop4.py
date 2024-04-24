@@ -15,31 +15,11 @@ you would invoke iop4 as `iop4 -o log_level=DEBUG -o n_processes=6 [other option
 Contact: Juan Escudero Pedrosa (jescudero@iaa.es).
 """
 
-# iop4lib config
-import iop4lib.config
-iop4conf = iop4lib.Config(config_db=True)
-
-#other imports
 import os
 import sys
 import argparse
 import coloredlogs
-import numpy as np
-import scipy as sp
-import pandas as pd
-import matplotlib as mplt
-import matplotlib.pyplot as plt
-import itertools
-from astropy.time import Time
 import datetime
-import time
-from pathlib import Path
-
-# iop4lib imports
-from iop4lib.db import *
-from iop4lib.enums import *
-from iop4lib.telescopes import *
-from iop4lib.instruments import *
 
 # logging
 import logging
@@ -48,6 +28,8 @@ logger = logging.getLogger(__name__)
 
 
 def process_epochs(epochname_list, force_rebuild, check_remote_list):
+    from iop4lib.db import Epoch, RawFit, PhotoPolResult
+    from iop4lib.enums import IMGTYPES, OBSMODES
 
     epoch_L  : list[Epoch] = list()
     
@@ -102,7 +84,9 @@ def process_epochs(epochname_list, force_rebuild, check_remote_list):
 
 
 def list_local_epochnames():
-    """ List all local epochnames in local archives (by looking at the raw directory)."""
+    """List all local epochnames in local archives (by looking at the raw directory)."""
+
+    from iop4lib.telescopes import Telescope
 
     local_epochnames = list()
 
@@ -113,8 +97,10 @@ def list_local_epochnames():
     return local_epochnames
     
 def list_remote_epochnames():
-    """ List all remote epochnames in remote archives.
-    """
+    """List all remote epochnames in remote archives."""
+
+    from iop4lib.telescopes import Telescope
+
     epochnames = list()
 
     for tel_cls in Telescope.get_known():
@@ -124,17 +110,19 @@ def list_remote_epochnames():
 
 
 def discover_missing_epochs():
-    """ Discover missing epochs in remote archive."""
+    """Discover missing epochs in remote archive."""
     return list(set(list_remote_epochnames()).difference(list_local_epochnames()))    
 
 
 def list_remote_filelocs(epochnames: None | list[str] = None):
-    """ Discover files in remote archive for the given epochs.
+    """Discover files in remote archive for the given epochs.
     
     Use this function to list all files in the remote archive for the given epochs.
     It avoids calling list_remote_raw_fnames() for each epoch.
     """
     
+    from iop4lib.telescopes import Telescope
+
     if epochnames is None:
          epochnames = list_remote_epochnames()
 
@@ -149,7 +137,9 @@ def list_remote_filelocs(epochnames: None | list[str] = None):
     return filelocs
 
 def list_local_filelocs():
-    """ Discover local filelocs in local archive."""
+    """Discover local filelocs in local archive."""
+
+    from iop4lib.telescopes import Telescope
 
     local_filelocs = list()
 
@@ -172,6 +162,7 @@ def discover_missing_filelocs():
 
 
 def retry_failed_files():
+    from iop4lib.db import ReducedFit, Epoch
     qs = ReducedFit.objects.filter(flags__has=ReducedFit.FLAGS.ERROR_ASTROMETRY).all()
     logger.info(f"Retrying {qs.count()} failed reduced fits.")
     Epoch.reduce_reducedfits(qs)
@@ -181,6 +172,8 @@ def retry_failed_files():
 
 
 def filter_epochname_by_date(epochname_list, date_start=None, date_end=None):
+    from iop4lib.db import Epoch
+
     if date_start is not None:
         epochname_list = [epochname for epochname in epochname_list if Epoch.epochname_to_tel_night(epochname)[1] >= datetime.date.fromisoformat(date_start)]
     
@@ -190,6 +183,7 @@ def filter_epochname_by_date(epochname_list, date_start=None, date_end=None):
     return epochname_list
 
 def filter_filelocs_by_date(fileloc_list, date_start=None, date_end=None):
+    from iop4lib.db import RawFit
 
     if date_start is not None:
         fileloc_list = [fileloc for fileloc in fileloc_list if RawFit.fileloc_to_tel_night_filename(fileloc)[1] >= datetime.date.fromisoformat(date_start)]
@@ -201,16 +195,20 @@ def filter_filelocs_by_date(fileloc_list, date_start=None, date_end=None):
 
 
 def group_epochnames_by_telescope(epochnames):
-    
-        epochnames_by_telescope = {tel_cls.name:list() for tel_cls in Telescope.get_known()}
-    
-        for epochname in epochnames:
-            tel, night = Epoch.epochname_to_tel_night(epochname)
-            epochnames_by_telescope[tel].append(epochname)
-    
-        return epochnames_by_telescope
+    from iop4lib.db import Epoch
+    from iop4lib.telescopes import Telescope
+
+    epochnames_by_telescope = {tel_cls.name:list() for tel_cls in Telescope.get_known()}
+
+    for epochname in epochnames:
+        tel, night = Epoch.epochname_to_tel_night(epochname)
+        epochnames_by_telescope[tel].append(epochname)
+
+    return epochnames_by_telescope
 
 def group_filelocs_by_telescope(filelocs):
+    from iop4lib.db import RawFit
+    from iop4lib.telescopes import Telescope
 
     filelocs_by_telescope = {tel_cls.name:list() for tel_cls in Telescope.get_known()}
 
@@ -252,8 +250,9 @@ def main():
     
     parser.add_argument('-i', "--interactive", dest="interactive", action="store_true", help="<Optional> Jump to an IPython shell after finishing execution")
     parser.add_argument('--check-config', action="store_true", help="<Optional> Check the current configuration and exit")
+    parser.add_argument('--config-file', dest='config_file', default=None, help="<Optional> Path to the config file to use. By default, IOP4 will try to use (in order) the file in IOP4_CONFIG_FILE env var, ~/.iop4.config.yaml, or the the example config file.")
     parser.add_argument('-o', action='append', dest='config_overrides', help="Override a config option (e.g., -o option=value)")
-    
+
     # epoch processing options
     parser.add_argument('--epoch-list', dest='epochname_list', nargs='+', help='<Optional> List of epochs (e.g: T090/230102 T090/230204)')
     parser.add_argument('--discover-missing', action='store_true', help='<Optional> Discover new epochs to process them')
@@ -287,6 +286,15 @@ def main():
 
     # Configuration:
 
+    global iop4conf
+    import iop4lib.config
+    iop4conf = iop4lib.Config(config_path=args.config_file, config_db=True)
+
+    print("Using config file:", iop4conf.config_path)
+    
+    from iop4lib.db import Epoch, RawFit
+    from iop4lib.telescopes import Telescope
+
     if args.config_overrides:
         # get the config options as a dict
         opts = parse_config_overrides(args.config_overrides)
@@ -294,10 +302,10 @@ def main():
         iop4conf.update(opts)
 
     if not iop4conf.is_valid():
-        print("check_config: there are some missing keys in the config file. All keys in the example config file must be present. Add them to your config file (you can set them to null) and try again. Aborting.")
+        print("There are some missing keys in the config file. All keys in the example config file must be present. Add them to your config file (you can set them to null) and try again. Aborting.")
         sys.exit(-1)
     elif args.check_config:
-        print("check_config: config file is OK.")
+        print("Config file is OK.")
         sys.exit(0)
 
     ## configure logging

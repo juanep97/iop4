@@ -1,6 +1,6 @@
 # other imports
-import os, pathlib, yaml, logging
-
+import os, yaml, logging
+from pathlib import Path
 import matplotlib, matplotlib.pyplot
 
 # Disable matplotlib logging except for warnings and above
@@ -33,7 +33,7 @@ class Config(dict):
 
     # PATH CONFIG
 
-    basedir = pathlib.Path(__file__).parents[1].absolute()
+    basedir = Path(__file__).parents[1].absolute()
 
     # ALL OTHER CONFIG OPTIONS READ FROM SEPARATE CONFIG FILE (see config.example.yaml)
 
@@ -101,12 +101,16 @@ class Config(dict):
             if hasattr(self, 'config_path') and self.config_path is not None:
                 config_path = self.config_path
             else:
-                config_path = pathlib.Path(self.basedir) / "config" / "config.yaml"
+
+                if (config_path := os.getenv("IOP4_CONFIG_FILE")) is not None:
+                    config_path = Path(config_path).expanduser()
+                else:
+                    config_path = Path("~/.iop4.config.yaml").expanduser()
 
                 if not config_path.exists():
-                    config_path = pathlib.Path(self.basedir) / "config" / "config.example.yaml"
+                    config_path = Path(self.basedir) / "config" / "config.example.yaml"
         
-        self.config_path = config_path
+        self.config_path = Path(config_path).expanduser()
 
         # Load config file and set attributes
 
@@ -125,7 +129,7 @@ class Config(dict):
 
         for k, v in self.items():
             if (k in ['basedir', 'datadir', 'log_file'] or 'path' in k) and v is not None: # config variables should have ~ expanded
-                setattr(self, k, str(pathlib.Path(v).expanduser()))
+                setattr(self, k, str(Path(v).expanduser()))
 
         # If data dir does not exist, create it
         
@@ -215,7 +219,7 @@ class Config(dict):
         with open(self.config_path, 'r') as f:
             config_dict = yaml.safe_load(f)
 
-        with open(pathlib.Path(self.basedir) / "config" / "config.example.yaml", 'r') as f:
+        with open(Path(self.basedir) / "config" / "config.example.yaml", 'r') as f:
             config_dict_example = yaml.safe_load(f)
 
         wrong = False
