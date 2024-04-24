@@ -168,20 +168,9 @@ class Config(dict):
         from django.conf import settings
         from django.apps import apps
         
-        #import sys
-        #sys.path.append(r"/path/to/iop4/iop4site/")
-        #not necessary anymore, now app is a module.
         settings.configure(
             INSTALLED_APPS=[
                 'iop4api',
-                # # apps below not necessary for iop4lib but allows using User model from the iop4.py -i shell 
-                # # (python manage.py shell includes this by default, since it uses the settings in iop4site.settings)
-                # "iop4site.iop4site.apps.IOP4AdminConfig", 
-                # "django.contrib.auth", 
-                # "django.contrib.contenttypes",
-                # "django.contrib.sessions",
-                # "django.contrib.messages",
-                # "django.contrib.staticfiles",
             ],
             DATABASES = {
                 "default": {
