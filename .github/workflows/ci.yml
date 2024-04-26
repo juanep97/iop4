@@ -134,16 +134,16 @@ jobs:
 
       - name: Extract test data in the default data folder
         run: |
-          tar -xzf $HOME/test_datasets/iop4testdata.$TESTDATA_MD5SUM.tar.gz -C $HOME
-          mv $HOME/iop4testdata.$TESTDATA_MD5SUM $HOME/iop4docsdata
+          tar -xzf $HOME/iop4testdata.$TESTDATA_MD5SUM.tar.gz -C $HOME
+          mv $HOME/iop4testdata.$TESTDATA_MD5SUM $HOME/.iop4data
 
       - name: Create the DB
         run: |
           python iop4site/manage.py makemigrations
           python iop4site/manage.py makemigrations iop4api
           python iop4site/manage.py migrate --no-input
-          python iop4site/manage.py loaddata $HOME/iop4testdata/testcatalog.yaml
-          ls -lh $HOME/iop4testdata/
+          python iop4site/manage.py loaddata $HOME/.iop4data/testcatalog.yaml
+          ls -lh $HOME/.iop4data/
 
       - name: Run iop4 on the test data
         run: iop4 --list-local
