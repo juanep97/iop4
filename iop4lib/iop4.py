@@ -2,15 +2,26 @@
 """ iop4.py
     Invoke the IOP4 pipeline.
 
-You can specify how to select epochs using the --epoch-list, --discover-missing and --list-local options.
-You can check whether to keep selected epochs that are already in DB using the --no-check-db option, otherwise
-they will be removed from the list of epochs to process. The --date-start and --date-end options allow to filter
-the selected epochs by date. 
+You can specify how to select epochs using the --epoch-list, --discover-missing 
+and --list-local options. You can check whether to keep selected epochs that are 
+already in DB using the --no-check-db option, otherwise they will be removed 
+from the list of epochs to process. The --date-start and --date-end options 
+allow to filter the selected epochs by date. 
 
 Equivalent options exist for files.
 
-Use -o option=value to override config options, e.g., to set the log level to DEBUG and use 6 parallel processes, 
-you would invoke iop4 as `iop4 -o log_level=DEBUG -o n_processes=6 [other options]`.
+You can override config options with environment variables, e.g., 
+`IOP4_LOG_LEVEL=DEBUG iop4 [other options]`. This will work for any process 
+using iop4lib (i.e., iop4 main script, API, etc.). E.g. to set the log level to
+DEBUG, you would invoke iop4 as `IOP4_LOG_LEVEL=DEBUG iop4 [other options]`. 
+Options set with environment variables will take precedence over config file 
+options.
+
+You can also use -o option=value to override config options, e.g., to set the 
+log level to DEBUG and use 6 parallel processes, you would invoke iop4 as 
+`iop4 -o log_level=DEBUG -o n_processes=6 [other options]`. This will work only 
+for the iop4 main script. Options set with -o will take precedence over any 
+other configuration method.
 
 Contact: Juan Escudero Pedrosa (jescudero@iaa.es).
 """
