@@ -112,7 +112,7 @@ class Config(dict):
                 elif Path("~/.iop4.config.yaml").expanduser().exists():
                     config_path = Path("~/.iop4.config.yaml").expanduser()
                 else:
-                    config_path = Path(self.basedir) / "config" / "config.yaml"
+                    config_path = Path(self.basedir) / "config" / "config.example.yaml"
 
                 if not config_path.exists():
                     raise FileNotFoundError(f"Config file {config_path} not found.")
