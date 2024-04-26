@@ -71,6 +71,7 @@ jobs:
           TEST_DATA_PASSWORD: ${{ secrets.test_data_password }}
         run: |
           export TESTDATA_MD5SUM=`grep 'TESTDATA_MD5SUM' ./tests/conftest.py | awk -F"'" '{print $2}' | tr -d '\n'`
+          echo "TESTDATA_MD5SUM=$TESTDATA_MD5SUM" >> $GITHUB_ENV
 
       - name: Use mounted astrometry index files and test dataset
         run: |
@@ -119,6 +120,7 @@ jobs:
           TEST_DATA_PASSWORD: ${{ secrets.test_data_password }}
         run: |
           export TESTDATA_MD5SUM=`grep 'TESTDATA_MD5SUM' ./tests/conftest.py | awk -F"'" '{print $2}' | tr -d '\n'`
+          echo "TESTDATA_MD5SUM=$TESTDATA_MD5SUM" >> $GITHUB_ENV
 
       - name: Use mounted astrometry index files and test dataset
         run: |
