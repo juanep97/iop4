@@ -1,3 +1,23 @@
+""" Configuration for pytest tests.
+
+Django pytest tests require giving the real database path. Also, we would like 
+to use the configured astrometry index files path, if it was already configured 
+in the system were tests are being run, to avoid downloading them again 
+unnecessarily.
+
+The configuration involves reading the real IOP4 config, changing the datadir 
+and database paths to the test ones, and creating a test config file. It will 
+also check that the right version of the test dataset is available and unpack 
+it. Test submodules must be configured to use the created test config file, e.g. 
+with
+```
+import iop4lib.config
+iop4conf = iop4lib.Config(config_path=TEST_CONFIG)
+```
+
+The test datadir is removed after the tests are run.
+"""
+
 # iop4lib config
 import iop4lib.config
 iop4conf = iop4lib.Config(config_db=False)
