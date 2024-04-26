@@ -70,7 +70,7 @@ If you followed the steps in any of the two options above, you will have install
 After installation, take a look at the example configuration file (`config/config.example.yaml`), set the appropriate variables (path to the database, data directory, astrometry index files path, credentials, etc) and rename it to `config/config.yaml`.
 
 ### Running Tests
-To run the tests, first follow the previous steps to configure IOP4. At the moment, you will also need to download the `iop4testdata.tar.gz` file manually and place it under your home directory. Then, run
+To run the tests, first follow the previous steps to configure IOP4. The test dataset will be automatically downloaded to your home directory
 ```bash
     $ pytest -vxs tests/
 ```
