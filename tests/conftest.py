@@ -10,11 +10,11 @@ import yaml
 import hashlib
 from pathlib import Path
 
-TEST_CONFIG = str(Path(iop4conf.datadir) / "config.tests.yaml")
 TESTDATA_FPATH = str(Path("~/iop4testdata.tar.gz").expanduser())
+TEST_CONFIG = str(Path("~/iop4testdata/config.tests.yaml").expanduser())
+TEST_DATADIR = str(Path("~/iop4testdata").expanduser())
 TESTDATA_MD5SUM = '4d393377f8c659e2ead2fa252a9a38b2'
-TEST_DATADIR = str(Path(iop4conf.datadir) / "iop4testdata")
-TEST_DB_PATH = str(Path(iop4conf.db_path).expanduser().parent / ("test_" + str(Path(iop4conf.db_path).name)))
+TEST_DB_PATH = str(Path("~/iop4testdata/test.db").expanduser())
 
 def pytest_configure():
 
@@ -62,7 +62,7 @@ def setUpClass():
         raise Exception(f"Error creating test data directory: {e}")
     
     # unpack test data
-    if os.system(f"tar -xzf {TESTDATA_FPATH} -C {Path(iop4conf.datadir).parent}") != 0:
+    if os.system(f"tar -xzf {TESTDATA_FPATH} -C {str(Path(TEST_DATADIR).parent)}") != 0:
         raise Exception("Error unpacking test dataset")
     
     # create test config file

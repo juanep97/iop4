@@ -35,7 +35,7 @@ def test_testconfig_testdb(load_test_catalog):
     assert (hasattr(iop4conf, "config_path"))
     assert (Path(iop4conf.datadir).name == "iop4testdata")
     assert (Path(iop4conf.config_path).name == "config.tests.yaml")
-    assert ("test_" in Path(iop4conf.db_path).name)
+    assert ("test" in Path(iop4conf.db_path).name)
     assert (Epoch.objects.count() == 0)
     assert (RawFit.objects.count() == 0)
     assert (ReducedFit.objects.count() == 0)
