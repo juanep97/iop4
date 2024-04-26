@@ -7,9 +7,9 @@ unnecessarily.
 
 The configuration involves reading the real IOP4 config, changing the datadir 
 and database paths to the test ones, and creating a test config file. It will 
-also check that the right version of the test dataset is available and unpack 
-it. Test submodules must be configured to use the created test config file, e.g. 
-with
+also check whether the right version of the test dataset is available, otherwise
+it will download it. Test submodules must be configured to use the created test
+config file, e.g. with
 ```
 import iop4lib.config
 iop4conf = iop4lib.Config(config_path=TEST_CONFIG)
@@ -30,10 +30,10 @@ import yaml
 import hashlib
 from pathlib import Path
 
-TESTDATA_FPATH = str(Path("~/iop4testdata.tar.gz").expanduser())
+TESTDATA_MD5SUM = '4d393377f8c659e2ead2fa252a9a38b2'
+TESTDATA_FPATH = str(Path("~/iop4testdata.{TESTDATA_MD5SUM}.tar.gz").expanduser())
 TEST_CONFIG = str(Path("~/iop4testdata/config.tests.yaml").expanduser())
 TEST_DATADIR = str(Path("~/iop4testdata").expanduser())
-TESTDATA_MD5SUM = '4d393377f8c659e2ead2fa252a9a38b2'
 TEST_DB_PATH = str(Path("~/iop4testdata/test.db").expanduser())
 
 def pytest_configure():
@@ -66,14 +66,15 @@ def testdata(request):
     
 def setUpClass():
 
-    # check if test data is available
+    # check if test data is available; otherwise download it
     if not os.path.exists(TESTDATA_FPATH):
-        raise Exception("Test dataset not found")
-    
-    # check if test data is the right version
-    with open(Path('~/iop4testdata.tar.gz').expanduser(), 'rb') as f:
-        if TESTDATA_MD5SUM != hashlib.md5(f.read()).hexdigest():
-            raise Exception("Test dataset version is not right (md5 sum mismatch)")
+        print("Downloading test dataset")
+        import requests
+        with requests.get(f"https://vhega.iaa.es/iop4/testdata/{Path(TESTDATA_FPATH).name}", stream=True) as r:
+            r.raise_for_status()
+            with open(TESTDATA_FPATH, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=None):
+                    f.write(chunk)        
 
     # prepare test data dir
     try:

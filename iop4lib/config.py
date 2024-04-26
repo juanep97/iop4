@@ -127,6 +127,11 @@ class Config(dict):
         for k, v in config_dict.items():
             setattr(self, k, v)
 
+        # Override with config options in the environment
+        for k, v in os.environ.items():
+            if k.startswith("IOP4_") and k != "IOP4_CONFIG_FILE":
+                setattr(self, k[5:].lower(), v)
+
         # Override with config options passed as kwargs
 
         for k, v in kwargs.items():
