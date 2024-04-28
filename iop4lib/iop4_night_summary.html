@@ -76,8 +76,7 @@
                             </td>
                             <td>
                                 {% for srcname in epoch.srcname_list %}
-                                    {{ srcname }}
-                                    {% if not forloop.last %}, {% endif %}
+                                    {{ srcname }}{% if not forloop.last %}, {% endif %}
                                 {% endfor %}
                             </td>
                         </tr>
