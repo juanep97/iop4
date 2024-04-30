@@ -1,5 +1,5 @@
-# This is an example of the config file, copy it to config/config.yaml and edit it.
-# IOP4LIB will attempt to use config/config.yaml if it exists, otherwise it will use this one.
+# This is an example of the config file, copy it to ~/.iop4.config.yaml and edit it.
+# IOP4LIB will automatically attempt to use ~/.iop4.config.yaml if it exists, otherwise it will use this one.
 
 ###############
 ### GENERAL ###

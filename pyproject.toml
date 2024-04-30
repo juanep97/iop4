@@ -53,7 +53,7 @@ include = ["iop4*"]
 exclude = ["iop4lib._dev_version"]
 
 [tool.setuptools.package-data]
-iop4lib = ["config/config.example.yaml", 
+iop4lib = ["iop4lib/config.example.yaml", 
            "iop4lib/instruments/dipol_astrometry.yaml",
            "iop4lib/utils/host_correction_data.csv"]
 

@@ -67,14 +67,14 @@ If you followed the steps in any of the two options above, you will have install
 
 ## Configuration
 
-After installation, take a look at the example configuration file (`config/config.example.yaml`), set the appropriate variables (path to the database, data directory, astrometry index files path, credentials, etc) and save it to `~/.iop4.config.yaml`.
+After installation, take a look at the example configuration file (`iop4lib/config.example.yaml`), set the appropriate variables (path to the database, data directory, astrometry index files path, credentials, etc) and save it to `~/.iop4.config.yaml`.
 
 ### Running Tests
 To run the tests, first follow the previous steps to configure IOP4. The test dataset will be automatically downloaded to your home directory
 ```bash
     $ pytest -vxs tests/
 ```
-If it is the first time executing IOP4, the astrometry index files will be downloaded to `astrometry_cache_path` (see `config/config.example.yaml`). This will take some time and a few tens of GB, depending on the exact version.
+If it is the first time executing IOP4, the astrometry index files will be downloaded to `astrometry_cache_path` (see `config.example.yaml`). This will take some time and a few tens of GB, depending on the exact version.
 
 **Warning**: in some macOS systems, the process [might hang up](https://github.com/juanep97/iop4/issues/14#issuecomment-1748465276). Execute `export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES` or add that line to your shell init script.
 
