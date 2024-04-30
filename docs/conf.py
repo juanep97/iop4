@@ -107,7 +107,8 @@ numpydoc_show_class_members = False
 # config_db=True as it needs to import the models.
 import os, sys, pathlib
 import iop4lib.config
-iop4conf = iop4lib.Config(config_path=pathlib.Path(iop4lib.config.Config.basedir) / "config.example.yaml", config_db=True)
+from importlib import resources
+iop4conf = iop4lib.Config(config_path=resources.files("iop4lib") / "config.example.yaml", config_db=True)
 import iop4lib.db
 
 # -- Add models' fields and their help_text to the documentation --
