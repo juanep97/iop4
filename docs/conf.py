@@ -106,7 +106,6 @@ numpydoc_show_class_members = False
 # IMPORTANT! Config must use the example file, or you will show your credentials in the docs!
 # config_db=True as it needs to import the models.
 import os, sys, pathlib
-sys.path.insert(0, os.path.abspath(os.path.join('..', 'iop4lib')))
 import iop4lib.config
 iop4conf = iop4lib.Config(config_path=pathlib.Path(iop4lib.config.Config.basedir) / "config.example.yaml", config_db=True)
 import iop4lib.db
