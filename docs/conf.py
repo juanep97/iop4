@@ -178,10 +178,7 @@ def linkcode_resolve(domain, info):
     # Convert the file path to a GitHub URL
     repo_url = 'https://github.com/juanep97/iop4'
     if file_path.startswith(os.path.commonprefix([iop4conf.basedir, file_path])):
-        print(f"file_path: {file_path}")
-        print(f"basedir: {iop4conf.basedir}")
         rel_path = os.path.relpath(file_path, iop4conf.basedir)
-        print(f"rel_path: {rel_path}")
         url = f'{repo_url}/blob/{GIT_COMMIT_HASH}/{rel_path}'
         return url
     else:
