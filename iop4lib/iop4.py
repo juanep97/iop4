@@ -36,9 +36,7 @@ import datetime
 import logging
 logger = logging.getLogger(__name__)
 
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from typing import Sequence, Iterable
+from typing import Sequence, Iterable
 
 def process_epochs(epochname_list: Iterable[str], force_rebuild: bool, check_remote_list: bool):
     from iop4lib.db import Epoch, RawFit, PhotoPolResult
