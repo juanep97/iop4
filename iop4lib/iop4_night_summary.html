@@ -69,7 +69,9 @@
                             <td>{{ epoch.reducedcount }}</td>
                             <td>
                                 {% if epoch.files_with_error_astrometry %}
-                                    Err!
+                                    <a href="{{ epoch.files_with_error_astrometry_href}}">
+                                        Err!
+                                    </a>
                                 {% else %}
                                     OK
                                 {% endif %}
