@@ -100,7 +100,7 @@ class Config(dict):
     
         Config._configured = True
 
-        # If config_path is None, either use already in use or the default ones
+        # If config_path is None, either use the one already in use or the default one
 
         if config_path is None:
             if hasattr(self, 'config_path') and self.config_path is not None:
