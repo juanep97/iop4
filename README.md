@@ -67,7 +67,7 @@ If you followed the steps in any of the two options above, you will have install
 
 ## Configuration
 
-After installation, take a look at the example configuration file (`config/config.example.yaml`), set the appropriate variables (path to the database, data directory, astrometry index files path, credentials, etc) and rename it to `config/config.yaml`.
+After installation, take a look at the example configuration file (`config/config.example.yaml`), set the appropriate variables (path to the database, data directory, astrometry index files path, credentials, etc) and save it to `~/.iop4.config.yaml`.
 
 ### Running Tests
 To run the tests, first follow the previous steps to configure IOP4. The test dataset will be automatically downloaded to your home directory
