@@ -36,9 +36,11 @@ import datetime
 import logging
 logger = logging.getLogger(__name__)
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import Sequence, Iterable
 
-
-def process_epochs(epochname_list, force_rebuild, check_remote_list):
+def process_epochs(epochname_list: Iterable[str], force_rebuild: bool, check_remote_list: bool):
     from iop4lib.db import Epoch, RawFit, PhotoPolResult
     from iop4lib.enums import IMGTYPES, OBSMODES
 
@@ -94,7 +96,7 @@ def process_epochs(epochname_list, force_rebuild, check_remote_list):
     logger.info("Done.")
 
 
-def list_local_epochnames():
+def list_local_epochnames() -> list[str]:
     """List all local epochnames in local archives (by looking at the raw directory)."""
 
     from iop4lib.telescopes import Telescope
@@ -107,7 +109,7 @@ def list_local_epochnames():
 
     return local_epochnames
     
-def list_remote_epochnames():
+def list_remote_epochnames() -> list[str]:
     """List all remote epochnames in remote archives."""
 
     from iop4lib.telescopes import Telescope
@@ -120,12 +122,12 @@ def list_remote_epochnames():
     return epochnames
 
 
-def discover_missing_epochs():
+def discover_missing_epochs() -> list[str]:
     """Discover missing epochs in remote archive."""
     return list(set(list_remote_epochnames()).difference(list_local_epochnames()))    
 
 
-def list_remote_filelocs(epochnames: None | list[str] = None):
+def list_remote_filelocs(epochnames: Sequence[str] = None) -> list[str]:
     """Discover files in remote archive for the given epochs.
     
     Use this function to list all files in the remote archive for the given epochs.
@@ -147,7 +149,7 @@ def list_remote_filelocs(epochnames: None | list[str] = None):
 
     return filelocs
 
-def list_local_filelocs():
+def list_local_filelocs() -> list[str]:
     """Discover local filelocs in local archive."""
 
     from iop4lib.telescopes import Telescope
@@ -161,7 +163,7 @@ def list_local_filelocs():
 
     return local_filelocs
 
-def discover_missing_filelocs():
+def discover_missing_filelocs() -> list[str]:
     """ Discover missing files in remote archive.
 
     Compares the lists of remote files with the list of local files and returns the fileloc of the missing files.
@@ -182,7 +184,7 @@ def retry_failed_files():
 
 
 
-def filter_epochname_by_date(epochname_list, date_start=None, date_end=None):
+def filter_epochname_by_date(epochname_list: Sequence[str], date_start: str = None, date_end: str = None) -> list[str]:
     from iop4lib.db import Epoch
 
     if date_start is not None:
@@ -193,7 +195,7 @@ def filter_epochname_by_date(epochname_list, date_start=None, date_end=None):
     
     return epochname_list
 
-def filter_filelocs_by_date(fileloc_list, date_start=None, date_end=None):
+def filter_filelocs_by_date(fileloc_list: Iterable[str], date_start: str = None, date_end: str = None) -> list[str]:
     from iop4lib.db import RawFit
 
     if date_start is not None:
@@ -205,7 +207,7 @@ def filter_filelocs_by_date(fileloc_list, date_start=None, date_end=None):
     return fileloc_list
 
 
-def group_epochnames_by_telescope(epochnames):
+def group_epochnames_by_telescope(epochnames: Iterable[str]) -> dict[str, list[str]]:
     from iop4lib.db import Epoch
     from iop4lib.telescopes import Telescope
 
@@ -217,7 +219,7 @@ def group_epochnames_by_telescope(epochnames):
 
     return epochnames_by_telescope
 
-def group_filelocs_by_telescope(filelocs):
+def group_filelocs_by_telescope(filelocs: Iterable[str]) -> dict[str, list[str]]:
     from iop4lib.db import RawFit
     from iop4lib.telescopes import Telescope
 
@@ -230,7 +232,7 @@ def group_filelocs_by_telescope(filelocs):
     return filelocs_by_telescope
 
 
-def parse_config_overrides(overrides):
+def parse_config_overrides(overrides: Iterable[str]) -> dict:
 
     config = dict()
 
