@@ -67,14 +67,14 @@ If you followed the steps in any of the two options above, you will have install
 
 ## Configuration
 
-After installation, take a look at the example configuration file (`config/config.example.yaml`), set the appropriate variables (path to the database, data directory, astrometry index files path, credentials, etc) and rename it to `config/config.yaml`.
+After installation, take a look at the example configuration file (`iop4lib/config.example.yaml`), set the appropriate variables (path to the database, data directory, astrometry index files path, credentials, etc) and save it to `~/.iop4.config.yaml`.
 
 ### Running Tests
-To run the tests, first follow the previous steps to configure IOP4. At the moment, you will also need to download the `iop4testdata.tar.gz` file manually and place it under your home directory. Then, run
+To run the tests, first follow the previous steps to configure IOP4. The test dataset will be automatically downloaded to your home directory
 ```bash
     $ pytest -vxs tests/
 ```
-If it is the first time executing IOP4, the astrometry index files will be downloaded to `astrometry_cache_path` (see `config/config.example.yaml`). This will take some time and a few tens of GB, depending on the exact version.
+If it is the first time executing IOP4, the astrometry index files will be downloaded to `astrometry_cache_path` (see `config.example.yaml`). This will take some time and a few tens of GB, depending on the exact version.
 
 **Warning**: in some macOS systems, the process [might hang up](https://github.com/juanep97/iop4/issues/14#issuecomment-1748465276). Execute `export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES` or add that line to your shell init script.
 
@@ -149,10 +149,15 @@ iop4conf = iop4lib.Config(config_db=True, gonogui=False, jupytermode=True)
 ```
 
 ### Tips
-You can get an IPython interactive terminal after running iop4 using the `-i` option. You can override any config option using the `-o` option, e.g.:
+You can get an IPython interactive terminal after running iop4 using the `-i` option. You can override any config option using the `-o` option, e.g.
 ```bash
     $ iop4 -i -o nthreads=20 -o log_file=test.log --epoch-list T090/230313 T090/230317
 ```
+or by setting environment variables, e.g.
+```bash
+    $ IOP4_NTHREADS=20 IOP4_LOG_FILE=test.log iop4 -i --epoch-list T090/230313 T090/230317
+```
+Check `iop4 --help` for more info.
 
 ## Documentation
 To build and show the documentation, run
