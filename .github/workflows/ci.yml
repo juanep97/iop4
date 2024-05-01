@@ -66,19 +66,22 @@ jobs:
       - name: Install the package in editable mode with all additional dependencies
         run: pip install --editable .[all]
 
-      - name: Use mounted astrometry index files
-        run: |
-          ln -s /mnt/astrometry_cache $HOME/.astrometry_cache
-    
-      - name: Check astrometry index files were correctly mounted
-        run: ls $HOME/.astrometry_cache/5200/index-5200-00.fits
-
-      - name: Download test data
+      - name: Extract test data version from source code
         env:
           TEST_DATA_PASSWORD: ${{ secrets.test_data_password }}
-        run:  | 
+        run: |
           export TESTDATA_MD5SUM=`grep 'TESTDATA_MD5SUM' ./tests/conftest.py | awk -F"'" '{print $2}' | tr -d '\n'`
-          wget --post-data "pass=$TEST_DATA_PASSWORD" "https://vhega.iaa.es/iop4/iop4testdata.tar.gz?md5sum=$TESTDATA_MD5SUM" -O $HOME/iop4testdata.tar.gz
+          echo "TESTDATA_MD5SUM=$TESTDATA_MD5SUM" >> $GITHUB_ENV
+
+      - name: Use mounted astrometry index files and test dataset
+        run: |
+          ln -s /mnt/astrometry_cache $HOME/.astrometry_cache
+          ln -s /mnt/test_datasets/iop4testdata.$TESTDATA_MD5SUM.tar.gz $HOME/iop4testdata.$TESTDATA_MD5SUM.tar.gz 
+      
+      - name: Check that index files and test dataset were correctly mounted
+        run: |
+          ls -lh $HOME/.astrometry_cache/5200/index-5200-00.fits
+          ls -lh $HOME/iop4testdata.$TESTDATA_MD5SUM.tar.gz
       
       - name: Run tests (with -o log_cli=true -o log_cli_level=DEBUG to debug CI actions)
         run: pytest -o log_cli=true -o log_cli_level=DEBUG -vxs tests
@@ -112,24 +115,27 @@ jobs:
           pip install -e .[doc]
           python -c 'import iop4lib; print(iop4lib.__version__)'
 
-      - name: Use mounted astrometry index files
-        run: |
-          ln -s /mnt/astrometry_cache $HOME/.astrometry_cache
-      
-      - name: Check astrometry index files were correctly mounted
-        run: ls $HOME/.astrometry_cache/5200/index-5200-00.fits
-
-      - name: Download test data
+      - name: Extract test data version from source code
         env:
           TEST_DATA_PASSWORD: ${{ secrets.test_data_password }}
         run: |
           export TESTDATA_MD5SUM=`grep 'TESTDATA_MD5SUM' ./tests/conftest.py | awk -F"'" '{print $2}' | tr -d '\n'`
-          wget --post-data "pass=$TEST_DATA_PASSWORD" "https://vhega.iaa.es/iop4/iop4testdata.tar.gz?md5sum=$TESTDATA_MD5SUM" -O $HOME/iop4testdata.tar.gz
+          echo "TESTDATA_MD5SUM=$TESTDATA_MD5SUM" >> $GITHUB_ENV
+
+      - name: Use mounted astrometry index files and test dataset
+        run: |
+          ln -s /mnt/astrometry_cache $HOME/.astrometry_cache
+          ln -s /mnt/test_datasets/iop4testdata.$TESTDATA_MD5SUM.tar.gz $HOME/iop4testdata.$TESTDATA_MD5SUM.tar.gz 
+      
+      - name: Check that index files and test dataset were correctly mounted
+        run: |
+          ls -lh $HOME/.astrometry_cache/5200/index-5200-00.fits
+          ls -lh $HOME/iop4testdata.$TESTDATA_MD5SUM.tar.gz
 
       - name: Extract test data in the default data folder
         run: |
-          tar -xzf $HOME/iop4testdata.tar.gz -C $HOME
-          mv $HOME/iop4testdata $HOME/.iop4data  
+          tar -xzf $HOME/iop4testdata.$TESTDATA_MD5SUM.tar.gz -C $HOME
+          mv $HOME/iop4testdata $HOME/.iop4data
 
       - name: Create the DB
         run: |

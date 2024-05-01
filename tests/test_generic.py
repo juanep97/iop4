@@ -35,7 +35,7 @@ def test_testconfig_testdb(load_test_catalog):
     assert (hasattr(iop4conf, "config_path"))
     assert (Path(iop4conf.datadir).name == "iop4testdata")
     assert (Path(iop4conf.config_path).name == "config.tests.yaml")
-    assert ("test_" in Path(iop4conf.db_path).name)
+    assert ("test" in Path(iop4conf.db_path).name)
     assert (Epoch.objects.count() == 0)
     assert (RawFit.objects.count() == 0)
     assert (ReducedFit.objects.count() == 0)
@@ -60,3 +60,10 @@ def test_host_correction_data_load(load_test_catalog):
     assert val is not None
     assert val == approx(1.18)
     assert err == approx(0.06)
+
+@pytest.mark.django_db(transaction=True)
+def test_iop4_script():
+    """ Test that the iop4 script is available """
+    import subprocess
+    assert subprocess.run(["iop4", "--help"]).returncode == 0, "iop4 help invokation"
+    assert subprocess.run(["iop4", "--check-config"]).returncode == 0, "iop4 configuration check"

@@ -1,6 +1,7 @@
 # other imports
-import os, pathlib, yaml, logging
-
+import os, yaml, logging
+from pathlib import Path
+from importlib import resources
 import matplotlib, matplotlib.pyplot
 
 # Disable matplotlib logging except for warnings and above
@@ -29,18 +30,11 @@ class Config(dict):
     r""" Configuration class for IOP4.
     
     This class is a singleton, that is, it always returns the same instance of the class.
-
-    .. note::
-        OSN_SourceList.txt contains the starting characters of the filenames of the sources in the OSN
-        repo. For each entry, it is loaded in the osn_fnames_patterns list as a regular 
-        expression (^<entry>.*\.fit(?:s+)$), where <entry> is the entry in the file. This will match any 
-        filename starting as the file entry and ending in either .fit or .fits.
-        
     """
 
     # PATH CONFIG
 
-    basedir = pathlib.Path(__file__).parents[1].absolute()
+    basedir = Path(__file__).parents[1].absolute()
 
     # ALL OTHER CONFIG OPTIONS READ FROM SEPARATE CONFIG FILE (see config.example.yaml)
 
@@ -56,12 +50,17 @@ class Config(dict):
     def __init__(self, reconfigure=False, **kwargs):
         """
         Reads the specified config file, or the default one, and creates a configuration object.
-        The configuration is performed only once, the first time it is called.
+        
+        The configuration is performed only once, the first time it is called, unless you pass reconfigure=True.
 
         Parameters
         ----------
         config_path: str, default None
-            Path to the configuration file. If None, the default configuration file is used.
+            Path to the configuration file. If None, it will try to use, in order: 
+            1. The current config file
+            2. The file specified by the environment variable IOP4_CONFIG_FILE 
+            3. ~/.iop4.config.yaml, if it exists
+            4. The example config file in the iop4lib package.
         config_db : bool, default False
             If True, configures django ORM to make the models and database accesible. It 
             should be used only once the top level of your script.
@@ -102,18 +101,24 @@ class Config(dict):
     
         Config._configured = True
 
-        # If config_path is None, either use already in use or the default one
+        # If config_path is None, either use the one already in use or the default one
 
         if config_path is None:
             if hasattr(self, 'config_path') and self.config_path is not None:
                 config_path = self.config_path
             else:
-                config_path = pathlib.Path(self.basedir) / "config" / "config.yaml"
+
+                if os.getenv("IOP4_CONFIG_FILE") is not None:
+                    config_path = Path(os.getenv("IOP4_CONFIG_FILE")).expanduser()
+                elif Path("~/.iop4.config.yaml").expanduser().exists():
+                    config_path = Path("~/.iop4.config.yaml").expanduser()
+                else:
+                    config_path = resources.files("iop4lib") / "config.example.yaml"
 
                 if not config_path.exists():
-                    config_path = pathlib.Path(self.basedir) / "config" / "config.example.yaml"
+                    raise FileNotFoundError(f"Config file {config_path} not found.")
         
-        self.config_path = config_path
+        self.config_path = Path(config_path).expanduser()
 
         # Load config file and set attributes
 
@@ -122,6 +127,11 @@ class Config(dict):
 
         for k, v in config_dict.items():
             setattr(self, k, v)
+
+        # Override with config options in the environment
+        for k, v in os.environ.items():
+            if k.startswith("IOP4_") and k != "IOP4_CONFIG_FILE":
+                setattr(self, k[5:].lower(), v)
 
         # Override with config options passed as kwargs
 
@@ -132,7 +142,7 @@ class Config(dict):
 
         for k, v in self.items():
             if (k in ['basedir', 'datadir', 'log_file'] or 'path' in k) and v is not None: # config variables should have ~ expanded
-                setattr(self, k, str(pathlib.Path(v).expanduser()))
+                setattr(self, k, str(Path(v).expanduser()))
 
         # If data dir does not exist, create it
         
@@ -168,20 +178,9 @@ class Config(dict):
         from django.conf import settings
         from django.apps import apps
         
-        #import sys
-        #sys.path.append(r"/path/to/iop4/iop4site/")
-        #not necessary anymore, now app is a module.
         settings.configure(
             INSTALLED_APPS=[
                 'iop4api',
-                # # apps below not necessary for iop4lib but allows using User model from the iop4.py -i shell 
-                # # (python manage.py shell includes this by default, since it uses the settings in iop4site.settings)
-                # "iop4site.iop4site.apps.IOP4AdminConfig", 
-                # "django.contrib.auth", 
-                # "django.contrib.contenttypes",
-                # "django.contrib.sessions",
-                # "django.contrib.messages",
-                # "django.contrib.staticfiles",
             ],
             DATABASES = {
                 "default": {
@@ -233,7 +232,7 @@ class Config(dict):
         with open(self.config_path, 'r') as f:
             config_dict = yaml.safe_load(f)
 
-        with open(pathlib.Path(self.basedir) / "config" / "config.example.yaml", 'r') as f:
+        with open(resources.files("iop4lib") / "config.example.yaml", 'r') as f:
             config_dict_example = yaml.safe_load(f)
 
         wrong = False

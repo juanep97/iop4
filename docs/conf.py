@@ -106,9 +106,9 @@ numpydoc_show_class_members = False
 # IMPORTANT! Config must use the example file, or you will show your credentials in the docs!
 # config_db=True as it needs to import the models.
 import os, sys, pathlib
-sys.path.insert(0, os.path.abspath(os.path.join('..', 'iop4lib')))
 import iop4lib.config
-iop4conf = iop4lib.Config(config_path=pathlib.Path(iop4lib.config.Config.basedir) / "config" / "config.example.yaml", config_db=True)
+from importlib import resources
+iop4conf = iop4lib.Config(config_path=resources.files("iop4lib") / "config.example.yaml", config_db=True)
 import iop4lib.db
 
 # -- Add models' fields and their help_text to the documentation --
@@ -178,10 +178,7 @@ def linkcode_resolve(domain, info):
     # Convert the file path to a GitHub URL
     repo_url = 'https://github.com/juanep97/iop4'
     if file_path.startswith(os.path.commonprefix([iop4conf.basedir, file_path])):
-        print(f"file_path: {file_path}")
-        print(f"basedir: {iop4conf.basedir}")
         rel_path = os.path.relpath(file_path, iop4conf.basedir)
-        print(f"rel_path: {rel_path}")
         url = f'{repo_url}/blob/{GIT_COMMIT_HASH}/{rel_path}'
         return url
     else:
