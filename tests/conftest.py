@@ -52,6 +52,7 @@ def pytest_configure():
             }
         },
         DEBUG = False,
+        SECRET_KEY = "fake-test-key",
     )
     
     iop4conf.configure(db_path=TEST_DB_PATH, datadir=TEST_DATADIR)
