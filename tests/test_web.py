@@ -21,6 +21,8 @@ import sys
 sys.path.insert(0, str(Path(__file__).parents[1] / "iop4site/"))
 import iop4site.settings
 settings_dict = {key:value for key,value in vars(iop4site.settings).items() if re.match(r'^[A-Z][A-Z_0-9]*$', key)}
+# We want to test the production scenario
+settings_dict["DEBUG"] = False
 settings_dict["ALLOWED_HOSTS"] = ['testserver']
 
 @override_settings(**settings_dict)
