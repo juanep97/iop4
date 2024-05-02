@@ -9,11 +9,13 @@
         Documentation for the last version is hosted in <a href="https://juanep97.github.io/iop4/">GitHub Pages</a>.
     </p>
     
-    <p>
-        You can browse your local version of the docs at 
-        <a href="{% url 'iop4api:docs' %}">/iop4/docs/</a>
-        {% if debug %}(you need to build it first with make <code>docs-sphinx</code>).{% endif %}
-    </p>
+    {% if debug %}
+        <p>
+            You can browse your local version of the docs at 
+            <a href="{% url 'iop4api:docs' %}">/iop4/docs/</a>
+            (you need to build it first with make <code>docs-sphinx</code>).
+        </p>
+    {% endif %}
 
     {% if request.user.is_authenticated %}
         <p class="styled-box">
