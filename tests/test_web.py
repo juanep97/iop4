@@ -15,7 +15,7 @@ from django.test import override_settings
 import logging
 logger = logging.getLogger(__name__)
 
-# we need to make iop4site module as iop4site, not as iop4site.iop4site
+# we need to make iop4site module available as iop4site, not as iop4site.iop4site
 # we also need to load all the rest of settings that we usually don't use
 import sys
 sys.path.insert(0, str(Path(__file__).parents[1] / "iop4site/"))
