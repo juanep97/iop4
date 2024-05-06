@@ -63,8 +63,10 @@ def gather_context(args):
 
         epoch.files_with_error_astrometry = list(ReducedFit.objects.filter(epoch=epoch)
                                                   .filter(flags__has=ReducedFit.FLAGS.ERROR_ASTROMETRY))
-        
-    
+        epoch.files_with_error_astrometry_ids_str_L = [str(reducedfit.id) for reducedfit in epoch.files_with_error_astrometry]
+        epoch.files_with_error_astrometry_href = args.site_url + "/iop4/admin/iop4api/reducedfit/?id__in=" + ",".join(epoch.files_with_error_astrometry_ids_str_L)
+        # TODO: include IOP4Admin in Django configure and use reverse as in PhotoPolResult admin for line above
+
     # get list of all sources for which there are results in this night
         
     sources = AstroSource.objects.exclude(srctype=SRCTYPES.CALIBRATOR).filter(photopolresults__epoch__night=args.date).distinct()
@@ -197,6 +199,7 @@ def main():
     argparser.add_argument('--fromaddr', type=str, default="iop4@localhost", help='Email address of the sender')
     argparser.add_argument('--contact-name', type=str, default=None, help='Name to indicate as contact, if any')
     argparser.add_argument('--contact-email', type=str, default=None, help='Email to indicate as contact (default is the sender address)')
+    argparser.add_argument('--site-url', type=str, default="localhost:8000", help='URL of the site to link the summary')
     argparser.add_argument('--saveto', type=str, default=None, help='Save the summary to a file')
 
     args = argparser.parse_args()
