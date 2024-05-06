@@ -100,7 +100,7 @@ def process_astrosource(args):
     astrosource = AstroSource.objects.get(name=args.astrosource)
     qs_all = ReducedFit.objects.filter(epoch__night__gte=args.date_start, epoch__night__lte=args.date_end)
 
-    # filter files who have identified this source (in sources_in_field) or have this source as header_hintobject
+    # filter files that have identified this source (in sources_in_field) or have this source as header_hintobject
 
     redfL = list()
     for redf in qs_all:
