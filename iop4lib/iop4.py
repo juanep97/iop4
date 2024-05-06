@@ -324,7 +324,7 @@ def main():
     parser.add_argument('--no-check-db-files',  dest='keep_files_in_db', action='store_true', help='<Optional> Process discovered files even if they existed in archive')
 
     # source processing options
-    parser.add_argument('--astrosource', dest='astrosource', type=str, default=None, help='<Optional> Select files only of this source')
+    parser.add_argument('--astrosource', type=str, default=None, help='<Optional> Select files only of this source')
     parser.add_argument('--recompute', action='store_true', help='<Optional> Recompute photometry and polarimetry results')
     
     # other options
