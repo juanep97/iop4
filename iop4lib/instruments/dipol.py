@@ -803,7 +803,7 @@ class DIPOL(Instrument):
             fig.clear()            
 
 
-        result = BuildWCSResult(success=True, wcslist=wcslist, info={'redf_phot__pk':redf_phot.pk, 'redf_phot__fileloc':redf_phot.fileloc, n_seg_threshold:n_seg_threshold, npixels:npixels})
+        result = BuildWCSResult(success=True, wcslist=wcslist, info={'redf_phot__pk':redf_phot.pk, 'redf_phot__fileloc':redf_phot.fileloc, 'n_seg_threshold':n_seg_threshold, 'npixels':npixels})
 
         return result
 
