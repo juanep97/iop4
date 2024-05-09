@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 from typing import Sequence, Iterable
 
-def process_epochs(epochname_list: Iterable[str], force_rebuild: bool, check_remote_list: bool):
+def process_epochs(epochname_list: Iterable[str], args):
     from iop4lib.db import Epoch, RawFit, PhotoPolResult
     from iop4lib.enums import IMGTYPES, OBSMODES
 
@@ -47,30 +47,30 @@ def process_epochs(epochname_list: Iterable[str], force_rebuild: bool, check_rem
     logger.info("Epochs will be created.")
 
     for epochname in epochname_list:
-        epoch = Epoch.create(epochname=epochname, check_remote_list=check_remote_list)
+        epoch = Epoch.create(epochname=epochname, check_remote_list=~args.skip_remote_file_list)
         epoch_L.append(epoch)
 
     logger.info("Creating Master Biases")
 
     for epoch in epoch_L:
         
-        epoch.build_master_biases(force_rebuild=force_rebuild)
+        epoch.build_master_biases(force_rebuild=args.force_rebuild)
 
     logger.info("Creating Master Darks.")
 
     for epoch in epoch_L:
-        epoch.build_master_darks(force_rebuild=force_rebuild)
+        epoch.build_master_darks(force_rebuild=args.force_rebuild)
         
     logger.info("Creating Master Flats.")
 
     for epoch in epoch_L:
-        epoch.build_master_flats(force_rebuild=force_rebuild)
+        epoch.build_master_flats(force_rebuild=args.force_rebuild)
 
     logger.info("Science files will be reduced.")
 
     rawfits = RawFit.objects.filter(epoch__in=epoch_L, imgtype=IMGTYPES.LIGHT).all()
-    Epoch.reduce_rawfits(rawfits.filter(obsmode=OBSMODES.PHOTOMETRY), force_rebuild=force_rebuild)
-    Epoch.reduce_rawfits(rawfits.filter(obsmode=OBSMODES.POLARIMETRY), force_rebuild=force_rebuild)
+    Epoch.reduce_rawfits(rawfits.filter(obsmode=OBSMODES.PHOTOMETRY), force_rebuild=args.force_rebuild)
+    Epoch.reduce_rawfits(rawfits.filter(obsmode=OBSMODES.POLARIMETRY), force_rebuild=args.force_rebuild)
 
     logger.info("Computing results.")
 
@@ -277,13 +277,10 @@ def main():
     parser.add_argument('--list-local-files', action='store_true', help='<Optional> Discover local files to process them')
     parser.add_argument('--list-files-only', action='store_true', help='<Optional> If given, the built list of filelocs will be printed but not processed')
     parser.add_argument('--no-check-db-files',  dest='keep_files_in_db', action='store_true', help='<Optional> Process discovered files even if they existed in archive')
-    
 
     # other options
     parser.add_argument('--skip-remote-file-list', action='store_true', help='<Optional> Skip remote file list check')
     parser.add_argument("--force-rebuild", action="store_true", help="<Optional> Force re-building of files (pass force_rebuild=True)")
-    parser.add_argument('--retry-failed', action='store_true', help='<Optional> Retry failed reduced fits')
-    parser.add_argument('--reclassify-rawfits', dest="reclassify_rawfits", action="store_true", help="<Optional> Re-classify rawfits")
 
     # range
     parser.add_argument('--date-start', '-s', type=str, default=None, help='<Optional> Start date (YYYY-MM-DD)')
@@ -375,7 +372,7 @@ def main():
         if len(epochnames_to_process) > 0:
             logger.info("Processing epochs.")
             epochnames_to_process, _ = list(zip(*sorted([(epochname, Epoch.epochname_to_tel_night(epochname)[1].strftime("%Y-%m-%d")) for epochname in epochnames_to_process], key=lambda x: x[1], reverse=True)))
-            process_epochs(epochnames_to_process, args.force_rebuild, check_remote_list=~args.skip_remote_file_list)
+            process_epochs(epochnames_to_process, args)
     else:
         logger.info("Invoked with --list-only!")
 
@@ -429,32 +426,12 @@ def main():
                 Telescope.by_name(telname).download_rawfits(filelocs)
 
         if len(filelocs_to_process) > 0:
-            logger.info("Processing files.")
+            logger.info("Registering files.")
             for fileloc in filelocs_to_process:
                 rawfit = RawFit.create(fileloc=fileloc)
 
     else:
         logger.info("Invoked with --list-files-only")
-
-    # Classify rawfits if indicated
-
-    if args.reclassify_rawfits:
-        
-        logger.info("Classifying rawfits.")
-
-        for epochname in epochnames_to_process:
-            epoch = Epoch.by_epochname(epochname)
-            for rawfit in epoch.rawfits.all():
-                rawfit.classify()
-
-        for fileloc in filelocs_to_process:
-            rawfit = RawFit.by_fileloc(fileloc)
-            rawfit.classify()
-
-    # Retry failed files if indicated
-
-    if args.retry_failed:
-        retry_failed_files()
 
     # Start interactive shell if indicated
 
