@@ -152,6 +152,12 @@ class OSNCCDCamera(Instrument, metaclass=ABCMeta):
     def get_astrometry_position_hint(cls, rawfit, allsky=False, n_field_width=1.5, hintsep=None):
         """ Get the position hint from the FITS header as an astrometry.PositionHint.
 
+        It will try to use the coordinate/pointing information from the header
+        (RA and DEC keywords, or similar), given by `get_header_hintcoord`. If 
+        that fails, it will try to use the object information from the header 
+        (OBJECT keyword), given by `get_header_hintobject`. If both fail,
+        it will raise an exception.
+
         Parameters
         ----------
             allsky: bool, optional
@@ -162,7 +168,28 @@ class OSNCCDCamera(Instrument, metaclass=ABCMeta):
                 The search radius in units of degrees.
         """        
 
-        hintcoord = cls.get_header_hintcoord(rawfit)
+        hintcoord = None
+
+        try:
+            hintcoord = cls.get_header_hintcoord(rawfit)
+        except KeyError:
+            logger.error(f"No hint coordinates found in header, trying hint object.")
+
+            try:
+                hintobj = cls.get_header_hintobject(rawfit)
+
+                if hintobj is None:
+                    logger.exception(f"No hint object found in header (but kw seems to exist).")
+                    raise
+                
+                hintcoord = hintobj.coord
+                
+            except KeyError:
+                logger.exception(f"No hint object found in header for {rawfit.fileloc}.")
+
+
+        if hintcoord is None:
+            raise ValueError(f"Could not build astrometry hint for {rawfit.fileloc}")
         
         if allsky:
             hintsep = 180.0 * u.deg
