@@ -39,16 +39,6 @@ logger = logging.getLogger(__name__)
 from typing import Sequence, Iterable
 
 def process_epochs(epochname_list: Iterable[str], args):
-    """Process the given epochnames.
-
-    This includes registering the epochs in the database, building the master 
-    calibration files, reducing the science files, computing the photometry and
-    polarimetry results, and applying the host galaxy correction.
-
-    Since epochs are processed whole, previous photo-polarimetric results for 
-    the given epochs will be deleted beforehand.
-    """
-
     from iop4lib.db import Epoch, RawFit, PhotoPolResult
     from iop4lib.enums import IMGTYPES, OBSMODES
 
