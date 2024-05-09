@@ -630,6 +630,16 @@ class DIPOL(Instrument):
         quads_1 = np.array(list(itertools.combinations(sets_L[0], 4)))
         quads_2 = np.array(list(itertools.combinations(sets_L[1], 4)))
 
+        # remove quads of points that have an area less than 5% of the image
+        def PolyArea(x,y):
+            # order points clockwise
+            idx = np.argsort(np.arctan2(y-y.mean(), x-x.mean()))
+            x, y = x[idx], y[idx]
+            return 0.5*np.abs(np.dot(x,np.roll(y,1))-np.dot(y,np.roll(x,1)))
+        
+        quads_1 = np.array([quad for quad in quads_1 if PolyArea(quad[:,0], quad[:,1]) > 0.05*(redf.width*redf.height)])
+        quads_2 = np.array([quad for quad in quads_2 if PolyArea(quad[:,0], quad[:,1]) > 0.05*(redf.width*redf.height)])
+
         if len(quads_1) == 0 or len(quads_2) == 0:
             logger.error(f"No quads found in {redf_pol} and {redf_phot}, returning success = False.")
             return BuildWCSResult(success=False)
