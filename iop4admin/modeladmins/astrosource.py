@@ -6,17 +6,14 @@ iop4conf = iop4lib.Config(config_db=False)
 from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import path, reverse 
-from django.http import HttpResponse, HttpResponseRedirect, HttpResponseNotFound
-from django.shortcuts import render, get_object_or_404
-from django.http import QueryDict
+from django.db.models import Avg
 
 # other imports
-from iop4api.filters import *
-from iop4api.models import *
+from iop4api.models import AstroSource, ReducedFit
 from iop4admin import views
 
 # iop4lib imports
-from iop4lib.enums import *
+from iop4lib.enums import BANDS
 
 # logging
 import logging
