@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 class AdminAstroSource(admin.ModelAdmin):
     model = AstroSource
-    list_display = ['name', 'other_name', 'ra_hms', 'dec_dms', 'srctype', 'get_last_reducedfit', 'get_calibrates', 'get_comment_firstline', 'get_details']
+    list_display = ['name', 'other_name', 'ra_hms', 'dec_dms', 'srctype', 'get_last_reducedfit', 'get_last_mag_R', 'get_calibrates', 'get_comment_firstline', 'get_details']
     search_fields = ['name', 'other_name', 'ra_hms', 'dec_dms', 'srctype', 'comment']
     list_filter = ('srctype',)
     
@@ -50,6 +50,19 @@ class AdminAstroSource(admin.ModelAdmin):
         else:
             return None
     
+    @admin.display(description="LAST MAG")
+    def get_last_mag_R(self, obj):
+        ## get the average of last night
+        last_night = obj.photopolresults.filter(band=BANDS.R).latest('epoch__night').epoch.night
+        r_avg = obj.photopolresults.filter(band=BANDS.R, epoch__night=last_night).aggregate(mag_avg=Avg('mag'), mag_err_avg=Avg('mag_err'))
+
+        mag_r_avg = r_avg.get('mag_avg', None)
+        mag_r_err_avg = r_avg.get('mag_err_avg', None)
+
+        if mag_r_avg is not None:
+            return f"{mag_r_avg:.2f}"
+        else:
+            return None
     
     @admin.display(description='DETAILS')
     def get_details(self, obj):
