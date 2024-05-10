@@ -41,9 +41,15 @@ class AdminAstroSource(admin.ModelAdmin):
             txt = txt[:30] + "..."
         return txt
     
-    @admin.display(description='LAST REDUCEDFIT')
+    @admin.display(description='LAST FILE')
     def get_last_reducedfit(self, obj):
-        return obj.in_reducedfits.order_by('epoch__night').values_list('epoch__night', flat=True).last()
+        redf = obj.in_reducedfits.order_by('-epoch__night').last()
+        if redf is not None:
+            url = reverse('iop4admin:%s_%s_changelist' % (ReducedFit._meta.app_label, ReducedFit._meta.model_name)) + "?id=%s" % redf.pk
+            return format_html(rf'<a href="{url}">{redf.epoch.night}</a>')
+        else:
+            return None
+    
     
     @admin.display(description='DETAILS')
     def get_details(self, obj):
