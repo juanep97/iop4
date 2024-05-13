@@ -160,11 +160,12 @@ class Instrument(metaclass=ABCMeta):
     # reduction methods
 
     @classmethod
-    def get_header_hintobject(self, rawfit) -> 'AstroSource' or None:
-        r""" Get a hint for the AstroSource in this image from the header. OBJECT is a standard keyword. Return None if none found. 
+    def _get_header_hintobject_easy(self, rawfit) -> 'AstroSource' or None:
+        r"""Get a hint for the AstroSource in this image from the header. 
+        Return None if none found. 
         
-        At the moment his only tries to match sources
-        with the IAU name format `[0-9]*\+[0-9]*`.
+        This method only tries to match the OBJECT keyword with the IAU name 
+        format (`[0-9]*\+[0-9]*`) to the name of the sources in the DB.
         """
         
         from iop4lib.db import AstroSource
@@ -176,6 +177,56 @@ class Instrument(metaclass=ABCMeta):
             return AstroSource.objects.filter(name__contains=matchs[0]).first()
         else:
             return None
+            
+    @classmethod
+    def _get_header_hintobject_hard(self, rawfit):
+        """Get a hint for the AstroSource in this image from the header. 
+        Return None if none found.
+
+        This method tries to match the OBJECT keyword with the possible names 
+        of each sources in the DB.
+        """
+
+        from iop4lib.db import AstroSource
+
+        catalog = AstroSource.objects.exclude(srctype=SRCTYPES.CALIBRATOR).values('name', 'other_name')
+
+        pattern = re.compile(r"^([a-zA-Z0-9]{1,3}_[a-zA-Z0-9]+|[a-zA-Z0-9]{4,})(?=_|$)")
+        
+        obj_kw = rawfit.header['OBJECT']
+        
+        match = pattern.match(obj_kw)
+
+        def get_invariable_str(s):
+            return s.replace(' ', '').replace('-','').replace('+','').replace('_','').upper()
+
+        if match:
+            
+            search_str = match.group(0)
+
+            for source in catalog:
+                if get_invariable_str(search_str) in get_invariable_str(source['name']):
+                    return AstroSource.objects.get(name=source['name'])
+                
+            for source in catalog:
+                if source['other_name'] is None:
+                    continue
+                if get_invariable_str(search_str) in get_invariable_str(source['other_name']):
+                    return AstroSource.objects.get(name=source['name'])
+                
+        return None
+    
+    @classmethod
+    def get_header_hintobject(cls, rawfit):
+        """Get the hint for the AstroSource in this image from the header.
+        Return None if none found. 
+        
+        OBJECT is a standard keyword. This method will try to match the OBJECT 
+        keyword, first using the more strict `_get_header_hintobject_easy`,
+        and if that fails, using the more relaxed `_get_header_hintobject_hard`.
+        """
+
+        return cls._get_header_hintobject_easy(rawfit) or cls._get_header_hintobject_hard(rawfit)
     
     @classmethod
     @abstractmethod 
