@@ -40,7 +40,7 @@ class AdminAstroSource(admin.ModelAdmin):
     
     @admin.display(description='LAST FILE')
     def get_last_reducedfit(self, obj):
-        redf = obj.in_reducedfits.order_by('-epoch__night').last()
+        redf = obj.in_reducedfits.order_by('-epoch__night').first()
         if redf is not None:
             url = reverse('iop4admin:%s_%s_changelist' % (ReducedFit._meta.app_label, ReducedFit._meta.model_name)) + "?id=%s" % redf.pk
             return format_html(rf'<a href="{url}">{redf.epoch.night}</a>')
@@ -50,7 +50,7 @@ class AdminAstroSource(admin.ModelAdmin):
     @admin.display(description="LAST MAG")
     def get_last_mag_R(self, obj):
         ## get the average of last night
-        last_night = obj.photopolresults.filter(band=BANDS.R).latest('epoch__night').epoch.night
+        last_night = obj.photopolresults.filter(band=BANDS.R).earliest('-epoch__night').epoch.night
         r_avg = obj.photopolresults.filter(band=BANDS.R, epoch__night=last_night).aggregate(mag_avg=Avg('mag'), mag_err_avg=Avg('mag_err'))
 
         mag_r_avg = r_avg.get('mag_avg', None)
