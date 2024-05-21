@@ -661,9 +661,9 @@ class Instrument(metaclass=ABCMeta):
             calib_mag_zp_array_err = calib_mag_zp_array_err[~np.isnan(calib_mag_zp_array_err)]
 
             if len(calib_mag_zp_array) == 0:
-                logger.error(f"{redf}: can not perform relative photometry without any calibrators for this reduced fit. Deleting results.")
-                [result.delete() for result in redf.photopolresults.all()]
-                return
+                logger.error(f"{redf}: can not perform relative photometry on source {result.astrosource.name}, no calibrator zero-points found.")
+                # [result.delete() for result in redf.photopolresults.all()]
+                continue
 
             zp_avg = np.nanmean(calib_mag_zp_array)
             zp_std = np.nanstd(calib_mag_zp_array)
