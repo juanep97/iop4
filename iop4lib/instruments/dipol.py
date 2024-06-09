@@ -637,8 +637,8 @@ class DIPOL(Instrument):
             x, y = x[idx], y[idx]
             return 0.5*np.abs(np.dot(x,np.roll(y,1))-np.dot(y,np.roll(x,1)))
         
-        quads_1 = np.array([quad for quad in quads_1 if PolyArea(quad[:,0], quad[:,1]) > 0.05*(redf.width*redf.height)])
-        quads_2 = np.array([quad for quad in quads_2 if PolyArea(quad[:,0], quad[:,1]) > 0.05*(redf.width*redf.height)])
+        quads_1 = np.array([quad for quad in quads_1 if PolyArea(quad[:,0], quad[:,1]) > 0.05*(redf_pol.width*redf_pol.height)])
+        quads_2 = np.array([quad for quad in quads_2 if PolyArea(quad[:,0], quad[:,1]) > 0.05*(redf_pol.width*redf_pol.height)])
 
         if len(quads_1) == 0 or len(quads_2) == 0:
             logger.error(f"No quads found in {redf_pol} and {redf_phot}, returning success = False.")
