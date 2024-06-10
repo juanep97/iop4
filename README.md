@@ -162,6 +162,8 @@ To build and show the documentation, run
     $ make docs-show
 ```
 
+The documentation for the lastest release is hosted in this repository's [GitHub Pages](https://juanep97.github.io/iop4/).
+
 ## Contribute
 
 You are welcome to contribute to IOP4. Fork and create a PR!
