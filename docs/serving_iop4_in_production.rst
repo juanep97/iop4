@@ -73,7 +73,7 @@ observations every morning. Here we provide an example. This assumes you are
 working in a linux system. Other OS provide different methods to create jobs.
 
 Use ``crontab -e`` to edit your crontab file and add a line like the following
-.. code-block:: cron
+.. code-block:: text
   
       00 08 * * * /home/vhega/run_iop4_daily.sh > /home/vhega/run_iop4_daily.log 2>&1
 
