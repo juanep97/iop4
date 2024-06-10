@@ -8,7 +8,7 @@ Data reduction details
 Introduction
 ------------
 
-The following steps are done by IOP4 to reduce data from one epoch (when invoked as `iop4 --epoch-list <epochname>`):
+The following steps are done by IOP4 to reduce data from one epoch (when invoked as :code:`iop4 --epoch-list <epochname>`):
 
 #. Registering the epoch in the database, listing, registering and downloading the raw files.
 

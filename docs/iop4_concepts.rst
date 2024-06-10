@@ -40,7 +40,7 @@ models:
 
 * **AperPhotResult**: a result of aperture photometry, defined by its associated 
   `reducedfit` (ReducedFit), the `astrosource` (AstroSource) for which it was computed, 
-  and the aperture `aperpix`` (float) used.
+  and the aperture `aperpix` (float) used.
 
 * **PhotoPolResult**: a result of photo-polarimetry, the end product of IOP4, as pipeline for
   optical photo-polarimetry.
@@ -87,8 +87,8 @@ This should open a tab in your browser with the IOP4 web interface.
    used in production, or entirely replaced by a new Django project and used only as a guide.
    See :doc:`serving iop4 in production <serving_iop4_in_production>` for more information.
 
-After login in with the credentials that you supplied during the `set up` 
-</iop4/docs/#usage> you will have access to the following tabs:
+After login in with the credentials that you supplied during the `set up 
+</iop4/docs/#usage>`_ you will have access to the following tabs:
 
 * Explore > Plot: to plot and inspect the photometry and polarimetry results, flag data and download plots.
 * Explore > Data: to inspect, filter and download data (e.g. in CSV format).
@@ -103,12 +103,129 @@ FITS header keywords, different polarimeters, different pixel scales, etc. IOP4 
 details from the main code. Telescope-specific code is relegated to the :code:`iop4lib.telescopes` submodule, while 
 instrument-specific code is relegated to the :code:`iop4lib.instruments` submodule.
 Adding a new telescope or instrument to IOP4 is as simple as adding a new class to these submodules, inheriting the 
-:code:`iop4lib.telescopes.Telescope` or code:`iop4lib.instrument.Instrument` base classes, and implementing the required methods 
+:code:`iop4lib.telescopes.Telescope` or :code:`iop4lib.instrument.Instrument` base classes, and implementing the required methods 
 (like methods to list the available data in the remote observatory archives, reading of non-standard FITS header keywords, or 
 specific reduction steps).
 
 Information and details about the different telescopes and instruments can be found at :ref:`data_reduction_details`.
 
+
+IOP4 data directory structure
+-----------------------------
+
+IOP4 data directory structure follows the following hierarchical schema. 
+In this schema, all raw data is stored and isolated under a single folder 
+(``raw/``), with the intent of establishing a local archive of the original data 
+without any modifications for long-term conservation. 
+Under the raw directory, data is organized first by telescope and then by night 
+of observation. Other files such as built master calibration frames and reduced 
+images are stored separately. Also auxiliary images such as automatically built 
+previews, finding charts, summary plots, etc, which are too heavy to be stored 
+in a database, are stored under different folders.
+
+.. 
+  Tree generated with the follwoing ascii input (https://tree.nathanfriend.io/):
+  datadir (e.g. ~/.iop4data/)
+  - raw
+    - telescope 1 (e.g. OSN-T090)
+      - night 1 (e.g. 2024-04-08)
+        - file 1 (e.g. sciencefile_1.fits)
+        - file 2 (e.g. bias_1.fits)
+        - ...
+      - ...
+    - ...
+  - masterbias
+    - telescope 1 (e.g. OSN-T090)
+      - night 1 (e.g. 2024-04-08)
+        - file 1 (e.g. masterbias_1.fits)
+        - ...
+      - ...
+    - ...
+  - masterdark
+    - ...
+  - masterflat
+    - ...
+  - calibration
+    - telescope 1 (e.g. OSN-T090)
+      - night 1 (e.g. 2024-04-08)
+        - file 1 folder (e.g. sciencefile_1.fits.d)
+          - RawFit
+            - auxiliary file 1 (e.g. preview.png)
+            - ...
+          - ReducedFit
+            - reduced fit file (e.g. sciencefile_1.fits)
+            - auxiliary file 1 (e.g. astrometry_summary.png)
+            - ...
+        - file 2 folder (e.g. masterbias_1.fits.d)
+          - MasterBias
+            - auxiliary file 1 (e.g. preview.png)
+            - ...
+        - ...
+      - ...
+    - ...
+  - logs
+    - log file 1
+    - ...
+  - astrosource
+    - source 1
+      auxiliary file 1 (e.g. finding_chart.png)
+    - ...
+  - database file (e.g. iop4.db)
+
+..  code-block:: text
+
+    datadir (e.g. ~/.iop4data/)
+    ├── raw
+    │   ├── telescope 1 (e.g. OSN-T090)
+    │   │   ├── night 1 (e.g. 2024-04-08)
+    │   │   │   ├── file 1 (e.g. sciencefile_1.fits)
+    │   │   │   ├── file 2 (e.g. bias_1.fits)
+    │   │   │   └── ...
+    │   │   └── ...
+    │   └── ...
+    ├── masterbias
+    │   ├── telescope 1 (e.g. OSN-T090)
+    │   │   ├── night 1 (e.g. 2024-04-08)
+    │   │   │   ├── file 1 (e.g. masterbias_1.fits)
+    │   │   │   └── ...
+    │   │   └── ...
+    │   └── ...
+    ├── masterdark
+    │   └── ...
+    ├── masterflat
+    │   └── ...
+    ├── calibration
+    │   ├── telescope 1 (e.g. OSN-T090)
+    │   │   ├── night 1 (e.g. 2024-04-08)
+    │   │   │   ├── file 1 folder (e.g. sciencefile_1.fits.d)
+    │   │   │   │   ├── RawFit
+    │   │   │   │   │   ├── auxiliary file 1 (e.g. preview.png)
+    │   │   │   │   │   └── ...
+    │   │   │   │   └── ReducedFit
+    │   │   │   │       ├── reduced fit file (e.g. sciencefile_1.fits)
+    │   │   │   │       ├── auxiliary file 1 (e.g. astrometry_summary.png)
+    │   │   │   │       └── ...
+    │   │   │   ├── file 2 folder (e.g. masterbias_1.fits.d)
+    │   │   │   │   └── MasterBias
+    │   │   │   │       ├── auxiliary file 1 (e.g. preview.png)
+    │   │   │   │       └── ...
+    │   │   │   └── ...
+    │   │   └── ...
+    │   └── ...
+    ├── logs
+    │   ├── log file 1
+    │   └── ...
+    ├── astrosource
+    │   ├── source 1
+    │   │   └── auxiliary file 1 (e.g. finding_chart.png)
+    │   └── ...
+    └── database file (e.g. iop4.db)
+
+
+By default, IOP4 will use ``~/.iop4data/`` as the data directory root. You can 
+indicate a different path with the ``datadir`` configuration option. You can 
+also specify a different (and independent) database file location with the 
+``db_path`` option.
 
 .. rubric:: Footnotes
 
