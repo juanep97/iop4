@@ -119,3 +119,31 @@ point directly to the corresponding page in the iop4 web interface or admin
 site.
 
 
+.. _production_share_datadir:
+
+Sharing the data directory with other system users
+--------------------------------------------------
+
+If you are running IOP4 in a server with multiple users, and have created an 
+user to run the IOP4 pipeline as a service, you might be interested in making 
+the local archive available to other users, so they can process the data 
+independently. By default, IOP4 will remove write permissions on raw files, 
+protecting them from accidental modification. For example, you can link your raw
+directory to the service account raw directory,
+
+.. code-block:: bash
+  
+      ln -s /home/iop4user/.iop4data/raw ~/home/myuser/.iop4data/raw
+
+The other directories can also be linked, but keep in mind that other users
+might not be able to modify and reprocess reduced files (they will still be able
+to inspect them). You will still need to create your database following the 
+installation instructions.
+
+Multiple users can also share the same data directory, but this is not 
+recommended.
+
+You should not confuse system users (which can run the iop4 pipeline) with IOP4 
+portal users, that can access and inspect data from the web interface. These 
+should be created only after following `production_web_server`_ (the debug web 
+server is not recommended for multiple users).
