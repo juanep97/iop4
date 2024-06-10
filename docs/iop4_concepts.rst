@@ -40,7 +40,7 @@ models:
 
 * **AperPhotResult**: a result of aperture photometry, defined by its associated 
   `reducedfit` (ReducedFit), the `astrosource` (AstroSource) for which it was computed, 
-  and the aperture `aperpix`` (float) used.
+  and the aperture `aperpix` (float) used.
 
 * **PhotoPolResult**: a result of photo-polarimetry, the end product of IOP4, as pipeline for
   optical photo-polarimetry.
@@ -87,8 +87,8 @@ This should open a tab in your browser with the IOP4 web interface.
    used in production, or entirely replaced by a new Django project and used only as a guide.
    See :doc:`serving iop4 in production <serving_iop4_in_production>` for more information.
 
-After login in with the credentials that you supplied during the `set up` 
-</iop4/docs/#usage> you will have access to the following tabs:
+After login in with the credentials that you supplied during the `set up 
+</iop4/docs/#usage>`_ you will have access to the following tabs:
 
 * Explore > Plot: to plot and inspect the photometry and polarimetry results, flag data and download plots.
 * Explore > Data: to inspect, filter and download data (e.g. in CSV format).

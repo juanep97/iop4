@@ -132,7 +132,7 @@ protecting them from accidental modification. For example, you can link your raw
 directory to the service account raw directory,
 
 .. code-block:: bash
-  
+
       ln -s /home/iop4user/.iop4data/raw ~/home/myuser/.iop4data/raw
 
 The other directories can also be linked, but keep in mind that other users
@@ -145,5 +145,5 @@ recommended.
 
 You should not confuse system users (which can run the iop4 pipeline) with IOP4 
 portal users, that can access and inspect data from the web interface. These 
-should be created only after following `production_web_server`_ (the debug web 
+should be created only after following See :doc:`Setting up a production web server <production_web_server>` (the debug web 
 server is not recommended for multiple users).
