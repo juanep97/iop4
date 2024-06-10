@@ -149,13 +149,9 @@ iop4conf = iop4lib.Config(config_db=True, gonogui=False, jupytermode=True)
 ```
 
 ### Tips
-You can get an IPython interactive terminal after running iop4 using the `-i` option. You can override any config option using the `-o` option, e.g.
+You can get an IPython interactive terminal after running iop4 using the `-i` option. You can override any config option using the `-o` option, or by setting environment variables, e.g.
 ```bash
-    $ iop4 -i -o nthreads=20 -o log_file=test.log --epoch-list T090/230313 T090/230317
-```
-or by setting environment variables, e.g.
-```bash
-    $ IOP4_NTHREADS=20 IOP4_LOG_FILE=test.log iop4 -i --epoch-list T090/230313 T090/230317
+    $ IOP4_NTHREADS=20 iop4 -i -o log_file=test.log --epoch-list T090/230313 T090/230317
 ```
 Check `iop4 --help` for more info.
 
