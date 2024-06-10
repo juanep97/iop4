@@ -1,6 +1,11 @@
 Serving IOP4 in production
 ==========================
 
+.. _production_web_server:
+
+Setting up a production web server
+----------------------------------
+
 .. warning::
 
     This section requires some familiarity with system 
@@ -56,3 +61,61 @@ your Django project are:
 
     # Configure static files to the path served by nginx
     STATIC_ROOT = '/path/to/static/'
+
+
+.. _production_cron_job:
+
+Creating a cron job for reducing new observations
+-------------------------------------------------
+
+You might be interested in creating a cron job that routinely reduces new 
+observations every morning. Here we provide an example. This assumes you are 
+working in a linux system. Other OS provide different methods to create jobs.
+
+Use ``crontab -e`` to edit your crontab file and add a line like the following
+.. code-block:: cron
+      00 08 * * * /home/vhega/run_iop4_daily.sh > /home/vhega/run_iop4_daily.log 2>&1
+
+Then, create a file ``run_iop4_daily.sh``, give it execution permissions (``chmod +x run_iop4_daily.sh``) and add the following content:
+.. code-block:: 
+      #!/usr/bin/bash
+
+      # save the current datetime
+      printf -v date '%(%Y-%m-%d_%H%M)T' -1
+
+      echo "#########################################"
+      echo "Run daily job for IOP4: $date"
+      echo "#########################################"
+
+      . /home/vhega/miniconda3/bin/activate iop4
+
+      # make sure all files created by iop4 are editable by the current user only
+      umask 0022
+
+      # Run iop4 for new observations (i.e. last night)
+      iop4 --discover-missing -o log_file=/home/vhega/iop4data/logs/daily_$date.log
+
+      # Create and send a summary of the results for last night
+      iop4-night-summary  --fromaddr '{{YOUR SENDER ADDRESS}}' \
+                          --mailto '{{ADDRESS 1}},{{ADDRESS 2}},{{ADDRESS 3}}' \
+                          --contact-name '{{CONTACT NAME}}' \
+                          --contact-email '{{CONTACT EMAIL}}' \
+                          --site-url '{{DEPLOYMENT SITE URL}}' \
+                          --saveto "/home/vhega/iop4data/logs/daily_$date.html"
+
+The above script will run iop4 every morning, disovering and proccessing new 
+observations. 
+
+The last command is optional, and will send an email with a summary with the 
+results from last night to the specified email addresses. 
+The cron job does not need to be run on a daily basis, and you can run it 
+whenever you expect new observations to become available in the telescope 
+remote archives (e.g. every few hours). Alternatively, you can pass an argument 
+to ``iop4-night-summary`` specifying the night that you want to generate the 
+summary for. The email will be in HTML format (viewable in any modern browser or
+email client), and can optionally be saved to any path. You can indicate the url 
+of your deployed site so the links in the email (e.g. for files with error) 
+point directly to the corresponding page in the iop4 web interface or admin 
+site.
+
+
