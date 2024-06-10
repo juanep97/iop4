@@ -73,36 +73,39 @@ observations every morning. Here we provide an example. This assumes you are
 working in a linux system. Other OS provide different methods to create jobs.
 
 Use ``crontab -e`` to edit your crontab file and add a line like the following
-.. code-block:: text
+
+..  code-block:: text
   
-      00 08 * * * /home/vhega/run_iop4_daily.sh > /home/vhega/run_iop4_daily.log 2>&1
+    00 08 * * * /home/vhega/run_iop4_daily.sh > /home/vhega/run_iop4_daily.log 2>&1
 
 Then, create a file ``run_iop4_daily.sh``, give it execution permissions (``chmod +x run_iop4_daily.sh``) and add the following content:
-.. code-block:: 
-      #!/usr/bin/bash
 
-      # save the current datetime
-      printf -v date '%(%Y-%m-%d_%H%M)T' -1
+..  code-block:: bash
 
-      echo "#########################################"
-      echo "Run daily job for IOP4: $date"
-      echo "#########################################"
+    #!/usr/bin/bash
 
-      . /home/vhega/miniconda3/bin/activate iop4
+    # save the current datetime
+    printf -v date '%(%Y-%m-%d_%H%M)T' -1
 
-      # make sure all files created by iop4 are editable by the current user only
-      umask 0022
+    echo "#########################################"
+    echo "Run daily job for IOP4: $date"
+    echo "#########################################"
 
-      # Run iop4 for new observations (i.e. last night)
-      iop4 --discover-missing -o log_file=/home/vhega/iop4data/logs/daily_$date.log
+    . /home/vhega/miniconda3/bin/activate iop4
 
-      # Create and send a summary of the results for last night
-      iop4-night-summary  --fromaddr '{{YOUR SENDER ADDRESS}}' \
-                          --mailto '{{ADDRESS 1}},{{ADDRESS 2}},{{ADDRESS 3}}' \
-                          --contact-name '{{CONTACT NAME}}' \
-                          --contact-email '{{CONTACT EMAIL}}' \
-                          --site-url '{{DEPLOYMENT SITE URL}}' \
-                          --saveto "/home/vhega/iop4data/logs/daily_$date.html"
+    # make sure all files created by iop4 are editable by the current user only
+    umask 0022
+
+    # Run iop4 for new observations (i.e. last night)
+    iop4 --discover-missing -o log_file=/home/vhega/iop4data/logs/daily_$date.log
+
+    # Create and send a summary of the results for last night
+    iop4-night-summary  --fromaddr '{{YOUR SENDER ADDRESS}}' \
+                        --mailto '{{ADDRESS 1}},{{ADDRESS 2}},{{ADDRESS 3}}' \
+                        --contact-name '{{CONTACT NAME}}' \
+                        --contact-email '{{CONTACT EMAIL}}' \
+                        --site-url '{{DEPLOYMENT SITE URL}}' \
+                        --saveto "/home/vhega/iop4data/logs/daily_$date.html"
 
 The above script will run iop4 every morning, disovering and proccessing new 
 observations. 
