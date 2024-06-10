@@ -103,7 +103,7 @@ FITS header keywords, different polarimeters, different pixel scales, etc. IOP4 
 details from the main code. Telescope-specific code is relegated to the :code:`iop4lib.telescopes` submodule, while 
 instrument-specific code is relegated to the :code:`iop4lib.instruments` submodule.
 Adding a new telescope or instrument to IOP4 is as simple as adding a new class to these submodules, inheriting the 
-:code:`iop4lib.telescopes.Telescope` or code:`iop4lib.instrument.Instrument` base classes, and implementing the required methods 
+:code:`iop4lib.telescopes.Telescope` or :code:`iop4lib.instrument.Instrument` base classes, and implementing the required methods 
 (like methods to list the available data in the remote observatory archives, reading of non-standard FITS header keywords, or 
 specific reduction steps).
 
