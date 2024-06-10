@@ -145,5 +145,5 @@ recommended.
 
 You should not confuse system users (which can run the iop4 pipeline) with IOP4 
 portal users, that can access and inspect data from the web interface. These 
-should be created only after following See :doc:`Setting up a production web server <production_web_server>` (the debug web 
+should be created only after following See :ref:`Setting up a production web server <production_web_server>` (the debug web 
 server is not recommended for multiple users).
