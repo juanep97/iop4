@@ -122,6 +122,8 @@ of your deployed site so the links in the email (e.g. for files with error)
 point directly to the corresponding page in the iop4 web interface or admin 
 site.
 
+Note: for iop4-night-summary to be able to send an email, your computer needs a local SMTP server (e.g. postfix).
+
 
 .. _production_share_datadir:
 
