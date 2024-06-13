@@ -11,7 +11,7 @@ IOP4 implements _Object Relational Mapping_ (**ORM**) to seamlessly integrate al
 
 
 ## Installation
-We recommend installing IOP4 in an isolated environtment as described below. IOP4 is hosted in [PyPI software repository](https://pypi.org/project/iop4/).
+We recommend installing IOP4 in an isolated environment as described below. IOP4 is hosted in [PyPI software repository](https://pypi.org/project/iop4/).
 
 ### Option 1: Using a virtual environment
 
@@ -70,7 +70,7 @@ If you followed the steps in any of the two options above, you will have install
 After installation, take a look at the example configuration file (`iop4lib/config.example.yaml`), set the appropriate variables (path to the database, data directory, astrometry index files path, credentials, etc) and save it to `~/.iop4.config.yaml`.
 
 ### Running Tests
-To run the tests, first follow the previous steps to configure IOP4. The test dataset will be automatically downloaded to your home directory
+To run the tests, first follow the previous steps to install IOP4 in developer mode and configure it. The test dataset will be automatically downloaded to your home directory
 ```bash
     $ pytest -vxs tests/
 ```
@@ -99,7 +99,7 @@ This file can be used to reload the data to the DB with:
 ```bash
     $ python manage.py loaddata priv.dumps.yaml
 ```
-An utility script, `iop4site/resetdb.py`, is provided which will completely reset the DB keeping catalog and users data.
+An utility script, `iop4site/resetdb.py`, is provided which will completely reset the DB keeping catalog and user's data.
 
 ### As A Program
 The pipeline script `iop4` can be invoked as
@@ -162,7 +162,7 @@ To build and show the documentation, run
     $ make docs-show
 ```
 
-The documentation for the lastest release is hosted in this repository's [GitHub Pages](https://juanep97.github.io/iop4/).
+The documentation for the latest release is hosted in this repository's [GitHub Pages](https://juanep97.github.io/iop4/).
 
 ## Contribute
 
