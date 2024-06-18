@@ -95,7 +95,7 @@ jobs:
 
 # From Hynek Schlawack (https://hynek.me/articles/ditch-codecov-python/)
   coverage:
-    name: Combine & check coverage
+    name: Check coverage
     needs: tests
     runs-on: ubuntu-latest
 
@@ -107,12 +107,11 @@ jobs:
       - run: python -Im pip install --upgrade coverage[toml]
       - uses: actions/download-artifact@v4
         with:
-          pattern: coverage-data-*
+          pattern: .coverage.*
           merge-multiple: true
 
-      - name: Combine coverage & fail if it's <60%.
+      - name: Coverage report in html
         run: |
-          python -Im coverage combine
           python -Im coverage html --skip-covered --skip-empty
 
           # Report and write to summary.
