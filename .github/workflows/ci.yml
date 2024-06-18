@@ -60,8 +60,10 @@ jobs:
           pip install build
           python -m build
 
-      - name: Install the package
-        run: pip install .[test]
+      - name: Install the package and coverage library
+        run: |
+          pip install .[test]
+          python -Im pip install --upgrade coverage[toml]
 
       - name: Install the package in editable mode with all additional dependencies
         run: pip install --editable .[all]
@@ -86,33 +88,9 @@ jobs:
       - name: Run tests with coverage report (with -o log_cli=true -o log_cli_level=DEBUG to debug CI actions)
         run: pytest -o log_cli=true -o log_cli_level=DEBUG -vxs --cov=iop4lib tests
       
-      - name: Upload coverage data
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-data-${{ matrix.python-version }}
-          path: .coverage.*
-
-
-# From Hynek Schlawack (https://hynek.me/articles/ditch-codecov-python/)
-  coverage:
-    name: Check coverage
-    needs: tests
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: python -Im pip install --upgrade coverage[toml]
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: coverage-data-*
-
-      - name: Coverage report in html
+      - name: Create coverage report in html and markdown
         run: |
           python -Im coverage html --skip-covered --skip-empty
-
           # Report and write to summary.
           python -Im coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
 
