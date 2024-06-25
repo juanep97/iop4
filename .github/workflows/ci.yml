@@ -37,6 +37,14 @@ jobs:
 
   tests:
     runs-on: [self-hosted, x64, Linux, ubuntu, generic]
+    permissions:
+      # Gives the action the necessary permissions for publishing new
+      # comments in pull requests.
+      pull-requests: write
+      # Gives the action the necessary permissions for pushing data to the
+      # python-coverage-comment-action branch, and for editing existing
+      # comments (to avoid publishing multiple comments in the same PR)
+      contents: write
     strategy:
       max-parallel: 1
       matrix:
@@ -94,12 +102,20 @@ jobs:
           # Report and write to summary.
           python -Im coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
 
-      - name: Upload HTML report if check failed.
-        uses: actions/upload-artifact@v4
+      - name: Coverage comment
+        id: coverage_comment
+        uses: py-cov-action/python-coverage-comment-action@v3
         with:
-          name: html-report
-          path: htmlcov
-        if: ${{ failure() }}
+          GITHUB_TOKEN: ${{ github.token }}
+      
+      - name: Store Pull Request comment to be posted
+        uses: actions/upload-artifact@v4
+        if: steps.coverage_comment.outputs.COMMENT_FILE_WRITTEN == 'true'
+        with:
+          # If you use a different name, update COMMENT_ARTIFACT_NAME accordingly
+          name: python-coverage-comment-action
+          # If you use a different name, update COMMENT_FILENAME accordingly
+          path: python-coverage-comment-action.txt
 
 
   docs:
