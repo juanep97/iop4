@@ -19,7 +19,7 @@ import math
 
 # iop4lib imports
 from iop4lib.enums import *
-from .telescope import Telescope, FTPArchiveMixin
+from .telescope import Telescope, FTPArchiveMixin, ReadOnlyClassProperty
 
 # logging
 import logging
@@ -53,20 +53,20 @@ class CAHAT220(FTPArchiveMixin, Telescope, metaclass=ABCMeta):
     # ftp connection details need to be properties so they can be overriden
     # otherwise they are defined at import time
 
-    @property
-    def ftp_address(self):
+    @ReadOnlyClassProperty
+    def ftp_address(cls):
         return iop4conf.caha_address
     
-    @property
-    def ftp_user(self):
+    @ReadOnlyClassProperty
+    def ftp_user(cls):
         return iop4conf.caha_user
     
-    @property
-    def ftp_password(self):
+    @ReadOnlyClassProperty
+    def ftp_password(cls):
         return iop4conf.caha_password
     
-    @property
-    def ftp_encoding(self):
+    @ReadOnlyClassProperty
+    def ftp_encoding(cls):
         return 'utf-8'
 
     re_expr_dirnames = re.compile(r"([0-9]{2}[0-9]{2}[0-9]{2})_CAFOS", flags=re.IGNORECASE)

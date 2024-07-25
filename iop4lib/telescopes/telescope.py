@@ -31,6 +31,13 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from iop4lib.db import RawFit, ReducedFit, Epoch    
 
+class ReadOnlyClassProperty:
+    def __init__(self, fget=None):
+        self.fget = fget
+
+    def __get__(self, instance, owner):
+        return self.fget(owner)
+
 class Telescope(metaclass=ABCMeta):
     """ Base class for telescopes.
 
