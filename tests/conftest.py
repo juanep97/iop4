@@ -30,7 +30,7 @@ import yaml
 import hashlib
 from pathlib import Path
 
-TESTDATA_MD5SUM = '4d393377f8c659e2ead2fa252a9a38b2'
+TESTDATA_MD5SUM = '29e4c96eaf6edc811c84aafd9e4110d0'
 TESTDATA_FPATH = str(Path(f"~/iop4testdata.{TESTDATA_MD5SUM}.tar.gz").expanduser())
 TEST_CONFIG = str(Path("~/iop4testdata/config.tests.yaml").expanduser())
 TEST_DATADIR = str(Path("~/iop4testdata").expanduser())
