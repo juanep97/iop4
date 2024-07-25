@@ -50,10 +50,24 @@ class CAHAT220(FTPArchiveMixin, Telescope, metaclass=ABCMeta):
 
     # telescope specific properties
 
-    ftp_address = iop4conf.caha_address
-    ftp_user = iop4conf.caha_user
-    ftp_password = iop4conf.caha_password
-    ftp_encoding = 'utf-8'
+    # ftp connection details need to be properties so they can be overriden
+    # otherwise they are defined at import time
+
+    @property
+    def ftp_address(self):
+        return iop4conf.caha_address
+    
+    @property
+    def ftp_user(self):
+        return iop4conf.caha_user
+    
+    @property
+    def ftp_password(self):
+        return iop4conf.caha_password
+    
+    @property
+    def ftp_encoding(self):
+        return 'utf-8'
 
     re_expr_dirnames = re.compile(r"([0-9]{2}[0-9]{2}[0-9]{2})_CAFOS", flags=re.IGNORECASE)
     re_expr_fnames = re.compile(r".*\.fi?ts?", flags=re.IGNORECASE)

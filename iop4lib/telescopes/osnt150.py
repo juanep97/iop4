@@ -37,8 +37,21 @@ class OSNT150(OSNT090, Telescope, metaclass=ABCMeta):
 
     # telescope specific properties
 
-    ftp_address = iop4conf.osn_t150_address
-    ftp_user = iop4conf.osn_t150_user
-    ftp_password = iop4conf.osn_t150_password
-    ftp_encoding = 'utf-8'
-
+    # ftp connection details need to be properties so they can be overriden
+    # otherwise they are defined at import time
+    
+    @property
+    def ftp_address(self):
+        return iop4conf.osn_t150_address
+    
+    @property
+    def ftp_user(self):
+        return iop4conf.osn_t150_user
+    
+    @property
+    def ftp_password(self):
+        return iop4conf.osn_t150_password
+    
+    @property
+    def ftp_encoding(self):
+        return 'utf-8'

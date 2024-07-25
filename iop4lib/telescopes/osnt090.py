@@ -41,10 +41,24 @@ class OSNT090(FTPArchiveMixin, Telescope, metaclass=ABCMeta):
 
     # telescope specific properties
 
-    ftp_address = iop4conf.osn_t090_address
-    ftp_user = iop4conf.osn_t090_user
-    ftp_password = iop4conf.osn_t090_password
-    ftp_encoding = 'latin-1'
+    # ftp connection details need to be properties so they can be overriden
+    # otherwise they are defined at import time
+    
+    @property
+    def ftp_address(self):
+        return iop4conf.osn_t090_address
+    
+    @property
+    def ftp_user(self):
+        return iop4conf.osn_t090_user
+    
+    @property
+    def ftp_password(self):
+        return iop4conf.osn_t090_password
+    
+    @property
+    def ftp_encoding(self):
+        return 'latin-1'
 
     re_expr_dirnames = re.compile(r"([0-9]{4}[0-9]{2}[0-9]{2})", flags=re.IGNORECASE)
     re_expr_fnames = re.compile('|'.join(iop4conf.osn_fnames_patterns), flags=re.IGNORECASE)
