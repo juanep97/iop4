@@ -546,7 +546,7 @@ class SimbadSource():
     ra_hms: str
     dec_dms: str
     otype: str
-    other_name: str = None
+    other_names: str = None
 
 
     def __str__(self):

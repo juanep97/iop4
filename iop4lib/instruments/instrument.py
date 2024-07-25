@@ -183,13 +183,14 @@ class Instrument(metaclass=ABCMeta):
         """Get a hint for the AstroSource in this image from the header. 
         Return None if none found.
 
-        This method tries to match the OBJECT keyword with the possible names 
-        of each sources in the DB.
+        This method tries to match the OBJECT keyword with each source in the
+        DB, first tryin all of them by their main names, then by their other 
+        names.
         """
 
         from iop4lib.db import AstroSource
 
-        catalog = AstroSource.objects.exclude(srctype=SRCTYPES.CALIBRATOR).values('name', 'other_name')
+        catalog = AstroSource.objects.exclude(srctype=SRCTYPES.CALIBRATOR).all()
 
         pattern = re.compile(r"^([a-zA-Z0-9]{1,3}_[a-zA-Z0-9]+|[a-zA-Z0-9]{4,})(?=_|$)")
         
@@ -205,14 +206,14 @@ class Instrument(metaclass=ABCMeta):
             search_str = match.group(0)
 
             for source in catalog:
-                if get_invariable_str(search_str) in get_invariable_str(source['name']):
-                    return AstroSource.objects.get(name=source['name'])
+                if get_invariable_str(search_str) in get_invariable_str(source.name):
+                    return source
                 
             for source in catalog:
-                if source['other_name'] is None:
+                if not source.other_names_list:
                     continue
-                if get_invariable_str(search_str) in get_invariable_str(source['other_name']):
-                    return AstroSource.objects.get(name=source['name'])
+                if any([get_invariable_str(search_str) in get_invariable_str(other_name) for other_name in source.other_names_list]):
+                    return source
                 
         return None
     

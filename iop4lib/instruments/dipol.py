@@ -247,7 +247,7 @@ class DIPOL(Instrument):
 
     @classmethod
     def get_header_hintobject(self, rawfit):
-        r""" Overriden for DIPOL, which are using the convention for the other_name field. 
+        r""" Overriden for DIPOL, which are using the convention for the other_names field. 
         
         The regex used has been obtained from the notebook checking all keywords.
         """
@@ -255,7 +255,7 @@ class DIPOL(Instrument):
 
         from iop4lib.db import AstroSource
 
-        catalog = AstroSource.objects.exclude(srctype=SRCTYPES.CALIBRATOR).values('name', 'other_name')
+        catalog = AstroSource.objects.exclude(srctype=SRCTYPES.CALIBRATOR).all()
 
         #pattern = re.compile(r"^([a-zA-Z0-9]{4,}|[a-zA-Z0-9]{1,3}(_[a-zA-Z0-9]+)?)(?=_|$)")
         pattern = re.compile(r"^([a-zA-Z0-9]{1,3}_[a-zA-Z0-9]+|[a-zA-Z0-9]{4,})(?=_|$)")
@@ -272,14 +272,14 @@ class DIPOL(Instrument):
             search_str = match.group(0)
             
             for source in catalog:
-                if not source['other_name']:
+                if not source.other_names_list:
                     continue
-                if get_invariable_str(search_str) in get_invariable_str(source['other_name']):
-                    return AstroSource.objects.get(name=source['name'])
-
+                if any([get_invariable_str(search_str) in get_invariable_str(other_name) for other_name in source.other_names_list]):
+                    return source
+            
             for source in catalog:
-                if get_invariable_str(search_str) in get_invariable_str(source['name']):
-                    return AstroSource.objects.get(name=source['name'])
+                if get_invariable_str(search_str) in get_invariable_str(source.name):
+                    return source
                 
         return None
       

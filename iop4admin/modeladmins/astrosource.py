@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 
 class AdminAstroSource(admin.ModelAdmin):
     model = AstroSource
-    list_display = ['name', 'other_name', 'ra_hms', 'dec_dms', 'srctype', 'get_last_reducedfit', 'get_last_mag_R', 'get_calibrates', 'get_comment_firstline', 'get_details']
-    search_fields = ['name', 'other_name', 'ra_hms', 'dec_dms', 'srctype', 'comment']
+    list_display = ['name', 'other_names', 'ra_hms', 'dec_dms', 'srctype', 'get_last_reducedfit', 'get_last_mag_R', 'get_calibrates', 'get_comment_firstline', 'get_details']
+    search_fields = ['name', 'other_names', 'ra_hms', 'dec_dms', 'srctype', 'comment']
     list_filter = ('srctype',)
     
     @admin.display(description='CALIBRATES')
