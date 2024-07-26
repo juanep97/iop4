@@ -184,7 +184,7 @@ class Instrument(metaclass=ABCMeta):
         Return None if none found.
 
         This method tries to match the OBJECT keyword with each source in the
-        DB, first tryin all of them by their main names, then by their other 
+        DB, first trying all of them by their main names, then by their other 
         names.
         """
 
