@@ -546,7 +546,7 @@ class SimbadSource():
     ra_hms: str
     dec_dms: str
     otype: str
-    other_name: str = None
+    other_names: str = None
 
 
     def __str__(self):
@@ -661,7 +661,7 @@ def get_host_correction(astrosource, aperas, fwhm=None) -> (float, float):
     for table in text.split("#"*80):
         objname = re.findall(r"OBJECT: (.*)", table)[0]
         if get_invariable_str(astrosource.name) == get_invariable_str(objname) or \
-            (astrosource.other_name is not None and get_invariable_str(astrosource.other_name) == get_invariable_str(objname)):
+            (astrosource.other_names is not None and any([get_invariable_str(other_name) == get_invariable_str(objname) for other_name in astrosource.other_names_list])):
             df = pd.read_csv(StringIO(table), comment="#")
             break
 

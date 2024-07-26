@@ -397,7 +397,7 @@ def photopolresult_mplt_viewer(src, band="R", qs0 = None):
     axs[2].set_ylabel("chi [º]")
 
     # title 
-    fig.suptitle(f"{srcname} ({astrosource.other_name})")
+    fig.suptitle(f"{srcname} ({astrosource.other_names})")
 
     # legend
     legend_handles = [axs[0].plot([],[],color=color, marker=".", linestyle="none", label=telescope)[0] for color, telescope in zip(colors, telescopes)]
@@ -625,7 +625,7 @@ def plot_finding_chart(target_src, fig=None, ax=None):
 
     ax.set_xlabel("RA [deg]")
     ax.set_ylabel("DEC [deg]")
-    ax.set_title(f"{target_src.name} ({target_src.other_name})")
+    ax.set_title(f"{target_src.name} ({target_src.other_names})")
 
     # legend
 

@@ -133,7 +133,7 @@ def gather_context(args):
         axs[2].set_ylabel("chi [º]")
 
         # title 
-        fig.suptitle(f"{source.name} ({source.other_name})" if source.other_name else source.name)
+        fig.suptitle(f"{source.name} ({source.other_names})" if source.other_names else source.name)
 
         # legend
         legend_handles = [axs[0].plot([],[],color=color, marker=".", linestyle="none", label=instrument)[0] for color, instrument in zip(colors, instruments)]
