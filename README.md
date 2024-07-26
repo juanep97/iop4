@@ -2,12 +2,15 @@
 <a href="https://github.com/juanep97/iop4/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/juanep97/iop4/actions/workflows/ci.yml/badge.svg"></img></a>
 <a href="https://zenodo.org/doi/10.5281/zenodo.10222722"><img src="https://zenodo.org/badge/636786270.svg" alt="DOI"></img></a>
 <a href="https://pypi.org/project/iop4/"><img src="https://img.shields.io/pypi/v/iop4" alt="PyPI"></img></a>
+<a href="https://dx.doi.org/10.3847/1538-3881/ad5a80"><img src="https://img.shields.io/badge/Astronomical_Journal-Published-green" alt="Publication AJ">
 </div>
 
 
 **IOP4** is a complete rewrite of IOP3, a pipeline to work with **photometry** and **polarimetry** of **optical data** from [CAHA](https://www.caha.es/es/) and [OSN](https://www.osn.iaa.csic.es/) observatories. It is built to ease debugging and inspection of data.
 
 IOP4 implements _Object Relational Mapping_ (**ORM**) to seamlessly integrate all information about the reduction and results in a database which can be used to query and plot results, flag data and inspect the reduction process in an integrated fashion with the whole pipeline. It also ships with an already **built-in web interface** which can be used out of the box to browse the database and supervise all pipeline processes.
+
+See details in [Juan Escudero Pedrosa et al 2024 AJ 168 84](https://dx.doi.org/10.3847/1538-3881/ad5a80).
 
 
 ## Installation
@@ -173,13 +176,29 @@ You are welcome to contribute to IOP4. Fork and create a PR!
 If you use IOP4, or any result derived from it, we kindly ask you to cite the following references:
 
 <div>
-<a href="https://zenodo.org/doi/10.5281/zenodo.10222722"><img src="https://zenodo.org/badge/636786270.svg" alt="DOI"></img></a>
+<a href="https://dx.doi.org/10.3847/1538-3881/ad5a80"><img src="https://img.shields.io/badge/Juan_Escudero_Pedrosa_et_al_2024-AJ_168_84-green" alt="DOI AJ"></img></a>
+
+<a href="https://zenodo.org/doi/10.5281/zenodo.10222722"><img src="https://zenodo.org/badge/636786270.svg" alt="DOI Zenodo"></img></a>
 </div>
 
-You can use the following BibTeX entry:
+You can use the following BibTeX entries:
 
 ```bibtex
-@software{escudero_pedrosa_2024,
+@article{iop4_AJ,
+  doi = {10.3847/1538-3881/ad5a80},
+  url = {https://dx.doi.org/10.3847/1538-3881/ad5a80},
+  year = {2024},
+  month = {jul},
+  publisher = {The American Astronomical Society},
+  volume = {168},
+  number = {2},
+  pages = {84},
+  author = {{Escudero Pedrosa}, Juan and {Agudo}, Ivan and {Morcuende}, Daniel and {Otero-Santos}, Jorge and {Bonnoli}, Giacomo and {Piirola}, Vilppu and {Husillos}, C{\'e}sar and {Bernardos}, Mabel and {L{\'o}pez-Coto}, Rub{\'e}n and {Sota}, Alfredo and {Casanova}, V{\'\i}ctor and {Aceituno}, Francisco and {Santos-Sanz}, Pablo},
+  title = {IOP4, the Interactive Optical Photo-Polarimetric Python Pipeline},
+  journal = {The Astronomical Journal},
+}
+
+@software{iop4_zenodo,
   author       = {{Escudero Pedrosa}, Juan and
                   {Morcuende Parrilla}, Daniel and
                   Otero-Santos, Jorge},
@@ -190,5 +209,3 @@ You can use the following BibTeX entry:
   url          = {https://zenodo.org/doi/10.5281/zenodo.10222722}
 }
 ```
-
-This might change in the future, as IOP4 is still under the process of being published in a peer-reviewed journal. Check this repository for updates :)
