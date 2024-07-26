@@ -276,7 +276,7 @@ class DIPOL(Instrument):
                     continue
                 if any([get_invariable_str(search_str) in get_invariable_str(other_name) for other_name in source.other_names_list]):
                     return source
-            
+ 
             for source in catalog:
                 if get_invariable_str(search_str) in get_invariable_str(source.name):
                     return source
