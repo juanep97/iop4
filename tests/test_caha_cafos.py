@@ -25,9 +25,9 @@ def test_build_single_proc(load_test_catalog):
     """ Test the whole building process of reduced fits in a single process
 
         This test is not really necessary since single-process reduction is already tested
-        in OSN-T090, therefore it is skipped by default. However CI actions at the momemnt 
+        in OSN-T090, therefore it is skipped by default. However CI actions at the moment 
         will fail without it, because if the astrometry index files are accessed by multiple 
-        processes at the same time before they are catched httpdirfs will fail. To run it 
+        processes at the same time before they are cached, httpdirfs will fail. To run it 
         locally set the environment variable CI=true.
     """
 
@@ -61,7 +61,7 @@ def test_build_multi_proc_photopol(load_test_catalog):
     """ Test the whole building process of reduced fits through multiprocessing 
     
     Also tests here relative photometry and polarimetry results and their 
-    quality (value + uncertainties) (to avoud losing time reducing them
+    quality (value + uncertainties) (to avoid losing time reducing them
     in another test function).
     """
 
