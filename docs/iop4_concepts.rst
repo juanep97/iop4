@@ -36,7 +36,7 @@ models:
   after applying the appropriate master calibration images and performing the astrometric calibration (giving it a correct WCS).
 
 * **AstroSource**: an astronomical source, in the IOP4 catalog, defined by its `name` (str). It contains information such as its 
-  type (STAR, BLAZAR, CALIBRATOR), its coordinates (RA, DEC), its literature magnitudes (in the case of calibrators), etc.
+  type (STAR, BLAZAR, TDE), its coordinates (RA, DEC), and its literature magnitudes (for the case of calibrators).
 
 * **AperPhotResult**: a result of aperture photometry, defined by its associated 
   `reducedfit` (ReducedFit), the `astrosource` (AstroSource) for which it was computed, 

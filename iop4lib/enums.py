@@ -61,7 +61,7 @@ class SRCTYPES(models.TextChoices):
     """
     BLAZAR = 'blazar', "Blazar"
     STAR = 'star', "Star"
-    CALIBRATOR = 'calibrator', "Calibrator"
+    TDE = 'tde', "TDE"
 
 class REDUCTIONMETHODS(models.TextChoices):
     """

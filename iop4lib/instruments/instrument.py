@@ -190,7 +190,7 @@ class Instrument(metaclass=ABCMeta):
 
         from iop4lib.db import AstroSource
 
-        catalog = AstroSource.objects.exclude(srctype=SRCTYPES.CALIBRATOR).all()
+        catalog = AstroSource.objects.exclude(is_calibrator=True).all()
 
         pattern = re.compile(r"^([a-zA-Z0-9]{1,3}_[a-zA-Z0-9]+|[a-zA-Z0-9]{4,})(?=_|$)")
         
@@ -622,7 +622,7 @@ class Instrument(metaclass=ABCMeta):
             result.mag_inst_err = math.fabs(2.5 / math.log(10) / result.flux_counts * result.flux_counts_err)
 
             # if the source is a calibrator, compute also the zero point
-            if result.astrosource.srctype == SRCTYPES.CALIBRATOR:
+            if result.astrosource.is_calibrator:
                 result.mag_known = getattr(result.astrosource, f"mag_{redf.band}")
                 result.mag_known_err = getattr(result.astrosource, f"mag_{redf.band}_err", None) or 0.0
 
@@ -646,7 +646,7 @@ class Instrument(metaclass=ABCMeta):
 
         for result in photopolresult_L:
 
-            if result.astrosource.srctype == SRCTYPES.CALIBRATOR:
+            if result.astrosource.is_calibrator:
                 continue
 
             # 3.a Average the zero points
@@ -655,10 +655,10 @@ class Instrument(metaclass=ABCMeta):
             calibrator_results_L = [r for r in photopolresult_L if r.astrosource.calibrates.filter(pk=result.astrosource.pk).exists()]
 
             # Create an array with nan instead of None (this avoids the dtype becoming object)
-            calib_mag_zp_array = np.array([result.mag_zp or np.nan for result in calibrator_results_L if result.astrosource.srctype == SRCTYPES.CALIBRATOR]) 
+            calib_mag_zp_array = np.array([result.mag_zp or np.nan for result in calibrator_results_L if result.astrosource.is_calibrator]) 
             calib_mag_zp_array = calib_mag_zp_array[~np.isnan(calib_mag_zp_array)]
 
-            calib_mag_zp_array_err = np.array([result.mag_zp_err or np.nan for result in calibrator_results_L if result.astrosource.srctype == SRCTYPES.CALIBRATOR])
+            calib_mag_zp_array_err = np.array([result.mag_zp_err or np.nan for result in calibrator_results_L if result.astrosource.is_calibrator])
             calib_mag_zp_array_err = calib_mag_zp_array_err[~np.isnan(calib_mag_zp_array_err)]
 
             if len(calib_mag_zp_array) == 0:
@@ -706,7 +706,7 @@ class Instrument(metaclass=ABCMeta):
         from iop4lib.db import AstroSource
 
         astrosource_S = set.union(*[set(redf.sources_in_field.all()) for redf in reducedfits])
-        target_L = [astrosource for astrosource in astrosource_S if astrosource.srctype != AstroSource.SRCTYPES.CALIBRATOR]
+        target_L = [astrosource for astrosource in astrosource_S if not astrosource.is_calibrator]
 
         logger.debug(f"{astrosource_S=}")
 
