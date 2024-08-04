@@ -163,7 +163,7 @@ def estimate_common_apertures(redfL, reductionmethod=None):
     from astropy.modeling import models, fitting
 
     astrosource_S = set.union(*[set(redf.sources_in_field.all()) for redf in redfL])
-    target_L = [astrosource for astrosource in astrosource_S if astrosource.srctype != AstroSource.SRCTYPES.CALIBRATOR]
+    target_L = [astrosource for astrosource in astrosource_S if not astrosource.is_calibrator]
 
     logger.debug(f"{astrosource_S=}")
 

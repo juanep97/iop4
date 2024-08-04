@@ -97,7 +97,7 @@ def test_build_multi_proc_photopol(load_test_catalog):
     qs_res = PhotoPolResult.objects.filter(epoch=epoch, astrosource__name="2200+420").all()
 
     # we expect only one photometry result target in this test dataset for this epoch and source
-    assert qs_res.exclude(astrosource__srctype=SRCTYPES.CALIBRATOR).count() == 1
+    assert qs_res.exclude(astrosource__calibrator=True).count() == 1
 
     res = qs_res[0]
 

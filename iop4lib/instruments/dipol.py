@@ -255,7 +255,7 @@ class DIPOL(Instrument):
 
         from iop4lib.db import AstroSource
 
-        catalog = AstroSource.objects.exclude(srctype=SRCTYPES.CALIBRATOR).all()
+        catalog = AstroSource.objects.exclude(is_calibrator=True).all()
 
         #pattern = re.compile(r"^([a-zA-Z0-9]{4,}|[a-zA-Z0-9]{1,3}(_[a-zA-Z0-9]+)?)(?=_|$)")
         pattern = re.compile(r"^([a-zA-Z0-9]{1,3}_[a-zA-Z0-9]+|[a-zA-Z0-9]{4,})(?=_|$)")

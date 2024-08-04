@@ -196,7 +196,7 @@ class FitFileModel(AbstractModel):
             from iop4lib.enums import SRCTYPES
             # If it is a astro calibrated reduced fit, mark the src position
             if self.has_flag(ReducedFit.FLAGS.BUILT_REDUCED):
-                if (target_src := self.sources_in_field.exclude(srctype=SRCTYPES.CALIBRATOR).get()) is not None:
+                if (target_src := self.sources_in_field.exclude(is_calibrator=True).get()) is not None:
                     target_pos_px = target_src.coord.to_pixel(self.wcs1)
                     ax.axhline(y=target_pos_px[1], color='r', linestyle="--", linewidth=1)
                     ax.axvline(x=target_pos_px[0], color='r', linestyle="--", linewidth=1)
