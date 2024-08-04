@@ -24,9 +24,9 @@ logger = logging.getLogger(__name__)
 
 class AstroSourceQuerySet(models.QuerySet):
     def with_is_calibrator(self):
-        calibrator_subquery = self.filter(calibrates=OuterRef('pk'))
+        calibrator_subquery = self.filter(calibrators=OuterRef('pk'))
         return self.annotate(
-            calibrator=Exists(calibrator_subquery)
+            is_calibrator=Exists(calibrator_subquery)
         )
 
 class AstroSourceManager(models.Manager):
