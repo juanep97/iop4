@@ -67,6 +67,7 @@ test = [
 doc = [
     "numpydoc",
     "sphinx",
+    "sphinx<8; python_version<'3.11'", # See PR 127 (issue with new sphinx 8.0.2 and myst_parser 4.0.0 for Python 3.10.9)
     "sphinx-automodapi",
     "sphinx-mdinclude",
     "pydata-sphinx-theme<0.15.2",
@@ -83,7 +84,6 @@ dev = [
   "setuptools_scm",
 ]
 
-# unfortunately, there is no way (yet) to generate this automatically using pyproject.toml
 all = [
     "iop4[doc,test,dev]",
 ]
