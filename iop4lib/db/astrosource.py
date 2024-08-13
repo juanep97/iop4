@@ -3,6 +3,7 @@ iop4conf = iop4lib.Config(config_db=False)
 
 # django imports
 from django.db import models
+from django.db.models import Exists, OuterRef
 from django.db.models import Q
 
 # iop4lib imports
@@ -21,10 +22,19 @@ import astropy.units as u
 import logging
 logger = logging.getLogger(__name__)
 
+class AstroSourceQuerySet(models.QuerySet):
+    def with_is_calibrator(self):
+        calibrator_subquery = self.filter(calibrators=OuterRef('pk'))
+        return self.annotate(
+            is_calibrator=Exists(calibrator_subquery)
+        )
+
 class AstroSourceManager(models.Manager):
     def get_by_natural_key(self, name):
         return self.get(name=name)
-    
+    def get_queryset(self):
+        return AstroSourceQuerySet(self.model).with_is_calibrator()
+      
 class AstroSource(models.Model):
 
     from iop4lib.enums import SRCTYPES
@@ -71,6 +81,7 @@ class AstroSource(models.Model):
     # allows us to relate the sources and calibration stars by names only
 
     # custom manager allows us to use natural keys when loading fixtures
+    # and introduces virtual calibrator boolean field
     objects = AstroSourceManager()
     
     # this method allows us to dump using natural keys

@@ -55,7 +55,7 @@ def gather_context(args):
         # annotate with the set of (non-calibrator) sources in the results each epoch
 
         epoch.srcname_list = list(PhotoPolResult.objects.filter(epoch=epoch)
-                                  .exclude(astrosource__srctype=SRCTYPES.CALIBRATOR)
+                                  .exclude(astrosource__in=AstroSource.objects.filter(is_calibrator=True))
                                   .values_list("astrosource__name", flat=True)
                                   .distinct())
         
@@ -69,7 +69,7 @@ def gather_context(args):
 
     # get list of all sources for which there are results in this night
         
-    sources = AstroSource.objects.exclude(srctype=SRCTYPES.CALIBRATOR).filter(photopolresults__epoch__night=args.date).distinct()
+    sources = AstroSource.objects.exclude(is_calibrator=True).filter(photopolresults__epoch__night=args.date).distinct()
 
     results_summary_images = dict()
 
