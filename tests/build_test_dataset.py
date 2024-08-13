@@ -33,11 +33,13 @@ from pathlib import Path
 
 clean_workdir = False
 
+## Addtional files to include 
+
 Nmax_raw_per_master = 1
 
 # only Nmax_raw_per_master will be used for these files
 
-fileloc_L = [
+raw_fileloc_L = [
     # some dipol files to test calibration
     "OSN-T090/2023-11-06/BLLac_IAR-0001R.fit", # DIPIL photometry astrocalibration / shotgun
     "OSN-T090/2023-10-11/OJ248_R_IAR-0111.fts", # DIPOL polarimetry astrocalibration / catalog matching in a blazar
@@ -47,14 +49,72 @@ fileloc_L = [
     "OSN-T090/2023-11-06/BLLAC_R_IAR-0760.fts", # the polarimetry file
 ]
 
-# for this, Nmax_raw_per_master will be ignored (to keep the result as close to the real one as possible)
+# Results to include 
 
-pk_L = [
-            # 48572, # OSN-T090 Andor Polarimetry 2022-09-08 23:03:14 2200+420 reduced fits 6565, 6566, 6567, 6568  mag R 13.328 \pm 0.164 p 12.48 % \pm 0.35 % chi 15.38 \pm 0.79, iop3 mag 13.38, p 14.0, chi 14.7
-            # 34354, # OSN-T090 Andor Photometry 2022-09-18 23:05:05 2200+420 reduced fits 39071 mag R 13.292 \pm 0.034, iop3 mag 13.35
-            # 64092, # CAHA-T220 CAFOS Polarimetry 2022-09-18 23:02:53 2200+420 reduced fits 40827, 40828, 40829, 40830 mag R 13.369 \pm 0.036 p 11.18 % \pm 0.12 % chi 25.45 \pm 0.30, iop3 mag 13.38, p 10.9, chi 25.2
-            # ?????, # OSN-T090 DIPOL Polarimetry 2023-10-11 3C345 [mjd 60228.82199 datetime 2023/10/11 19:43	p 29.238 ± 0.000 chi 38.379 ± 0.392]
-        ]
+# For these, Nmax_raw_per_master will be ignored (to keep the result as close to the real one as possible)
+
+# Since the pks of the results might have changed since last built, build the list of pks from the filelocs
+
+results_filelocs = [
+    "OSN-T090/2022-09-08/BLLac-0001R0.fit",
+
+    # <PhotoPolResult(id: 287755                                                                                                                                                            
+    #     reducedfits: [6565, 6566, 6567, 6568]
+    #     POLARIMETRY R 2200+420                                                                 
+    #     JD: 2459831.46059 (2022-09-08 23:03:14.825)                                            
+    #     mag: 13.346 ± 0.086  
+    #     p: 0.125 ± 0.004                                                                       
+    #     chi: 15.504 ± 0.909)> 
+
+    "OSN-T090/2022-09-18/BLLac-0001R.fit", 
+
+    # <PhotoPolResult(id: 284969
+    #     reducedfits: [39071]                                                                   
+    #     PHOTOMETRY R 2200+420
+    #     JD: 2459841.46187 (2022-09-18 23:05:05.190)                                            
+    #     mag: 13.310 ± 0.032)>
+
+    "CAHA-T220/2022-09-18/caf-20220918-23:01:33-sci-agui.fits",
+
+    # <PhotoPolResult(id: 285934
+    #     reducedfits: [40827, 40828, 40829, 40830]                                                                                                                                         
+    #     POLARIMETRY R 2200+420 
+    #     JD: 2459841.46034 (2022-09-18 23:02:53.250)
+    #     mag: 13.338 ± 0.026
+    #     p: 0.110 ± 0.002     
+    #     chi: 25.180 ± 0.409)>   
+
+    "OSN-T090/2023-10-09/3C345_R_IAR-0001.fts",
+
+    # <PhotoPolResult(id: 239179
+    #     reducedfits: [105740, 105741, 105742, 105743, 105744, 105745, 105746, 105747, 105748, 105749, 105750, 105751, 105752, 105753, 105754, 105755]
+    #     DIPOL POLARIMETRY R / 1641+399
+    #     JD: 2460227.33940 (2023-10-09 20:08:43.813)
+    #     p: 0.301 ± 0.020
+    #     chi: 45.556 ± 1.841)>
+
+    "CAHA-T220/2023-10-09/caf-20231009-19:17:38-sci-agui.fits",
+
+    # <PhotoPolResult(id: 238940
+    #     reducedfits: [57754, 57755, 57756, 57757]
+    #     POLARIMETRY R 1641+399
+    #     JD: 2460227.30780 (2023-10-09 19:23:13.500)
+    #     mag: 16.537 ± 0.013
+    #     p: 0.293 ± 0.003
+    #     chi: 46.617 ± 0.457)>
+
+    "OSN-T090/2023-10-25/HD204827_R_IAR-0369.fts",
+
+    # <PhotoPolResult(id: 236438
+    #     reducedfits: [100574, 100575, 100576, 100577, 100578, 100579, 100580, 100581, 100582, 100583, 100584, 100585, 100586, 100587, 100588, 100589]
+    #     DIPOL POLARIMETRY R / HD 204827
+    #     JD: 2460243.55174 (2023-10-26 01:14:30.563)
+    #     p: 0.051 ± 0.005
+    #     chi: 61.374 ± 2.836)>
+]
+
+pk_L = [PhotoPolResult.filter(astrosource__in=AstroSource.objects.filter(is_calibrator=False), reducedfits__in=[ReducedFit.by_fileloc(fileloc)]).get().id for fileloc in results_filelocs]
+
 
 output_file = Path("~/iop4testdata.tar.gz").expanduser()
 workdir = Path("~/iop4testdata").expanduser()
@@ -169,7 +229,7 @@ print("Copying additional files")
 
 rawfitL = list()
 
-for fileloc in fileloc_L:
+for fileloc in raw_fileloc_L:
 
     redf = ReducedFit.by_fileloc(fileloc)
 
