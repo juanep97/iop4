@@ -20,7 +20,45 @@ logger = logging.getLogger(__name__)
 from .fixtures import load_test_catalog
 
 
+@pytest.mark.django_db(transaction=True)
+def test_polarimetry(load_test_catalog):
 
+    from iop4lib.db import Epoch, RawFit, ReducedFit, AstroSource, PhotoPolResult
+    from iop4lib.enums import IMGTYPES, SRCTYPES, INSTRUMENTS
+
+    epochname_L = ["OSN-T090/2023-10-25", "OSN-T090/2023-10-12", "OSN-T090/2023-10-10"]
+    epoch_L = [Epoch.create(epochname=epochname) for epochname in epochname_L]
+
+    for epoch in epoch_L:
+        epoch.build_master_biases()
+
+    for epoch in epoch_L:
+        epoch.build_master_darks()
+
+    for epoch in epoch_L:
+        epoch.build_master_flats()
+    
+    rawfits = RawFit.objects.filter(epoch__in=epoch_L, imgtype=IMGTYPES.LIGHT).all()
+    Epoch.reduce_rawfits(rawfits)
+
+    for epoch in epoch_L:
+        epoch.compute_relative_polarimetry()
+
+    qs_res = PhotoPolResult.objects.filter(epoch__in=epoch_L).all()
+
+    # HD 204827 (polarization standard)
+    # https://www.not.iac.es/instruments/turpol/std/hpstd.html
+    # pL(R): 4.893 +- 0.029 %, ChiL(R) 59.10 +- 0.17
+
+    res = qs_res.filter(instrument=INSTRUMENTS.DIPOL, epoch__night="2023-10-25").get(astrosource__name="HD 204827")
+    assert res.p == approx(4.893/100, abs=max(2*res.p_err, 0.5/100)) 
+    assert res.chi == approx(59.10, abs=max(2*res.chi_err, 5))
+
+    # 3C 345 (comparison with Vilppu reduction and CAFOS observation)
+
+    res = qs_res.filter(instrument=INSTRUMENTS.DIPOL, epoch__night="2023-10-09").get(astrosource__name="1641+399")
+    assert res.p == approx(30.1/100, abs=max(2*res.p_err, 0.5/100)) 
+    assert res.chi == approx(45.5, abs=max(2*res.chi_err, 5))
 
 @pytest.mark.django_db(transaction=True)
 def test_astrometric_calibration(load_test_catalog):
