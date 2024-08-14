@@ -19,42 +19,6 @@ logger = logging.getLogger(__name__)
 from .fixtures import load_test_catalog
 
 
-@pytest.mark.skipif(os.getenv("CI") != "true", reason="only for actions CI")
-@pytest.mark.django_db(transaction=True)
-def test_build_single_proc(load_test_catalog):
-    """ Test the whole building process of reduced fits in a single process
-
-        This test is not really necessary since single-process reduction is already tested
-        in OSN-T090, therefore it is skipped by default. However CI actions at the momemnt 
-        will fail without it, because if the astrometry index files are accessed by multiple 
-        processes at the same time before they are catched httpdirfs will fail. To run it 
-        locally set the environment variable CI=true.
-    """
-
-    from iop4lib.db import Epoch, RawFit, ReducedFit
-    from iop4lib.enums import IMGTYPES, SRCTYPES
-
-    epochname_L = ["CAHA-T220/2022-08-27", "CAHA-T220/2022-09-18"]
-
-    epoch_L = [Epoch.create(epochname=epochname, check_remote_list=False) for epochname in epochname_L]
-
-    for epoch in epoch_L:
-        epoch.build_master_biases()
-        epoch.build_master_flats()
-
-    iop4conf.nthreads = 1
-
-    rawfits = RawFit.objects.filter(epoch__in=epoch_L, imgtype=IMGTYPES.LIGHT).all()
-    
-    Epoch.reduce_rawfits(rawfits)
-
-    assert (ReducedFit.objects.filter(epoch__in=epoch_L).count() == 4)
-
-    for redf in ReducedFit.objects.filter(epoch__in=epoch_L).all():
-        assert (redf.has_flag(ReducedFit.FLAGS.BUILT_REDUCED))
-        assert not (redf.has_flag(ReducedFit.FLAGS.ERROR_ASTROMETRY))
-
-
 
 @pytest.mark.django_db(transaction=True)
 def test_build_multi_proc_photopol(load_test_catalog):
