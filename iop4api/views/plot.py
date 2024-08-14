@@ -115,7 +115,7 @@ def plot(request):
             df['chi_err'] = df['dTheta']
             df['p'] = df['P']/100
             df['p_err'] = df['dP']/100
-            df['instrument'] = list(map(lambda x: "IOP3-"+x, df_crosscheck["Telescope"]))
+            df['instrument'] = list(map(lambda x: "IOP3-"+x, df["Telescope"]))
 
             df_crosscheck = pd.concat([df_crosscheck, df], ignore_index=True, join="inner")
         
