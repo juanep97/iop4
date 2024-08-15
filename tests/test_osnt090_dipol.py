@@ -86,14 +86,19 @@ def test_astrometric_calibration(load_test_catalog):
         epoch.build_master_flats()
 
 
-    # Test 1. Photometry field
+    # Test 1. Photometry fields
 
     fileloc = "OSN-T090/2023-11-06/BLLac_IAR-0001R.fit"
     rawfit = RawFit.by_fileloc(fileloc=fileloc)
     redf = ReducedFit.create(rawfit=rawfit)
     redf.build_file()
 
-    # Test 2. Polarimetry field with quad matching (uses previous photometry field)
+    fileloc = "OSN-T090/2023-11-13/OJ248_R_full_IAR-0001R.fit"
+    rawfit = RawFit.by_fileloc(fileloc=fileloc)
+    redf = ReducedFit.create(rawfit=rawfit)
+    redf.build_file()
+
+    # Test 2. Polarimetry field using quad matching (I)
 
     fileloc = "OSN-T090/2023-11-06/BLLAC_R_IAR-0760.fts"
     rawfit = RawFit.by_fileloc(fileloc=fileloc)
@@ -113,8 +118,7 @@ def test_astrometric_calibration(load_test_catalog):
     assert (distance(pos_O, [634, 297]) < 25) # O position
     assert (distance(pos_E, [437, 319]) < 50) # E position # might be worse b.c. of companion star
 
-    # Test 3. Polarimetry field using catalog matching
-    # This one is quite weak, so it might fail
+    # Test 3. Polarimetry field using quad matching (II)
 
     fileloc = "OSN-T090/2023-10-11/OJ248_R_IAR-0111.fts"
     rawfit = RawFit.by_fileloc(fileloc=fileloc)
