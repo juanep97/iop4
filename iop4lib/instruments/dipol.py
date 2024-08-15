@@ -71,6 +71,18 @@ class DIPOL(Instrument):
     disp_mean, disp_std = np.abs(disp_sign_mean), disp_sign_std
     disp_std = np.array([15, 5])
 
+    # pre computed image angle from ~500 full photometric fields (which dont need it as input)
+    # In [19]: np.quantile(angle_L,[(1-0.9973)/2,(1-0.9545)/2,(1-0.6827)/2])
+    # Out[19]: array([176.85992732, 177.06814576, 177.34785346])
+
+    # In [20]: np.quantile(angle_L,[1-(1-0.9973)/2,1-(1-0.9545)/2,1-(1-0.6827)/2])
+    # Out[20]: array([181.73222701, 181.51777191, 181.36541356])
+
+    # In [21]: np.mean(angle_L), np.median(angle_L), np.std(angle_L)
+    # Out[21]: (179.08971366048235, 177.6282921156412, 1.9341471640122656)
+
+    default_sky_angle = 177.6
+    default_sky_angle_std = 2.3
 
     @classmethod
     def classify_juliandate_rawfit(cls, rawfit: 'RawFit'):

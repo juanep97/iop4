@@ -323,6 +323,7 @@ def get_angle_from_history(redf: 'ReducedFit' = None,
     """
     from iop4lib.enums import IMGTYPES, OBSMODES
     from iop4lib.db import ReducedFit
+    from iop4lib.instruments import Instrument
 
     if calibrated_fits is None:
         if target_src is None:
@@ -369,8 +370,14 @@ def get_angle_from_history(redf: 'ReducedFit' = None,
         angle_L.append(angle)
 
     if len(angle_L) == 0:
-        logger.error(f"No angle found in history for {redf.instrument} {target_src.name}")
-        return np.nan, np.nan
+        logger.warning(f"No angle found in history for {redf.instrument} {target_src.name}")
+
+        if hasattr(Instrument.by_name(redf.instrument), "default_sky_angle"):
+            logger.warning(f"Using default sky angle for {redf.instrument}")
+            return Instrument.by_name(redf.instrument).default_sky_angle, Instrument.by_name(redf.instrument).default_sky_angle_std
+        else:
+            logger.error(f"No default sky angle for {redf.instrument}, returning NaN")
+            return np.nan, np.nan
     
     angle_mean = np.mean(angle_L)
     angle_std = np.std(angle_L)
