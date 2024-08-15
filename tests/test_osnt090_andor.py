@@ -146,7 +146,6 @@ def test_build_multi_proc_photopol(load_test_catalog):
     res = qs_res.get(astrosource__name="2200+420")
 
     # check that the photometric result is correct to 1.5 sigma or 0.02 mag compared to IOP3
-    logger.info(f"{res.astrosource.name} {res.date}: {res.mag} +/- {res.mag_err}")
     assert res.mag == approx(13.35, abs=max(1.5*res.mag_err, 0.05))
 
     # check that uncertainty of the photometric result is less than 0.06 mag
