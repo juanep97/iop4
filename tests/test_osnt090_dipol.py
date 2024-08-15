@@ -24,10 +24,13 @@ from .fixtures import load_test_catalog
 def test_polarimetry(load_test_catalog):
 
     from iop4lib.db import Epoch, RawFit, ReducedFit, AstroSource, PhotoPolResult
-    from iop4lib.enums import IMGTYPES, SRCTYPES, INSTRUMENTS
+    from iop4lib.enums import IMGTYPES, INSTRUMENTS
 
-    epochname_L = ["OSN-T090/2023-10-25", "OSN-T090/2023-10-12", "OSN-T090/2023-10-10"]
+    # get epochs that have DIPOL observations in them
+    from iop4lib.iop4 import list_local_epochnames
+    epochname_L = list_local_epochnames()
     epoch_L = [Epoch.create(epochname=epochname) for epochname in epochname_L]
+    epoch_L = [epoch for epoch in epoch_L if epoch.rawfits.filter(instrument=INSTRUMENTS.DIPOL).exists()]
 
     for epoch in epoch_L:
         epoch.build_master_biases()
@@ -38,7 +41,7 @@ def test_polarimetry(load_test_catalog):
     for epoch in epoch_L:
         epoch.build_master_flats()
     
-    rawfits = RawFit.objects.filter(epoch__in=epoch_L, imgtype=IMGTYPES.LIGHT).all()
+    rawfits = RawFit.objects.filter(epoch__in=epoch_L, instrument=INSTRUMENTS.DIPOL, imgtype=IMGTYPES.LIGHT).all()
     Epoch.reduce_rawfits(rawfits)
 
     for epoch in epoch_L:
@@ -64,11 +67,14 @@ def test_polarimetry(load_test_catalog):
 def test_astrometric_calibration(load_test_catalog):
 
     from iop4lib.db import Epoch, RawFit, ReducedFit, AstroSource
-    from iop4lib.enums import IMGTYPES, SRCTYPES
+    from iop4lib.enums import IMGTYPES, SRCTYPES, INSTRUMENTS
     from iop4lib.utils.quadmatching import distance
 
-    epochname_L = ["OSN-T090/2023-10-25", "OSN-T090/2023-09-26", "OSN-T090/2023-10-11", "OSN-T090/2023-10-12", "OSN-T090/2023-11-06"]
+    # get epochs that have DIPOL observations in them
+    from iop4lib.iop4 import list_local_epochnames
+    epochname_L = list_local_epochnames()
     epoch_L = [Epoch.create(epochname=epochname) for epochname in epochname_L]
+    epoch_L = [epoch for epoch in epoch_L if epoch.rawfits.filter(instrument=INSTRUMENTS.DIPOL).exists()]
 
     for epoch in epoch_L:
         epoch.build_master_biases()

@@ -30,11 +30,13 @@ def test_build_multi_proc_photopol(load_test_catalog):
     """
 
     from iop4lib.db import Epoch, RawFit, ReducedFit
-    from iop4lib.enums import IMGTYPES, SRCTYPES
+    from iop4lib.enums import IMGTYPES, SRCTYPES, INSTRUMENTS
 
-    epochname_L = ["CAHA-T220/2022-08-27", "CAHA-T220/2022-09-18"]
-
-    epoch_L = [Epoch.create(epochname=epochname, check_remote_list=False) for epochname in epochname_L]
+    # get epochs that have CAFOS observations in them
+    from iop4lib.iop4 import list_local_epochnames
+    epochname_L = list_local_epochnames()
+    epoch_L = [Epoch.create(epochname=epochname) for epochname in epochname_L]
+    epoch_L = [epoch for epoch in epoch_L if epoch.rawfits.filter(instrument=INSTRUMENTS.CAFOS).exists()]
 
     for epoch in epoch_L:
         epoch.build_master_biases()
@@ -42,11 +44,11 @@ def test_build_multi_proc_photopol(load_test_catalog):
 
     iop4conf.nthreads = 4
 
-    rawfits = RawFit.objects.filter(epoch__in=epoch_L, imgtype=IMGTYPES.LIGHT).all()
+    rawfits = RawFit.objects.filter(epoch__in=epoch_L, instrument=INSTRUMENTS.CAFOS, imgtype=IMGTYPES.LIGHT).all()
     
     Epoch.reduce_rawfits(rawfits)
 
-    assert (ReducedFit.objects.filter(epoch__in=epoch_L).count() == 4)
+    assert (ReducedFit.objects.filter(epoch__in=epoch_L).count() == len(rawfits))
 
     for redf in ReducedFit.objects.filter(epoch__in=epoch_L).all():
         assert (redf.has_flag(ReducedFit.FLAGS.BUILT_REDUCED))

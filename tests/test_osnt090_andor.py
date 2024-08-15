@@ -96,13 +96,19 @@ def test_build_multi_proc_photopol(load_test_catalog):
     Also tests here relative photometry and polarimetry results and their 
     quality (value + uncertainties) (to avoud losing time reducing them
     in another test function).
+
+    See build_test_dataset.py for the test dataset used in this test.
+
     """
+
     from iop4lib.db import Epoch, RawFit, ReducedFit
-    from iop4lib.enums import IMGTYPES, SRCTYPES
+    from iop4lib.enums import IMGTYPES, SRCTYPES, INSTRUMENTS
 
-    epochname_L = ["OSN-T090/2022-09-23", "OSN-T090/2022-09-08", "OSN-T090/2022-09-18"]
-
-    epoch_L = [Epoch.create(epochname=epochname, check_remote_list=False) for epochname in epochname_L]
+    # get epochs that have Andor90 observations in them
+    from iop4lib.iop4 import list_local_epochnames
+    epochname_L = list_local_epochnames()
+    epoch_L = [Epoch.create(epochname=epochname) for epochname in epochname_L]
+    epoch_L = [epoch for epoch in epoch_L if epoch.rawfits.filter(instrument=INSTRUMENTS.AndorT90).exists()]
 
     for epoch in epoch_L:
         epoch.build_master_biases()
