@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""This script will create a iop4testdata.tar.gz file in your home directory.
+"""This script will create a iop4testdata.$MD5.tar.gz file in your home directory.
 
 Use it to build a test dataset from your reduced and tested results. The .tar.gz 
 will contain all the raw data needed to reduce the given photo-polarimetry results,
@@ -42,11 +42,12 @@ Nmax_raw_per_master = 1
 raw_fileloc_L = [
     # some dipol files to test calibration
     "OSN-T090/2023-11-06/BLLac_IAR-0001R.fit", # DIPIL photometry astrocalibration / shotgun
-    "OSN-T090/2023-10-11/OJ248_R_IAR-0111.fts", # DIPOL polarimetry astrocalibration / catalog matching in a blazar
     "OSN-T090/2023-10-25/HD204827_R_IAR-0384.fts", # DIPOL polarimetry astrocalibration / target E, O in a star
     # DIPOL polarimetry astrocalibration / quad matching in a blazar
     "OSN-T090/2023-11-06/BLLac_IAR-0001R.fit", # the photometry file
     "OSN-T090/2023-11-06/BLLAC_R_IAR-0760.fts", # the polarimetry file
+    "OSN-T090/2023-10-11/OJ248_R_IAR-0111.fts", # the polarimetry file
+    "OSN-T090/2023-11-13/OJ248_R_full_IAR-0001R.fit", # the photometry file
 ]
 
 # Results to include 
@@ -60,7 +61,7 @@ results_filelocs = [
 
     # <PhotoPolResult(id: 287755                                                                                                                                                            
     #     reducedfits: [6565, 6566, 6567, 6568]
-    #     POLARIMETRY R 2200+420                                                                 
+    #     POLARIMETRY R / 2200+420                                                                 
     #     JD: 2459831.46059 (2022-09-08 23:03:14.825)                                            
     #     mag: 13.346 ± 0.086  
     #     p: 0.125 ± 0.004                                                                       
@@ -70,7 +71,7 @@ results_filelocs = [
 
     # <PhotoPolResult(id: 284969
     #     reducedfits: [39071]                                                                   
-    #     PHOTOMETRY R 2200+420
+    #     PHOTOMETRY R / 2200+420
     #     JD: 2459841.46187 (2022-09-18 23:05:05.190)                                            
     #     mag: 13.310 ± 0.032)>
 
@@ -78,7 +79,7 @@ results_filelocs = [
 
     # <PhotoPolResult(id: 285934
     #     reducedfits: [40827, 40828, 40829, 40830]                                                                                                                                         
-    #     POLARIMETRY R 2200+420 
+    #     POLARIMETRY R / 2200+420 
     #     JD: 2459841.46034 (2022-09-18 23:02:53.250)
     #     mag: 13.338 ± 0.026
     #     p: 0.110 ± 0.002     
@@ -97,7 +98,7 @@ results_filelocs = [
 
     # <PhotoPolResult(id: 238940
     #     reducedfits: [57754, 57755, 57756, 57757]
-    #     POLARIMETRY R 1641+399
+    #     POLARIMETRY R / 1641+399
     #     JD: 2460227.30780 (2023-10-09 19:23:13.500)
     #     mag: 16.537 ± 0.013
     #     p: 0.293 ± 0.003
@@ -113,7 +114,7 @@ results_filelocs = [
     #     chi: 61.374 ± 2.836)>
 ]
 
-pk_L = [PhotoPolResult.filter(astrosource__in=AstroSource.objects.filter(is_calibrator=False), reducedfits__in=[ReducedFit.by_fileloc(fileloc)]).get().id for fileloc in results_filelocs]
+pk_L = list(set([PhotoPolResult.objects.filter(astrosource__in=AstroSource.objects.filter(is_calibrator=False), reducedfits__in=[ReducedFit.by_fileloc(fileloc)]).first().id for fileloc in results_filelocs]))
 
 
 output_file = Path("~/iop4testdata.tar.gz").expanduser()
@@ -151,30 +152,30 @@ for pk in pk_L:
         rawfitL.append(redf.rawfit)
 
         # the bias for its masterbias
-        for bias in redf.masterbias.rawfits.all()[:None]:
+        for bias in redf.masterbias.rawfits.all()[:Nmax]:
             rawfitL.append(bias)
 
         # the darks for its masterdark
         if redf.masterdark is not None:
-            for dark in redf.masterdark.rawfits.all()[:None]:
+            for dark in redf.masterdark.rawfits.all()[:Nmax]:
                 rawfitL.append(dark)
 
         # the flats for its masterflat
-        for flat in redf.masterflat.rawfits.all()[:None]:
+        for flat in redf.masterflat.rawfits.all()[:Nmax]:
             rawfitL.append(flat)
 
         # the bias for the masterbias of its masterflat
-        for bias in redf.masterflat.masterbias.rawfits.all()[:None]:
+        for bias in redf.masterflat.masterbias.rawfits.all()[:Nmax]:
             rawfitL.append(bias)
 
         # the bias for the masterbias of its masterdark
         if redf.masterdark is not None:
-            for bias in redf.masterdark.masterbias.rawfits.all()[:None]:
+            for bias in redf.masterdark.masterbias.rawfits.all()[:Nmax]:
                 rawfitL.append(bias)
 
         # the bias and the darks for the masterdark of its masterflat
         if redf.masterflat.masterdark is not None:
-            for dark in redf.masterflat.masterdark.rawfits.all()[:None]:
+            for dark in redf.masterflat.masterdark.rawfits.all()[:Nmax]:
                 rawfitL.append(dark)
 
 
@@ -183,6 +184,10 @@ files_to_download = set([rawfit for rawfit in rawfitL if not os.path.exists(rawf
 if len(files_to_download) > 0:
     # download the files if needed
     Telescope.get_by_name(rawfitL[0].epoch.telescope).download_rawfits(files_to_download)
+
+rawfitL = list(set(rawfitL))
+
+print(f"Copying {len(rawfitL)} files for the given PhotoPolResults")
 
 for rawfit in rawfitL:
 
@@ -235,7 +240,7 @@ with open(workdir / "testcatalog.yaml", "a") as f:
 ### copy additional files ###
 #############################
 
-print("Copying additional files")
+print(f"Copying additional {len(raw_fileloc_L)} files")
 
 rawfitL = list()
 
@@ -304,12 +309,17 @@ if result.returncode != 0:
     print("Error creating the .tar.gz file")
     exit(1)
 
-print("Created {}".format(output_file))
+print(" Created {}".format(output_file))
 
 # read it and give the md5 sum
 
 with open(output_file, "rb") as f:
     md5 = hashlib.md5(f.read()).hexdigest()
     print("{} {}".format(output_file.name, md5))
+
+# add the md5sum to the filename
+os.rename(output_file, output_file.parent / f"iop4testdata.{md5}.tar.gz")
+
+print(f"{output_file.parent / f'iop4testdata.{md5}.tar.gz'}")
 
 exit(0)
