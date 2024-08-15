@@ -214,6 +214,16 @@ for res in PhotoPolResult.objects.filter(id__in=pk_L):
     for calibrator in AstroSource.objects.filter(calibrates=res.astrosource):
         astrosources_ids_L.append(calibrator.id)
 
+for fileloc in raw_fileloc_L:
+    rf = RawFit.by_fileloc(fileloc)
+    if (src := rf.header_hintobject) is not None:
+        astrosources_ids_L.append(src.id)
+        for calibrator in AstroSource.objects.filter(calibrates=src):
+            astrosources_ids_L.append(calibrator.id)
+
+for astrosource in AstroSource.objects.filter(id__in=set(astrosources_ids_L)):
+    print(f"  {astrosource}")
+
 from django.core.serializers import serialize
 with open(workdir / "testcatalog.yaml", "a") as f:
     f.write(serialize("yaml", AstroSource.objects.filter(id__in=set(astrosources_ids_L)), use_natural_foreign_keys=True, use_natural_primary_keys=True))
