@@ -34,10 +34,11 @@ def test_index(client):
     assert b"Juan Escudero Pedrosa" in response.content
 
 @override_settings(**settings_dict)
+@pytest.mark.django_db(transaction=True)
 def test_login(client):
-    """Test the login page"""
+    """Test the login and login page"""
 
-    response = client.get('/iop4/login')
+    response = client.get('/iop4/login/')
     assert response.status_code == 200
     assert b"Username" in response.content
     assert b"Password" in response.content
@@ -48,7 +49,7 @@ def test_login(client):
     user.save()
 
     # try to login
-    response = client.post('/iop4/login', 
+    response = client.post('/iop4/api/login/', 
                            {'username': 'testuser', 'password': 'testpassword'},
                             follow=True)
     
@@ -59,13 +60,14 @@ def test_login(client):
     # check that the explore tab is present
     client.get('/iop4/explore/')
     assert response.status_code == 200
-    assert b"Explore data:" in response.content
+    assert b"Explore data" in response.content
 
 @override_settings(**settings_dict)
+@pytest.mark.django_db(transaction=True)
 def test_failed_login(client):
     """Test that the login fails with wrong credentials"""
 
-    response = client.get('/iop4/login')
+    response = client.get('/iop4/login/')
     assert response.status_code == 200
     assert b"Username" in response.content
     assert b"Password" in response.content
@@ -76,7 +78,7 @@ def test_failed_login(client):
     user.save()
 
     # try to login
-    response = client.post('/iop4/login', 
+    response = client.post('/iop4/api/login/', 
                            {'username': 'testuser', 'password': 'wrongtestpassword'},
                             follow=True)
     
@@ -87,4 +89,4 @@ def test_failed_login(client):
     # check that the explore tab is not present
     client.get('/iop4/explore/')
     assert response.status_code == 200
-    assert not b"Explore data:" in response.content
+    assert not b"Explore data" in response.content

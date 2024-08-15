@@ -43,6 +43,14 @@ def pytest_configure():
     settings.configure(
         INSTALLED_APPS=[
             'iop4api',
+            # required to test the web interface, so the DB has user table
+            "iop4admin",
+            "django.contrib.admin",
+            "django.contrib.auth",
+            "django.contrib.contenttypes",
+            "django.contrib.sessions",
+            "django.contrib.messages",
+            "django.contrib.staticfiles",
         ],
         DATABASES = {
             "default": {
