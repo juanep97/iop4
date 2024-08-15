@@ -42,6 +42,8 @@ def test_build_multi_proc_photopol(load_test_catalog):
         epoch.build_master_biases()
         epoch.build_master_flats()
 
+    # 1. Test multi-process reduced fits building
+
     iop4conf.nthreads = 4
 
     rawfits = RawFit.objects.filter(epoch__in=epoch_L, instrument=INSTRUMENTS.CAFOS, imgtype=IMGTYPES.LIGHT).all()
@@ -56,6 +58,8 @@ def test_build_multi_proc_photopol(load_test_catalog):
 
     from iop4lib.db import PhotoPolResult, AstroSource
 
+    # 2. Test relative photo-polarimetry results
+
     epoch = Epoch.by_epochname("CAHA-T220/2022-09-18")
 
     epoch.compute_relative_polarimetry()
@@ -67,9 +71,9 @@ def test_build_multi_proc_photopol(load_test_catalog):
 
     res = qs_res[0]
 
-    # check that the result is correct to 1.5 sigma or 0.02 mag compared to IOP3
+    # check that the result is correct compared to IOP3
+    
     assert res.mag == approx(13.38, abs=max(1.5*res.mag_err, 0.05))
-    # check that uncertainty of the result is less than 0.08 mag
     assert res.mag_err < 0.08
 
     assert res.p == approx(10.9/100, abs=max(1.5*res.p_err, 1.0/100))
