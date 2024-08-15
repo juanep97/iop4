@@ -29,13 +29,7 @@ attempt_defs:
       npixels:  [128, 64]
       min_quad_distance: [4.0, 8.0]
 
-  star_catalog_matching:
-    method: '_build_wcs_for_polarimetry_images_catalog_matching'
-    args:
-      n_seg_threshold: [300, 200, 200, 100, 50, 25, 12, 6]
-      npixels: [128, 64]
-
-  star_highexp_target_O_and_E_high_exptime:
+  star_highexp_target_O_and_E:
     method: '_build_wcs_for_polarimetry_from_target_O_and_E'
     args: 
       n_seg_threshold:  [300, 200, 100, 50, 25, 12, 6]
@@ -58,12 +52,6 @@ attempt_defs:
       npixels:  [64, 32]
       min_quad_distance: [4.0, 8.0]
 
-  blazar_catalog_matching:
-    method: '_build_wcs_for_polarimetry_images_catalog_matching'
-    args:
-      n_seg_threshold:  [1.1, 1.0, 0.9, 0.8, 0.7, 0.6]
-      npixels: [64, 32]
-
   blazar_isolated_dim_source_target_EO:
     method: '_build_wcs_for_polarimetry_from_target_O_and_E'
     args: 
@@ -85,13 +73,11 @@ rules:
         attempts:
           - 'star_lowexp_target_O_and_E'
           - 'star_photo_quads'
-          - 'star_catalog_matching'
 
       - conds: []
         attempts:
           - 'star_highexp_target_O_and_E'
           - 'star_photo_quads'
-          - 'star_catalog_matching'
   
   # 1101+384 (mrk421) has a bright star nearby whose difraction spikes cause the quad method to fail, 
   # safest to use the target O E method. Sometimes it is a bit off the center too, but it should be the two 
@@ -119,7 +105,6 @@ rules:
     attempts:
       - 'blazar_isolated_dim_source_target_EO'
       - 'blazar_photo_quads'
-      - 'blazar_catalog_matching'
 
   # 1243+362 (TON 116), same case as 1308+326
   - conds:
@@ -127,7 +112,6 @@ rules:
     attempts:
       - 'blazar_isolated_dim_source_target_EO'
       - 'blazar_photo_quads'
-      - 'blazar_catalog_matching'
   
   # Blazars (general)
   - conds:
@@ -143,11 +127,9 @@ rules:
           n_estimate__gte: 4
         attempts:
           - 'blazar_photo_quads'
-          - 'blazar_catalog_matching'
           - 'blazar_target_O_and_E'
 
       - conds: []
         attempts:
-          - 'blazar_catalog_matching'
           - 'blazar_photo_quads'
           - 'blazar_target_O_and_E'
