@@ -97,6 +97,9 @@ def process_epochs(epochname_list: Iterable[str], args):
 def list_local_epochnames() -> list[str]:
     """List all local epochnames in local archives (by looking at the raw directory)."""
 
+    import iop4lib.config
+    iop4conf = iop4lib.Config()
+
     from iop4lib.telescopes import Telescope
 
     local_epochnames = list()

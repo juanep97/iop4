@@ -115,7 +115,7 @@ def plot(request):
             df['chi_err'] = df['dTheta']
             df['p'] = df['P']/100
             df['p_err'] = df['dP']/100
-            df['instrument'] = list(map(lambda x: "IOP3-"+x, df_crosscheck["Telescope"]))
+            df['instrument'] = list(map(lambda x: "IOP3-"+x, df["Telescope"]))
 
             df_crosscheck = pd.concat([df_crosscheck, df], ignore_index=True, join="inner")
         
@@ -126,7 +126,7 @@ def plot(request):
     
         for fpath in glob.iglob(f"{dipol_dpath}/*.txt"):
 
-            if get_invariable_str(target_src.name) in get_invariable_str(fpath) or get_invariable_str(target_src.other_name) in get_invariable_str(fpath):
+            if get_invariable_str(target_src.name) in get_invariable_str(fpath) or get_invariable_str(target_src.other_names_list[0]) in get_invariable_str(fpath):
                 logger.debug(f"Reading {fpath}")
 
                 df = pd.read_csv(fpath, delim_whitespace=True, header=None, 

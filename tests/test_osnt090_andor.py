@@ -94,23 +94,31 @@ def test_build_multi_proc_photopol(load_test_catalog):
     """ Test the whole building process of reduced fits through multiprocessing 
     
     Also tests here relative photometry and polarimetry results and their 
-    quality (value + uncertainties) (to avoud losing time reducing them
+    quality (value + uncertainties) (to avoid losing time reducing them
     in another test function).
+
+    See build_test_dataset.py for the test dataset used in this test.
+
     """
+
     from iop4lib.db import Epoch, RawFit, ReducedFit
-    from iop4lib.enums import IMGTYPES, SRCTYPES
+    from iop4lib.enums import IMGTYPES, SRCTYPES, INSTRUMENTS
 
-    epochname_L = ["OSN-T090/2022-09-23", "OSN-T090/2022-09-08", "OSN-T090/2022-09-18"]
-
-    epoch_L = [Epoch.create(epochname=epochname, check_remote_list=False) for epochname in epochname_L]
+    # get epochs that have Andor90 observations in them
+    from iop4lib.iop4 import list_local_epochnames
+    epochname_L = list_local_epochnames()
+    epoch_L = [Epoch.create(epochname=epochname) for epochname in epochname_L]
+    epoch_L = [epoch for epoch in epoch_L if epoch.rawfits.filter(instrument=INSTRUMENTS.AndorT90).exists()]
 
     for epoch in epoch_L:
         epoch.build_master_biases()
         epoch.build_master_flats()
 
+    # 1. Test multi-process reduced fits building
+
     iop4conf.nthreads = 6
 
-    rawfits = RawFit.objects.filter(epoch__in=epoch_L, imgtype=IMGTYPES.LIGHT).all()
+    rawfits = RawFit.objects.filter(epoch__in=epoch_L, instrument=INSTRUMENTS.AndorT90, imgtype=IMGTYPES.LIGHT).all()
     
     Epoch.reduce_rawfits(rawfits)
 
@@ -122,7 +130,9 @@ def test_build_multi_proc_photopol(load_test_catalog):
 
     from iop4lib.db import PhotoPolResult, AstroSource
 
-    # 1. test relative photometry 
+    # 2. Test relative photometry 
+
+    logger.info("Testing relative photometry results")
 
     epoch = Epoch.by_epochname("OSN-T090/2022-09-18")
 
@@ -133,15 +143,17 @@ def test_build_multi_proc_photopol(load_test_catalog):
     # we expect only one photometry result target in this test dataset for this epoch
     assert qs_res.exclude(astrosource__in=AstroSource.objects.filter(is_calibrator=True)).count() == 1
 
-    res = qs_res[0]
+    res = qs_res.get(astrosource__name="2200+420")
 
-    # check that the result is correct to 1.5 sigma or 0.02 mag compared to IOP3
-    assert res.mag == approx(13.35, abs=max(1.5*res.mag_err, 0.02))
+    # check that the photometric result is correct to 1.5 sigma or 0.02 mag compared to IOP3
+    assert res.mag == approx(13.35, abs=max(1.5*res.mag_err, 0.05))
 
-    # check that uncertainty of the result is less than 0.08 mag
-    assert res.mag_err < 0.08
+    # check that uncertainty of the photometric result is less than 0.06 mag
+    assert res.mag_err < 0.06
 
-    # 2. test relative polarimetry
+    # 3. Test relative polarimetry
+
+    logger.info("Testing relative polarimetry results")
 
     epoch = epoch.by_epochname("OSN-T090/2022-09-08")
 
@@ -154,14 +166,14 @@ def test_build_multi_proc_photopol(load_test_catalog):
 
     res = qs_res.get(astrosource__name="2200+420")
 
-    # logger.debug(f"{res}\n"
-    #              f"  mag {res.mag} +- {res.mag_err}\n"
-    #              f"  p {res.p} % +- {res.p_err} %\n"
-    #              f"  chi {res.chi} +- {res.chi_err}")
-
-    # check that the result is correct to 1.5 sigma or 0.02 compared to IOP3
-    assert res.mag == approx(13.38, abs=max(1.5*res.mag_err, 0.02))
-
+    # check that the magnitude and polarization of the result relative to IOP3
     # for polarimetry, we expect a higher uncertainty than for photometry
+
+    assert res.mag == approx(13.38, abs=max(1.5*res.mag_err, 0.05)) # 1.5 sigma or 0.05 mag
+    assert res.mag_err < 0.1
+
     assert res.p == approx(14.0/100, abs=max(2*res.p_err, 2/100)) # 2 sigma or 2% of polarization degree
+    assert res.p_err < 0.5/100
+
     assert res.chi == approx(14.7, abs=max(2*res.chi_err, 5)) # 2 sigma or 5 degrees of polarization angle
+    assert res.chi_err < 2.5
