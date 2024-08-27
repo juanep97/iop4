@@ -39,6 +39,10 @@
 
         <hr/>
 
+        {% if argc.rc and args.rc != 0 %}
+            <p style="color:red;font-size:large;font-weight:bold;">the pipeline did not run properly (rc={{ args.rc }}) !</p>
+        {% endif %}
+
         <h2>Overview</h2>
         
         {% if epochs %}
@@ -70,7 +74,7 @@
                             <td>
                                 {% if epoch.files_with_error_astrometry %}
                                     <a href="{{ epoch.files_with_error_astrometry_href}}">
-                                        Err!
+                                        Err! ({{ epoch.files_with_error_astrometry|length }})
                                     </a>
                                 {% else %}
                                     OK
