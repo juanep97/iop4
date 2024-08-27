@@ -39,7 +39,7 @@
 
         <hr/>
 
-        {% if argc.rc and args.rc != 0 %}
+        {% if args.rc and args.rc != 0 %}
             <p style="color:red;font-size:large;font-weight:bold;">the pipeline did not run properly (rc={{ args.rc }}) !</p>
         {% endif %}
 
