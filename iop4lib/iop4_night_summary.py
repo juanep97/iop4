@@ -73,7 +73,7 @@ def gather_context(args):
     sources = AstroSource.objects.exclude(is_calibrator=True).filter(photopolresults__epoch__night=args.date).distinct()
 
     if sources:
-        instruments = list([instrument.name for instrument in Instrument.get_known()])
+        instruments = [instrument.name for instrument in Instrument.get_known()]
         colors = [mplt.colormaps['tab10'](i) for i in range(len(instruments))]
 
     results_summary_images = dict()
