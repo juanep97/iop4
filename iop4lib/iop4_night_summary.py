@@ -14,6 +14,7 @@ from django.template import Context, Template
 
 # iop4lib imports
 from iop4lib.db import Epoch, RawFit, ReducedFit, PhotoPolResult, AstroSource
+from iop4lib.instruments import Instrument
 from iop4lib.enums import SRCTYPES
 from iop4lib.utils import get_column_values
 
@@ -96,11 +97,15 @@ def gather_context(args):
         fig = mplt.figure.Figure(figsize=(800/100, 600/100), dpi=100)
         axs = fig.subplots(nrows=3, ncols=1, sharex=True, gridspec_kw={'hspace': 0.05})
 
-        instruments = list(set(qs0.values_list('instrument', flat=True).distinct()))
+        instruments = list([instrument.name for instrument in Instrument.get_known()])
         colors = [mplt.colormaps['tab10'](i) for i in range(len(instruments))]
 
         for instrument, color in zip(instruments, colors):
             qs = qs0.filter(instrument=instrument)
+
+            if not qs.exists():
+                continue
+
             column_names = ['id', 'juliandate', 'band', 'instrument', 'mag', 'mag_err', 'p', 'p_err', 'chi', 'chi_err', 'flags']
             vals =  get_column_values(qs, column_names)
             vals['datetime'] = Time(vals['juliandate'], format='jd').datetime
