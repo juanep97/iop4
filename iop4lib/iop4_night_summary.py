@@ -72,6 +72,10 @@ def gather_context(args):
         
     sources = AstroSource.objects.exclude(is_calibrator=True).filter(photopolresults__epoch__night=args.date).distinct()
 
+    if sources:
+        instruments = list([instrument.name for instrument in Instrument.get_known()])
+        colors = [mplt.colormaps['tab10'](i) for i in range(len(instruments))]
+
     results_summary_images = dict()
 
     for source in sources:
@@ -96,9 +100,6 @@ def gather_context(args):
 
         fig = mplt.figure.Figure(figsize=(800/100, 600/100), dpi=100)
         axs = fig.subplots(nrows=3, ncols=1, sharex=True, gridspec_kw={'hspace': 0.05})
-
-        instruments = list([instrument.name for instrument in Instrument.get_known()])
-        colors = [mplt.colormaps['tab10'](i) for i in range(len(instruments))]
 
         for instrument, color in zip(instruments, colors):
             qs = qs0.filter(instrument=instrument)
