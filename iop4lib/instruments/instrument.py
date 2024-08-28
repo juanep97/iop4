@@ -518,35 +518,26 @@ class Instrument(metaclass=ABCMeta):
         from photutils.utils import calc_total_error
         from astropy.stats import SigmaClip
 
-        if redf.mdata.shape[0] == 1024: # andor cameras
-            bkg_box_size = 128
-        elif redf.mdata.shape[0] == 2048: # andor cameras
-            bkg_box_size = 256
-        elif redf.mdata.shape[0] == 800: # cafos
-            bkg_box_size = 100
-        elif redf.mdata.shape[0] == 900: # dipol polarimetry
-            bkg_box_size = 90
-        elif redf.mdata.shape[0] == 896: # dipol polarimetry (also)
-            bkg_box_size = 112
-        elif redf.mdata.shape[0] == 4144: # dipol photometry
-            bkg_box_size = 518
-        else:
-            logger.warning(f"Image size {redf.mdata.shape[0]} not expected.")
-            bkg_box_size = redf.mdata.shape[0]//10
+        bkg_box_size = redf.mdata.shape[0]//10
 
         bkg = get_bkg(redf.mdata, filter_size=1, box_size=bkg_box_size)
         img = redf.mdata
-
-        if np.sum(redf.mdata <= 0.0) >= 1:
-            logger.debug(f"{redf}: {np.sum(img <= 0.0):.0f} px < 0  ({math.sqrt(np.sum(img <= 0.0)):.0f} px2) in image.")
 
         error = calc_total_error(img, bkg.background_rms, cls.gain_e_adu)
 
         for astrosource in redf.sources_in_field.all():
             for pairs, wcs in (('O', redf.wcs1), ('E', redf.wcs2)) if redf.has_pairs else (('O',redf.wcs),):
 
-                ap = CircularAperture(astrosource.coord.to_pixel(wcs), r=aperpix)
-                annulus = CircularAnnulus(astrosource.coord.to_pixel(wcs), r_in=r_in, r_out=r_out)
+                wcs_px_pos = astrosource.coord.to_pixel(wcs)
+
+                logger.debug(f"{redf}: computing aperture photometry for {astrosource}")
+
+                from photutils.centroids import centroid_com, centroid_sources
+                centroid_px_pos = centroid_sources(img, xpos=wcs_px_pos[0], ypos=wcs_px_pos[1], box_size=11, centroid_func=centroid_com)
+                centroid_px_pos = (centroid_px_pos[0][0], centroid_px_pos[1][0])
+
+                ap = CircularAperture(centroid_px_pos, r=aperpix)
+                annulus = CircularAnnulus(centroid_px_pos, r_in=r_in, r_out=r_out)
 
                 annulus_stats = ApertureStats(redf.mdata, annulus, error=error, sigma_clip=SigmaClip(sigma=5.0, maxiters=10))
                 ap_stats = ApertureStats(redf.mdata, ap, error=error)
@@ -561,6 +552,7 @@ class Instrument(metaclass=ABCMeta):
                                       astrosource=astrosource, 
                                       aperpix=aperpix, 
                                       r_in=r_in, r_out=r_out,
+                                      x_px=centroid_px_pos[0], y_px=centroid_px_pos[1],
                                       pairs=pairs, 
                                       bkg_flux_counts=bkg_flux_counts, bkg_flux_counts_err=bkg_flux_counts_err,
                                       flux_counts=flux_counts, flux_counts_err=flux_counts_err)
