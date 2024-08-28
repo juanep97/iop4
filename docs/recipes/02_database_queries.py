@@ -55,7 +55,7 @@ epoch
 # To query the first of the "science" (`LIGHT`) files, we could access them by
 
 # %%
-rf = epoch.rawfits.order_by('-juliandate').first()
+rf = epoch.rawfits.filter(imgtype=IMGTYPES.LIGHT).order_by('-juliandate').first()
 rf
 
 # %% [markdown]
