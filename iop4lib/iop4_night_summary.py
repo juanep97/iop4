@@ -207,7 +207,7 @@ def main():
     argparser.add_argument('--contact-email', type=str, default=None, help='Email to indicate as contact (default is the sender address)')
     argparser.add_argument('--site-url', type=str, default="localhost:8000", help='URL of the site to link the summary')
     argparser.add_argument('--saveto', type=str, default=None, help='Save the summary to a file')
-    argparser.add_argument('--rc', type=int, default=None, help="Indicate the return code to warn the user if the script fails")
+    argparser.add_argument('--rc', type=int, default=None, help="Indicate the return code from IOP4 to warn the user if the data processing fails")
 
     args = argparser.parse_args()
 
