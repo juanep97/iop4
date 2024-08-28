@@ -40,7 +40,7 @@ jobs:
     strategy:
       max-parallel: 1
       matrix:
-        python-version: ["3.10.9"]
+        python-version: ["3.10.9", "3.11"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -91,16 +91,19 @@ jobs:
     runs-on: [self-hosted, x64, Linux, ubuntu, generic]
     # Don't run if this is a tag push, already done during docs deployment (docs.yml)
     if:  ${{ !startsWith(github.ref, 'refs/tags/v') }}
-    
+    strategy:
+      max-parallel: 1
+      matrix:
+        python-version: ["3.10.9", "3.11"]
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10.9"
+          python-version: ${{ matrix.python-version }}
       
       - name: Update pip
         run: |
