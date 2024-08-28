@@ -52,10 +52,10 @@ epoch
 
 # %% [markdown]
 # In an IPython terminal, this will pretty-print a description of `epoch`.
-# To query the first of the "science" (`LIGHT`) files, we could access them by
+# To query the last of the "science" (`LIGHT`) CAFOS files, we could do
 
 # %%
-rf = epoch.rawfits.filter(imgtype=IMGTYPES.LIGHT).order_by('-juliandate').first()
+rf = RawFit.objects.filter(imgtype=IMGTYPES.LIGHT, instrument=INSTRUMENTS.CAFOS).order_by('-juliandate').first()
 rf
 
 # %% [markdown]
