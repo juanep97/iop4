@@ -77,7 +77,8 @@ doc = [
     "nbstripout",
     "jupytext",
     "ipykernel",
-    "sphinx-gallery<=0.7.0",
+    "sphinx-gallery",
+    "sphinx-gallery<=0.7.0; python_version<'3.11'", # PR 130, PR 127
     "myst-nb",
 ]
 dev = [
