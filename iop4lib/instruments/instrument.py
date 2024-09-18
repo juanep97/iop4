@@ -17,6 +17,7 @@ import itertools
 import datetime
 import glob
 import astrometry
+from photutils.centroids import centroid_com, centroid_sources
 
 # iop4lib imports
 from iop4lib.enums import *
@@ -532,7 +533,6 @@ class Instrument(metaclass=ABCMeta):
 
                 logger.debug(f"{redf}: computing aperture photometry for {astrosource}")
 
-                from photutils.centroids import centroid_com, centroid_sources
                 centroid_px_pos = centroid_sources(img, xpos=wcs_px_pos[0], ypos=wcs_px_pos[1], box_size=11, centroid_func=centroid_com)
                 centroid_px_pos = (centroid_px_pos[0][0], centroid_px_pos[1][0])
 
