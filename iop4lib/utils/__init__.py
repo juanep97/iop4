@@ -307,7 +307,7 @@ def fit_gaussian(px_start, redf=None, data=None, sigma_start=7, r_max=None, r_se
 def get_angle_from_history(redf: 'ReducedFit' = None, 
                            target_src: 'AstroSource' = None, 
                            calibrated_fits: Sequence['ReducedFit'] = None, 
-                           n_max_fits=20) -> (float, float):
+                           n_max_fits=20) -> Union[float, float]:
     """ Compute the average rotation angle from a list of already calibrated fits.
 
     To compute it, it checks the WCS in the header of each calibrated fit.
