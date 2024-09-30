@@ -2,7 +2,7 @@
 <a href="https://github.com/juanep97/iop4/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/juanep97/iop4/actions/workflows/ci.yml/badge.svg"></img></a>
 <a href="https://zenodo.org/doi/10.5281/zenodo.10222722"><img src="https://zenodo.org/badge/636786270.svg" alt="DOI"></img></a>
 <a href="https://pypi.org/project/iop4/"><img src="https://img.shields.io/pypi/v/iop4" alt="PyPI"></img></a>
-<a href="https://dx.doi.org/10.3847/1538-3881/ad5a80"><img src="https://img.shields.io/badge/Astronomical_Journal-Published-green" alt="Publication AJ">
+<a href="https://dx.doi.org/10.3847/1538-3881/ad5a80"><img src="https://img.shields.io/badge/Astronomical_Journal-Published-green" alt="Publication AJ"></a>
 </div>
 
 
