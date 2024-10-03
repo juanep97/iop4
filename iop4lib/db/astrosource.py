@@ -36,6 +36,10 @@ class AstroSourceManager(models.Manager):
         return AstroSourceQuerySet(self.model).with_is_calibrator()
       
 class AstroSource(models.Model):
+    """ AstroSource model, representing an astronomical source in the IOP4 catalog.
+
+    The coordinates (ra, dec) are interpreted as ICRS coordinates, following astropy `SkyCoord` default convention.
+    """
 
     from iop4lib.enums import SRCTYPES
 
@@ -48,8 +52,8 @@ class AstroSource(models.Model):
     # common to all sources
 
     other_names = models.CharField(max_length=255, null=True, blank=True, help_text="Alternative names for the source, separated by a semicolon ';'. It might be needed to correctly identify the target source of observations if observers used a different name.")
-    ra_hms = models.CharField(max_length=255, help_text="Right ascension in hh:mm:ss format")
-    dec_dms = models.CharField(max_length=255, help_text="Declination in dd:mm:ss format")
+    ra_hms = models.CharField(max_length=255, help_text="Right ascension (ICRS) in hh:mm:ss format")
+    dec_dms = models.CharField(max_length=255, help_text="Declination (ICRS) in dd:mm:ss format")
     srctype = models.CharField(max_length=255, choices=SRCTYPES.choices, help_text="Source type")  
     comment = models.TextField(null=True, blank=True, help_text="Any comment about the source (in Markdown format)")
 
