@@ -29,7 +29,7 @@ dependencies = [
     "scikit-image",
     "coloredlogs",
     "ipython",
-    "django==4.1.7",
+    "django<5",
     "astrometry==4.1.2",
     "multiprocess==0.70.14",
     "pypandoc",
