@@ -95,6 +95,7 @@ class AdminAstroSource(admin.ModelAdmin):
         except Exception as e:
             logger.error(f"Error querying PanSTARRS around {main_src.name} ({main_src.coord.ra.deg} {main_src.coord.dec.deg}): {e}")
             messages.error(request, f"Error querying PanSTARRS around {main_src.name}: {e}")
+            return
 
         logger.info(f"Got {len(catalog_data)} PanSTARRS field stars around {main_src.name}")
 
