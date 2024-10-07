@@ -18,9 +18,9 @@ We recommend installing IOP4 in an isolated environment as described below. IOP4
 
 ### Option 1: Using a virtual environment
 
-**Note:** IOP4 requires Python 3.10 or later. You can check your Python version with `python --version`. If you have a compatible version, you can skip this step.
+**Note:** IOP4 requires Python 3.11 or later. You can check your Python version with `python --version`. If you have a compatible version, you can skip this step.
   
-If you don't have Python 3.10 or later, you can install [pyenv](https://github.com/pyenv/pyenv) and [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv), which will manage python versions for you. You can use the automatic installer [pyenv-installer](https://github.com/pyenv/pyenv-installer):
+If you don't have Python 3.11 or later, you can install [pyenv](https://github.com/pyenv/pyenv) and [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv), which will manage python versions for you. You can use the automatic installer [pyenv-installer](https://github.com/pyenv/pyenv-installer):
 
 ```bash
     $ curl https://pyenv.run | bash
@@ -28,8 +28,8 @@ If you don't have Python 3.10 or later, you can install [pyenv](https://github.c
 
 Follow the instructions that this command outputs to add `pyenv` to `PATH` (or copy the commands from https://github.com/pyenv/pyenv for your shell). Restart your terminal, or source the file (e.g. `. ~/.bashrc` or `. ~/.zshrc`) Then, run 
 ```bash 
-    $ pyenv install 3.10
-    $ pyenv virtualenv 3.10 iop4-venv
+    $ pyenv install 3.11
+    $ pyenv virtualenv 3.11 iop4-venv
     $ pyenv activate iop4-venv
 ```
 Now you will have a virtual environment with the right Python version, and you can continue with the next step. To deactivate, just run `pyenv deactivate`.
@@ -51,7 +51,7 @@ or `pip install -e .` if you want to install it in developer mode.
 ### Option 2: Using conda/mamba
 As the previous option, create and activate the environment as follows:
 ```bash
-    $ conda create -n iop4 python=3.10
+    $ conda create -n iop4 python=3.11
     $ conda activate iop4
 ```
 
