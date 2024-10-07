@@ -229,7 +229,7 @@ class MasterFlat(FitFileModel):
         header['EPOCH'] = self.epoch.epochname
         header['IMGSIZE'] = self.imgsize
         header['IMGTYPE'] = 'masterflat'
-        header['DATECREA'] = datetime.datetime.utcnow().isoformat(timespec="milliseconds")
+        header['DATECREA'] = datetime.datetime.now(datetime.UTC).isoformat(timespec="milliseconds")
         header['NRAWFITS'] = self.rawfits.count()
         header['BAND'] = self.band
         header['INSTRUME'] = self.instrument

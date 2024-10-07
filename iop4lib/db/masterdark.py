@@ -209,7 +209,7 @@ class MasterDark(FitFileModel):
         header['EPOCH'] = self.epoch.epochname
         header['IMGSIZE'] = self.imgsize
         header['IMGTYPE'] = 'masterdark'
-        header['DATECREA'] = datetime.datetime.utcnow().isoformat(timespec="milliseconds")
+        header['DATECREA'] = datetime.datetime.now(datetime.UTC).isoformat(timespec="milliseconds")
         header['NRAWFITS'] = self.rawfits.count()
         header['INSTRUME'] = self.instrument
         header['EXPTIME'] = self.exptime
