@@ -275,6 +275,9 @@ class FTPArchiveMixin():
     def download_rawfits(cls, rawfits: list['RawFit'] | list[str]):
         from iop4lib.db import RawFit
 
+        if cls.ftp_address is None or cls.ftp_user is None or cls.ftp_password is None:
+            raise ValueError(f"FTP credentials not set for {cls.name}.")
+
         try:
             ftp =  ftplib.FTP(cls.ftp_address, encoding=cls.ftp_encoding)
             ftp.login(cls.ftp_user, cls.ftp_password)
@@ -309,6 +312,9 @@ class FTPArchiveMixin():
     @classmethod
     def list_remote_filelocs(cls, epochnames: list[str]) -> list[str]:
         from iop4lib.db import Epoch
+
+        if cls.ftp_address is None or cls.ftp_user is None or cls.ftp_password is None:
+            raise ValueError(f"FTP credentials not set for {cls.name}.")
 
         ftp =  ftplib.FTP(cls.ftp_address, encoding=cls.ftp_encoding)
         ftp.login(cls.ftp_user, cls.ftp_password)
