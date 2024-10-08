@@ -91,7 +91,7 @@ class AdminAstroSource(admin.ModelAdmin):
         logger.info(f"Querying PanSTARRS around {main_src.name} ({main_src.coord.ra.deg} {main_src.coord.dec.deg})")
 
         try:
-            catalog_data = Catalogs.query_criteria(coordinates=f"{main_src.coord.ra.deg} {main_src.coord.dec.deg}", catalog="PANSTARRS", version=1, radius="0.15 deg")
+            catalog_data = Catalogs.query_criteria(coordinates=f"{main_src.coord.ra.deg} {main_src.coord.dec.deg}", catalog="PANSTARRS", version=1, radius="0.12 deg")
         except Exception as e:
             logger.error(f"Error querying PanSTARRS around {main_src.name} ({main_src.coord.ra.deg} {main_src.coord.dec.deg}): {e}")
             messages.error(request, f"Error querying PanSTARRS around {main_src.name}: {e}")
