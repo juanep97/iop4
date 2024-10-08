@@ -88,6 +88,12 @@ class AdminAstroSource(admin.ModelAdmin):
         
         main_src = queryset.first()
 
+        # quality constraints
+        MIN_R_MAG = 11 # minimum R magnitude
+        MAX_R_MAG = 16  # maximum R magnitude
+        MAX_MAG_STD = 0.01 # maximum standard deviation in the required bands (we want our calibrators to be stable)
+        MIN_N_OBS = 5 # minimum number of observations in the required bands
+
         logger.info(f"Querying PanSTARRS around {main_src.name} ({main_src.coord.ra.deg} {main_src.coord.dec.deg})")
 
         try:
@@ -112,20 +118,20 @@ class AdminAstroSource(admin.ModelAdmin):
             idx = idx.data & idx.mask
             catalog_data = catalog_data[~idx]
 
-        idx = (11.0 <= catalog_data["rMeanApMag"]) & (catalog_data["rMeanApMag"] <= 16.0)
-        idx = idx & (catalog_data["rMeanApMagStd"] < 0.01)
-        idx = idx & (catalog_data["rMeanApMagNpt"] > 5)
-        idx = idx & (catalog_data["gMeanApMagStd"] < 0.01)
-        idx = idx & (catalog_data["gMeanApMagNpt"] > 5)
-        idx = idx & (catalog_data["iMeanApMagStd"] < 0.01)
-        idx = idx & (catalog_data["iMeanApMagNpt"] > 5)
-        idx = idx & (catalog_data["yMeanApMagStd"] < 0.01)
-        idx = idx & (catalog_data["yMeanApMagNpt"] > 5)
+        idx = (MIN_R_MAG <= catalog_data["rMeanApMag"]) & (catalog_data["rMeanApMag"] <= MAX_R_MAG)
+        idx = idx & (catalog_data["rMeanApMagStd"] < MAX_MAG_STD)
+        idx = idx & (catalog_data["rMeanApMagNpt"] > MIN_N_OBS)
+        idx = idx & (catalog_data["gMeanApMagStd"] < MAX_MAG_STD)
+        idx = idx & (catalog_data["gMeanApMagNpt"] > MIN_N_OBS)
+        idx = idx & (catalog_data["iMeanApMagStd"] < MAX_MAG_STD)
+        idx = idx & (catalog_data["iMeanApMagNpt"] > MIN_N_OBS)
+        idx = idx & (catalog_data["yMeanApMagStd"] < MAX_MAG_STD)
+        idx = idx & (catalog_data["yMeanApMagNpt"] > MIN_N_OBS)
         catalog_data = catalog_data[idx]
 
         catalog_data.remove_columns([col for col in catalog_data.columns if col not in column_names])
 
-        logger.info(f"Filtered down to {len(catalog_data)} PanSTARRS field stars for {main_src.name}")
+        logger.info(f"Filtered down to {len(catalog_data)} PanSTARRS field stars with {MIN_R_MAG} <= R <= {MAX_R_MAG}, std < {MAX_MAG_STD} and n_obs > {MIN_N_OBS}")
 
         if len(catalog_data) == 0:
             logger.error(f"No PanSTARRS field stars found for {main_src.name}, skipping")
@@ -142,6 +148,8 @@ class AdminAstroSource(admin.ModelAdmin):
             try:
                 cat_ra, cat_dec = row["raMean"], row["decMean"]
                 ra_hms, dec_dms = SkyCoord(cat_ra, cat_dec, unit="deg").to_string("hmsdms").split()
+
+                # Transform SDSS to Johnson-Cousins (Lupton 2005)
 
                 B = row["gMeanApMag"] + 0.3130*(row["gMeanApMag"] - row["rMeanApMag"]) + 0.2271 
                 err_B = np.sqrt((1.313*row["gMeanApMagErr"])**2+(0.313*row["rMeanApMagErr"])**2+0.0107**2)
