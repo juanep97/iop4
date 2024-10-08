@@ -196,7 +196,7 @@ class MasterBias(FitFileModel):
         header['EPOCH'] = self.epoch.epochname
         header['IMGSIZE'] = self.imgsize
         header['IMGTYPE'] = 'masterbias'
-        header['DATECREA'] = datetime.datetime.utcnow().isoformat(timespec="milliseconds")
+        header['DATECREA'] = datetime.datetime.now(datetime.UTC).isoformat(timespec="milliseconds")
         header['NRAWFITS'] = self.rawfits.count()
 
         logger.debug(f"Building HDU")

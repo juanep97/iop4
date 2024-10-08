@@ -375,7 +375,7 @@ def plot(request):
         # alternatively: # figure(sizing_mode="stretch", width=800, height=200,
         p_main = figure(x_range=x1_lims, tools="", lod_threshold=lod_threshold, lod_factor=lod_factor, lod_timeout=lod_timeout, output_backend="webgl")  
         p_main.circle(x='x1', y='y1', source=source, view=view,
-                    size=3, 
+                    radius=3, 
                     line_color=bokeh.colors.named.navy, 
                     fill_color=bokeh.colors.named.navy, 
                     selection_line_color=bokeh.colors.named.navy.darken(0.1), 
@@ -633,7 +633,7 @@ def plot(request):
         # Create Div elements for labels
         label = Div(text=f"""<label><span>{instrument}</span><input onclick="plot_hide_instrument(this);" data-instrument="{instrument}" type="checkbox" checked/></label>""", height=21, stylesheets=[label_stylesheet])
         # Create glyphs
-        circle_glyph = Circle(x='x', y='y', fill_color=color, line_color=color, size=8)
+        circle_glyph = Circle(x='x', y='y', fill_color=color, line_color=color, radius=8)
         # Create plots to hold the glyphs
         legend_p = figure(width=21, height=21, toolbar_location=None, min_border=0, tools="")
         legend_p.add_glyph(legend_source, circle_glyph)
