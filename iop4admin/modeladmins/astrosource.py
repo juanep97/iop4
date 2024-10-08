@@ -99,31 +99,40 @@ class AdminAstroSource(admin.ModelAdmin):
 
         logger.info(f"Got {len(catalog_data)} PanSTARRS field stars around {main_src.name}")
 
-        idx = np.isfinite(catalog_data["raStack"])
-        idx = idx.data & idx.mask
-        catalog_data = catalog_data[idx]
 
-        for col in ["raMean", "decMean", "gMeanPSFMag", "rMeanPSFMag", "iMeanPSFMag", "yMeanPSFMag"]: # "zMeanPSFMag"
+        column_names = ['objName', 'raMean', 'decMean',
+                        'rMeanApMag', 'rMeanApMagErr', 'rMeanApMagStd', 'rMeanApMagNpt',
+                        'gMeanApMag', 'gMeanApMagErr', 'gMeanApMagStd', 'gMeanApMagNpt',
+                        'iMeanApMag', 'iMeanApMagErr', 'iMeanApMagStd', 'iMeanApMagNpt',
+                        'yMeanApMag', 'yMeanApMagErr', 'yMeanApMagStd', 'yMeanApMagNpt']
+        
+        for col in column_names:
+
             idx = np.isfinite(catalog_data[col])
             idx = idx.data & idx.mask
             catalog_data = catalog_data[~idx]
 
-        idx = (10.5 <= catalog_data["rMeanPSFMag"]) & (catalog_data["rMeanPSFMag"] <= 17.5)
+        idx = (10.5 <= catalog_data["rMeanApMag"]) & (catalog_data["rMeanApMag"] <= 16.5)
+        idx = idx & (catalog_data["rMeanApMagStd"] < 0.01)
+        idx = idx & (catalog_data["rMeanApMagNpt"] > 5)
+        idx = idx & (catalog_data["gMeanApMagStd"] < 0.01)
+        idx = idx & (catalog_data["gMeanApMagNpt"] > 5)
+        idx = idx & (catalog_data["iMeanApMagStd"] < 0.01)
+        idx = idx & (catalog_data["iMeanApMagNpt"] > 5)
+        idx = idx & (catalog_data["yMeanApMagStd"] < 0.01)
+        idx = idx & (catalog_data["yMeanApMagNpt"] > 5)
         catalog_data = catalog_data[idx]
 
-        catalog_data.remove_columns([col for col in catalog_data.columns if col not in ["objName", 
-                                                                                        "raStack", 
-                                                                                        "raMean", "decMean",
-                                                                                        "gMeanPSFMag", "gMeanPSFMagErr",
-                                                                                        "rMeanPSFMag", "rMeanPSFMagErr", 
-                                                                                        "iMeanPSFMag", "iMeanPSFMagErr",
-                                                                                        "zMeanPSFMag", "zMeanPSFMagErr",
-                                                                                        "yMeanPSFMag", "yMeanPSFMagErr"]])
+        catalog_data.remove_columns([col for col in catalog_data.columns if col not in column_names])
 
         logger.info(f"Filtered down to {len(catalog_data)} PanSTARRS field stars for {main_src.name}")
 
         if len(catalog_data) == 0:
             logger.error(f"No PanSTARRS field stars found for {main_src.name}, skipping")
+
+        # sort by number of observations in R, take top 10 only
+        catalog_data.sort('rMeanApMagNpt')
+        catalog_data = catalog_data[-10:]
 
         field_stars = list()
 
@@ -132,22 +141,23 @@ class AdminAstroSource(admin.ModelAdmin):
                 cat_ra, cat_dec = row["raMean"], row["decMean"]
                 ra_hms, dec_dms = SkyCoord(cat_ra, cat_dec, unit="deg").to_string("hmsdms").split()
 
-                B = row["gMeanPSFMag"] + 0.3130*(row["gMeanPSFMag"] - row["rMeanPSFMag"]) + 0.2271 
-                err_B = np.sqrt((1.313*row["gMeanPSFMagErr"])**2+(0.313*row["rMeanPSFMagErr"])**2+0.0107**2)
+                B = row["gMeanApMag"] + 0.3130*(row["gMeanApMag"] - row["rMeanApMag"]) + 0.2271 
+                err_B = np.sqrt((1.313*row["gMeanApMagErr"])**2+(0.313*row["rMeanApMagErr"])**2+0.0107**2)
 
-                V = row["gMeanPSFMag"] - 0.5784*(row["gMeanPSFMag"] - row["rMeanPSFMag"]) - 0.0038  
-                err_V = np.sqrt((0.4216*row["gMeanPSFMagErr"])**2+(0.5784*row["rMeanPSFMagErr"])**2+0.0054**2)
+                V = row["gMeanApMag"] - 0.5784*(row["gMeanApMag"] - row["rMeanApMag"]) - 0.0038  
+                err_V = np.sqrt((0.4216*row["gMeanApMagErr"])**2+(0.5784*row["rMeanApMagErr"])**2+0.0054**2)
 
-                R = row["rMeanPSFMag"] - 0.2936*(row["rMeanPSFMag"] - row["iMeanPSFMag"]) - 0.1439  
-                err_R = np.sqrt((0.7064*row["rMeanPSFMagErr"])**2+(0.2936*row["iMeanPSFMagErr"])**2+0.0072**2)
+                R = row["rMeanApMag"] - 0.2936*(row["rMeanApMag"] - row["iMeanApMag"]) - 0.1439  
+                err_R = np.sqrt((0.7064*row["rMeanApMagErr"])**2+(0.2936*row["iMeanApMagErr"])**2+0.0072**2)
 
-                I = row["rMeanPSFMag"] - 1.2444*(row["rMeanPSFMag"] - row["iMeanPSFMag"]) - 0.3820;  
-                err_I = np.sqrt((0.2444*row["rMeanPSFMagErr"])**2+(1.2444*row["iMeanPSFMagErr"])**2+0.0078**2)
+                I = row["rMeanApMag"] - 1.2444*(row["rMeanApMag"] - row["iMeanApMag"]) - 0.3820;  
+                err_I = np.sqrt((0.2444*row["rMeanApMagErr"])**2+(1.2444*row["iMeanApMagErr"])**2+0.0078**2)
 
                 field_star = AstroSource(name=f"PanSTARRS {cat_ra:.5f} {cat_dec:.5f}", 
                                         other_names=row["objName"],
                                         ra_hms=ra_hms, dec_dms=dec_dms,
                                         comment=(f"PanSTARRS field star for {main_src.name}.\n"
+                                                f"Object name: `{row['objName']}`\n"
                                                 f"Autogenerated from PanSTARRS catalog query.\n"
                                                 f"SDSS to Johnson-Cousins transformation by Lupton (2005).\n"
                                                 f"Field `other_names` corresponds to PanSTARRS `objName`.\n"),
