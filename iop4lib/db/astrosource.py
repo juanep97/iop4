@@ -253,7 +253,7 @@ class AstroSource(models.Model):
         elif T <= 800:
             return 600
         else:
-            return math.ceil(T)
+            return None
         
     @property
     def texp_andor150(self):
@@ -295,7 +295,7 @@ class AstroSource(models.Model):
         elif T <= 2000:
             return 300
         else:
-            return math.ceil(T)
+            return None
         
     @property
     def nreps_dipol(self):
