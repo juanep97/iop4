@@ -112,7 +112,7 @@ class AdminAstroSource(admin.ModelAdmin):
             idx = idx.data & idx.mask
             catalog_data = catalog_data[~idx]
 
-        idx = (10.5 <= catalog_data["rMeanApMag"]) & (catalog_data["rMeanApMag"] <= 16.5)
+        idx = (11.0 <= catalog_data["rMeanApMag"]) & (catalog_data["rMeanApMag"] <= 16.0)
         idx = idx & (catalog_data["rMeanApMagStd"] < 0.01)
         idx = idx & (catalog_data["rMeanApMagNpt"] > 5)
         idx = idx & (catalog_data["gMeanApMagStd"] < 0.01)
@@ -131,8 +131,10 @@ class AdminAstroSource(admin.ModelAdmin):
             logger.error(f"No PanSTARRS field stars found for {main_src.name}, skipping")
 
         # sort by number of observations in R, take top 10 only
-        catalog_data.sort('rMeanApMagNpt')
-        catalog_data = catalog_data[-10:]
+        if len(catalog_data) > 10:
+            logger.info("Keeping only top 10 field stars by number of R observations")
+            catalog_data.sort('rMeanApMagNpt')
+            catalog_data = catalog_data[-10:]
 
         field_stars = list()
 
