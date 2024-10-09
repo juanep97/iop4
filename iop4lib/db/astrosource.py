@@ -235,22 +235,22 @@ class AstroSource(models.Model):
         """Recommneded exposure time for Andor90, based on the last R magnitude and for a SNR of 150."""
 
         snr = 150
-        R, _ = self.last_night_mag_R
+        last_night_mag_R, _ = self.last_night_mag_R
 
-        if R is None:
+        if last_night_mag_R is None:
             return None
 
-        T = math.pow(snr,2) * 9.77 * 1e-16 * math.pow(10, 0.8*R)
+        texp = math.pow(snr,2) * 9.77 * 1e-16 * math.pow(10, 0.8*last_night_mag_R)
 
-        if T < 30:
+        if texp < 30:
             return 60
-        elif T <= 100:
+        elif texp <= 100:
             return 150
-        elif T <= 250:
+        elif texp <= 250:
             return 300
-        elif T <= 400:
+        elif texp <= 400:
             return 450
-        elif T <= 800:
+        elif texp <= 800:
             return 600
         else:
             return None
@@ -260,20 +260,20 @@ class AstroSource(models.Model):
         """Recommneded exposure time for Andor150, based on the last night R magnitude and for a SNR of 150."""
 
         snr = 150
-        R, _ = self.last_night_mag_R
+        last_night_mag_R, _ = self.last_night_mag_R
 
-        if R is None:
+        if last_night_mag_R is None:
             return None
         
-        T = 0.36 * math.pow(snr,2) * 9.77 * 1e-16 * math.pow(10, 0.8*R)
+        texp = 0.36 * math.pow(snr,2) * 9.77 * 1e-16 * math.pow(10, 0.8*last_night_mag_R)
 
-        if T < 30:
+        if texp < 30:
             return 60
-        elif T <= 100:
+        elif texp <= 100:
             return 150
-        elif T <= 250:
+        elif texp <= 250:
             return 300
-        elif T <= 400:
+        elif texp <= 400:
             return 450
         else:
             return 600
@@ -283,16 +283,16 @@ class AstroSource(models.Model):
         """Recommneded exposure time for DIPOL, based on the last night R magnitude and for a SNR of 150."""
 
         snr = 150
-        R, _ = self.last_night_mag_R
+        last_night_mag_R, _ = self.last_night_mag_R
 
-        if R is None:
+        if last_night_mag_R is None:
             return None
         
-        T = math.pow(snr,2) * 9.77 * 1e-16 * math.pow(10, 0.8*R)
+        texp = math.pow(snr,2) * 9.77 * 1e-16 * math.pow(10, 0.8*last_night_mag_R)
 
-        if  T <= 300:
-            return math.ceil(T / 10) * 10 + 10
-        elif T <= 2000:
+        if  texp <= 300:
+            return math.ceil(texp / 10) * 10 + 10
+        elif texp <= 2000:
             return 300
         else:
             return None
@@ -302,18 +302,18 @@ class AstroSource(models.Model):
         """Recommneded number of repetitions for DIPOL, based on the last night R magnitude and for a SNR of 150."""
 
         snr = 150
-        R, _ = self.last_night_mag_R
+        last_night_mag_R, _ = self.last_night_mag_R
 
-        if R is None:
+        if last_night_mag_R is None:
             return None
         
-        TD = math.pow(snr,2) * 9.77 * 1e-16 * math.pow(10, 0.8*R)
+        texp = math.pow(snr,2) * 9.77 * 1e-16 * math.pow(10, 0.8*last_night_mag_R)
 
-        if TD <= 20:
+        if texp <= 20:
             return 8
-        elif TD <= 40:
+        elif texp <= 40:
             return 4
-        elif TD <= 80:
+        elif texp <= 80:
             return 2
         else:
             return 1
