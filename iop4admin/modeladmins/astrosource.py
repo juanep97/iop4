@@ -77,10 +77,10 @@ class AdminAstroSource(admin.ModelAdmin):
     
     @admin.display(description='T. Andor90')
     def get_texp_andor90(self, obj):
-        R, _ = obj.last_night_mag_R
+        last_night_mag_R, _ = obj.last_night_mag_R
         texp = obj.texp_andor90
 
-        if R is None:
+        if last_night_mag_R is None:
             return None
         
         if texp is None:
@@ -90,10 +90,10 @@ class AdminAstroSource(admin.ModelAdmin):
     
     @admin.display(description='T. Andor150')
     def get_texp_andor150(self, obj):
-        R, _ = obj.last_night_mag_R
+        last_night_mag_R, _ = obj.last_night_mag_R
         texp = obj.texp_andor150
 
-        if R is None:
+        if last_night_mag_R is None:
             return None
         
         if texp is None:
@@ -103,11 +103,11 @@ class AdminAstroSource(admin.ModelAdmin):
     
     @admin.display(description='T. x N DIPOL')
     def get_texp_dipol(self, obj):
-        R, _ = obj.last_night_mag_R
+        last_night_mag_R, _ = obj.last_night_mag_R
         texp = obj.texp_dipol
         nreps = obj.nreps_dipol
 
-        if R is None:
+        if last_night_mag_R is None:
             return None
         
         if texp is None:
