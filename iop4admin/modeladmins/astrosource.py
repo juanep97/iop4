@@ -105,7 +105,6 @@ class AdminAstroSource(admin.ModelAdmin):
 
         logger.info(f"Got {len(catalog_data)} PanSTARRS field stars around {main_src.name}")
 
-
         column_names = ['objName', 'raMean', 'decMean',
                         'rMeanApMag', 'rMeanApMagErr', 'rMeanApMagStd', 'rMeanApMagNpt',
                         'gMeanApMag', 'gMeanApMagErr', 'gMeanApMagStd', 'gMeanApMagNpt',
@@ -114,9 +113,10 @@ class AdminAstroSource(admin.ModelAdmin):
         
         for col in column_names:
 
-            idx = np.isfinite(catalog_data[col])
-            idx = idx.data & idx.mask
-            catalog_data = catalog_data[~idx]
+            if np.issubdtype(catalog_data.dtype[col], np.number):
+                idx = np.isfinite(catalog_data[col])
+                idx = idx.data & idx.mask
+                catalog_data = catalog_data[~idx]
 
         idx = (MIN_R_MAG <= catalog_data["rMeanApMag"]) & (catalog_data["rMeanApMag"] <= MAX_R_MAG)
         idx = idx & (catalog_data["rMeanApMagStd"] < MAX_MAG_STD)
