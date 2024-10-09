@@ -412,7 +412,7 @@
                     }
                     return Number(value).toFixed(precision);
                 },
-                // plot
+                // auto load plot from url (e.g. /iop4/explore/plot/?srcname=2200%2B420&from=2024-01-01&to=2024-09-01)
                 autoSubmitPlotForm() {
                     load_source_plot(document.getElementById('plot_astrosource_form'));
                 },
@@ -420,8 +420,11 @@
                     const params = new URLSearchParams(window.location.search);
                     return {
                         srcname: params.get('srcname') || '',
-                        date1: params.get('date1') || '',
-                        date2: params.get('date2') || ''
+                        date1: params.get('from') || '',
+                        date2: params.get('to') || '',
+                        band: params.get('band') || 'R',
+                        fast: params.get('fast') || 'false',
+                        errors: params.get('errors') || 'true',
                     };
                 },
             },
@@ -437,8 +440,11 @@
                 this.input_astrosource = params.srcname;
                 this.input_date_start = params.date1;
                 this.input_date_end = params.date2;
+                this.plot_config_band = params.band;
+                this.plot_config_fast = params.fast === 'true';
+                this.enable_errorbars = params.errors === 'true';
 
-                if (this.input_astrosource && this.input_date_start && this.input_date_end) {
+                if (this.input_astrosource) { // && this.input_date_start && this.input_date_end) {
                     console.log('auto plotting from url with params', params);
                     Vue.nextTick(() => {
                         this.autoSubmitPlotForm();
