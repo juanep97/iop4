@@ -112,7 +112,7 @@
                     selectedTabs: [C1selectedTab_0, C2selectedTab_0],
                     // log
                     logEntries: [],
-                    // plot
+                    // plot (also uses input_astrosource in query vars)
                     showPlot: false,
                     plot_config_fast: true,
                     enable_full_lc: false,
@@ -121,6 +121,8 @@
                     use_hostcorrected: false,
                     plot_config_band: 'R',
                     plot_config_band_options: ['R', 'V', 'B', 'U', 'I'],
+                    input_date_start: '',
+                    input_date_end: '',
                     // plot (flagging)
                     selected_plot_idx: [],
                     show_selected_plot_pts: false,
@@ -331,6 +333,9 @@
             },
             methods: {
                 updateURL() {
+                    // Get the current query parameters
+                    const currentParams = window.location.search;
+
                     // Start forming the new URL based on the selected tabs
                     let newURL = '/iop4/';
 
@@ -353,6 +358,9 @@
                             }
                         }
                     }
+
+                    // Append the original query parameters to the new URL
+                    newURL += currentParams;
 
                     window.history.pushState({}, '', newURL);
                 },
@@ -404,6 +412,18 @@
                     }
                     return Number(value).toFixed(precision);
                 },
+                // plot
+                autoSubmitPlotForm() {
+                    load_source_plot(document.getElementById('plot_astrosource_form'));
+                },
+                getPlotQueryParams() {
+                    const params = new URLSearchParams(window.location.search);
+                    return {
+                        srcname: params.get('srcname') || '',
+                        date1: params.get('date1') || '',
+                        date2: params.get('date2') || ''
+                    };
+                },
             },
             beforeMount() {
                 this.updateSelectedTabFromPath();
@@ -412,6 +432,18 @@
                 window.addEventListener('popstate', () => {
                     this.updateSelectedTabFromPath();
                 });
+                // auto load plot from url
+                const params = this.getPlotQueryParams();
+                this.input_astrosource = params.srcname;
+                this.input_date_start = params.date1;
+                this.input_date_end = params.date2;
+
+                if (this.input_astrosource && this.input_date_start && this.input_date_end) {
+                    console.log('auto plotting from url with params', params);
+                    Vue.nextTick(() => {
+                        this.autoSubmitPlotForm();
+                    });
+                }
             }
         }).use(Quasar).mount('#app')
 
