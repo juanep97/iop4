@@ -1188,7 +1188,9 @@ class DIPOL(Instrument):
                                                             p=P, p_err=dP, chi=chi, chi_err=dchi,
                                                             _q_nocorr=Qr_uncorr, _u_nocorr=Ur_uncorr, _p_nocorr=P_uncorr, _chi_nocorr=chi_uncorr,
                                                             aperpix=aperpix)
-            
+
+            result.aperphotresults.set(aperphotresults, clear=True)
+                        
             photopolresult_L.append(result)
 
         # 3. Save results
