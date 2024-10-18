@@ -383,11 +383,16 @@ class CAFOS(Instrument):
             # save the results
                     
             result = PhotoPolResult.create(reducedfits=polarimetry_group, 
-                                                           astrosource=astrosource, 
-                                                           reduction=REDUCTIONMETHODS.RELPOL, 
-                                                           mag_inst=mag_inst, mag_inst_err=mag_inst_err, mag_zp=mag_zp, mag_zp_err=mag_zp_err,
-                                                           flux_counts=flux_mean, p=P, p_err=dP, chi=Theta, chi_err=dTheta,
-                                                           aperpix=aperpix)
+                                           astrosource=astrosource, 
+                                           reduction=REDUCTIONMETHODS.RELPOL, 
+                                           mag_inst=mag_inst, mag_inst_err=mag_inst_err, 
+                                           mag_zp=mag_zp, mag_zp_err=mag_zp_err,
+                                           flux_counts=flux_mean, 
+                                           p=P, p_err=dP, 
+                                           chi=Theta, chi_err=dTheta,
+                                           aperpix=aperpix)
+            
+            result.aperphotresults.set(qs, clear=True)
             
             photopolresult_L.append(result)
 
