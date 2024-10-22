@@ -526,6 +526,8 @@ class Instrument(metaclass=ABCMeta):
 
         error = calc_total_error(img, bkg.background_rms, cls.gain_e_adu)
 
+        apres_L = list()
+
         for astrosource in redf.sources_in_field.all():
             for pairs, wcs in (('O', redf.wcs1), ('E', redf.wcs2)) if redf.has_pairs else (('O',redf.wcs),):
 
@@ -548,7 +550,7 @@ class Instrument(metaclass=ABCMeta):
                 flux_counts = ap_stats.sum - annulus_stats.mean*ap_stats.sum_aper_area.value # TODO: check if i should use mean!
                 flux_counts_err = ap_stats.sum_err
 
-                AperPhotResult.create(reducedfit=redf, 
+                apres = AperPhotResult.create(reducedfit=redf, 
                                       astrosource=astrosource, 
                                       aperpix=aperpix, 
                                       r_in=r_in, r_out=r_out,
@@ -556,6 +558,10 @@ class Instrument(metaclass=ABCMeta):
                                       pairs=pairs, 
                                       bkg_flux_counts=bkg_flux_counts, bkg_flux_counts_err=bkg_flux_counts_err,
                                       flux_counts=flux_counts, flux_counts_err=flux_counts_err)
+                
+                apres_L.append(apres)
+
+        return apres_L
     
     @classmethod
     def compute_relative_photometry(cls, redf: 'ReducedFit') -> None:
@@ -590,9 +596,15 @@ class Instrument(metaclass=ABCMeta):
         
         for astrosource in redf.sources_in_field.all():
 
-            result = PhotoPolResult.create(reducedfits=[redf], astrosource=astrosource, reduction=REDUCTIONMETHODS.RELPHOT)
+            qs_aperphotresult = AperPhotResult.objects.filter(reducedfit=redf, astrosource=astrosource, aperpix=aperpix, pairs="O")
 
-            aperphotresult = AperPhotResult.objects.get(reducedfit=redf, astrosource=astrosource, aperpix=aperpix, pairs="O")
+            if not qs_aperphotresult.exists():
+                logger.error(f"{redf}: no aperture photometry for source {astrosource.name} found, skipping relative photometry.")
+                continue
+
+            aperphotresult = qs_aperphotresult.first()
+
+            result = PhotoPolResult.create(reducedfits=[redf], astrosource=astrosource, reduction=REDUCTIONMETHODS.RELPHOT)
 
             result.aperpix = aperpix
             result.bkg_flux_counts = aperphotresult.bkg_flux_counts
@@ -629,6 +641,8 @@ class Instrument(metaclass=ABCMeta):
                 # if it is not a calibrator, we can not save the COMPUTED zp, it will be computed and the USED zp will be stored.
                 result.mag_zp = None
                 result.mag_zp_err = None
+
+            result.aperphotresults.set([aperphotresult], clear=True)
 
             result.save()
 

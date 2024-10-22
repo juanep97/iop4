@@ -164,6 +164,8 @@ class MasterBias(FitFileModel):
         if auto_merge_to_db:
             mb.save()
 
+        return mb
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.auto_merge_to_db = True

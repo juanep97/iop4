@@ -17,12 +17,26 @@ from astropy.time import Time
 
 class AdminAperPhotResult(admin.ModelAdmin):
     model = AperPhotResult
-    list_display = ['id', 'get_telescope', 'get_instrument', 'get_datetime', 'get_src_name', 'get_src_type', 'get_fwhm', 'get_aperpix', 'get_reducedfit', 'get_obsmode', 'pairs', 'get_rotangle', 'get_src_type', 'get_flux_counts', 'get_flux_counts_err', 'get_bkg_flux_counts', 'get_bkg_flux_counts_err', 'modified']
+    list_display = ['id', 'get_telescope', 'get_instrument', 'get_datetime', 'get_src_name', 'get_src_type', 'get_fwhm', 'get_aperpix', 'get_r_in', 'get_r_out', 'get_reducedfit', 'get_obsmode', 'pairs', 'get_rotangle', 'get_src_type', 'get_flux_counts', 'get_flux_counts_err', 'get_bkg_flux_counts', 'get_bkg_flux_counts_err', 'get_image_preview', 'modified']
     readonly_fields = [field.name for field in AperPhotResult._meta.fields]
     search_fields = ['id', 'reducedfit__instrument', 'astrosource__name', 'astrosource__srctype', 'reducedfit__id']
     list_filter = ['reducedfit__instrument', 'astrosource__srctype', 'reducedfit__epoch__telescope', 'reducedfit__obsmode']
 
 
+    def get_urls(self):
+        urls = super().get_urls()
+        my_urls = [
+            path('preview/<int:pk>', self.admin_site.admin_view(self.view_preview),  name=f"iop4api_{self.model._meta.model_name}_preview"),
+        ]
+        return my_urls + urls
+    
+    def view_preview(self, request, pk):
+        
+        if ((fit := self.model.objects.filter(id=pk).first()) is None):
+            return HttpResponseNotFound()
+
+        imgbytes = fit.get_img()
+        return HttpResponse(imgbytes, content_type="image/png")
     
     @admin.display(description="TELESCOPE")
     def get_telescope(self, obj):
@@ -70,6 +84,18 @@ class AdminAperPhotResult(admin.ModelAdmin):
             return "-"
         return f"{obj.aperpix:.1f}"
     
+    @admin.display(description="r_in")
+    def get_r_in(self, obj):
+        if obj.r_in is None:
+            return "-"
+        return f"{obj.r_in:.1f}"
+    
+    @admin.display(description="r_out")
+    def get_r_out(self, obj):
+        if obj.r_out is None:
+            return "-"
+        return f"{obj.r_out:.1f}"
+    
     @admin.display(description="flux_counts")
     def get_flux_counts(self, obj):
         if obj.flux_counts is None:
@@ -98,3 +124,7 @@ class AdminAperPhotResult(admin.ModelAdmin):
         else:
             return f"{obj.bkg_flux_counts_err:.1f}"
     
+    @admin.display(description="img")
+    def get_image_preview(self, obj, allow_tags=True):
+        url_img_preview = reverse(f"iop4admin:iop4api_{self.model._meta.model_name}_preview", args=[obj.id])
+        return format_html(rf"<img src='{url_img_preview}' width='64' height='64' />")
