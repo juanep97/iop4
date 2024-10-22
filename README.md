@@ -2,6 +2,7 @@
 <a href="https://github.com/juanep97/iop4/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/juanep97/iop4/actions/workflows/ci.yml/badge.svg"></img></a>
 <a href="https://zenodo.org/doi/10.5281/zenodo.10222722"><img src="https://zenodo.org/badge/636786270.svg" alt="DOI"></img></a>
 <a href="https://pypi.org/project/iop4/"><img src="https://img.shields.io/pypi/v/iop4" alt="PyPI"></img></a>
+<a href="https://dx.doi.org/10.3847/1538-3881/ad5a80"><img src="https://img.shields.io/badge/Astronomical_Journal-Published-green" alt="Publication AJ"></a>
 </div>
 
 
@@ -9,15 +10,17 @@
 
 IOP4 implements _Object Relational Mapping_ (**ORM**) to seamlessly integrate all information about the reduction and results in a database which can be used to query and plot results, flag data and inspect the reduction process in an integrated fashion with the whole pipeline. It also ships with an already **built-in web interface** which can be used out of the box to browse the database and supervise all pipeline processes.
 
+See details in [Juan Escudero Pedrosa et al 2024 AJ 168 84](https://dx.doi.org/10.3847/1538-3881/ad5a80).
+
 
 ## Installation
 We recommend installing IOP4 in an isolated environment as described below. IOP4 is hosted in [PyPI software repository](https://pypi.org/project/iop4/).
 
 ### Option 1: Using a virtual environment
 
-**Note:** IOP4 requires Python 3.10 or later. You can check your Python version with `python --version`. If you have a compatible version, you can skip this step.
+**Note:** IOP4 requires Python 3.11 or later. You can check your Python version with `python --version`. If you have a compatible version, you can skip this step.
   
-If you don't have Python 3.10 or later, you can install [pyenv](https://github.com/pyenv/pyenv) and [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv), which will manage python versions for you. You can use the automatic installer [pyenv-installer](https://github.com/pyenv/pyenv-installer):
+If you don't have Python 3.11 or later, you can install [pyenv](https://github.com/pyenv/pyenv) and [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv), which will manage python versions for you. You can use the automatic installer [pyenv-installer](https://github.com/pyenv/pyenv-installer):
 
 ```bash
     $ curl https://pyenv.run | bash
@@ -25,8 +28,8 @@ If you don't have Python 3.10 or later, you can install [pyenv](https://github.c
 
 Follow the instructions that this command outputs to add `pyenv` to `PATH` (or copy the commands from https://github.com/pyenv/pyenv for your shell). Restart your terminal, or source the file (e.g. `. ~/.bashrc` or `. ~/.zshrc`) Then, run 
 ```bash 
-    $ pyenv install 3.10
-    $ pyenv virtualenv 3.10 iop4-venv
+    $ pyenv install 3.11
+    $ pyenv virtualenv 3.11 iop4-venv
     $ pyenv activate iop4-venv
 ```
 Now you will have a virtual environment with the right Python version, and you can continue with the next step. To deactivate, just run `pyenv deactivate`.
@@ -48,7 +51,7 @@ or `pip install -e .` if you want to install it in developer mode.
 ### Option 2: Using conda/mamba
 As the previous option, create and activate the environment as follows:
 ```bash
-    $ conda create -n iop4 python=3.10
+    $ conda create -n iop4 python=3.11
     $ conda activate iop4
 ```
 
@@ -173,13 +176,29 @@ You are welcome to contribute to IOP4. Fork and create a PR!
 If you use IOP4, or any result derived from it, we kindly ask you to cite the following references:
 
 <div>
-<a href="https://zenodo.org/doi/10.5281/zenodo.10222722"><img src="https://zenodo.org/badge/636786270.svg" alt="DOI"></img></a>
+<a href="https://dx.doi.org/10.3847/1538-3881/ad5a80"><img src="https://img.shields.io/badge/Juan_Escudero_Pedrosa_et_al_2024-AJ_168_84-green" alt="DOI AJ"></img></a>
+
+<a href="https://zenodo.org/doi/10.5281/zenodo.10222722"><img src="https://zenodo.org/badge/636786270.svg" alt="DOI Zenodo"></img></a>
 </div>
 
-You can use the following BibTeX entry:
+You can use the following BibTeX entries:
 
 ```bibtex
-@software{escudero_pedrosa_2024,
+@article{iop4_AJ,
+  doi = {10.3847/1538-3881/ad5a80},
+  url = {https://dx.doi.org/10.3847/1538-3881/ad5a80},
+  year = {2024},
+  month = {jul},
+  publisher = {The American Astronomical Society},
+  volume = {168},
+  number = {2},
+  pages = {84},
+  author = {{Escudero Pedrosa}, Juan and {Agudo}, Ivan and {Morcuende}, Daniel and {Otero-Santos}, Jorge and {Bonnoli}, Giacomo and {Piirola}, Vilppu and {Husillos}, C{\'e}sar and {Bernardos}, Mabel and {L{\'o}pez-Coto}, Rub{\'e}n and {Sota}, Alfredo and {Casanova}, V{\'\i}ctor and {Aceituno}, Francisco and {Santos-Sanz}, Pablo},
+  title = {IOP4, the Interactive Optical Photo-Polarimetric Python Pipeline},
+  journal = {The Astronomical Journal},
+}
+
+@software{iop4_zenodo,
   author       = {{Escudero Pedrosa}, Juan and
                   {Morcuende Parrilla}, Daniel and
                   Otero-Santos, Jorge},
@@ -190,5 +209,3 @@ You can use the following BibTeX entry:
   url          = {https://zenodo.org/doi/10.5281/zenodo.10222722}
 }
 ```
-
-This might change in the future, as IOP4 is still under the process of being published in a peer-reviewed journal. Check this repository for updates :)

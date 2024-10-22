@@ -47,7 +47,7 @@ jobs:
 
       - name: Install required packages
         run: |
-          sudo apt-get -y install pandoc make
+          sudo apt-get -y install pandoc make gcc
 
       - name: Install doc dependencies
         run: |

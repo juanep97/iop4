@@ -364,7 +364,7 @@ class CAFOS(Instrument):
 
             # if the source is a calibrator, compute also the zero point
 
-            if astrosource.srctype == SRCTYPES.CALIBRATOR:
+            if astrosource.is_calibrator:
                 mag_known = getattr(astrosource, f"mag_{band}")
                 mag_known_err = getattr(astrosource, f"mag_{band}_err", None) or 0.0
 
@@ -383,21 +383,26 @@ class CAFOS(Instrument):
             # save the results
                     
             result = PhotoPolResult.create(reducedfits=polarimetry_group, 
-                                                           astrosource=astrosource, 
-                                                           reduction=REDUCTIONMETHODS.RELPOL, 
-                                                           mag_inst=mag_inst, mag_inst_err=mag_inst_err, mag_zp=mag_zp, mag_zp_err=mag_zp_err,
-                                                           flux_counts=flux_mean, p=P, p_err=dP, chi=Theta, chi_err=dTheta,
-                                                           aperpix=aperpix)
+                                           astrosource=astrosource, 
+                                           reduction=REDUCTIONMETHODS.RELPOL, 
+                                           mag_inst=mag_inst, mag_inst_err=mag_inst_err, 
+                                           mag_zp=mag_zp, mag_zp_err=mag_zp_err,
+                                           flux_counts=flux_mean, 
+                                           p=P, p_err=dP, 
+                                           chi=Theta, chi_err=dTheta,
+                                           aperpix=aperpix)
+            
+            result.aperphotresults.set(qs, clear=True)
             
             photopolresult_L.append(result)
 
 
         # 3. Get average zero point from zp of all calibrators in the group
 
-        calib_mag_zp_array = np.array([result.mag_zp or np.nan for result in photopolresult_L if result.astrosource.srctype == SRCTYPES.CALIBRATOR]) # else it fills with None also and the dtype becomes object
+        calib_mag_zp_array = np.array([result.mag_zp or np.nan for result in photopolresult_L if result.astrosource.is_calibrator]) # else it fills with None also and the dtype becomes object
         calib_mag_zp_array = calib_mag_zp_array[~np.isnan(calib_mag_zp_array)]
 
-        calib_mag_zp_array_err = np.array([result.mag_zp_err or np.nan for result in photopolresult_L if result.astrosource.srctype == SRCTYPES.CALIBRATOR])
+        calib_mag_zp_array_err = np.array([result.mag_zp_err or np.nan for result in photopolresult_L if result.astrosource.is_calibrator])
         calib_mag_zp_array_err = calib_mag_zp_array_err[~np.isnan(calib_mag_zp_array_err)]
 
         if len(calib_mag_zp_array) == 0:
@@ -413,7 +418,7 @@ class CAFOS(Instrument):
 
         for result in photopolresult_L:
 
-            if result.astrosource.srctype == SRCTYPES.CALIBRATOR:
+            if result.astrosource.is_calibrator:
                 continue
 
             result.mag_zp = zp_avg

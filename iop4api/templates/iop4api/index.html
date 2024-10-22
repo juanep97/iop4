@@ -29,12 +29,12 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js"></script> 
 
     <!-- Bokeh -->
-    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.2.2.min.js"></script>
-    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.2.2.min.js"></script>
-    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-3.2.2.min.js"></script>
-    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-api-3.2.2.min.js"></script>
-    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-gl-3.2.2.min.js"></script>
-    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-mathjax-3.2.2.min.js"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.6.0.min.js"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.6.0.min.js"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-3.6.0.min.js"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-api-3.6.0.min.js"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-gl-3.6.0.min.js"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-mathjax-3.6.0.min.js"></script>
 
     <!-- CSS styles and JS -->
     <link rel="stylesheet" href="{% static "iop4api/base.css" %}?datetime={% now "Y-m-d-Hi" %}">
@@ -112,7 +112,7 @@
                     selectedTabs: [C1selectedTab_0, C2selectedTab_0],
                     // log
                     logEntries: [],
-                    // plot
+                    // plot (also uses input_astrosource in query vars)
                     showPlot: false,
                     plot_config_fast: true,
                     enable_full_lc: false,
@@ -121,6 +121,8 @@
                     use_hostcorrected: false,
                     plot_config_band: 'R',
                     plot_config_band_options: ['R', 'V', 'B', 'U', 'I'],
+                    input_date_start: '',
+                    input_date_end: '',
                     // plot (flagging)
                     selected_plot_idx: [],
                     show_selected_plot_pts: false,
@@ -331,6 +333,9 @@
             },
             methods: {
                 updateURL() {
+                    // Get the current query parameters
+                    const currentParams = window.location.search;
+
                     // Start forming the new URL based on the selected tabs
                     let newURL = '/iop4/';
 
@@ -353,6 +358,9 @@
                             }
                         }
                     }
+
+                    // Append the original query parameters to the new URL
+                    newURL += currentParams;
 
                     window.history.pushState({}, '', newURL);
                 },
@@ -404,6 +412,21 @@
                     }
                     return Number(value).toFixed(precision);
                 },
+                // auto load plot from url (e.g. /iop4/explore/plot/?srcname=2200%2B420&from=2024-01-01&to=2024-09-01)
+                autoSubmitPlotForm() {
+                    load_source_plot(document.getElementById('plot_astrosource_form'));
+                },
+                getPlotQueryParams() {
+                    const params = new URLSearchParams(window.location.search);
+                    return {
+                        srcname: params.get('srcname') || '',
+                        date1: params.get('from') || '',
+                        date2: params.get('to') || '',
+                        band: params.get('band') || 'R',
+                        fast: params.get('fast') || 'false',
+                        errors: params.get('errors') || 'true',
+                    };
+                },
             },
             beforeMount() {
                 this.updateSelectedTabFromPath();
@@ -412,6 +435,21 @@
                 window.addEventListener('popstate', () => {
                     this.updateSelectedTabFromPath();
                 });
+                // auto load plot from url
+                const params = this.getPlotQueryParams();
+                this.input_astrosource = params.srcname;
+                this.input_date_start = params.date1;
+                this.input_date_end = params.date2;
+                this.plot_config_band = params.band;
+                this.plot_config_fast = params.fast === 'true';
+                this.enable_errorbars = params.errors === 'true';
+
+                if (this.input_astrosource) { // && this.input_date_start && this.input_date_end) {
+                    console.log('auto plotting from url with params', params);
+                    Vue.nextTick(() => {
+                        this.autoSubmitPlotForm();
+                    });
+                }
             }
         }).use(Quasar).mount('#app')
 

@@ -30,7 +30,7 @@ import yaml
 import hashlib
 from pathlib import Path
 
-TESTDATA_MD5SUM = '4d393377f8c659e2ead2fa252a9a38b2'
+TESTDATA_MD5SUM = '8b065bbcd32a3e3c10620f0d49c5c782'
 TESTDATA_FPATH = str(Path(f"~/iop4testdata.{TESTDATA_MD5SUM}.tar.gz").expanduser())
 TEST_CONFIG = str(Path("~/iop4testdata/config.tests.yaml").expanduser())
 TEST_DATADIR = str(Path("~/iop4testdata").expanduser())
@@ -43,6 +43,14 @@ def pytest_configure():
     settings.configure(
         INSTALLED_APPS=[
             'iop4api',
+            # required to test the web interface, so the DB has user table
+            "iop4admin",
+            "django.contrib.admin",
+            "django.contrib.auth",
+            "django.contrib.contenttypes",
+            "django.contrib.sessions",
+            "django.contrib.messages",
+            "django.contrib.staticfiles",
         ],
         DATABASES = {
             "default": {

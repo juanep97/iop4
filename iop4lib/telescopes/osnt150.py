@@ -16,7 +16,7 @@ import astrometry
 
 # iop4lib imports
 from iop4lib.enums import *
-from .telescope import Telescope
+from .telescope import Telescope, ReadOnlyClassProperty
 from .osnt090 import OSNT090
 
 # logging
@@ -37,8 +37,21 @@ class OSNT150(OSNT090, Telescope, metaclass=ABCMeta):
 
     # telescope specific properties
 
-    ftp_address = iop4conf.osn_t150_address
-    ftp_user = iop4conf.osn_t150_user
-    ftp_password = iop4conf.osn_t150_password
-    ftp_encoding = 'utf-8'
-
+    # ftp connection details need to be properties so they can be overriden
+    # otherwise they are defined at import time
+    
+    @ReadOnlyClassProperty
+    def ftp_address(cls):
+        return iop4conf.osn_t150_address
+    
+    @ReadOnlyClassProperty
+    def ftp_user(cls):
+        return iop4conf.osn_t150_user
+    
+    @ReadOnlyClassProperty
+    def ftp_password(cls):
+        return iop4conf.osn_t150_password
+    
+    @ReadOnlyClassProperty
+    def ftp_encoding(cls):
+        return 'utf-8'

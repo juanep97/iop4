@@ -17,6 +17,7 @@ import itertools
 import datetime
 import glob
 import astrometry
+from photutils.centroids import centroid_com, centroid_sources
 
 # iop4lib imports
 from iop4lib.enums import *
@@ -183,13 +184,14 @@ class Instrument(metaclass=ABCMeta):
         """Get a hint for the AstroSource in this image from the header. 
         Return None if none found.
 
-        This method tries to match the OBJECT keyword with the possible names 
-        of each sources in the DB.
+        This method tries to match the OBJECT keyword with each source in the
+        DB, first trying all of them by their main names, then by their other 
+        names.
         """
 
         from iop4lib.db import AstroSource
 
-        catalog = AstroSource.objects.exclude(srctype=SRCTYPES.CALIBRATOR).values('name', 'other_name')
+        catalog = AstroSource.objects.exclude(is_calibrator=True).all()
 
         pattern = re.compile(r"^([a-zA-Z0-9]{1,3}_[a-zA-Z0-9]+|[a-zA-Z0-9]{4,})(?=_|$)")
         
@@ -205,14 +207,14 @@ class Instrument(metaclass=ABCMeta):
             search_str = match.group(0)
 
             for source in catalog:
-                if get_invariable_str(search_str) in get_invariable_str(source['name']):
-                    return AstroSource.objects.get(name=source['name'])
+                if get_invariable_str(search_str) in get_invariable_str(source.name):
+                    return source
                 
             for source in catalog:
-                if source['other_name'] is None:
+                if not source.other_names_list:
                     continue
-                if get_invariable_str(search_str) in get_invariable_str(source['other_name']):
-                    return AstroSource.objects.get(name=source['name'])
+                if any([get_invariable_str(search_str) in get_invariable_str(other_name) for other_name in source.other_names_list]):
+                    return source
                 
         return None
     
@@ -517,35 +519,27 @@ class Instrument(metaclass=ABCMeta):
         from photutils.utils import calc_total_error
         from astropy.stats import SigmaClip
 
-        if redf.mdata.shape[0] == 1024: # andor cameras
-            bkg_box_size = 128
-        elif redf.mdata.shape[0] == 2048: # andor cameras
-            bkg_box_size = 256
-        elif redf.mdata.shape[0] == 800: # cafos
-            bkg_box_size = 100
-        elif redf.mdata.shape[0] == 900: # dipol polarimetry
-            bkg_box_size = 90
-        elif redf.mdata.shape[0] == 896: # dipol polarimetry (also)
-            bkg_box_size = 112
-        elif redf.mdata.shape[0] == 4144: # dipol photometry
-            bkg_box_size = 518
-        else:
-            logger.warning(f"Image size {redf.mdata.shape[0]} not expected.")
-            bkg_box_size = redf.mdata.shape[0]//10
+        bkg_box_size = redf.mdata.shape[0]//10
 
         bkg = get_bkg(redf.mdata, filter_size=1, box_size=bkg_box_size)
         img = redf.mdata
 
-        if np.sum(redf.mdata <= 0.0) >= 1:
-            logger.debug(f"{redf}: {np.sum(img <= 0.0):.0f} px < 0  ({math.sqrt(np.sum(img <= 0.0)):.0f} px2) in image.")
-
         error = calc_total_error(img, bkg.background_rms, cls.gain_e_adu)
+
+        apres_L = list()
 
         for astrosource in redf.sources_in_field.all():
             for pairs, wcs in (('O', redf.wcs1), ('E', redf.wcs2)) if redf.has_pairs else (('O',redf.wcs),):
 
-                ap = CircularAperture(astrosource.coord.to_pixel(wcs), r=aperpix)
-                annulus = CircularAnnulus(astrosource.coord.to_pixel(wcs), r_in=r_in, r_out=r_out)
+                wcs_px_pos = astrosource.coord.to_pixel(wcs)
+
+                logger.debug(f"{redf}: computing aperture photometry for {astrosource}")
+
+                centroid_px_pos = centroid_sources(img, xpos=wcs_px_pos[0], ypos=wcs_px_pos[1], box_size=11, centroid_func=centroid_com)
+                centroid_px_pos = (centroid_px_pos[0][0], centroid_px_pos[1][0])
+
+                ap = CircularAperture(centroid_px_pos, r=aperpix)
+                annulus = CircularAnnulus(centroid_px_pos, r_in=r_in, r_out=r_out)
 
                 annulus_stats = ApertureStats(redf.mdata, annulus, error=error, sigma_clip=SigmaClip(sigma=5.0, maxiters=10))
                 ap_stats = ApertureStats(redf.mdata, ap, error=error)
@@ -556,13 +550,18 @@ class Instrument(metaclass=ABCMeta):
                 flux_counts = ap_stats.sum - annulus_stats.mean*ap_stats.sum_aper_area.value # TODO: check if i should use mean!
                 flux_counts_err = ap_stats.sum_err
 
-                AperPhotResult.create(reducedfit=redf, 
+                apres = AperPhotResult.create(reducedfit=redf, 
                                       astrosource=astrosource, 
                                       aperpix=aperpix, 
                                       r_in=r_in, r_out=r_out,
+                                      x_px=centroid_px_pos[0], y_px=centroid_px_pos[1],
                                       pairs=pairs, 
                                       bkg_flux_counts=bkg_flux_counts, bkg_flux_counts_err=bkg_flux_counts_err,
                                       flux_counts=flux_counts, flux_counts_err=flux_counts_err)
+                
+                apres_L.append(apres)
+
+        return apres_L
     
     @classmethod
     def compute_relative_photometry(cls, redf: 'ReducedFit') -> None:
@@ -597,9 +596,15 @@ class Instrument(metaclass=ABCMeta):
         
         for astrosource in redf.sources_in_field.all():
 
-            result = PhotoPolResult.create(reducedfits=[redf], astrosource=astrosource, reduction=REDUCTIONMETHODS.RELPHOT)
+            qs_aperphotresult = AperPhotResult.objects.filter(reducedfit=redf, astrosource=astrosource, aperpix=aperpix, pairs="O")
 
-            aperphotresult = AperPhotResult.objects.get(reducedfit=redf, astrosource=astrosource, aperpix=aperpix, pairs="O")
+            if not qs_aperphotresult.exists():
+                logger.error(f"{redf}: no aperture photometry for source {astrosource.name} found, skipping relative photometry.")
+                continue
+
+            aperphotresult = qs_aperphotresult.first()
+
+            result = PhotoPolResult.create(reducedfits=[redf], astrosource=astrosource, reduction=REDUCTIONMETHODS.RELPHOT)
 
             result.aperpix = aperpix
             result.bkg_flux_counts = aperphotresult.bkg_flux_counts
@@ -621,7 +626,7 @@ class Instrument(metaclass=ABCMeta):
             result.mag_inst_err = math.fabs(2.5 / math.log(10) / result.flux_counts * result.flux_counts_err)
 
             # if the source is a calibrator, compute also the zero point
-            if result.astrosource.srctype == SRCTYPES.CALIBRATOR:
+            if result.astrosource.is_calibrator:
                 result.mag_known = getattr(result.astrosource, f"mag_{redf.band}")
                 result.mag_known_err = getattr(result.astrosource, f"mag_{redf.band}_err", None) or 0.0
 
@@ -637,6 +642,8 @@ class Instrument(metaclass=ABCMeta):
                 result.mag_zp = None
                 result.mag_zp_err = None
 
+            result.aperphotresults.set([aperphotresult], clear=True)
+
             result.save()
 
             photopolresult_L.append(result)
@@ -645,7 +652,7 @@ class Instrument(metaclass=ABCMeta):
 
         for result in photopolresult_L:
 
-            if result.astrosource.srctype == SRCTYPES.CALIBRATOR:
+            if result.astrosource.is_calibrator:
                 continue
 
             # 3.a Average the zero points
@@ -654,10 +661,10 @@ class Instrument(metaclass=ABCMeta):
             calibrator_results_L = [r for r in photopolresult_L if r.astrosource.calibrates.filter(pk=result.astrosource.pk).exists()]
 
             # Create an array with nan instead of None (this avoids the dtype becoming object)
-            calib_mag_zp_array = np.array([result.mag_zp or np.nan for result in calibrator_results_L if result.astrosource.srctype == SRCTYPES.CALIBRATOR]) 
+            calib_mag_zp_array = np.array([result.mag_zp or np.nan for result in calibrator_results_L if result.astrosource.is_calibrator]) 
             calib_mag_zp_array = calib_mag_zp_array[~np.isnan(calib_mag_zp_array)]
 
-            calib_mag_zp_array_err = np.array([result.mag_zp_err or np.nan for result in calibrator_results_L if result.astrosource.srctype == SRCTYPES.CALIBRATOR])
+            calib_mag_zp_array_err = np.array([result.mag_zp_err or np.nan for result in calibrator_results_L if result.astrosource.is_calibrator])
             calib_mag_zp_array_err = calib_mag_zp_array_err[~np.isnan(calib_mag_zp_array_err)]
 
             if len(calib_mag_zp_array) == 0:
@@ -705,7 +712,7 @@ class Instrument(metaclass=ABCMeta):
         from iop4lib.db import AstroSource
 
         astrosource_S = set.union(*[set(redf.sources_in_field.all()) for redf in reducedfits])
-        target_L = [astrosource for astrosource in astrosource_S if astrosource.srctype != AstroSource.SRCTYPES.CALIBRATOR]
+        target_L = [astrosource for astrosource in astrosource_S if not astrosource.is_calibrator]
 
         logger.debug(f"{astrosource_S=}")
 

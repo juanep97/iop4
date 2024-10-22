@@ -149,7 +149,7 @@ class PhotoPolResult(models.Model):
                 p.breakable()
                 p.text(f"reducedfits: {list(self.reducedfits.values_list('id', flat=True))}")
                 p.breakable()
-                p.text(f'{self.obsmode} {self.band} {self.astrosource.name}')
+                p.text(f'{self.instrument} {self.obsmode} {self.band} / {self.astrosource.name}')
                 p.breakable()
                 p.text(f'JD: {self.juliandate:.5f} ({Time(self.juliandate, format="jd").iso})')
                 if self.mag is not None:

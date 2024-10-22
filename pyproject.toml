@@ -15,23 +15,23 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
 ]
-requires-python = ">3.10,<=3.12"
+requires-python = ">=3.11,<3.13"
 dependencies = [
-    "numpy==1.24.2",
-    "matplotlib==3.7.1",
-    "bokeh==3.2.2",
-    "scipy==1.10.1",
-    "astropy==5.2.2",
+    "numpy>=1.26.4,<2",
+    "matplotlib>=3.7.1,<4",
+    "bokeh==3.6.0", # Bokeh version must match the one in iop4api/templates/iop4api/index.html.
+    "scipy>=1.10.1,<2",
+    "astropy>=5.2.2,<6",
     "astroquery",
-    "photutils==1.8.0",
+    "photutils>=1.8.0,<2",
     "pandas",
-    "scikit-learn==1.2.2",
+    "scikit-learn>=1.2.2,<2",
     "scikit-image",
     "coloredlogs",
     "ipython",
-    "django==4.1.7",
-    "astrometry==4.1.2",
-    "multiprocess==0.70.14",
+    "django<5",
+    "astrometry>=4.1.2,<5",
+    "multiprocess>=0.70.14,<1",
     "pypandoc",
     "termcolor",
     "pyyaml<5.4",
@@ -67,23 +67,25 @@ test = [
 doc = [
     "numpydoc",
     "sphinx",
+    "sphinx<8; python_version<'3.11'", # See PR 127 (issue with new sphinx 8.0.2 and myst_parser 4.0.0 for Python 3.10.9)
     "sphinx-automodapi",
     "sphinx-mdinclude",
-    "pydata-sphinx-theme<0.15.2",
+    "pydata-sphinx-theme",
+    "pydata-sphinx-theme<0.15.2; python_version<'3.11'",
     "sphinxcontrib-bibtex",
     "docutils>=0.20",
     "nbsphinx",
     "nbstripout",
     "jupytext",
     "ipykernel",
-    "sphinx-gallery<=0.7.0",
+    "sphinx-gallery",
+    "sphinx-gallery<=0.7.0; python_version<'3.11'", # PR 130, PR 127
     "myst-nb",
 ]
 dev = [
   "setuptools_scm",
 ]
 
-# unfortunately, there is no way (yet) to generate this automatically using pyproject.toml
 all = [
     "iop4[doc,test,dev]",
 ]

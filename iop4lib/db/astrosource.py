@@ -3,6 +3,7 @@ iop4conf = iop4lib.Config(config_db=False)
 
 # django imports
 from django.db import models
+from django.db.models import Exists, OuterRef
 from django.db.models import Q
 
 # iop4lib imports
@@ -21,11 +22,24 @@ import astropy.units as u
 import logging
 logger = logging.getLogger(__name__)
 
+class AstroSourceQuerySet(models.QuerySet):
+    def with_is_calibrator(self):
+        calibrator_subquery = self.filter(calibrators=OuterRef('pk'))
+        return self.annotate(
+            is_calibrator=Exists(calibrator_subquery)
+        )
+
 class AstroSourceManager(models.Manager):
     def get_by_natural_key(self, name):
         return self.get(name=name)
-    
+    def get_queryset(self):
+        return AstroSourceQuerySet(self.model).with_is_calibrator()
+      
 class AstroSource(models.Model):
+    """ AstroSource model, representing an astronomical source in the IOP4 catalog.
+
+    The coordinates (ra, dec) are interpreted as ICRS coordinates, following astropy `SkyCoord` default convention.
+    """
 
     from iop4lib.enums import SRCTYPES
 
@@ -37,9 +51,9 @@ class AstroSource(models.Model):
 
     # common to all sources
 
-    other_name = models.CharField(max_length=255, null=True, blank=True, help_text="Alternative name for the source (it might be needed to correctly identify the target source of observations if observers used a different name)")
-    ra_hms = models.CharField(max_length=255, help_text="Right ascension in hh:mm:ss format")
-    dec_dms = models.CharField(max_length=255, help_text="Declination in dd:mm:ss format")
+    other_names = models.CharField(max_length=255, null=True, blank=True, help_text="Alternative names for the source, separated by a semicolon ';'. It might be needed to correctly identify the target source of observations if observers used a different name.")
+    ra_hms = models.CharField(max_length=255, help_text="Right ascension (ICRS) in hh:mm:ss format")
+    dec_dms = models.CharField(max_length=255, help_text="Declination (ICRS) in dd:mm:ss format")
     srctype = models.CharField(max_length=255, choices=SRCTYPES.choices, help_text="Source type")  
     comment = models.TextField(null=True, blank=True, help_text="Any comment about the source (in Markdown format)")
 
@@ -71,6 +85,7 @@ class AstroSource(models.Model):
     # allows us to relate the sources and calibration stars by names only
 
     # custom manager allows us to use natural keys when loading fixtures
+    # and introduces virtual calibrator boolean field
     objects = AstroSourceManager()
     
     # this method allows us to dump using natural keys
@@ -94,7 +109,7 @@ class AstroSource(models.Model):
         lvl = logging.getLogger().level
         logging.getLogger().setLevel(logging.CRITICAL)
         res_html =  (f"{self.__class__.__name__}(name={self.name!r}):<br>\n"
-                    f" - other_name: {self.other_name}<br>\n"
+                    f" - other_names: {self.other_names}<br>\n"
                     f" - ra={self.coord.ra:.4f}, dec={self.coord.dec:.4f}<br>\n"
                     f" - srctype: {self.srctype}<br>\n"
                     f" - comment: {self.comment_html}<br>\n")
@@ -117,6 +132,20 @@ class AstroSource(models.Model):
                 return False
             
     # helper properties
+
+    @property
+    def other_names_list(self):
+        if not self.other_names:
+            return []
+        elif ';' not in self.other_names:
+            return [self.other_names]
+        else:
+            return [s.strip() for s in self.other_names.split(';')]
+        
+    @property
+    def all_names_list(self):
+        return [self.name] + self.other_names_list
+
     
     @property
     def coord(self):
@@ -143,7 +172,7 @@ class AstroSource(models.Model):
     def get_catalog_as_dict(cls, *args, **kwargs):
         objs = cls.objects.filter(*args, **kwargs).all()
         catalog_dict = {obj.id: {'name': obj.name, 
-                                 'other_name': obj.other_name,
+                                 'other_names': obj.other_names,
                                  'srctype': obj.srctype,
                                  'comment': obj.comment,
                                  'coord': obj.coord,

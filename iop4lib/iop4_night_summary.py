@@ -14,6 +14,7 @@ from django.template import Context, Template
 
 # iop4lib imports
 from iop4lib.db import Epoch, RawFit, ReducedFit, PhotoPolResult, AstroSource
+from iop4lib.instruments import Instrument
 from iop4lib.enums import SRCTYPES
 from iop4lib.utils import get_column_values
 
@@ -55,7 +56,7 @@ def gather_context(args):
         # annotate with the set of (non-calibrator) sources in the results each epoch
 
         epoch.srcname_list = list(PhotoPolResult.objects.filter(epoch=epoch)
-                                  .exclude(astrosource__srctype=SRCTYPES.CALIBRATOR)
+                                  .exclude(astrosource__in=AstroSource.objects.filter(is_calibrator=True))
                                   .values_list("astrosource__name", flat=True)
                                   .distinct())
         
@@ -69,7 +70,11 @@ def gather_context(args):
 
     # get list of all sources for which there are results in this night
         
-    sources = AstroSource.objects.exclude(srctype=SRCTYPES.CALIBRATOR).filter(photopolresults__epoch__night=args.date).distinct()
+    sources = AstroSource.objects.exclude(is_calibrator=True).filter(photopolresults__epoch__night=args.date).distinct()
+
+    if sources:
+        instruments = [instrument.name for instrument in Instrument.get_known()]
+        colors = [mplt.colormaps['tab10'](i) for i in range(len(instruments))]
 
     results_summary_images = dict()
 
@@ -96,11 +101,12 @@ def gather_context(args):
         fig = mplt.figure.Figure(figsize=(800/100, 600/100), dpi=100)
         axs = fig.subplots(nrows=3, ncols=1, sharex=True, gridspec_kw={'hspace': 0.05})
 
-        instruments = list(set(qs0.values_list('instrument', flat=True).distinct()))
-        colors = [mplt.colormaps['tab10'](i) for i in range(len(instruments))]
-
         for instrument, color in zip(instruments, colors):
             qs = qs0.filter(instrument=instrument)
+
+            if not qs.exists():
+                continue
+
             column_names = ['id', 'juliandate', 'band', 'instrument', 'mag', 'mag_err', 'p', 'p_err', 'chi', 'chi_err', 'flags']
             vals =  get_column_values(qs, column_names)
             vals['datetime'] = Time(vals['juliandate'], format='jd').datetime
@@ -133,7 +139,7 @@ def gather_context(args):
         axs[2].set_ylabel("chi [º]")
 
         # title 
-        fig.suptitle(f"{source.name} ({source.other_name})" if source.other_name else source.name)
+        fig.suptitle(f"{source.name} ({source.other_names})" if source.other_names else source.name)
 
         # legend
         legend_handles = [axs[0].plot([],[],color=color, marker=".", linestyle="none", label=instrument)[0] for color, instrument in zip(colors, instruments)]
@@ -201,6 +207,7 @@ def main():
     argparser.add_argument('--contact-email', type=str, default=None, help='Email to indicate as contact (default is the sender address)')
     argparser.add_argument('--site-url', type=str, default="localhost:8000", help='URL of the site to link the summary')
     argparser.add_argument('--saveto', type=str, default=None, help='Save the summary to a file')
+    argparser.add_argument('--rc', type=int, default=None, help="Indicate the return code from IOP4 to warn the user if the data processing fails")
 
     args = argparser.parse_args()
 

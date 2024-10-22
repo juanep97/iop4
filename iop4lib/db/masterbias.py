@@ -164,6 +164,8 @@ class MasterBias(FitFileModel):
         if auto_merge_to_db:
             mb.save()
 
+        return mb
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.auto_merge_to_db = True
@@ -196,7 +198,7 @@ class MasterBias(FitFileModel):
         header['EPOCH'] = self.epoch.epochname
         header['IMGSIZE'] = self.imgsize
         header['IMGTYPE'] = 'masterbias'
-        header['DATECREA'] = datetime.datetime.utcnow().isoformat(timespec="milliseconds")
+        header['DATECREA'] = datetime.datetime.now(datetime.UTC).isoformat(timespec="milliseconds")
         header['NRAWFITS'] = self.rawfits.count()
 
         logger.debug(f"Building HDU")
