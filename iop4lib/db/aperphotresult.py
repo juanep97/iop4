@@ -7,7 +7,6 @@ from django.db import models
 
 # other imports
 import os
-import os
 import io
 import numpy as np
 import matplotlib as mplt
