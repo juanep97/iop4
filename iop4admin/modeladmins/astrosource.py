@@ -25,7 +25,10 @@ logger = logging.getLogger(__name__)
 
 class AdminAstroSource(admin.ModelAdmin):
     model = AstroSource
-    list_display = ['name', 'other_names', 'ra_hms', 'dec_dms', 'srctype', 'get_last_reducedfit', 'get_last_mag_R', 'get_calibrates', 'get_comment_firstline', 'get_details']
+    list_display = ['name', 'other_names', 'ra_hms', 'dec_dms', 'srctype', 'get_last_reducedfit', 
+                    'get_last_mag_R', 'get_calibrates',
+                    'get_texp_andor90', 'get_texp_andor150', 'get_texp_dipol', 
+                    'get_comment_firstline', 'get_details']
     search_fields = ['name', 'other_names', 'ra_hms', 'dec_dms', 'srctype', 'comment']
     list_filter = ('srctype',)
     actions = ['add_field_stars_from_panstarrs', 'remove_field_stars_from_panstarrs']
@@ -45,7 +48,7 @@ class AdminAstroSource(admin.ModelAdmin):
     
     @admin.display(description='LAST FILE')
     def get_last_reducedfit(self, obj):
-        redf = obj.in_reducedfits.order_by('-epoch__night').first()
+        redf = obj.last_reducedfit
         if redf is not None:
             url = reverse('iop4admin:%s_%s_changelist' % (ReducedFit._meta.app_label, ReducedFit._meta.model_name)) + "?id=%s" % redf.pk
             return format_html(rf'<a href="{url}">{redf.epoch.night}</a>')
@@ -54,13 +57,7 @@ class AdminAstroSource(admin.ModelAdmin):
     
     @admin.display(description="LAST MAG")
     def get_last_mag_R(self, obj):
-        ## get the average of last night
-        last_night = obj.photopolresults.filter(band=BANDS.R).earliest('-epoch__night').epoch.night
-        r_avg = obj.photopolresults.filter(band=BANDS.R, epoch__night=last_night).aggregate(mag_avg=Avg('mag'), mag_err_avg=Avg('mag_err'))
-
-        mag_r_avg = r_avg.get('mag_avg', None)
-        mag_r_err_avg = r_avg.get('mag_err_avg', None)
-
+        mag_r_avg, mag_r_err_avg = obj.last_night_mag_R
         if mag_r_avg is not None:
             return f"{mag_r_avg:.2f}"
         else:
@@ -78,6 +75,45 @@ class AdminAstroSource(admin.ModelAdmin):
         ]
         return my_urls + urls
     
+    @admin.display(description='T. Andor90')
+    def get_texp_andor90(self, obj):
+        last_night_mag_R, _ = obj.last_night_mag_R
+        texp = obj.texp_andor90
+
+        if last_night_mag_R is None:
+            return None
+        
+        if texp is None:
+            return "X"
+
+        return texp
+    
+    @admin.display(description='T. Andor150')
+    def get_texp_andor150(self, obj):
+        last_night_mag_R, _ = obj.last_night_mag_R
+        texp = obj.texp_andor150
+
+        if last_night_mag_R is None:
+            return None
+        
+        if texp is None:
+            return "X"
+
+        return texp
+    
+    @admin.display(description='T. x N DIPOL')
+    def get_texp_dipol(self, obj):
+        last_night_mag_R, _ = obj.last_night_mag_R
+        texp = obj.texp_dipol
+        nreps = obj.nreps_dipol
+
+        if last_night_mag_R is None:
+            return None
+        
+        if texp is None:
+            return "X"
+        
+        return f"{texp} x {nreps}"
 
     @admin.action(description='Automatically add field stars from PanSTARRS')
     def add_field_stars_from_panstarrs(self, request, queryset):
