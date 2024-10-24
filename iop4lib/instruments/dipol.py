@@ -753,7 +753,10 @@ class DIPOL(Instrument):
         
         logger.debug(f"Selected the quads [{best_i},{best_j}]")
 
-        logger.debug(f"t = {t_L[np.argmin(delta_t)]}")
+        t = t_L[np.argmin(delta_t)]
+        R = R_L[np.argmin(delta_t)]
+        logger.debug(f"t = {t}, R = {R}")
+        logger.debug(f"det R = {np.linalg.det(R)}")
 
         # build_summary_images, replace indices_selected by all_indices if no R,t filtering was done.
         if summary_kwargs['build_summary_images']:
@@ -792,23 +795,39 @@ class DIPOL(Instrument):
         quads_1 = [qorder_ish(quad) for quad in quads_1]
         quads_2 = [qorder_ish(quad) for quad in quads_2]
 
-        # get the pre wcs with the target in the center of the image
+        # save the flipped status of both images
+
+        is_redf_pol_flipped = 'FLIPSTAT' in redf_pol.rawfit.header and redf_pol.rawfit.header['FLIPSTAT'] == "Flip"
+        is_redf_phot_flipped = 'FLIPSTAT' in redf_phot.rawfit.header and redf_phot.rawfit.header['FLIPSTAT'] == "Flip"
+
+        # get the pre wcs with the target in the center of the image (if the image is flipped, the angle is negative)
 
         angle_mean, angle_std = get_angle_from_history(redf_pol, target_src)
-        if 'FLIPSTAT' in redf_pol.rawfit.header: 
-            # TODO: check that indeed the mere presence of this keyword means that the image is flipped, without the need of checking the value. 
-            # FLIPSTAT is a MaximDL thing only, but it seems that the iamge is flipped whenever the keyword is present, regardless of the value.
+        if is_redf_pol_flipped:
             angle = - angle_mean
         else:
             angle = angle_mean
 
         logger.debug(f"Using {angle=} for pre wcs.")
 
-        pre_wcs = build_wcs_centered_on((redf_pol.width//2,redf_pol.height//2), redf=redf_phot, angle=angle)
+        # Get the appropiate transformation depending on whether both images are flipped or not
+
+        from iop4lib.utils.quadmatching import find_best_transformation, distance_to_y_flip, distance_to_identity
         
+        if is_redf_pol_flipped != is_redf_phot_flipped:
+            R, t, perm = find_best_transformation(quads_1[best_i], quads_2[best_j], distance_to_y_flip)
+        else:
+            R, t, perm = find_best_transformation(quads_1[best_i], quads_2[best_j], distance_to_identity)
+
+        # fit a wcs centered on the target source
+
+        pre_wcs = build_wcs_centered_on((redf_pol.width//2,redf_pol.height//2), redf=redf_phot, angle=angle)
+
         # get the pixel arrays in the polarimetry field and in the FULL photometry field to relate them
         pix_array_1 = np.array(list(zip(*[(x,y) for x,y in quads_1[best_i]])))
-        pix_array_2 = np.array(list(zip(*[(x+x_start,y+y_start) for x,y in quads_2[best_j]])))
+        #pix_array_2 = np.array(list(zip(*[(x+x_start,y+y_start) for x,y in quads_2[best_j]])))
+        # instead of quads_2[best_j], transform quads_1[best_i] with the linear transformation
+        pix_array_2 = np.array(list(zip(*[(x+x_start,y+y_start) for x,y in (np.dot(R, np.array(quads_1[best_i]).T).T + t)])))
 
         # fit the WCS so the pixel arrays in 1 correspond to the ra/dec of the pixel array in 2
         wcs1 = fit_wcs_from_points(pix_array_1,  redf_phot.wcs1.pixel_to_world(*pix_array_2), projection=pre_wcs)
@@ -944,8 +963,7 @@ class DIPOL(Instrument):
         logger.debug(f"Using angle {angle_mean:.2f} +- {angle_std:.2f} deg")
 
         # DIPOL polarimery images seem to be flipped vertically, which results in negative angle
-        # TODO: watch this FLIP thing, check that indeed this is the behaviour
-        if 'FLIPSTAT' in redf.rawfit.header:
+        if 'FLIPSTAT' in redf.rawfit.header and redf.rawfit.header['FLIPSTAT'] == "Flip":
             angle = - angle_mean
         else:
             angle = angle_mean
