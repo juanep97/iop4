@@ -267,6 +267,10 @@ class DIPOL(Instrument):
 
         from iop4lib.db import AstroSource
 
+        if rawfit.epoch.night == datetime.date(2024, 10, 20) and "J0211" in rawfit.filename:
+            return AstroSource.objects.get(name="J0211+1051")
+
+
         catalog = AstroSource.objects.exclude(is_calibrator=True).all()
 
         #pattern = re.compile(r"^([a-zA-Z0-9]{4,}|[a-zA-Z0-9]{1,3}(_[a-zA-Z0-9]+)?)(?=_|$)")
@@ -823,10 +827,13 @@ class DIPOL(Instrument):
 
         pre_wcs = build_wcs_centered_on((redf_pol.width//2,redf_pol.height//2), redf=redf_phot, angle=angle)
 
-        # get the pixel arrays in the polarimetry field and in the FULL photometry field to relate them
+        # Get the pixel position of the quad points in the (small) polarimetry field
         pix_array_1 = np.array(list(zip(*[(x,y) for x,y in quads_1[best_i]])))
+
+        # Get pixel positions of the quad points in the (full) photometry field
         #pix_array_2 = np.array(list(zip(*[(x+x_start,y+y_start) for x,y in quads_2[best_j]])))
-        # instead of quads_2[best_j], transform quads_1[best_i] with the linear transformation
+        # instead of quads_2[best_j], transform quads_1[best_i] with the linear transformation, to avoid
+        # incorrect permutations
         pix_array_2 = np.array(list(zip(*[(x+x_start,y+y_start) for x,y in (np.dot(R, np.array(quads_1[best_i]).T).T + t)])))
 
         # fit the WCS so the pixel arrays in 1 correspond to the ra/dec of the pixel array in 2
@@ -994,9 +1001,9 @@ class DIPOL(Instrument):
         aperpix, r_in, r_out, fit_res_dict = super().estimate_common_apertures(reducedfits, reductionmethod=reductionmethod, fit_boxsize=fit_boxsize, search_boxsize=search_boxsize, fwhm_min=5.0, fwhm_max=60)
         
         sigma = fit_res_dict['sigma']
-        fwhm = fit_res_dict["mean_fwhm"]
+        mean_fwhm = fit_res_dict["mean_fwhm"]
 
-        return 1.1*fwhm, 6*fwhm, 10*fwhm, fit_res_dict  
+        return 3.0*sigma, 5.0*sigma, 9.0*sigma, {'mean_fwhm':mean_fwhm, 'sigma':sigma}
 
     @classmethod
     def get_instrumental_polarization(cls, reducedfit) -> dict:

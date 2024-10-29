@@ -197,6 +197,8 @@ def distance_to_y_flip(R):
     return np.linalg.norm(R - R_target)
 
 def find_best_transformation(P1, P2, distance_function):
+    """Find the linear transformation of P1 to P2 that minimizes the distance function, searching over all permutations of P2."""
+
     P1, P2 = np.array(P1), np.array(P2)
     
     # Store all permutations and their corresponding transformations (R, t)
