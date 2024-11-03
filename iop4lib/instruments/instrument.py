@@ -17,7 +17,7 @@ import itertools
 import datetime
 import glob
 import astrometry
-from photutils.centroids import centroid_com, centroid_sources
+from photutils.centroids import centroid_sources, centroid_2dg
 
 # iop4lib imports
 from iop4lib.enums import *
@@ -531,12 +531,40 @@ class Instrument(metaclass=ABCMeta):
         for astrosource in redf.sources_in_field.all():
             for pairs, wcs in (('O', redf.wcs1), ('E', redf.wcs2)) if redf.has_pairs else (('O',redf.wcs),):
 
-                wcs_px_pos = astrosource.coord.to_pixel(wcs)
-
                 logger.debug(f"{redf}: computing aperture photometry for {astrosource}")
 
-                centroid_px_pos = centroid_sources(img, xpos=wcs_px_pos[0], ypos=wcs_px_pos[1], box_size=11, centroid_func=centroid_com)
+                wcs_px_pos = astrosource.coord.to_pixel(wcs)
+
+                # check that the wcs px position is within (r_in+r_out)/2 from ther border of the image
+
+                r_mid = (r_in + r_out) / 2
+
+                if not (r_mid < wcs_px_pos[0] < img.shape[1] - r_mid and r_mid < wcs_px_pos[1] < img.shape[0] - r_mid):
+                    logger.warning(f"{redf}: ({pairs}) image of {astrosource.name} is too close to the border, skipping aperture photometry.")
+                    continue
+
+                # correct position using centroid
+                # choose a box size that is somewhat larger than the aperture
+                # in case of pairs, choose a box size that is somewhat smaller than the distance between pairs
+
+                box_size = math.ceil(1.6 * aperpix)//2 * 2 + 1
+
+                if redf.has_pairs:
+                    box_size = (math.ceil(np.linalg.norm(Instrument.by_name(redf.instrument).disp_sign_mean))//2 * 2 - 1)
+
+                centroid_px_pos = centroid_sources(img, xpos=wcs_px_pos[0], ypos=wcs_px_pos[1], box_size=box_size, centroid_func=centroid_2dg)
                 centroid_px_pos = (centroid_px_pos[0][0], centroid_px_pos[1][0])
+
+                # check that the centroid position is within the borders of the image
+
+                if not (r_mid < centroid_px_pos[0] < img.shape[1] - r_mid and r_mid < centroid_px_pos[1] < img.shape[0] - r_mid):
+                    logger.warning(f"{redf}: centroid of the ({pairs}) image of {astrosource.name} is too close to the border, skipping aperture photometry.")
+                    continue
+
+                # log the difference between the WCS and the centroid
+                wcs_diff = np.sqrt((centroid_px_pos[0] - wcs_px_pos[0])**2 + (centroid_px_pos[1] - wcs_px_pos[1])**2)
+                
+                logger.debug(f"ReducedFit {redf.id}: {astrosource.name} {pairs}: WCS centroid distance = {wcs_diff:.1f} px")
 
                 ap = CircularAperture(centroid_px_pos, r=aperpix)
                 annulus = CircularAnnulus(centroid_px_pos, r_in=r_in, r_out=r_out)
