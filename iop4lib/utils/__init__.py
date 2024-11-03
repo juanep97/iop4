@@ -206,7 +206,7 @@ def estimate_common_apertures(redfL, reductionmethod=None):
 
 
 def fit_fwhm(pos_px: (float,float), data: NDArray = None, redf: 'ReducedFit' = None, px_max: int = None) -> float:
-    r""" Fits a 1D gaussian to the radial profile of the data around the given position, and returns the FWHM of the gaussian."""
+    r""" Fits a 1D gaussian + constant to the radial profile of the data around the given position, and returns the FWHM of the gaussian."""
 
     import numpy as np
     from photutils.profiles import RadialProfile
