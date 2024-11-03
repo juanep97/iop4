@@ -83,7 +83,7 @@ def process_epochs(epochname_list: Iterable[str], args):
     
     for result in PhotoPolResult.objects.filter(epoch__in=epoch_L).all():
         if result.p is not None and not (0 <= result.p <= 1):
-            result.flags.add(PhotoPolResult.FLAGS.ERROR_POLARIMETRY)
+            result.set_flag(PhotoPolResult.FLAGS.BAD_POLARIMETRY)
             result.save()
 
     logger.info("Applying corrections.")
