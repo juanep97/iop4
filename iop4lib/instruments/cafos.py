@@ -289,6 +289,10 @@ class CAFOS(Instrument):
 
             qs = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, flux_counts__isnull=False)
 
+            if not qs.exists():
+                logger.error(f"No aperture photometry results found for {astrosource}, skipping.")
+                continue
+
             equivs = ((('O',0.0),   ('E',44.98)),
                       (('O',22.48), ('E',67.48)),
                       (('O',44.98), ('E',0.0)),
@@ -299,6 +303,7 @@ class CAFOS(Instrument):
                       (('E',67.48), ('O',22.48)))
 
             flux_D = dict()
+            _skip = False
             for equiv in equivs:
                 if qs.filter(pairs=equiv[0][0], reducedfit__rotangle=equiv[0][1]).exists():
                     flux_D[(equiv[0][0], equiv[0][1])] = qs.filter(pairs=equiv[0][0], reducedfit__rotangle=equiv[0][1]).values_list("flux_counts", "flux_counts_err").last()
@@ -306,9 +311,12 @@ class CAFOS(Instrument):
                     logger.warning(f"Missing flux for {astrosource} {equiv[0][0]} {equiv[0][1]}, using {equiv[1][0]} {equiv[1][1]}")
                     flux_D[(equiv[0][0], equiv[0][1])] = qs.filter(pairs=equiv[1][0], reducedfit__rotangle=equiv[1][1]).values_list("flux_counts", "flux_counts_err").last()
                 else:
-                    logger.error(f"Missing flux for {astrosource} {equiv[0][0]} {equiv[0][1]} and {equiv[1][0]} {equiv[1][1]}")
-                    return
-
+                    logger.error(f"Missing flux for {astrosource} {equiv[0][0]} {equiv[0][1]} and {equiv[1][0]} {equiv[1][1]}, skipping this source.")
+                    _skip = True
+                    break
+            if _skip:
+                continue
+            
             flux_O_0, flux_O_0_err = flux_D[('O',0.0)]
             flux_O_22, flux_O_22_err = flux_D[('O',22.48)]
             flux_O_45, flux_O_45_err = flux_D[('O',44.98)]
@@ -396,7 +404,10 @@ class CAFOS(Instrument):
             
             photopolresult_L.append(result)
 
-
+        if not photopolresult_L:
+            logger.error("No results could be computed for this group.")
+            return
+        
         # 3. Get average zero point from zp of all calibrators in the group
 
         calib_mag_zp_array = np.array([result.mag_zp or np.nan for result in photopolresult_L if result.astrosource.is_calibrator]) # else it fills with None also and the dtype becomes object
