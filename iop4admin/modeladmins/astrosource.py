@@ -127,7 +127,7 @@ class AdminAstroSource(admin.ModelAdmin):
         # quality constraints
         MIN_R_MAG = 11 # minimum R magnitude
         MAX_R_MAG = 16  # maximum R magnitude
-        MAX_MAG_STD = 0.01 # maximum standard deviation in the required bands (we want our calibrators to be stable)
+        MAX_MAG_STD = 0.02 # maximum standard deviation in the required bands (we want our calibrators to be stable)
         MIN_N_OBS = 5 # minimum number of observations in the required bands
 
         logger.info(f"Querying PanSTARRS around {main_src.name} ({main_src.coord.ra.deg} {main_src.coord.dec.deg})")
@@ -164,6 +164,8 @@ class AdminAstroSource(admin.ModelAdmin):
         idx = idx & (catalog_data["yMeanApMagStd"] < MAX_MAG_STD)
         idx = idx & (catalog_data["yMeanApMagNpt"] > MIN_N_OBS)
         catalog_data = catalog_data[idx]
+
+        catalog_data.sort(['rMeanApMagStd', 'rMeanApMagErr'])
 
         catalog_data.remove_columns([col for col in catalog_data.columns if col not in column_names])
 
