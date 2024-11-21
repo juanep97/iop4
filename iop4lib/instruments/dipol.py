@@ -638,7 +638,7 @@ class DIPOL(Instrument):
         quads_1 = np.array(list(itertools.combinations(sets_L[0], 4)))
         quads_2 = np.array(list(itertools.combinations(sets_L[1], 4)))
 
-        # remove quads of points that have an area less than min_quad_area * are of the image
+        # remove quads of points that have an area less than min_quad_area * area of the image
 
         def PolyArea(x,y):
             # order points clockwise
