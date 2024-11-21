@@ -350,7 +350,7 @@ class DIPOL(Instrument):
         return astrometry.PositionHint(ra_deg=hintcoord.ra.deg, dec_deg=hintcoord.dec.deg, radius_deg=hintsep.to_value(u.deg))
     
     @classmethod
-    def has_pairs(cls, fit_instance: Union[ReducedFit, RawFit]) -> bool:
+    def has_pairs(cls, fit_instance: Union['ReducedFit', 'RawFit']) -> bool:
         """ DIPOL ALWAYS HAS PAIRS """
         return True
 
