@@ -8,11 +8,11 @@
 datadir: ~/.iop4data/ # <str> Path to iop4data data folder.
 set_rawdata_readonly: False # <bool> True / False (sets raw fits file to readonly when downloading them or creating a RawFit object).
 db_path: ~/.iop4data/iop4.db # Path to iop4 sqlite database file.
-astrometry_cache_path: ~/.astrometry_cache/ # <tr> Path to store the astromery index files.
+astrometry_cache_path: ~/.astrometry_cache/ # <str> Path to store the astrometry index files.
 nthreads: 4 # <int> Number of threads / processes to use (e.g. 4).
 astrometry_timeout: 20 # <int> Timeout in minutes for astrometry solving.
 astrometry_allsky_allow: false # <bool> Whether to allow all sky searches in the astrometry.net solver. If there are many all-sky images and nthreads is too high, it might cause very high memory consumption.
-astrometry_allsky_septhreshold: 25 # <int> Threshold of detected poinint mismatch to trigger an all-sky search.
+astrometry_allsky_septhreshold: 25 # <int> Threshold of detected pointing mismatch to trigger an all-sky search.
 
 ################
 ### GRAPHICS ###
@@ -54,7 +54,7 @@ osn_t150_password: null # <yourosnpassword>
 
 osn_source_list_path: null # <path/to/osn/source/list>
 
-# List of (case insentitive) regex patterns.
+# List of (case insensitive) regex patterns.
 # Files matching any of these patterns will be downloaded from OSN. 
 # For example, (^BLLac.*\.fits?$) will match file names starting with BLLac 
 # and ending in .fit, .fits, or .fts. You can include your initials here, 
