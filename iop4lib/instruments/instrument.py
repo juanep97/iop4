@@ -545,12 +545,13 @@ class Instrument(metaclass=ABCMeta):
 
                 # correct position using centroid
                 # choose a box size that is somewhat larger than the aperture
-                # in case of pairs, choose a box size that is somewhat smaller than the distance between pairs
+                # in case of pairs, cap box size that is somewhat smaller than the distance between pairs
 
                 box_size = math.ceil(1.6 * aperpix)//2 * 2 + 1
 
                 if redf.has_pairs:
-                    box_size = (math.ceil(np.linalg.norm(Instrument.by_name(redf.instrument).disp_sign_mean))//2 * 2 - 1)
+                    _box_size_max = math.ceil(np.linalg.norm(Instrument.by_name(redf.instrument).disp_sign_mean))//2 * 2 - 1
+                    box_size = min(box_size, _box_size_max)
 
                 centroid_px_pos = centroid_sources(img, xpos=wcs_px_pos[0], ypos=wcs_px_pos[1], box_size=box_size, centroid_func=centroid_2dg)
                 centroid_px_pos = (centroid_px_pos[0][0], centroid_px_pos[1][0])
