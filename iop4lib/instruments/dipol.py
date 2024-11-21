@@ -39,9 +39,9 @@ logger = logging.getLogger(__name__)
 
 
 import typing
+from iop4lib.db import RawFit, ReducedFit
 if typing.TYPE_CHECKING:
     from typing import Union
-    from iop4lib.db import RawFit, ReducedFit
 
 
 class DIPOL(Instrument):
