@@ -568,7 +568,7 @@ class DIPOL(Instrument):
 
 
     @classmethod
-    def _build_wcs_for_polarimetry_images_photo_quads(cls, redf: 'ReducedFit', summary_kwargs : dict = None, n_seg_threshold=1.5, npixels=32, min_quad_distance=4.0, fwhm=None, centering=None):
+    def _build_wcs_for_polarimetry_images_photo_quads(cls, redf: 'ReducedFit', summary_kwargs : dict = None, n_seg_threshold=1.5, npixels=32, min_quad_distance=4.0, fwhm=None, centering=None, max_quad_t=1000, min_quad_area=0.03):
 
         if summary_kwargs is None:
             summary_kwargs = {'build_summary_images':True, 'with_simbad':True}
@@ -642,25 +642,30 @@ class DIPOL(Instrument):
         quads_1 = np.array(list(itertools.combinations(sets_L[0], 4)))
         quads_2 = np.array(list(itertools.combinations(sets_L[1], 4)))
 
-        # remove quads of points that have an area less than 5% of the image
+        # remove quads of points that have an area less than min_quad_area * are of the image
+
         def PolyArea(x,y):
             # order points clockwise
             idx = np.argsort(np.arctan2(y-y.mean(), x-x.mean()))
             x, y = x[idx], y[idx]
             return 0.5*np.abs(np.dot(x,np.roll(y,1))-np.dot(y,np.roll(x,1)))
         
-        quads_1 = np.array([quad for quad in quads_1 if PolyArea(quad[:,0], quad[:,1]) > 0.05*(redf_pol.width*redf_pol.height)])
-        quads_2 = np.array([quad for quad in quads_2 if PolyArea(quad[:,0], quad[:,1]) > 0.05*(redf_pol.width*redf_pol.height)])
+        quads_1 = np.array([quad for quad in quads_1 if PolyArea(quad[:,0], quad[:,1]) > min_quad_area*(redf_pol.width*redf_pol.height)])
+        quads_2 = np.array([quad for quad in quads_2 if PolyArea(quad[:,0], quad[:,1]) > min_quad_area*(redf_pol.width*redf_pol.height)])
 
         if len(quads_1) == 0 or len(quads_2) == 0:
             logger.error(f"No quads found in {redf_pol} and {redf_phot}, returning success = False.")
             return BuildWCSResult(success=False)
-        
+
+        # Compute the hashes of the quads
+      
         from iop4lib.utils.quadmatching import hash_ish, distance, order, qorder_ish, find_linear_transformation
         hash_func, qorder = hash_ish, qorder_ish
 
         hashes_1 = np.array([hash_func(quad) for quad in quads_1])
         hashes_2 = np.array([hash_func(quad) for quad in quads_2])
+
+        # Get the distance (in the hash space) between all quads
 
         all_indices = np.array(list(itertools.product(range(len(quads_1)),range(len(quads_2)))))
         all_distances = np.array([distance(hashes_1[i], hashes_2[j]) for i,j in all_indices])
@@ -669,17 +674,7 @@ class DIPOL(Instrument):
         all_indices = all_indices[idx]
         all_distances = all_distances[idx]
 
-        # selected indices some nice indices
-
-        #best_i, best_j = all_indices[0]
-
-        # if (min_distance_found := distance(hash_func(quads_1[best_i]),hash_func(quads_2[best_j]))) > 4.0: # corresponds to more than 1px error per point in the quad
-        #     logger.error(f"Best quads i,j=[{best_i},{best_j}] matched has distance {min_distance_found:.3f} > 4.0, returning success = False.")
-        #     return BuildWCSResult(success=False, wcslist=None, info={'redf_phot__pk':redf_phot.pk, 'redf_phot__fileloc':redf_phot.fileloc})
-
-        # better this method:
-
-        # the best 5 that have less than 1px of error per quad (4 points)
+        # select some nice indices (the best 5 that have less than min_quad_distance of error per quad)
  
         idx_selected = np.where(all_distances < min_quad_distance)[0] 
         indices_selected = all_indices[idx_selected]
@@ -693,21 +688,36 @@ class DIPOL(Instrument):
             indices_selected = all_indices[idx_selected]
             distances_selected = all_distances[idx_selected]
 
+
+        # save the flipped status of both images
+
+        is_redf_pol_flipped = 'FLIPSTAT' in redf_pol.rawfit.header and redf_pol.rawfit.header['FLIPSTAT'] == "Flip"
+        is_redf_phot_flipped = 'FLIPSTAT' in redf_phot.rawfit.header and redf_phot.rawfit.header['FLIPSTAT'] == "Flip"
+
+        # Get the appropiate transformation depending on whether both images are flipped or not
+
+        from iop4lib.utils.quadmatching import find_best_transformation, distance_to_y_flip, distance_to_identity
+        
+        if is_redf_pol_flipped != is_redf_phot_flipped:
+            dist_func =  distance_to_y_flip
+        else:
+            dist_func =  distance_to_identity
+
         # get linear transforms
         logger.debug(f"Selected {len(indices_selected)} quads with distance < {min_quad_distance}. I will get the one with less deviation from the median linear transform.")
 
-        R_L, t_L = zip(*[find_linear_transformation(qorder(quads_1[i]), qorder(quads_2[j])) for i,j in indices_selected])
+        R_L, t_L, perm_L = zip(*[find_best_transformation(quads_1[i], quads_2[j], dist_func) for i,j in indices_selected])
         logger.debug(f"{t_L=}")
         
 
-        logger.debug(f"Filtering out big translations (<1020px)")
+        logger.debug(f"Filtering out big translations (<{max_quad_t} px)")
 
-        _indices_selected = indices_selected[np.array([np.linalg.norm(t) < 1020 for t in t_L])]
+        _indices_selected = indices_selected[np.array([np.linalg.norm(t) < max_quad_t for t in t_L])]
 
-        logger.debug(f"Filtered to {len(_indices_selected)} quads with distance < 4.0 and translation < 1020px.")
+        logger.debug(f"Filtered to {len(_indices_selected)} quads with distance < {min_quad_distance} and translation < {max_quad_t} px.")
 
         if len(_indices_selected) == 0:
-            logger.error(f"No quads with distance < {min_quad_distance} and translation < 1000px, building summary image of the 3 best quads and returning success = False.")
+            logger.error(f"No quads with distance < {min_quad_distance} and translation < {max_quad_t} px, building summary image of the 3 best quads and returning success = False.")
 
             colors = [color for color in mplt.rcParams["axes.prop_cycle"].by_key()["color"]]
 
@@ -716,7 +726,7 @@ class DIPOL(Instrument):
 
             for (i, j), color in list(zip(indices_selected, colors))[:3]: 
 
-                tij = find_linear_transformation(qorder(quads_1[i]), qorder(quads_2[j]))[1]
+                tij = find_best_transformation(quads_1[i], quads_2[j], dist_func)[1]
 
                 for ax, data, quad, positions in zip(axs, [redf_pol.mdata, photdata_subframe], [quads_1[i], quads_2[j]], sets_L):
                     imshow_w_sources(data, pos1=positions, ax=ax)
@@ -739,7 +749,7 @@ class DIPOL(Instrument):
         else:
             indices_selected = _indices_selected
         
-        R_L, t_L = zip(*[find_linear_transformation(qorder(quads_1[i]), qorder(quads_2[j])) for i,j in indices_selected])
+        R_L, t_L, perm_L = zip(*[find_best_transformation(quads_1[i], quads_2[j], dist_func) for i,j in indices_selected])
 
 
         # get the closest one to the t_L mean
@@ -769,7 +779,7 @@ class DIPOL(Instrument):
 
             for (i, j), color in list(zip(indices_selected, colors))[:1]: 
                 
-                tij = find_linear_transformation(qorder(quads_1[i]), qorder(quads_2[j]))[1]
+                tij = find_best_transformation(quads_1[i], quads_2[j], dist_func)[1]
 
                 for ax, data, quad, positions in zip(axs, [redf_pol.mdata, photdata_subframe], [quads_1[i], quads_2[j]], sets_L):
                     imshow_w_sources(data, pos1=positions, ax=ax)
@@ -795,11 +805,6 @@ class DIPOL(Instrument):
         quads_1 = [qorder_ish(quad) for quad in quads_1]
         quads_2 = [qorder_ish(quad) for quad in quads_2]
 
-        # save the flipped status of both images
-
-        is_redf_pol_flipped = 'FLIPSTAT' in redf_pol.rawfit.header and redf_pol.rawfit.header['FLIPSTAT'] == "Flip"
-        is_redf_phot_flipped = 'FLIPSTAT' in redf_phot.rawfit.header and redf_phot.rawfit.header['FLIPSTAT'] == "Flip"
-
         # get the pre wcs with the target in the center of the image (if the image is flipped, the angle is negative)
 
         angle_mean, angle_std = get_angle_from_history(redf_pol, target_src)
@@ -809,15 +814,6 @@ class DIPOL(Instrument):
             angle = angle_mean
 
         logger.debug(f"Using {angle=} for pre wcs.")
-
-        # Get the appropiate transformation depending on whether both images are flipped or not
-
-        from iop4lib.utils.quadmatching import find_best_transformation, distance_to_y_flip, distance_to_identity
-        
-        if is_redf_pol_flipped != is_redf_phot_flipped:
-            R, t, perm = find_best_transformation(quads_1[best_i], quads_2[best_j], distance_to_y_flip)
-        else:
-            R, t, perm = find_best_transformation(quads_1[best_i], quads_2[best_j], distance_to_identity)
 
         # fit a wcs centered on the target source
 
