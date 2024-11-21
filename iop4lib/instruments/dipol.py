@@ -14,14 +14,8 @@ import matplotlib as mplt
 import matplotlib.patheffects
 import matplotlib.pyplot as plt
 import astropy.units as u
-from astropy.stats import sigma_clipped_stats
 from photutils.aperture import CircularAperture
-from photutils.detection import DAOStarFinder
-from astropy.wcs import WCS
-from astropy.convolution import convolve
-from photutils.segmentation import make_2dgaussian_kernel
 from astropy.wcs.utils import fit_wcs_from_points
-from astropy.coordinates import Angle, SkyCoord
 from astropy.time import Time
 import itertools
 import datetime
@@ -34,7 +28,7 @@ from importlib import resources
 from iop4lib.enums import IMGTYPES, BANDS, OBSMODES, SRCTYPES, INSTRUMENTS, REDUCTIONMETHODS
 from .instrument import Instrument
 from iop4lib.utils import imshow_w_sources, get_angle_from_history, build_wcs_centered_on, get_simbad_sources
-from iop4lib.utils.sourcedetection import get_sources_daofind, get_segmentation, get_cat_sources_from_segment_map, get_bkg
+from iop4lib.utils.sourcedetection import get_segmentation, get_cat_sources_from_segment_map, get_bkg
 from iop4lib.utils.plotting import plot_preview_astrometry
 from iop4lib.utils.astrometry import BuildWCSResult
 from iop4lib.telescopes import OSNT090
@@ -46,7 +40,9 @@ logger = logging.getLogger(__name__)
 
 import typing
 if typing.TYPE_CHECKING:
-    from iop4lib.db import RawFit, ReducedFit, Epoch
+    from typing import Union
+    from iop4lib.db import RawFit, ReducedFit
+
 
 class DIPOL(Instrument):
 
@@ -354,7 +350,7 @@ class DIPOL(Instrument):
         return astrometry.PositionHint(ra_deg=hintcoord.ra.deg, dec_deg=hintcoord.dec.deg, radius_deg=hintsep.to_value(u.deg))
     
     @classmethod
-    def has_pairs(cls, fit_instance: 'ReducedFit' or 'RawFit') -> bool:
+    def has_pairs(cls, fit_instance: Union[ReducedFit, RawFit]) -> bool:
         """ DIPOL ALWAYS HAS PAIRS """
         return True
 
@@ -659,7 +655,7 @@ class DIPOL(Instrument):
 
         # Compute the hashes of the quads
       
-        from iop4lib.utils.quadmatching import hash_ish, distance, order, qorder_ish, find_linear_transformation
+        from iop4lib.utils.quadmatching import hash_ish, distance, order, qorder_ish
         hash_func, qorder = hash_ish, qorder_ish
 
         hashes_1 = np.array([hash_func(quad) for quad in quads_1])
