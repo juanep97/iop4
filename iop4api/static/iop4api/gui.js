@@ -134,8 +134,11 @@ function make_nice_table() {
                 // if download-include-helptext is checked, add the columns help text as comments
                 if (document.getElementById("download-include-helptext").checked) {
                     headerText += "# Columns:\n";
-                    for (let col of vueApp.$data.tableData.columns) {
-                        headerText += col.help ? `# - ${col.title}: ${col.help}\n` : `# - ${col.title}\n`;
+                    for (let col of table.getColumns()) {
+                        if (col.isVisible()) {
+                            col_def = col.getDefinition();
+                            headerText += col_def.field ? `# - ${col_def.field}: ${col_def.headerTooltip}\n` : `# - ${col_def.title}\n`;
+                        }
                     }
                 }
                 fileContents = headerText + fileContents;
