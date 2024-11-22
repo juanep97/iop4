@@ -124,6 +124,22 @@ function make_nice_table() {
                             },
                         ]
         },
+        downloadEncoder:function(fileContents, mimeType){
+            // if its csv format, add some comments at the top of the file
+            console.log("mimeType", mimeType);
+            if(mimeType === "text/csv"){
+                console.log("Adding comments to csv file");
+                // if download-include-helptext is checked, add the columns help text as comments
+                if (document.getElementById("download-include-helptext").checked) {
+                    headerText += "# Columns:\n";
+                    for (let col of vueApp.$data.tableData.columns) {
+                        headerText += col.help ? `# - ${col.title}: ${col.help}\n` : `# - ${col.title}\n`;
+                    }
+                }
+                fileContents = headerText + fileContents;
+            }
+            return new Blob([fileContents], {type:mimeType});
+        },
     });
 
     // link table controls to this table
