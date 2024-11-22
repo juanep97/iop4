@@ -129,6 +129,8 @@ function make_nice_table() {
             console.log("mimeType", mimeType);
             if(mimeType === "text/csv"){
                 console.log("Adding comments to csv file");
+                // add citation instructions
+                headerText = "# IOP4. Cite: https://dx.doi.org/10.3847/1538-3881/ad5a80\n"
                 // if download-include-helptext is checked, add the columns help text as comments
                 if (document.getElementById("download-include-helptext").checked) {
                     headerText += "# Columns:\n";
