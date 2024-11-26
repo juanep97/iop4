@@ -11,8 +11,9 @@
 <div v-show="showDataTable" id="tableControlsContainer">
     <button class="button" id="download-csv">Download as csv</button>
     <button class="button" id="download-pdf">Download as pdf</button>
+    <label style="display: flex; align-items: center; gap: 4px;"><input type="checkbox" id="download-include-helptext" name="download-include-helptext" />include columns help</label>
     <button class="button" id="column-visibilities" onclick="show_column_visibility_modal_form()">Toggle columns</button>
-    <button class="button" id="column-visibilities" @click="showDataTableFilters=true;">Set filters</button>
+    <button class="button" id="table-filters" @click="showDataTableFilters=true;">Set filters</button>
     <!-- Column modal form -->
     <div id="column_visibility_modal_form" class="modal">
         <div class="modal-content">
