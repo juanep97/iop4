@@ -432,7 +432,11 @@ class DIPOL(Instrument):
                                                   sources_in_field__in=[reducedfit.header_hintobject], 
                                                   obsmode=OBSMODES.PHOTOMETRY, 
                                                   flags__has=ReducedFit.FLAGS.BUILT_REDUCED).first()
-            n_expected_simbad_sources = len(get_simbad_sources(reducedfit.header_hintobject.coord, radius=(reducedfit.width*cls.arcsec_per_pix*u.arcsec)))
+            try:
+                n_expected_simbad_sources = len(get_simbad_sources(reducedfit.header_hintobject.coord, radius=(reducedfit.width*cls.arcsec_per_pix*u.arcsec)))
+            except Exception as e:
+                logger.error(f"Error getting simbad sources for {reducedfit}: {e}")
+                n_expected_simbad_sources = None
             n_expected_calibrators = AstroSource.objects.filter(calibrates__in=[reducedfit.header_hintobject]).count()
 
             # log the variables above
