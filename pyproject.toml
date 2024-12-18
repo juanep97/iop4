@@ -18,7 +18,7 @@ classifiers = [
 requires-python = ">=3.11,<3.13"
 dependencies = [
     "numpy>=1.26.4,<2",
-    "matplotlib>=3.7.1,<4",
+    "matplotlib>=3.7.1,<3.10", # See https://github.com/juanep97/iop4/issues/160
     "bokeh==3.6.0", # Bokeh version must match the one in iop4api/templates/iop4api/index.html.
     "scipy>=1.10.1,<2",
     "astropy>=5.2.2,<6",
