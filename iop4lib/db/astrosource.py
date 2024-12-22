@@ -66,6 +66,12 @@ class AstroSource(models.Model):
 
     calibrates = models.ManyToManyField('AstroSource', related_name="calibrators", blank=True, help_text="sources that it calibrates (for calibrators only)")
 
+    p = models.FloatField(blank=True, null=True, help_text="Polarization degree [0-1] (for calibrators only)")
+    p_err = models.FloatField(blank=True, null=True, help_text="Polarization degree error (for calibrators only)")
+    
+    chi = models.FloatField(blank=True, null=True, help_text="Polarization angle [deg] (for calibrators only)")
+    chi_err = models.FloatField(blank=True, null=True, help_text="Polarization angle error (for calibrators only)")
+
     mag_R = models.FloatField(blank=True, null=True, help_text="Literature magnitude in R band (for calibrators only)")
     mag_R_err = models.FloatField(blank=True, null=True, help_text="Literature magnitude error in R band (for calibrators only)")
 
@@ -199,7 +205,7 @@ class AstroSource(models.Model):
         sources_in_field = list()
 
         import warnings
-        for obj in qs:
+        for obj in qs.iterator():
             try:
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
