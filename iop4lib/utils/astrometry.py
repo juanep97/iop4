@@ -56,7 +56,7 @@ class BuildWCSResult():
         return self.success 
 
 
-def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict = None, hard : bool = False, summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}) -> BuildWCSResult:
+def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict = None, summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}) -> BuildWCSResult:
     """ Build the appropiate WCSs for a ReducedFit image, trying different parameters. See `build_wcs` for more info.
 
     Note: at the moment, this function tries source extraction with different combination of parameters and thresholds for 
@@ -71,6 +71,12 @@ def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict = 
     - Explore other detectors and solvers if necessary to improve speed, sucess rate and accuracy.
     - Use pre-computed pair distances.
     """
+
+    hard = False
+    if 'hard' in shotgun_params_kwargs:
+        if shotgun_params_kwargs['hard']:
+            hard = True
+        del shotgun_params_kwargs['hard']
 
     param_dicts_L = []
 
