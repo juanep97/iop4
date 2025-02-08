@@ -104,16 +104,20 @@ def process_astrosource(args):
     from iop4lib.db import ReducedFit, AstroSource, PhotoPolResult, Epoch
     
     astrosource = AstroSource.objects.get(name=args.astrosource)
+
     qs_all = ReducedFit.objects.filter(epoch__night__gte=args.date_start, epoch__night__lte=args.date_end)
 
     logger.info(f"Found {qs_all.count()} reduced fits between {args.date_start} and {args.date_end}.")
 
-    # filter files that have identified this source (in sources_in_field) or have this source as header_hintobject
-
-    redfL = list()
-    for redf in qs_all:
-        if redf.sources_in_field.filter(name=args.astrosource).exists() or redf.header_hintobject == astrosource:
-            redfL.append(redf)
+    if args.only_sources_in_field:
+        qs_all = qs_all.filter(sources_in_field__name=args.astrosource)
+        redfL = list(qs_all)
+    else:
+        # filter files that have identified this source (in sources_in_field) or have this source as header_hintobject
+        redfL = list()
+        for redf in qs_all:
+            if redf.sources_in_field.filter(name=args.astrosource).exists() or redf.header_hintobject == astrosource:
+                redfL.append(redf)
 
     qs_redf = ReducedFit.objects.filter(pk__in=[redf.pk for redf in redfL])
 
@@ -127,6 +131,12 @@ def process_astrosource(args):
         logger.info("Retrying failed reduced fits.")
         redfL_failed = [redf for redf in redfL if redf.has_flag(ReducedFit.FLAGS.ERROR_ASTROMETRY)]
         Epoch.reduce_reducedfits(redfL_failed)
+
+    if args.check_sources_in_field_again:
+            for reducedfit in redfL:
+                sources_in_field = AstroSource.get_sources_in_field(fit=reducedfit)    
+                logger.debug(f"{reducedfit}: found {len(sources_in_field)} sources in field.")        
+                reducedfit.sources_in_field.set(sources_in_field, clear=True)
 
     if args.recompute:
         qs_res = PhotoPolResult.objects.filter(reducedfits__in=redfL)
@@ -359,6 +369,8 @@ def main():
     parser.add_argument('--astrosource', type=str, default=None, help='<Optional> Select files only of this source')
     parser.add_argument('--recompute', action='store_true', help='<Optional> Recompute photometry and polarimetry results')
     parser.add_argument('--retry-failed', action='store_true', help='<Optional> Retry failed reduced fits')
+    parser.add_argument('--only-sources-in-field', action='store_true', help='<Optional> Only process files that have this source in sources_in_field')
+    parser.add_argument('--check-sources-in-field-again', action='store_true', help='<Optional> Check sources_in_field again')
 
     # other options
     parser.add_argument('--skip-remote-file-list', action='store_true', help='<Optional> Skip remote file list check')
