@@ -93,6 +93,15 @@
 
             <h2>Summary of results (band R only)</h2>
 
+            {% if sources_without_calibrators %}
+                <p style="color:red;">
+                    Some sources do not have calibrators:
+                    {% for source in sources_without_calibrators %}
+                        {{ source.name }}{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                </p>
+            {% endif %}
+
             <p>Some of these plots might include the previous existing night for the source for comparison.</p>
 
             {% for srcname, imgb64 in results_summary_images.items %}

@@ -21,6 +21,7 @@ from photutils.centroids import centroid_sources, centroid_2dg
 
 # iop4lib imports
 from iop4lib.enums import *
+from iop4lib.utils import filter_zero_points, calibrate_photopolresult
 
 # logging
 import logging
@@ -684,40 +685,9 @@ class Instrument(metaclass=ABCMeta):
             if result.astrosource.is_calibrator:
                 continue
 
-            # 3.a Average the zero points
+            logger.debug(f"{redf}: calibrating {result}")
 
-            # get all the computed photopolresults that calibrate this source
-            calibrator_results_L = [r for r in photopolresult_L if r.astrosource.calibrates.filter(pk=result.astrosource.pk).exists()]
-
-            # Create an array with nan instead of None (this avoids the dtype becoming object)
-            calib_mag_zp_array = np.array([result.mag_zp or np.nan for result in calibrator_results_L if result.astrosource.is_calibrator]) 
-            calib_mag_zp_array = calib_mag_zp_array[~np.isnan(calib_mag_zp_array)]
-
-            calib_mag_zp_array_err = np.array([result.mag_zp_err or np.nan for result in calibrator_results_L if result.astrosource.is_calibrator])
-            calib_mag_zp_array_err = calib_mag_zp_array_err[~np.isnan(calib_mag_zp_array_err)]
-
-            if len(calib_mag_zp_array) == 0:
-                logger.error(f"{redf}: can not perform relative photometry on source {result.astrosource.name}, no calibrator zero-points found.")
-                # [result.delete() for result in redf.photopolresults.all()]
-                continue
-
-            zp_avg = np.nanmean(calib_mag_zp_array)
-            zp_std = np.nanstd(calib_mag_zp_array)
-
-            zp_err = math.sqrt(np.sum(calib_mag_zp_array_err**2)) / len(calib_mag_zp_array_err)
-            zp_err = math.sqrt(zp_std**2 + zp_err**2)
-
-            # 3.b Compute the calibrated magnitude
-
-            # save the zp (to be) used
-            result.mag_zp = zp_avg
-            result.mag_zp_err = zp_err
-
-            # compute the calibrated magnitude
-            result.mag = zp_avg + result.mag_inst
-            result.mag_err = math.sqrt(result.mag_inst_err**2 + zp_err**2)
-
-            result.save()
+            calibrate_photopolresult(result, photopolresult_L)
         
         # 5. Save the results
 
@@ -731,7 +701,7 @@ class Instrument(metaclass=ABCMeta):
 
 
     @classmethod
-    def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fit_boxsize=None, search_boxsize=(90,90), fwhm_min=2, fwhm_max=50):
+    def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fit_boxsize=None, search_boxsize=(90,90), fwhm_min=2, fwhm_max=50, fwhm_default=3.5):
         r"""estimate an appropriate common aperture for a list of reduced fits.
         
         It fits the target source profile in the fields and returns some multiples of the fwhm which are used as the aperture and as the inner and outer radius of the annulus for local bkg estimation).
@@ -771,11 +741,10 @@ class Instrument(metaclass=ABCMeta):
             mean_fwhm = np.mean(fwhm_L)
         else:
             logger.error(f"Could not find an appropriate aperture for Reduced Fits {[redf.id for redf in reducedfits]}, using standard fwhm of 3.5px")
-            mean_fwhm = 3.5
+            mean_fwhm = fwhm_default
 
         sigma = mean_fwhm / (2*np.sqrt(2*math.log(2)))
-        r = sigma
         
-        return 6.0*r, 7.0*r, 15.0*r, {'mean_fwhm':mean_fwhm, 'sigma':sigma}
+        return 3.0*sigma, 5.0*sigma, 9.0*sigma, {'mean_fwhm':mean_fwhm, 'sigma':sigma}
     
 

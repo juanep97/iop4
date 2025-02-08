@@ -254,7 +254,7 @@ class DIPOL(Instrument):
 
 
     @classmethod
-    def get_header_hintobject(self, rawfit):
+    def get_header_hintobject(self, rawfit: 'RawFit'):
         r""" Overriden for DIPOL, which are using the convention for the other_names field. 
         
         The regex used has been obtained from the notebook checking all keywords.
@@ -431,7 +431,7 @@ class DIPOL(Instrument):
             redf_phot = ReducedFit.objects.filter(instrument=reducedfit.instrument,
                                                   sources_in_field__in=[reducedfit.header_hintobject], 
                                                   obsmode=OBSMODES.PHOTOMETRY, 
-                                                  flags__has=ReducedFit.FLAGS.BUILT_REDUCED).first()
+                                                  flags__has=ReducedFit.FLAGS.BUILT_REDUCED).order_by('-juliandate').first()
             try:
                 n_expected_simbad_sources = len(get_simbad_sources(reducedfit.header_hintobject.coord, radius=(reducedfit.width*cls.arcsec_per_pix*u.arcsec)))
             except Exception as e:
@@ -587,7 +587,7 @@ class DIPOL(Instrument):
         redf_phot = ReducedFit.objects.filter(instrument=redf_pol.instrument, 
                                               sources_in_field__in=[target_src], 
                                               obsmode=OBSMODES.PHOTOMETRY, 
-                                              flags__has=ReducedFit.FLAGS.BUILT_REDUCED).first()
+                                              flags__has=ReducedFit.FLAGS.BUILT_REDUCED).order_by('-juliandate').first()
         
         if redf_phot is None:
             logger.error(f"No astro-calibrated photometry field found for {redf_pol}.")

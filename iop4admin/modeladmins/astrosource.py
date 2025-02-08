@@ -239,7 +239,8 @@ class AdminAstroSource(admin.ModelAdmin):
         main_src = queryset.first()
 
         field_stars = main_src.calibrators.filter(name__startswith="PanSTARRS")
+        n_field_stars = len(field_stars) # count before deletion
         field_stars.delete()
-        logger.info(f"Removed {len(field_stars)} PanSTARRS field stars for {main_src.name}")
+        logger.info(f"Removed {n_field_stars} PanSTARRS field stars for {main_src.name}")
 
-        messages.success(request, f"Removed {len(field_stars)} PanSTARRS field stars for {main_src.name}")
+        messages.success(request, f"Removed {n_field_stars} PanSTARRS field stars for {main_src.name}")
