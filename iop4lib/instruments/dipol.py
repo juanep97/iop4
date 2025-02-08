@@ -431,7 +431,7 @@ class DIPOL(Instrument):
             redf_phot = ReducedFit.objects.filter(instrument=reducedfit.instrument,
                                                   sources_in_field__in=[reducedfit.header_hintobject], 
                                                   obsmode=OBSMODES.PHOTOMETRY, 
-                                                  flags__has=ReducedFit.FLAGS.BUILT_REDUCED).first()
+                                                  flags__has=ReducedFit.FLAGS.BUILT_REDUCED).order_by('-juliandate').first()
             try:
                 n_expected_simbad_sources = len(get_simbad_sources(reducedfit.header_hintobject.coord, radius=(reducedfit.width*cls.arcsec_per_pix*u.arcsec)))
             except Exception as e:
