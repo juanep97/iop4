@@ -148,7 +148,7 @@ def get_total_mem_from_child():
 
 
 
-def fit_fwhm(pos_px: (float,float), data: NDArray = None, redf: 'ReducedFit' = None, px_max: int = None) -> float:
+def fit_fwhm(pos_px: tuple[float,float], data: NDArray = None, redf: 'ReducedFit' = None, px_max: int = None) -> float:
     r""" Fits a 1D gaussian + constant to the radial profile of the data around the given position, and returns the FWHM of the gaussian."""
 
     import numpy as np
@@ -181,7 +181,7 @@ def fit_fwhm(pos_px: (float,float), data: NDArray = None, redf: 'ReducedFit' = N
 
     return gaussian_fit[0].fwhm
 
-def fit_sigma(pos_px: (float, float), *args, **kwargs) -> float:
+def fit_sigma(pos_px: tuple[float, float], *args, **kwargs) -> float:
     r""" Fits a 1D gaussian + constant to the radial profile of the data around the given position, and returns the standard deviation of the gaussian."""
     fwhm = fit_fwhm(pos_px, *args, **kwargs)
     sigma = fwhm / (2*np.sqrt(2*math.log(2)))
@@ -327,8 +327,8 @@ def get_angle_from_history(redf: 'ReducedFit' = None,
 
     return angle_mean, angle_std
 
-def build_wcs_centered_on(target_px: (float, float),
-                          target_coord: (float, float) = None,
+def build_wcs_centered_on(target_px: tuple[float, float],
+                          target_coord: tuple[float, float] = None,
                           target_src : 'AstroSource' = None, 
                           redf: 'ReducedFit' = None, 
                           angle: float = None, 
@@ -464,7 +464,7 @@ def get_simbad_sources(center_coord, radius, Nmax=6, all_types=False, exclude_se
 
 
 
-def get_host_correction(astrosource, aperas, fwhm=None) -> (float, float):
+def get_host_correction(astrosource, aperas, fwhm=None) -> tuple[float, float]:
     r""" Returns the contaminating flux and its uncertainty for a given astrosource and aperture radius. 
     
     If no correction is available for the given astrosource, it returns None, None.
