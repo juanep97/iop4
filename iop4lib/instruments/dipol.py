@@ -587,7 +587,7 @@ class DIPOL(Instrument):
         redf_phot = ReducedFit.objects.filter(instrument=redf_pol.instrument, 
                                               sources_in_field__in=[target_src], 
                                               obsmode=OBSMODES.PHOTOMETRY, 
-                                              flags__has=ReducedFit.FLAGS.BUILT_REDUCED).first()
+                                              flags__has=ReducedFit.FLAGS.BUILT_REDUCED).order_by('-juliandate').first()
         
         if redf_phot is None:
             logger.error(f"No astro-calibrated photometry field found for {redf_pol}.")
