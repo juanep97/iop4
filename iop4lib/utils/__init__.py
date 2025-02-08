@@ -147,63 +147,6 @@ def get_total_mem_from_child():
 
 
 
-# Function to get target FWHM
-
-def estimate_common_apertures(redfL, reductionmethod=None):
-    r"""estimate an appropriate common aperture for a list of reduced fits.
-    
-    It fits the target source profile in the fields and returns some multiples of the fwhm which are used as the aperture and as the inner and outer radius of the annulus for local bkg estimation).
-    """
-
-    import numpy as np
-    from iop4lib.db import AstroSource
-    from photutils.profiles import RadialProfile
-    from photutils.centroids import centroid_quadratic
-    from astropy.modeling.models import Moffat1D, Const1D, Gaussian1D
-    from astropy.modeling import models, fitting
-
-    astrosource_S = set.union(*[set(redf.sources_in_field.all()) for redf in redfL])
-    target_L = [astrosource for astrosource in astrosource_S if not astrosource.is_calibrator]
-
-    logger.debug(f"{astrosource_S=}")
-
-    if len(target_L) > 0:
-        target = target_L[0]
-    elif len(astrosource_S) > 0:
-        target = astrosource_S.pop()
-    else:
-        return np.nan, np.nan, np.nan, np.nan
-  
-    fwhm_L = list()
-
-    for redf in redfL:
-        try:
-            xycen = centroid_quadratic(redf.mdata, *target.coord.to_pixel(redf.wcs), (15,15), search_boxsize=(5,5))
-        except Exception as e:
-            logger.warning(f"ReducedFit {redf.id} {target.name}: centroid_quadatric failed, using target.coord.to_pixel(redf.wcs), probably wrong")
-            xycen = target.coord.to_pixel(redf.wcs)
-
-        if not all(np.isfinite(xycen)):
-            xycen = target.coord.to_pixel(redf.wcs)
-
-        try:
-            fwhm = fit_fwhm(xycen, redf=redf)[0]
-            logger.debug(f"{target.name}: Gaussian FWHM: {fwhm:.1f} px")
-            fwhm_L.append(fwhm)
-        except Exception as e:
-            logger.warning(f"ReducedFit {redf.id} {target.name}: error in gaussian fit, skipping this reduced fit")
-
-    if len(fwhm_L) > 0:
-        mean_fwhm = np.mean(fwhm_L)
-    else:
-        logger.error(f"Could not find an appropriate aperture for Reduced Fits {[redf.id for redf in redfL]}, using standard fwhm of 3.5px")
-        mean_fwhm = 3.5
-
-    sigma = mean_fwhm / (2*np.sqrt(2*math.log(2)))
-    r = sigma
-    
-    return 5.0*r, 7.0*r, 15.0*r, {'mean_fwhm':mean_fwhm, 'sigma':sigma}
-
 
 def fit_fwhm(pos_px: (float,float), data: NDArray = None, redf: 'ReducedFit' = None, px_max: int = None) -> float:
     r""" Fits a 1D gaussian + constant to the radial profile of the data around the given position, and returns the FWHM of the gaussian."""
