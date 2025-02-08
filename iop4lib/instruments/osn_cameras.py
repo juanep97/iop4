@@ -115,7 +115,7 @@ class OSNCCDCamera(Instrument, metaclass=ABCMeta):
             raise ValueError("Cannot classify obsmode if band is ERROR.")
         
         if rawfit.band == BANDS.R:
-            if rawfit.header['FILTER'] == "R":
+            if rawfit.header['FILTER'] == "R" or rawfit.header['FILTER'] == "R Johnson":
                 rawfit.obsmode = OBSMODES.PHOTOMETRY
             else:
                 logger.debug("Band is R, but FILTER is not exactly R, for OSN this must mean it is polarimetry. Trying to extract angle from FILTER keyword.")
