@@ -21,6 +21,7 @@ from photutils.centroids import centroid_sources, centroid_2dg
 
 # iop4lib imports
 from iop4lib.enums import *
+from iop4lib.utils import filter_zero_points, calibrate_photopolresult
 
 # logging
 import logging
@@ -684,40 +685,9 @@ class Instrument(metaclass=ABCMeta):
             if result.astrosource.is_calibrator:
                 continue
 
-            # 3.a Average the zero points
+            logger.debug(f"{redf}: calibrating {result}")
 
-            # get all the computed photopolresults that calibrate this source
-            calibrator_results_L = [r for r in photopolresult_L if r.astrosource.calibrates.filter(pk=result.astrosource.pk).exists()]
-
-            # Create an array with nan instead of None (this avoids the dtype becoming object)
-            calib_mag_zp_array = np.array([result.mag_zp or np.nan for result in calibrator_results_L if result.astrosource.is_calibrator]) 
-            calib_mag_zp_array = calib_mag_zp_array[~np.isnan(calib_mag_zp_array)]
-
-            calib_mag_zp_array_err = np.array([result.mag_zp_err or np.nan for result in calibrator_results_L if result.astrosource.is_calibrator])
-            calib_mag_zp_array_err = calib_mag_zp_array_err[~np.isnan(calib_mag_zp_array_err)]
-
-            if len(calib_mag_zp_array) == 0:
-                logger.error(f"{redf}: can not perform relative photometry on source {result.astrosource.name}, no calibrator zero-points found.")
-                # [result.delete() for result in redf.photopolresults.all()]
-                continue
-
-            zp_avg = np.nanmean(calib_mag_zp_array)
-            zp_std = np.nanstd(calib_mag_zp_array)
-
-            zp_err = math.sqrt(np.sum(calib_mag_zp_array_err**2)) / len(calib_mag_zp_array_err)
-            zp_err = math.sqrt(zp_std**2 + zp_err**2)
-
-            # 3.b Compute the calibrated magnitude
-
-            # save the zp (to be) used
-            result.mag_zp = zp_avg
-            result.mag_zp_err = zp_err
-
-            # compute the calibrated magnitude
-            result.mag = zp_avg + result.mag_inst
-            result.mag_err = math.sqrt(result.mag_inst_err**2 + zp_err**2)
-
-            result.save()
+            calibrate_photopolresult(result, photopolresult_L)
         
         # 5. Save the results
 
