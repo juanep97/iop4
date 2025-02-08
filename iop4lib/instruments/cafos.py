@@ -383,8 +383,7 @@ class CAFOS(Instrument):
                     mag_zp_err = np.nan
                 else:
                     mag_zp = mag_known - mag_inst
-                    # mag_zp_err = math.sqrt(mag_known_err ** 2 + mag_inst_err ** 2)
-                    mag_zp_err = math.fabs(mag_inst_err) # do not add error on literature magnitude
+                    mag_zp_err = math.sqrt(mag_known_err ** 2 + mag_inst_err ** 2)
             else:
                 mag_zp = None
                 mag_zp_err = None
