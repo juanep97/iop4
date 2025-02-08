@@ -254,7 +254,7 @@ class DIPOL(Instrument):
 
 
     @classmethod
-    def get_header_hintobject(self, rawfit):
+    def get_header_hintobject(self, rawfit: 'RawFit'):
         r""" Overriden for DIPOL, which are using the convention for the other_names field. 
         
         The regex used has been obtained from the notebook checking all keywords.
