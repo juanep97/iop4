@@ -72,6 +72,9 @@ def gather_context(args):
         
     sources = AstroSource.objects.exclude(is_calibrator=True).filter(photopolresults__epoch__night=args.date).distinct()
 
+    # check if some of these sources lack calibrators
+    sources_without_calibrators = [source for source in sources if not source.calibrators.exists()]
+
     if sources:
         instruments = [instrument.name for instrument in Instrument.get_known()]
         colors = [mplt.colormaps['tab10'](i) for i in range(len(instruments))]
@@ -160,6 +163,7 @@ def gather_context(args):
     context['epochs'] = epochs    
     context['sources'] = sources
     context['results_summary_images'] = results_summary_images
+    context['sources_without_calibrators'] = sources_without_calibrators
     context['args'] = args
 
     return context
