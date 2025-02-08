@@ -701,7 +701,7 @@ class Instrument(metaclass=ABCMeta):
 
 
     @classmethod
-    def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fit_boxsize=None, search_boxsize=(90,90), fwhm_min=2, fwhm_max=50):
+    def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fit_boxsize=None, search_boxsize=(90,90), fwhm_min=2, fwhm_max=50, fwhm_default=3.5):
         r"""estimate an appropriate common aperture for a list of reduced fits.
         
         It fits the target source profile in the fields and returns some multiples of the fwhm which are used as the aperture and as the inner and outer radius of the annulus for local bkg estimation).
@@ -741,11 +741,10 @@ class Instrument(metaclass=ABCMeta):
             mean_fwhm = np.mean(fwhm_L)
         else:
             logger.error(f"Could not find an appropriate aperture for Reduced Fits {[redf.id for redf in reducedfits]}, using standard fwhm of 3.5px")
-            mean_fwhm = 3.5
+            mean_fwhm = fwhm_default
 
         sigma = mean_fwhm / (2*np.sqrt(2*math.log(2)))
-        r = sigma
         
-        return 6.0*r, 7.0*r, 15.0*r, {'mean_fwhm':mean_fwhm, 'sigma':sigma}
+        return 3.0*sigma, 5.0*sigma, 9.0*sigma, {'mean_fwhm':mean_fwhm, 'sigma':sigma}
     
 
