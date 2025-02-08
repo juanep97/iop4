@@ -82,9 +82,7 @@ def process_epochs(epochname_list: Iterable[str], args):
     logger.info("Auto-flagging points.")
     
     for result in PhotoPolResult.objects.filter(epoch__in=epoch_L).all():
-        if result.p is not None and not (0 <= result.p <= 1):
-            result.set_flag(PhotoPolResult.FLAGS.BAD_POLARIMETRY)
-            result.save()
+        result.auto_flag()
 
     logger.info("Applying corrections.")
 
@@ -162,9 +160,7 @@ def process_astrosource(args):
         logger.info("Auto-flagging points.")
         
         for result in PhotoPolResult.objects.filter(epoch__in=epoch_L).all():
-            if result.p is not None and not (0 <= result.p <= 1):
-                result.set_flag(PhotoPolResult.FLAGS.BAD_POLARIMETRY)
-                result.save()
+            result.auto_flag()
 
         logger.info("Applying corrections.")
 
