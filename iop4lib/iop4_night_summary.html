@@ -3,6 +3,15 @@
         <title>iop4 summary {{night|date:"Y/m/d"}}</title>
     </head>
     <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-size: 14px;
+        }
+
         table {
             border-collapse: collapse;
             width: 100%;
@@ -25,6 +34,13 @@
         hr {
             border: 1px solid black;
             margin: 1em 0;
+        }
+
+        img.source-plot {
+            min-width: 45em;
+            width: 49%;
+            max-width: 49%;
+            height: auto;
         }
 
     </style>
@@ -93,10 +109,26 @@
 
             <h2>Summary of results (band R only)</h2>
 
-            <p>Some of these plots might include the previous existing night for the source for comparison.</p>
+            {% if sources_without_calibrators %}
+                <p style="color:red;">
+                    Some sources do not have calibrators:
+                    {% for source in sources_without_calibrators %}
+                        {{ source.name }}{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                </p>
+            {% endif %}
 
-            {% for srcname, imgb64 in results_summary_images.items %}
-                <img src="data:image/png;base64,{{ imgb64 }}" alt="{{ srcname }}"/>
+            <p>
+                <small>
+                    Some of these plots might include the previous existing night for the source for comparison. 
+                    Click on the plots to go to the interactive plot in the web interface.
+                </small>
+            </p>
+
+            {% for srcname, val in results_summary_images.items %}
+                <a href="{{ val.source_plot_url}}">
+                    <img class="source-plot" src="data:image/png;base64,{{ val.imgb64 }}" alt="{{ srcname }}"/>
+                </a>
             {% endfor %}
 
         {% else %}

@@ -31,6 +31,7 @@ import matplotlib as mplt
 import matplotlib.pyplot as plt
 from astropy.time import Time
 import smtplib, email
+from urllib.parse import urlencode, quote_plus
 
 # logging
 import coloredlogs, logging
@@ -72,6 +73,9 @@ def gather_context(args):
         
     sources = AstroSource.objects.exclude(is_calibrator=True).filter(photopolresults__epoch__night=args.date).distinct()
 
+    # check if some of these sources lack calibrators
+    sources_without_calibrators = [source for source in sources if not source.calibrators.exists()]
+
     if sources:
         instruments = [instrument.name for instrument in Instrument.get_known()]
         colors = [mplt.colormaps['tab10'](i) for i in range(len(instruments))]
@@ -88,17 +92,20 @@ def gather_context(args):
                       .filter(astrosource=source, band="R", epoch__night__lt=args.date)
                       .order_by('-epoch__night')
                       .values_list('epoch__night', flat=True)
-                      .last())
+                      .first())
 
-        # get the results for this source from the previous night, or for this night if there is no previous night
+        # Get the results for the source in the given night, but if there is only
+        # one result, get the results from the previous night for comparison
 
-        if prev_night is not None:
-            qs0 = PhotoPolResult.objects.filter(astrosource=source, band="R").filter(epoch__night__gte=args.date).order_by('-juliandate')
+        qs_today = PhotoPolResult.objects.filter(astrosource=source, band="R").filter(epoch__night=args.date)
+
+        if prev_night is not None and qs_today.count() == 1:
+            qs0 = PhotoPolResult.objects.filter(astrosource=source, band="R").filter(epoch__night__gte=prev_night, epoch__night__lte=args.date).order_by('-juliandate')
         else:
-            qs0 = PhotoPolResult.objects.filter(astrosource=source, band="R").filter(epoch__night=args.date).order_by('-juliandate')
+            qs0 = qs_today.order_by('-juliandate')
 
 
-        fig = mplt.figure.Figure(figsize=(800/100, 600/100), dpi=100)
+        fig = mplt.figure.Figure(figsize=(1000/100, 600/100), dpi=100)
         axs = fig.subplots(nrows=3, ncols=1, sharex=True, gridspec_kw={'hspace': 0.05})
 
         for instrument, color in zip(instruments, colors):
@@ -114,6 +121,10 @@ def gather_context(args):
             axs[0].errorbar(x=vals['datetime'], y=vals['mag'], yerr=vals['mag_err'], marker=".", color=color, linestyle="none")
             axs[1].errorbar(x=vals['datetime'], y=vals['p'], yerr=vals['p_err'], marker=".", color=color, linestyle="none")
             axs[2].errorbar(x=vals['datetime'], y=vals['chi'], yerr=vals['chi_err'], marker=".", color=color, linestyle="none")
+
+        # x-axis date locator and formatter
+        from matplotlib.dates import AutoDateLocator
+        axs[-1].xaxis.set_major_locator(AutoDateLocator(interval_multiples=False, maxticks=7))
 
         # invert magnitude axis
         axs[0].invert_yaxis()
@@ -153,13 +164,31 @@ def gather_context(args):
         imgbytes = buf.read()
         imgb64 = base64.b64encode(imgbytes).decode("utf-8")
 
-        results_summary_images[source.name] = imgb64
+        # build the link to the interactive source plot
+
+        url_args = dict()
+
+        url_args['srcname'] = source.name
+
+        if prev_night is not None:
+            url_args['from'] = str(prev_night)
+
+        # we need 12:00 of the next day
+        next_day_noon = (datetime.datetime.combine(args.date, datetime.time(12, 0)) + datetime.timedelta(days=1))
+        url_args['to'] = str(next_day_noon)
+
+        source_plot_url = args.site_url + "/iop4/explore/plot/?" + urlencode(url_args, quote_via=quote_plus)
+
+        # save the results to the context
+
+        results_summary_images[source.name] = dict(imgb64=imgb64, source_plot_url=source_plot_url)
 
     # save vars to context and return it
     
     context['epochs'] = epochs    
     context['sources'] = sources
     context['results_summary_images'] = results_summary_images
+    context['sources_without_calibrators'] = sources_without_calibrators
     context['args'] = args
 
     return context

@@ -296,6 +296,18 @@ class PhotoPolResult(models.Model):
         """ Overriden to enforce clean() before saving. See PhotoPolResult.__docstring__ for more info."""
         self.clean()
         super().save(*args, **kwargs)
+
+    # Auto-flagging
+
+    def auto_flag(self):
+
+        if self.p is not None and not (0 <= self.p <= 1):
+            self.set_flag(PhotoPolResult.FLAGS.BAD_POLARIMETRY)
+
+        if self.mag is not None and self.mag_err is not None and self.mag_err > 0.3:
+            self.set_flag(PhotoPolResult.FLAGS.BAD_PHOTOMETRY)
+
+        self.save()        
         
     # Host galaxy correction
         

@@ -15,6 +15,7 @@ import math
 from iop4lib.enums import *
 from .instrument import Instrument
 from iop4lib.telescopes import CAHAT220
+from iop4lib.utils import filter_zero_points, calibrate_photopolresult
 
 # logging
 import logging
@@ -382,8 +383,7 @@ class CAFOS(Instrument):
                     mag_zp_err = np.nan
                 else:
                     mag_zp = mag_known - mag_inst
-                    # mag_zp_err = math.sqrt(mag_known_err ** 2 + mag_inst_err ** 2)
-                    mag_zp_err = math.fabs(mag_inst_err) # do not add error on literature magnitude
+                    mag_zp_err = math.sqrt(mag_known_err ** 2 + mag_inst_err ** 2)
             else:
                 mag_zp = None
                 mag_zp_err = None
@@ -408,37 +408,16 @@ class CAFOS(Instrument):
             logger.error("No results could be computed for this group.")
             return
         
-        # 3. Get average zero point from zp of all calibrators in the group
-
-        calib_mag_zp_array = np.array([result.mag_zp or np.nan for result in photopolresult_L if result.astrosource.is_calibrator]) # else it fills with None also and the dtype becomes object
-        calib_mag_zp_array = calib_mag_zp_array[~np.isnan(calib_mag_zp_array)]
-
-        calib_mag_zp_array_err = np.array([result.mag_zp_err or np.nan for result in photopolresult_L if result.astrosource.is_calibrator])
-        calib_mag_zp_array_err = calib_mag_zp_array_err[~np.isnan(calib_mag_zp_array_err)]
-
-        if len(calib_mag_zp_array) == 0:
-            logger.error(f"Can not compute magnitude during relative photo-polarimetry without any calibrators for this reduced fit.")
-
-        zp_avg = np.nanmean(calib_mag_zp_array)
-        zp_std = np.nanstd(calib_mag_zp_array)
-
-        zp_err = np.sqrt(np.nansum(calib_mag_zp_array_err ** 2)) / len(calib_mag_zp_array_err)
-        zp_err = math.sqrt(zp_err ** 2 + zp_std ** 2)
-
-        # 4. Compute the calibrated magnitudes for non-calibrators in the group using the averaged zero point
+        # 3. Compute the calibrated magnitudes for non-calibrators in the group using the averaged zero point
 
         for result in photopolresult_L:
 
             if result.astrosource.is_calibrator:
                 continue
 
-            result.mag_zp = zp_avg
-            result.mag_zp_err = zp_err
-        
-            result.mag = result.mag_inst + zp_avg
-            result.mag_err = math.sqrt(result.mag_inst_err ** 2 + zp_err ** 2)
+            logger.debug(f"calibrating {result}")
 
-            result.save()
+            calibrate_photopolresult(result, photopolresult_L)
 
         # 5. Save results
         for result in photopolresult_L:

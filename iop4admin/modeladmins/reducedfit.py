@@ -64,7 +64,7 @@ class AdminReducedFit(AdminFitFile):
     @admin.display(description='SRCS IN FIELD')
     def get_targets_in_field(self, obj):
 
-        cat_targets = list(obj.sources_in_field.filter(Q(srctype=SRCTYPES.BLAZAR) | Q(srctype=SRCTYPES.STAR)).values_list('name', flat=True))
+        cat_targets = list(obj.sources_in_field.filter(is_calibrator=False).values_list('name', flat=True))
 
         if len(cat_targets) > 0:
             return cat_targets
@@ -73,6 +73,8 @@ class AdminReducedFit(AdminFitFile):
             kw_obj_val = obj.rawfit.header['OBJECT']
         except FileNotFoundError:
             return format_html(f"<i>rawfit not found</i>")
+        except KeyError:
+            return format_html(f"<i>no OBJECT keyword</i>")
         
         guessed_target = AstroSource.objects.filter(Q(name__icontains=kw_obj_val) | Q(other_names__icontains=kw_obj_val)).values_list('name', flat=True)
 
