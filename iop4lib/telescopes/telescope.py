@@ -19,6 +19,7 @@ import astrometry
 import numpy as np
 import math
 import datetime
+import paramiko
 
 # iop4lib imports
 from iop4lib.enums import *
@@ -343,5 +344,162 @@ class FTPArchiveMixin():
                 logger.error(f"Error listing {cls.name} remote dir for {epochname}: {e}.")
             
         ftp.quit()
+
+        return fileloc_list
+
+
+
+class SFTPArchiveMixin():
+
+    @classmethod
+    @abstractmethod
+    def remote_dirname_to_epochname(cls, dirname):
+        pass
+        
+    @classmethod
+    @abstractmethod
+    def epochname_to_remote_dirname(cls, epochname):
+        pass
+
+    @classmethod
+    def _sftp_connect(cls):
+        transport = paramiko.Transport((cls.ftp_address.split(":")[0], int(cls.ftp_address.split(":")[1])))
+        transport.connect(username=cls.ftp_user, password=cls.ftp_password)
+        sftp = transport.open_sftp_client()
+        sftp.chdir('DATA/')
+        return sftp
+
+    @classmethod
+    def list_remote_epochnames(cls):
+        try:
+            logger.debug(f"Loging to {cls.name} FTP server.")
+
+            sftp = cls._sftp_connect()
+            remote_dirnameL_all = sftp.listdir('')
+            sftp.close()
+
+            if '.' in remote_dirnameL_all:
+                remote_dirnameL_all.remove('.')
+            if '..' in remote_dirnameL_all:
+                remote_dirnameL_all.remove('..')
+
+            logger.debug(f"Total of {len(remote_dirnameL_all)} dirs in {cls.name} remote.")
+
+            remote_epochnameL_all = list()
+
+            for dirname in remote_dirnameL_all:
+                if (epochname := cls.remote_dirname_to_epochname(dirname)) is None:
+                    logger.warning(f"Could not parse {dirname} as a valid epochname.")
+                else:
+                    remote_epochnameL_all.append(epochname)
+
+            logger.debug(f"Filtered to {len(remote_epochnameL_all)} epochs in {cls.name}.")
+
+            return remote_epochnameL_all
+        
+        except Exception as e:
+            raise Exception(f"Error listing remote epochs for {Telescope.name}: {e}.")
+
+    @classmethod
+    def list_remote_raw_fnames(cls, epoch):
+        try:
+
+            logger.debug(f"Loging to {cls.name} FTP server.")
+
+            sftp = cls._sftp_connect()
+
+            remote_dir = cls.epochname_to_remote_dirname(epoch.epochname)
+            logger.debug(f"Trying to change {remote_dir} directory.")
+            sftp.chdir(remote_dir)
+
+            remote_fnameL_all = sftp.listdir()
+            sftp.close()
+
+            if '.' in remote_fnameL_all:
+                remote_fnameL_all.remove('.')
+            if '..' in remote_fnameL_all:
+                remote_fnameL_all.remove('..')
+
+            logger.debug(f"Total of {len(remote_fnameL_all)} files in {cls.name} {epoch.epochname}: {remote_fnameL_all}.")
+
+            remote_fnameL = [s for s in remote_fnameL_all if cls.re_expr_fnames.search(s)]
+            
+            logger.debug(f"Filtered to {len(remote_fnameL)} files in {cls.name} {epoch.epochname}.")
+
+            return remote_fnameL
+        
+        except Exception as e:
+            raise Exception(f"Error listing remote dir for {epoch.epochname}: {e}.")
+        
+    @classmethod
+    def download_rawfits(cls, rawfits: list['RawFit'] | list[str]):
+        from iop4lib.db import RawFit
+
+        if cls.ftp_address is None or cls.ftp_user is None or cls.ftp_password is None:
+            raise ValueError(f"FTP credentials not set for {cls.name}.")
+
+        try:
+            sftp = cls._sftp_connect()
+
+            for rawfit in rawfits:
+
+                if isinstance(rawfit, str): # make sure that this is indeed the way tel, night, filepath are built
+                    fileloc = rawfit
+                    tel, night, filename = RawFit.fileloc_to_tel_night_filename(fileloc)
+                    yyyy_mm_dd = night.strftime("%Y-%m-%d")
+                    filepath = Path(iop4conf.datadir) / "raw" / tel / yyyy_mm_dd / filename
+                elif isinstance(rawfit, RawFit):
+                    fileloc = rawfit.fileloc
+                    tel, night, filename = rawfit.telescope, rawfit.night, rawfit.filename
+                    yyyy_mm_dd = night.strftime("%Y-%m-%d")
+                    filepath =  Path(rawfit.filepath)
+
+                rel_path = os.path.join(cls.epochname_to_remote_dirname(f"{tel}/{yyyy_mm_dd}"), filename)
+
+                logger.debug(f"Downloading {fileloc} from {cls.name} archive ...")
+
+                if not filepath.parent.exists():
+                    os.makedirs(filepath.parent)
+
+                with open(filepath, 'wb') as f:
+                    sftp.get(rel_path, filepath)
+
+            sftp.close()
+        except Exception as e:
+            raise Exception(f"Error downloading rawfits: {e}.")
+
+    @classmethod
+    def list_remote_filelocs(cls, epochnames: list[str]) -> list[str]:
+        from iop4lib.db import Epoch
+
+        if cls.ftp_address is None or cls.ftp_user is None or cls.ftp_password is None:
+            raise ValueError(f"FTP credentials not set for {cls.name}.")
+
+        sftp = cls._sftp_connect()
+
+        dirnames = sftp.listdir()
+
+        fileloc_list = list()
+
+        for epochname in epochnames:
+
+            tel, night = Epoch.epochname_to_tel_night(epochname)
+            yymmdd = night.strftime("%y%m%d")
+
+            remote_dir = cls.epochname_to_remote_dirname(epochname)
+
+            if remote_dir not in dirnames:
+                logger.error(f"{cls.name} remote dir {remote_dir} does not exist.")
+                continue
+
+            try:
+                fnames = [fpath.split("/")[-1] for fpath in sftp.listdir(f"{remote_dir}")]
+                fileloc_list.extend([f"{epochname}/{fname}" for fname in fnames if cls.re_expr_fnames.search(fname) and fname != '.' and fname != '..'])
+        
+
+            except Exception as e:
+                logger.error(f"Error listing {cls.name} remote dir for {epochname}: {e}.")
+            
+        sftp.close()
 
         return fileloc_list
