@@ -19,7 +19,7 @@ import math
 
 # iop4lib imports
 from iop4lib.enums import *
-from .telescope import Telescope, FTPArchiveMixin, ReadOnlyClassProperty
+from .telescope import Telescope, SFTPArchiveMixin, ReadOnlyClassProperty
 
 # logging
 import logging
@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from iop4lib.db import RawFit, ReducedFit, Epoch
 
-class CAHAT220(FTPArchiveMixin, Telescope, metaclass=ABCMeta):
+class CAHAT220(SFTPArchiveMixin, Telescope, metaclass=ABCMeta):
     """
     CAHA T220 telescope.
 
