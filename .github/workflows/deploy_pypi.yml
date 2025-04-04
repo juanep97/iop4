@@ -37,12 +37,12 @@ jobs:
       runs-on: ubuntu-latest
       environment:
         name: pypi
-        url: https://pypi.org/p/iop4 
+        url: https://pypi.org/p/iop4
       permissions:
-        id-token: write 
+        id-token: write
       steps:
         - name: Download all the dists
-          uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
           with:
             name: python-package-distributions
             path: dist/
