@@ -305,7 +305,7 @@
             
                             if (value === '') { // if empty, null (works with = or != default filters)
                                 value = null;
-                            } else if (type != 'after') { // if values can be numbers, fix type
+                            } else if (type !== 'after' && type !== 'before') { // if values can be numbers, fix type
                                 if (!isNaN(value) && !isNaN(Number(value))) {
                                     value = Number(value);
                                 }

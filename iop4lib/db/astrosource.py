@@ -8,6 +8,7 @@ from django.db.models import Q, Avg
 
 # iop4lib imports
 from ..enums import *
+from iop4lib.utils import get_column_values
 
 # other imports
 import os
@@ -18,6 +19,7 @@ from astropy.wcs import WCS
 from astropy.coordinates import Angle, SkyCoord
 import astropy.units as u
 import math
+import numpy as np
 
 # logging
 import logging
@@ -228,20 +230,29 @@ class AstroSource(models.Model):
     def last_night_mag_R(self):
         """Returns the average magnitude and error of the last night in the R band."""
 
-        last_night = self.photopolresults.filter(band=BANDS.R).earliest('-epoch__night').epoch.night
-        r_avg = self.photopolresults.filter(band=BANDS.R, epoch__night=last_night).aggregate(mag_avg=Avg('mag'), mag_err_avg=Avg('mag_err'))
+        qs = self.photopolresults.filter(band=BANDS.R).exclude(mag=None).exclude(mag_err=None)
 
-        mag_r_avg = r_avg.get('mag_avg', None)
-        mag_r_err_avg = r_avg.get('mag_err_avg', None)
+        if not qs:
+            return None, None, None
+        
+        last_night = qs.earliest('-epoch__night').epoch.night
 
-        return mag_r_avg, mag_r_err_avg
+        qs = qs.filter(epoch__night=last_night)
+        
+        vals = get_column_values(qs, ['mag', 'mag_err'])
+        mag_r, mag_r_err = vals['mag'], vals['mag_err']
+
+        mag_r_avg = np.average(mag_r, weights=1/mag_r_err**2)
+        mag_r_avg_err = 1/np.sqrt(np.sum(1/mag_r_err**2))
+
+        return mag_r_avg, mag_r_avg_err, last_night
     
     @property
     def texp_andor90(self):
-        """Recommneded exposure time for Andor90, based on the last R magnitude and for a SNR of 150."""
+        """Recommended exposure time for Andor90, based on the last R magnitude and for a SNR of 150."""
 
         snr = 150
-        last_night_mag_R, _ = self.last_night_mag_R
+        last_night_mag_R = self.last_night_mag_R[0]
 
         if last_night_mag_R is None:
             return None
@@ -263,10 +274,10 @@ class AstroSource(models.Model):
         
     @property
     def texp_andor150(self):
-        """Recommneded exposure time for Andor150, based on the last night R magnitude and for a SNR of 150."""
+        """Recommended exposure time for Andor150, based on the last night R magnitude and for a SNR of 150."""
 
         snr = 150
-        last_night_mag_R, _ = self.last_night_mag_R
+        last_night_mag_R = self.last_night_mag_R[0]
 
         if last_night_mag_R is None:
             return None
@@ -286,10 +297,10 @@ class AstroSource(models.Model):
     
     @property
     def texp_dipol(self):
-        """Recommneded exposure time for DIPOL, based on the last night R magnitude and for a SNR of 150."""
+        """Recommended exposure time for DIPOL, based on the last night R magnitude and for a SNR of 150."""
 
         snr = 150
-        last_night_mag_R, _ = self.last_night_mag_R
+        last_night_mag_R = self.last_night_mag_R[0]
 
         if last_night_mag_R is None:
             return None
@@ -305,10 +316,10 @@ class AstroSource(models.Model):
         
     @property
     def nreps_dipol(self):
-        """Recommneded number of repetitions for DIPOL, based on the last night R magnitude and for a SNR of 150."""
+        """Recommended number of repetitions for DIPOL, based on the last night R magnitude and for a SNR of 150."""
 
         snr = 150
-        last_night_mag_R, _ = self.last_night_mag_R
+        last_night_mag_R = self.last_night_mag_R[0]
 
         if last_night_mag_R is None:
             return None

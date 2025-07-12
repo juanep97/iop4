@@ -69,9 +69,12 @@ def gather_context(args):
         epoch.files_with_error_astrometry_href = args.site_url + "/iop4/admin/iop4api/reducedfit/?id__in=" + ",".join(epoch.files_with_error_astrometry_ids_str_L)
         # TODO: include IOP4Admin in Django configure and use reverse as in PhotoPolResult admin for line above
 
-    # get list of all sources for which there are results in this night
+    # get list of all sources for which there are band R results in this night
         
-    sources = AstroSource.objects.exclude(is_calibrator=True).filter(photopolresults__epoch__night=args.date).distinct()
+    sources = AstroSource.objects.exclude(is_calibrator=True).filter(
+        photopolresults__epoch__night=args.date, 
+        photopolresults__band="R",
+    ).distinct()
 
     # check if some of these sources lack calibrators
     sources_without_calibrators = [source for source in sources if not source.calibrators.exists()]
@@ -170,8 +173,10 @@ def gather_context(args):
 
         url_args['srcname'] = source.name
 
-        if prev_night is not None:
+        if prev_night is not None and qs_today.count() == 1:
             url_args['from'] = str(prev_night)
+        else:
+            url_args['from'] = (qs0.last().datetime - datetime.timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S')
 
         # we need 12:00 of the next day
         next_day_noon = (datetime.datetime.combine(args.date, datetime.time(12, 0)) + datetime.timedelta(days=1))

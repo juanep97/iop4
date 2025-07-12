@@ -27,7 +27,7 @@ def get_log_file_generator(fpath):
     return _log_file_generator()
 
 @staff_member_required
-@permission_required(["iop4api.view_photpolresult", "iop4api.view_astrosource"]) 
+@permission_required(["iop4api.view_photopolresult", "iop4api.view_astrosource"])
 def log(request):
     r"""Staff member required. Since the log file can be very large, we use a generator to stream it to the client."""
 
