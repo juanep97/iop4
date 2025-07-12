@@ -637,6 +637,8 @@ class Instrument(metaclass=ABCMeta):
             result = PhotoPolResult.create(reducedfits=[redf], astrosource=astrosource, reduction=REDUCTIONMETHODS.RELPHOT)
 
             result.aperpix = aperpix
+            result.aperas = aperpix * redf.pixscale.to(u.arcsec / u.pix).value
+            result.fwhm = target_fwhm * redf.pixscale.to(u.arcsec / u.pix).value
             result.bkg_flux_counts = aperphotresult.bkg_flux_counts
             result.bkg_flux_counts_err = aperphotresult.bkg_flux_counts_err
             result.flux_counts = aperphotresult.flux_counts

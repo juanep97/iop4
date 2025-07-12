@@ -1081,7 +1081,7 @@ class DIPOL(Instrument):
         # 1. Compute all aperture photometries
 
         aperpix, r_in, r_out, fit_res_dict = cls.estimate_common_apertures(polarimetry_group, reductionmethod=REDUCTIONMETHODS.RELPHOT)
-        target_fwhm = fit_res_dict['mean_fwhm']
+        mean_fwhm = fit_res_dict['mean_fwhm']
         
         logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group with target aperpix {aperpix:.1f}.")
 
@@ -1199,12 +1199,16 @@ class DIPOL(Instrument):
 
             # save the results
                     
-            result = PhotoPolResult.create(reducedfits=polarimetry_group, 
-                                                            astrosource=astrosource, 
-                                                            reduction=REDUCTIONMETHODS.RELPOL, 
-                                                            p=P, p_err=dP, chi=chi, chi_err=dchi,
-                                                            _q_nocorr=Qr_uncorr, _u_nocorr=Ur_uncorr, _p_nocorr=P_uncorr, _chi_nocorr=chi_uncorr,
-                                                            aperpix=aperpix)
+            result = PhotoPolResult.create(
+                reducedfits=polarimetry_group, 
+                astrosource=astrosource, 
+                reduction=REDUCTIONMETHODS.RELPOL, 
+                p=P, p_err=dP, chi=chi, chi_err=dchi,
+                _q_nocorr=Qr_uncorr, _u_nocorr=Ur_uncorr, _p_nocorr=P_uncorr, _chi_nocorr=chi_uncorr,
+                aperpix=aperpix,
+                aperas=aperpix*polarimetry_group[0].pixscale.to(u.arcsec/u.pix).value,
+                fwhm=mean_fwhm*polarimetry_group[0].pixscale.to(u.arcsec/u.pix).value,
+            )
 
             result.aperphotresults.set(aperphotresults, clear=True)
                         

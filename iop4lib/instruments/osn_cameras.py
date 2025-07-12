@@ -293,7 +293,7 @@ class OSNCCDCamera(Instrument, metaclass=ABCMeta):
         # 1. Compute all aperture photometries
 
         aperpix, r_in, r_out, fit_res_dict = cls.estimate_common_apertures(polarimetry_group, reductionmethod=REDUCTIONMETHODS.RELPHOT)
-        target_fwhm = fit_res_dict['mean_fwhm']
+        mean_fwhm = fit_res_dict["mean_fwhm"]
         
         logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group with target {aperpix:.1f}.")
 
@@ -307,18 +307,20 @@ class OSNCCDCamera(Instrument, metaclass=ABCMeta):
         photopolresult_L = list()
 
         for astrosource in group_sources:
+
+            qs =  AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="O")
             
-            flux_0 = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="O", reducedfit__rotangle=0.0).flux_counts
-            flux_0_err = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", aperpix=aperpix, reducedfit__rotangle=0.0).flux_counts_err
+            flux_0 = qs.get(reducedfit__rotangle=0.0).flux_counts
+            flux_0_err = qs.get(reducedfit__rotangle=0.0).flux_counts_err
 
-            flux_45 = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", aperpix=aperpix, reducedfit__rotangle=45.0).flux_counts
-            flux_45_err = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", aperpix=aperpix, reducedfit__rotangle=45.0).flux_counts_err
+            flux_45 = qs.get(reducedfit__rotangle=45.0).flux_counts
+            flux_45_err = qs.get(reducedfit__rotangle=45.0).flux_counts_err
 
-            flux_90 = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", aperpix=aperpix, reducedfit__rotangle=90.0).flux_counts
-            flux_90_err = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", aperpix=aperpix, reducedfit__rotangle=90.0).flux_counts_err
+            flux_90 = qs.get(reducedfit__rotangle=90.0).flux_counts
+            flux_90_err = qs.get(reducedfit__rotangle=90.0).flux_counts_err
 
-            flux_n45 = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", aperpix=aperpix, reducedfit__rotangle=-45.0).flux_counts
-            flux_n45_err = AperPhotResult.objects.get(reducedfit__in=polarimetry_group, astrosource=astrosource, pairs="O", aperpix=aperpix, reducedfit__rotangle=-45.0).flux_counts_err
+            flux_n45 = qs.get(reducedfit__rotangle=-45.0).flux_counts
+            flux_n45_err = qs.get(reducedfit__rotangle=-45.0).flux_counts_err
 
             # from IOP3 polarimetry_osn() :
 
@@ -340,34 +342,28 @@ class OSNCCDCamera(Instrument, metaclass=ABCMeta):
             dqc = math.sqrt(dqraw**2 + dqoff**2) 
             duc = math.sqrt(duraw**2 + duoff**2)
 
-            q = qc*math.cos(2*Phi) - uc*math.sin(2*Phi)
-            u = qc*math.sin(2*Phi) + uc*math.cos(2*Phi)
+            qr = qc*math.cos(2*Phi) - uc*math.sin(2*Phi)
+            ur = qc*math.sin(2*Phi) + uc*math.cos(2*Phi)
  
             dqa = qc*math.cos(2*Phi) * math.sqrt((dqc/qc)**2+((2*dPhi*math.sin(2*Phi))/(math.cos(2*Phi)))**2) 
             dqb = uc*math.sin(2*Phi) * math.sqrt((duc/uc)**2+((2*dPhi*math.cos(2*Phi))/(math.sin(2*Phi)))**2)
             dua = qc*math.sin(2*Phi) * math.sqrt((dqc/qc)**2+((2*dPhi*math.cos(2*Phi))/(math.sin(2*Phi)))**2) 
             dub = uc*math.cos(2*Phi) * math.sqrt((duc/uc)**2+((2*dPhi*math.sin(2*Phi))/(math.cos(2*Phi)))**2)
             
-            dq = np.sqrt(dqa**2+dqb**2)
-            du = np.sqrt(dua**2+dub**2)
+            dqr = np.sqrt(dqa**2+dqb**2)
+            dur = np.sqrt(dua**2+dub**2)
             
-            P = math.sqrt(q**2 + u**2)
-            dP = P * (1/(q**2+u**2)) * math.sqrt((q*dq)**2+(u*du)**2)
+            P = math.sqrt(qr**2 + ur**2)
+            dP = P * (1/(qr**2+ur**2)) * math.sqrt((qr*dqr)**2+(ur*dur)**2)
 
             Theta_0 = 0
-            Theta = (1/2) * math.degrees(math.atan2(u,q) + Theta_0)
+            Theta = (1/2) * math.degrees(math.atan2(ur,qr) + Theta_0)
             dTheta = (0.5 * 180.0 / math.pi) * dP/P
 
             # compute also non-corrected values for computation of instrumental polarization
 
-            _Phi_nocorr = 0 # no rotation correction?
-            _qc_nocorr = qraw # no offset correction
-            _uc_nocorr = uraw # no offset correction
-            _q_nocorr = _qc_nocorr*math.cos(2*_Phi_nocorr) - _uc_nocorr*math.sin(2*_Phi_nocorr)
-            _u_nocorr = _qc_nocorr*math.sin(2*_Phi_nocorr) + _uc_nocorr*math.cos(2*_Phi_nocorr) 
-            _p_nocorr = math.sqrt(_q_nocorr**2 + _u_nocorr**2)
-            _Theta_0_nocorr = 0
-            _Theta_nocorr = (1/2) * math.degrees(math.atan2(_u_nocorr,_q_nocorr) + _Theta_0_nocorr)
+            _p_nocorr = math.sqrt(qraw**2 + uraw**2)
+            _Theta_nocorr = (1/2) * math.degrees(math.atan2(uraw,qraw))
             _x_px, _y_px = astrosource.coord.to_pixel(polarimetry_group[0].wcs)
             
             # compute instrumental magnitude (same as for CAHA)
@@ -397,14 +393,25 @@ class OSNCCDCamera(Instrument, metaclass=ABCMeta):
 
             # save the results
                     
-            result = PhotoPolResult.create(reducedfits=polarimetry_group, 
-                                           astrosource=astrosource, 
-                                           reduction=REDUCTIONMETHODS.RELPOL, 
-                                           mag_inst=mag_inst, mag_inst_err=mag_inst_err, mag_zp=mag_zp, mag_zp_err=mag_zp_err,
-                                           flux_counts=flux_mean, p=P, p_err=dP, chi=Theta, chi_err=dTheta,
-                                           _x_px=_x_px, _y_px=_y_px, _q_nocorr=_q_nocorr, _u_nocorr=_u_nocorr, _p_nocorr=_p_nocorr, _chi_nocorr=_Theta_nocorr,
-                                           aperpix=aperpix)
+            result = PhotoPolResult.create(
+                reducedfits=polarimetry_group, 
+                astrosource=astrosource, 
+                reduction=REDUCTIONMETHODS.RELPOL, 
+                mag_inst=mag_inst, mag_inst_err=mag_inst_err, 
+                mag_zp=mag_zp, mag_zp_err=mag_zp_err,
+                flux_counts=flux_mean, 
+                p=P, p_err=dP, 
+                chi=Theta, chi_err=dTheta,
+                aperpix=aperpix,
+                aperas=aperpix*polarimetry_group[0].pixscale.to(u.arcsec/u.pix).value,
+                fwhm=mean_fwhm*polarimetry_group[0].pixscale.to(u.arcsec/u.pix).value,
+                _x_px=_x_px, _y_px=_y_px, 
+                _q_nocorr=qraw, _u_nocorr=uraw, 
+                _p_nocorr=_p_nocorr, _chi_nocorr=_Theta_nocorr,
+            )
             
+            result.aperphotresults.set(qs, clear=True)
+
             photopolresult_L.append(result)
 
 

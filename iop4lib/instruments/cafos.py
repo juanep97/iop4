@@ -270,7 +270,7 @@ class CAFOS(Instrument):
         # 1. Compute all aperture photometries
 
         aperpix, r_in, r_out, fit_res_dict = cls.estimate_common_apertures(polarimetry_group, reductionmethod=REDUCTIONMETHODS.RELPHOT)
-        target_fwhm = fit_res_dict['mean_fwhm']
+        mean_fwhm = fit_res_dict['mean_fwhm']
         
         logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group with target aperpix {aperpix:.1f}.")
 
@@ -390,15 +390,19 @@ class CAFOS(Instrument):
 
             # save the results
                     
-            result = PhotoPolResult.create(reducedfits=polarimetry_group, 
-                                           astrosource=astrosource, 
-                                           reduction=REDUCTIONMETHODS.RELPOL, 
-                                           mag_inst=mag_inst, mag_inst_err=mag_inst_err, 
-                                           mag_zp=mag_zp, mag_zp_err=mag_zp_err,
-                                           flux_counts=flux_mean, 
-                                           p=P, p_err=dP, 
-                                           chi=Theta, chi_err=dTheta,
-                                           aperpix=aperpix)
+            result = PhotoPolResult.create(
+                reducedfits=polarimetry_group, 
+                astrosource=astrosource, 
+                reduction=REDUCTIONMETHODS.RELPOL, 
+                mag_inst=mag_inst, mag_inst_err=mag_inst_err, 
+                mag_zp=mag_zp, mag_zp_err=mag_zp_err,
+                flux_counts=flux_mean, 
+                p=P, p_err=dP, 
+                chi=Theta, chi_err=dTheta,
+                aperpix=aperpix,
+                aperas=aperpix*polarimetry_group[0].pixscale.to(u.arcsec/u.pix).value,
+                fwhm=mean_fwhm*polarimetry_group[0].pixscale.to(u.arcsec/u.pix).value,
+            )
             
             result.aperphotresults.set(qs, clear=True)
             
