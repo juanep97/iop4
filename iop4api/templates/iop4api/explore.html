@@ -14,8 +14,10 @@
 <div id="explore_container" class="tab-container">
 
     <datalist id="source_name_list">
-        {% for source_name in source_name_list %}
-            <option value="{{ source_name }}">{{ source_name }}</option>
+        {% for srcname, altname in source_name_list %}
+            <option value="{{ srcname }}">
+                {{ srcname }} {% if altname and srcname != altname %}&nbsp;&nbsp; ({{altname}}){% endif %}
+            </option>
         {% endfor %}
     </datalist>
 
