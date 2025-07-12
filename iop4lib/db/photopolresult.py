@@ -108,6 +108,7 @@ class PhotoPolResult(models.Model):
 
     ## host galaxy correction 
     aperas = models.FloatField(null=True, help_text="Aperture radius in arcseconds.")
+    fwhm = models.FloatField(null=True, help_text="FWHM in arcseconds.")
     mag_corr = models.FloatField(null=True, help_text="Magnitude corrected for host galaxy.")
     mag_corr_err = models.FloatField(null=True, help_text="Error for mag_corr.")
     p_corr = models.FloatField(null=True, help_text="Polarization corrected for host galaxy.")
