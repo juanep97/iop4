@@ -57,9 +57,9 @@ class AdminAstroSource(admin.ModelAdmin):
     
     @admin.display(description="LAST MAG")
     def get_last_mag_R(self, obj):
-        mag_r_avg, mag_r_err_avg = obj.last_night_mag_R
+        mag_r_avg, mag_r_err_avg, night = obj.last_night_mag_R
         if mag_r_avg is not None:
-            return f"{mag_r_avg:.2f}"
+            return f"{mag_r_avg:.2f} ± {mag_r_err_avg:.2f} ({night})"
         else:
             return None
     
@@ -77,7 +77,7 @@ class AdminAstroSource(admin.ModelAdmin):
     
     @admin.display(description='T. Andor90')
     def get_texp_andor90(self, obj):
-        last_night_mag_R, _ = obj.last_night_mag_R
+        last_night_mag_R = obj.last_night_mag_R[0]
         texp = obj.texp_andor90
 
         if last_night_mag_R is None:
@@ -90,7 +90,7 @@ class AdminAstroSource(admin.ModelAdmin):
     
     @admin.display(description='T. Andor150')
     def get_texp_andor150(self, obj):
-        last_night_mag_R, _ = obj.last_night_mag_R
+        last_night_mag_R = obj.last_night_mag_R[0]
         texp = obj.texp_andor150
 
         if last_night_mag_R is None:
@@ -103,7 +103,7 @@ class AdminAstroSource(admin.ModelAdmin):
     
     @admin.display(description='T. x N DIPOL')
     def get_texp_dipol(self, obj):
-        last_night_mag_R, _ = obj.last_night_mag_R
+        last_night_mag_R = obj.last_night_mag_R[0]
         texp = obj.texp_dipol
         nreps = obj.nreps_dipol
 
