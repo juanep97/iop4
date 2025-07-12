@@ -69,9 +69,12 @@ def gather_context(args):
         epoch.files_with_error_astrometry_href = args.site_url + "/iop4/admin/iop4api/reducedfit/?id__in=" + ",".join(epoch.files_with_error_astrometry_ids_str_L)
         # TODO: include IOP4Admin in Django configure and use reverse as in PhotoPolResult admin for line above
 
-    # get list of all sources for which there are results in this night
+    # get list of all sources for which there are band R results in this night
         
-    sources = AstroSource.objects.exclude(is_calibrator=True).filter(photopolresults__epoch__night=args.date).distinct()
+    sources = AstroSource.objects.exclude(is_calibrator=True).filter(
+        photopolresults__epoch__night=args.date, 
+        photopolresults__band="R",
+    ).distinct()
 
     # check if some of these sources lack calibrators
     sources_without_calibrators = [source for source in sources if not source.calibrators.exists()]
