@@ -173,8 +173,10 @@ def gather_context(args):
 
         url_args['srcname'] = source.name
 
-        if prev_night is not None:
+        if prev_night is not None and qs_today.count() == 1:
             url_args['from'] = str(prev_night)
+        else:
+            url_args['from'] = (qs0.last().datetime - datetime.timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S')
 
         # we need 12:00 of the next day
         next_day_noon = (datetime.datetime.combine(args.date, datetime.time(12, 0)) + datetime.timedelta(days=1))
