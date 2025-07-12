@@ -105,6 +105,12 @@ Tabulator.extendModule("filter", "filters", {
 
 function make_nice_table() {
     
+    var tables = Tabulator.findTable('#tableDiv');
+    if (tables && tables.length > 0) {
+        console.log("Destroying old table")
+        tables[0].destroy();
+    }
+
     var table = new Tabulator("#tableDiv", {
         data: vueApp.$data.tableData.data,
         columns: vueApp.$data.tableData.tabulatorjs_coldefs,
