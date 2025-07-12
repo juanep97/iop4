@@ -307,23 +307,4 @@ class FitFileModel(AbstractModel):
                 f.write(imgbytes)
                     
         return imgbytes
-        
-
-
-
-
-
-
-""" # how it would be done without matplotlib
-imgdata = LogNorm(vmin=vmin, vmax=vmax)(imgdata)
-
-imgdata = 256*imgdata
-imgdata = imgdata.astype(np.uint8)
-image = Image.fromarray(imgdata).resize((width,height))
-
-
-buf = io.BytesIO()
-image.save(buf, format='png')
-buf.seek(0)
-imgbytes = buf.read()
-"""
+    
