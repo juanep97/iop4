@@ -9,6 +9,7 @@ import psutil
 import numpy as np
 import scipy as sp
 import scipy.stats 
+from scipy.interpolate import interp1d, RegularGridInterpolator 
 import math
 import warnings
 
@@ -511,34 +512,44 @@ def get_host_correction(astrosource, aperas, fwhm=None) -> tuple[float, float]:
         objname = re.findall(r"OBJECT: (.*)", table)[0]
         if get_invariable_str(astrosource.name) == get_invariable_str(objname) or \
             (astrosource.other_names is not None and any([get_invariable_str(other_name) == get_invariable_str(objname) for other_name in astrosource.other_names_list])):
-            df = pd.read_csv(StringIO(table), comment="#")
+            df = pd.read_csv(StringIO(table), comment="#", index_col=0)
             break
 
     if df is None:
         return None, None
     
-    if fwhm is None:
-        fwhm = 7 
+    fluxes = df.copy()
+    fluxes = fluxes.map(lambda x: x.split(" ")[0] if isinstance(x, str) and " " in x else x)
 
-    # Get the column whose header is closest to the indicated fwhm
-    
-    fwhm_L = np.array([float(fwhm) for fwhm in df.columns[1:]])
-    fwhm_idx = np.argmin(np.abs(fwhm_L - fwhm))
+    uncerts = df.copy()
+    uncerts = uncerts.map(lambda x: x.split(" ")[1] if isinstance(x, str) and " " in x else 0)
 
-    # Get the values and uncertainties of the contaminating flux for the indicated fwhm
+    aperture_grid = np.array(fluxes.index.values, dtype=float)
 
-    flux_L, flux_err_L = zip(*[v.split(" ") for v in df.iloc[:,fwhm_idx+1]])
+    if df.shape[1] > 2:
 
-    flux_L = np.array([float(flux) for flux in flux_L])
-    flux_err_L = np.array([float(flux_err) for flux_err in flux_err_L])
+        if fwhm is None:
+            raise Exception("Need the fwhm to apply host correction for this source")
 
-    aperas_L = np.array([float(apera) for apera in df.iloc[:,0]])
+        fwhm_grid = np.array(fluxes.columns.values, dtype=float)
 
-    # Interpolate the contaminating flux and its uncertainty for the indicated aperture radius
-    # Use simple linear interpolation from np.interp:
+        flux_interp = RegularGridInterpolator((aperture_grid, fwhm_grid), fluxes.values, fill_value=None, bounds_error=False)
+        uncert_interp = RegularGridInterpolator((aperture_grid, fwhm_grid), uncerts.values, fill_value=None, bounds_error=False)
 
-    flux = np.interp(aperas, aperas_L, flux_L)
-    flux_err = np.interp(aperas, aperas_L, flux_err_L)
+        flux = flux_interp((aperas, fwhm))
+        flux_err = uncert_interp((aperas, fwhm))
+
+    else:
+
+        aperture_grid = np.array(df.index.values, dtype=float)
+
+        flux_interp = interp1d(aperture_grid, fluxes.values.ravel(), bounds_error=False, fill_value="extrapolate")
+        uncert_interp = interp1d(aperture_grid, uncerts.values.ravel(), bounds_error=False, fill_value="extrapolate")
+        
+        flux = flux_interp(aperas)
+        flux_err = uncert_interp(aperas)
+
+    logger.debug(f"Host correction for {astrosource.name} ({aperas=}, {fwhm=}) = {flux=}, {flux_err=}")
 
     return flux, flux_err
 
