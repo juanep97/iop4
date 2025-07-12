@@ -23,7 +23,7 @@ dependencies = [
     "scipy>=1.10.1,<2",
     "astropy>=5.2.2,<6",
     "astroquery",
-    "photutils>=1.8.0,<2",
+    "photutils>=2,<3",
     "pandas",
     "scikit-learn>=1.2.2,<2",
     "scikit-image",
