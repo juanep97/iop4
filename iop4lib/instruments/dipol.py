@@ -575,7 +575,7 @@ class DIPOL(Instrument):
 
 
     @classmethod
-    def _build_wcs_for_polarimetry_images_photo_quads(cls, redf: 'ReducedFit', summary_kwargs : dict = None, n_seg_threshold=1.5, npixels=32, min_quad_distance=4.0, fwhm=None, centering=None, max_quad_t=1000, min_quad_area=0.03):
+    def _build_wcs_for_polarimetry_images_photo_quads(cls, redf: 'ReducedFit', summary_kwargs : dict = None, n_seg_threshold=1.5, npixels=32, min_quad_distance=4.0, fwhm=None, centering=None, max_quad_t=1400, min_quad_area=0.03):
 
         if summary_kwargs is None:
             summary_kwargs = {'build_summary_images':True, 'with_simbad':True}
@@ -701,25 +701,40 @@ class DIPOL(Instrument):
         is_redf_pol_flipped = 'FLIPSTAT' in redf_pol.rawfit.header and redf_pol.rawfit.header['FLIPSTAT'] == "Flip"
         is_redf_phot_flipped = 'FLIPSTAT' in redf_phot.rawfit.header and redf_phot.rawfit.header['FLIPSTAT'] == "Flip"
 
+        # logger.debug(f"{is_redf_pol_flipped=}")
+        # logger.debug(f"{is_redf_phot_flipped=}")
+
         # Get the appropiate transformation depending on whether both images are flipped or not
 
         from iop4lib.utils.quadmatching import find_best_transformation, distance_to_y_flip, distance_to_identity
         
         if is_redf_pol_flipped != is_redf_phot_flipped:
             dist_func =  distance_to_y_flip
+            R0 = np.array([[1,0],[0,-1]])
         else:
             dist_func =  distance_to_identity
+            R0 = np.array([[1,0],[0,1]])
 
         # get linear transforms
         logger.debug(f"Selected {len(indices_selected)} quads with distance < {min_quad_distance}. I will get the one with less deviation from the median linear transform.")
 
         R_L, t_L, perm_L = zip(*[find_best_transformation(quads_1[i], quads_2[j], dist_func) for i,j in indices_selected])
-        logger.debug(f"{t_L=}")
+
+        # logger.debug(f"{t_L=}")
+        # logger.debug(f"{R_L=}")
         
 
         logger.debug(f"Filtering out big translations (<{max_quad_t} px)")
 
         _indices_selected = indices_selected[np.array([np.linalg.norm(t) < max_quad_t for t in t_L])]
+
+        logger.debug(f"Filtering large transformations")
+
+        # for R, t in zip(R_L, t_L):
+        #     logger.debug(f"{np.linalg.norm(t)=}, {np.linalg.norm(R-R0)=}")
+
+        _indices_selected = indices_selected[np.array([np.linalg.norm(R-R0) < 2*np.sqrt(1-np.cos(np.deg2rad(5))) for R in R_L])]
+
 
         logger.debug(f"Filtered to {len(_indices_selected)} quads with distance < {min_quad_distance} and translation < {max_quad_t} px.")
 
