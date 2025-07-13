@@ -297,7 +297,14 @@ class DIPOL(Instrument):
         """ Overriden for DIPOL
 
         As of 2023-10-23, DIPOL does not inclide RA and DEC in the header, RA and DEC will be derived from the object name.
-        """     
+        """
+
+        from iop4lib.db import AstroSource
+        
+        # From ~ 01/2025, DIPOL files should have TELRA and TELDEC fields
+        header = rawfit.header
+        if 'TELRA' in header and 'TELDEC' in header:
+            return SkyCoord(Angle(rawfit.header['TELRA'], unit=u.hour), Angle(rawfit.header['TELDEC'], unit=u.deg), frame='icrs')
         
         return rawfit.header_hintobject.coord            
             

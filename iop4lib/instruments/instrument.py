@@ -232,6 +232,11 @@ class Instrument(metaclass=ABCMeta):
         return cls._get_header_hintobject_easy(rawfit) or cls._get_header_hintobject_hard(rawfit)
     
     @classmethod
+    def get_header_hintcoord(cls, rawfit):
+        """ Get the position hint from the FITS header as a coordinate."""
+        raise NotImplementedError
+    
+    @classmethod
     @abstractmethod 
     def get_astrometry_position_hint(cls, rawfit, allsky=False, n_field_width=1.5, hintsep=None) -> astrometry.PositionHint:
         """ Get the position hint from the FITS header as an astrometry.PositionHint object. """        
