@@ -1034,17 +1034,17 @@ class DIPOL(Instrument):
         if reducedfit.juliandate <= Time("2023-09-28 12:00").jd: # limpieza de espejos
             CPA = 44.5
             dCPA = 0.05
-            Q_inst = 0.05777
-            dQ_inst = 0.005
-            U_inst = -3.77095
-            dU_inst = 0.005
+            Q_inst = 0.05777 / 100
+            dQ_inst = 0.005 / 100
+            U_inst = -3.77095 / 100
+            dU_inst = 0.005 / 100
         else:
             CPA = 45.1
             dCPA = 0.05
             Q_inst = -0.0138 / 100
-            dQ_inst = 0.005
+            dQ_inst = 0.005 / 100
             U_inst = -4.0806 / 100
-            dU_inst = 0.005
+            dU_inst = 0.005 / 100
 
         return {'Q_inst':Q_inst, 'dQ_inst':dQ_inst, 'U_inst':U_inst, 'dU_inst':dU_inst, 'CPA':CPA, 'dCPA':dCPA}
 
