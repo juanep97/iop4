@@ -1012,12 +1012,13 @@ class DIPOL(Instrument):
 
     @classmethod
     def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fit_boxsize=None, search_boxsize=(90,90)):
-        aperpix, r_in, r_out, fit_res_dict = super().estimate_common_apertures(reducedfits, reductionmethod=reductionmethod, fit_boxsize=fit_boxsize, search_boxsize=search_boxsize, fwhm_min=5.0, fwhm_max=60)
+        aperpix, r_in, r_out, fit_res_dict = super().estimate_common_apertures(reducedfits, reductionmethod=reductionmethod, fit_boxsize=fit_boxsize, search_boxsize=search_boxsize, fwhm_min=5.0, fwhm_max=50, fwhm_default=30)
         
         sigma = fit_res_dict['sigma']
-        fwhm = fit_res_dict["mean_fwhm"]
+        mean_fwhm = fit_res_dict["mean_fwhm"]
 
-        return 1.1*fwhm, 6*fwhm, 10*fwhm, fit_res_dict
+
+        return 3.0*sigma, 5.0*sigma, 9.0*sigma, {'mean_fwhm':mean_fwhm, 'sigma':sigma}
 
     @classmethod
     def get_instrumental_polarization(cls, reducedfit) -> dict:
