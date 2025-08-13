@@ -297,7 +297,14 @@ class DIPOL(Instrument):
         """ Overriden for DIPOL
 
         As of 2023-10-23, DIPOL does not inclide RA and DEC in the header, RA and DEC will be derived from the object name.
-        """     
+        """
+
+        from iop4lib.db import AstroSource
+        
+        # From ~ 01/2025, DIPOL files should have TELRA and TELDEC fields
+        header = rawfit.header
+        if 'TELRA' in header and 'TELDEC' in header:
+            return SkyCoord(Angle(rawfit.header['TELRA'], unit=u.hour), Angle(rawfit.header['TELDEC'], unit=u.deg), frame='icrs')
         
         return rawfit.header_hintobject.coord            
             
@@ -568,7 +575,7 @@ class DIPOL(Instrument):
 
 
     @classmethod
-    def _build_wcs_for_polarimetry_images_photo_quads(cls, redf: 'ReducedFit', summary_kwargs : dict = None, n_seg_threshold=1.5, npixels=32, min_quad_distance=4.0, fwhm=None, centering=None, max_quad_t=1000, min_quad_area=0.03):
+    def _build_wcs_for_polarimetry_images_photo_quads(cls, redf: 'ReducedFit', summary_kwargs : dict = None, n_seg_threshold=1.5, npixels=32, min_quad_distance=4.0, fwhm=None, centering=None, max_quad_t=1400, min_quad_area=0.03):
 
         if summary_kwargs is None:
             summary_kwargs = {'build_summary_images':True, 'with_simbad':True}
@@ -694,25 +701,40 @@ class DIPOL(Instrument):
         is_redf_pol_flipped = 'FLIPSTAT' in redf_pol.rawfit.header and redf_pol.rawfit.header['FLIPSTAT'] == "Flip"
         is_redf_phot_flipped = 'FLIPSTAT' in redf_phot.rawfit.header and redf_phot.rawfit.header['FLIPSTAT'] == "Flip"
 
+        # logger.debug(f"{is_redf_pol_flipped=}")
+        # logger.debug(f"{is_redf_phot_flipped=}")
+
         # Get the appropiate transformation depending on whether both images are flipped or not
 
         from iop4lib.utils.quadmatching import find_best_transformation, distance_to_y_flip, distance_to_identity
         
         if is_redf_pol_flipped != is_redf_phot_flipped:
             dist_func =  distance_to_y_flip
+            R0 = np.array([[1,0],[0,-1]])
         else:
             dist_func =  distance_to_identity
+            R0 = np.array([[1,0],[0,1]])
 
         # get linear transforms
         logger.debug(f"Selected {len(indices_selected)} quads with distance < {min_quad_distance}. I will get the one with less deviation from the median linear transform.")
 
         R_L, t_L, perm_L = zip(*[find_best_transformation(quads_1[i], quads_2[j], dist_func) for i,j in indices_selected])
-        logger.debug(f"{t_L=}")
+
+        # logger.debug(f"{t_L=}")
+        # logger.debug(f"{R_L=}")
         
 
         logger.debug(f"Filtering out big translations (<{max_quad_t} px)")
 
         _indices_selected = indices_selected[np.array([np.linalg.norm(t) < max_quad_t for t in t_L])]
+
+        logger.debug(f"Filtering large transformations")
+
+        # for R, t in zip(R_L, t_L):
+        #     logger.debug(f"{np.linalg.norm(t)=}, {np.linalg.norm(R-R0)=}")
+
+        _indices_selected = indices_selected[np.array([np.linalg.norm(R-R0) < 2*np.sqrt(1-np.cos(np.deg2rad(5))) for R in R_L])]
+
 
         logger.debug(f"Filtered to {len(_indices_selected)} quads with distance < {min_quad_distance} and translation < {max_quad_t} px.")
 
@@ -990,12 +1012,13 @@ class DIPOL(Instrument):
 
     @classmethod
     def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fit_boxsize=None, search_boxsize=(90,90)):
-        aperpix, r_in, r_out, fit_res_dict = super().estimate_common_apertures(reducedfits, reductionmethod=reductionmethod, fit_boxsize=fit_boxsize, search_boxsize=search_boxsize, fwhm_min=5.0, fwhm_max=60)
+        aperpix, r_in, r_out, fit_res_dict = super().estimate_common_apertures(reducedfits, reductionmethod=reductionmethod, fit_boxsize=fit_boxsize, search_boxsize=search_boxsize, fwhm_min=5.0, fwhm_max=50, fwhm_default=30)
         
         sigma = fit_res_dict['sigma']
-        fwhm = fit_res_dict["mean_fwhm"]
+        mean_fwhm = fit_res_dict["mean_fwhm"]
 
-        return 1.1*fwhm, 6*fwhm, 10*fwhm, fit_res_dict
+
+        return 3.0*sigma, 5.0*sigma, 9.0*sigma, {'mean_fwhm':mean_fwhm, 'sigma':sigma}
 
     @classmethod
     def get_instrumental_polarization(cls, reducedfit) -> dict:
@@ -1012,17 +1035,17 @@ class DIPOL(Instrument):
         if reducedfit.juliandate <= Time("2023-09-28 12:00").jd: # limpieza de espejos
             CPA = 44.5
             dCPA = 0.05
-            Q_inst = 0.05777
-            dQ_inst = 0.005
-            U_inst = -3.77095
-            dU_inst = 0.005
+            Q_inst = 0.05777 / 100
+            dQ_inst = 0.005 / 100
+            U_inst = -3.77095 / 100
+            dU_inst = 0.005 / 100
         else:
             CPA = 45.1
             dCPA = 0.05
             Q_inst = -0.0138 / 100
-            dQ_inst = 0.005
+            dQ_inst = 0.005 / 100
             U_inst = -4.0806 / 100
-            dU_inst = 0.005
+            dU_inst = 0.005 / 100
 
         return {'Q_inst':Q_inst, 'dQ_inst':dQ_inst, 'U_inst':U_inst, 'dU_inst':dU_inst, 'CPA':CPA, 'dCPA':dCPA}
 
