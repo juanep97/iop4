@@ -103,23 +103,38 @@ def process_astrosource(args):
     
     astrosource = AstroSource.objects.get(name=args.astrosource)
 
-    qs_all = ReducedFit.objects.filter(epoch__night__gte=args.date_start, epoch__night__lte=args.date_end)
+    qs_redf = ReducedFit.objects.all()
 
-    logger.info(f"Found {qs_all.count()} reduced fits between {args.date_start} and {args.date_end}.")
+    logger.debug(f"Found {qs_redf.count()} files in the DB")
+
+    if args.date_start:
+        qs_redf = qs_redf.filter(epoch__night__gte=args.date_start)
+        logger.debug(f"After {args.date_start}, {qs_redf.count()} files") 
+    
+    if args.date_end:
+        qs_redf = qs_redf.filter(epoch__night__lte=args.date_end)
+        logger.debug(f"Before {args.date_end}, {qs_redf.count()} files") 
+
+
+    if args.instruments:
+        qs_redf = qs_redf.filter(instrument__in=args.instruments)
+        logger.debug(f"For {args.instruments}, {qs_redf.count()} files") 
+
+    logger.info(f"Found {qs_redf.count()} reduced fits.")
 
     if args.only_sources_in_field:
-        qs_all = qs_all.filter(sources_in_field__name=args.astrosource)
-        redfL = list(qs_all)
+        qs_redf = qs_redf.filter(sources_in_field__name=args.astrosource)
+        redfL = list(qs_redf)
     else:
         # filter files that have identified this source (in sources_in_field) or have this source as header_hintobject
         redfL = list()
-        for redf in qs_all:
+        for redf in qs_redf:
             if redf.sources_in_field.filter(name=args.astrosource).exists() or redf.header_hintobject == astrosource:
                 redfL.append(redf)
 
     qs_redf = ReducedFit.objects.filter(pk__in=[redf.pk for redf in redfL])
 
-    logger.info(f"Found {len(redfL)} reduced fits for astrosource {args.astrosource}")
+    logger.info(f"Selected {len(redfL)} reduced fits for astrosource {args.astrosource}")
 
     if args.force_rebuild:
         logger.info("Forcing rebuild of reduced fits.")
@@ -173,6 +188,8 @@ def process_astrosource(args):
                     pass
                 except Exception as e:
                     logger.exception(f"Error computing host galaxy correction for {result}.")
+
+        logger.info("Done.")
 
 def list_local_epochnames() -> list[str]:
     """List all local epochnames in local archives (by looking at the raw directory)."""
@@ -363,6 +380,7 @@ def main():
 
     # astrosource processing options
     parser.add_argument('--astrosource', type=str, default=None, help='<Optional> Select files only of this source')
+    parser.add_argument('--instruments', nargs='+', help='<Optional> List of instruments')
     parser.add_argument('--recompute', action='store_true', help='<Optional> Recompute photometry and polarimetry results')
     parser.add_argument('--retry-failed', action='store_true', help='<Optional> Retry failed reduced fits')
     parser.add_argument('--only-sources-in-field', action='store_true', help='<Optional> Only process files that have this source in sources_in_field')
@@ -502,7 +520,7 @@ def main():
     if args.date_start is not None or args.date_end is not None:
         logger.info("Filtering files by date...")
         filelocs_to_process = filter_filelocs_by_date(filelocs_to_process, args.date_start, args.date_end)    
-        logger.info(f"Filtered to {len(filelocs_to_process)} filelocs_to_process  between {args.date_start} and {args.date_end}.")
+        logger.info(f"Filtered to {len(filelocs_to_process)} filelocs_to_process between {args.date_start} and {args.date_end}.")
 
         filelocs_missing = set(filelocs_to_process).intersection(filelocs_missing)
 
