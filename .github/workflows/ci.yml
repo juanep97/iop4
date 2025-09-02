@@ -31,12 +31,20 @@ jobs:
           fetch-depth: 0
           
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
   tests:
     runs-on: [self-hosted, x64, Linux, ubuntu, generic]
+    permissions:
+      # Gives the action the necessary permissions for publishing new
+      # comments in pull requests.
+      pull-requests: write
+      # Gives the action the necessary permissions for pushing data to the
+      # python-coverage-comment-action branch, and for editing existing
+      # comments (to avoid publishing multiple comments in the same PR)
+      contents: write
     strategy:
       max-parallel: 1
       matrix:
@@ -47,7 +55,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -64,8 +72,10 @@ jobs:
           pip install build
           python -m build
 
-      - name: Install the package
-        run: pip install .[test]
+      - name: Install the package and coverage library
+        run: |
+          pip install .[test]
+          python -Im pip install --upgrade coverage[toml]
 
       - name: Install the package in editable mode with all additional dependencies
         run: pip install --editable .[all]
@@ -87,8 +97,23 @@ jobs:
           ls -lh $HOME/.astrometry_cache/5200/index-5200-00.fits
           ls -lh $HOME/iop4testdata.$TESTDATA_MD5SUM.tar.gz
       
-      - name: Run tests (with -o log_cli=true -o log_cli_level=DEBUG to debug CI actions)
-        run: pytest -o log_cli=true -o log_cli_level=DEBUG -vxs tests
+      - name: Run tests with coverage report (with -o log_cli=true -o log_cli_level=DEBUG to debug CI actions)
+        run: pytest -o log_cli=true -o log_cli_level=DEBUG -vxs --cov=iop4lib tests
+
+      - name: Coverage comment
+        id: coverage_comment
+        uses: py-cov-action/python-coverage-comment-action@v3.24
+        with:
+          GITHUB_TOKEN: ${{ github.token }}
+      
+      - name: Store Pull Request comment to be posted
+        uses: actions/upload-artifact@v4
+        if: steps.coverage_comment.outputs.COMMENT_FILE_WRITTEN == 'true'
+        with:
+          # If you use a different name, update COMMENT_ARTIFACT_NAME accordingly
+          name: python-coverage-comment-action
+          # If you use a different name, update COMMENT_FILENAME accordingly
+          path: python-coverage-comment-action.txt
 
 
   docs:
@@ -105,7 +130,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       

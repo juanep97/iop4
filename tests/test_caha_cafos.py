@@ -19,13 +19,12 @@ logger = logging.getLogger(__name__)
 from .fixtures import load_test_catalog
 
 
-
 @pytest.mark.django_db(transaction=True)
 def test_build_multi_proc_photopol(load_test_catalog):
     """ Test the whole building process of reduced fits through multiprocessing 
     
     Also tests here relative photometry and polarimetry results and their 
-    quality (value + uncertainties) (to avoud losing time reducing them
+    quality (value + uncertainties) (to avoid losing time reducing them
     in another test function).
     """
 
