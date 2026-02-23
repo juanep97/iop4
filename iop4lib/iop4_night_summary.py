@@ -238,7 +238,8 @@ def send_email(args, summary_html):
        msg.get_all('To', []) + msg.get_all('Cc', [])
     )]
     if args.mail_bcc:
-        recipients.extend(args.mail_bcc)
+        bcc_addresses = [addr for _, addr in getaddresses(args.mail_bcc)]
+        recipients.extend(bcc_addresses)
 
     logger.debug(f"Recipients: {recipients}")
 
