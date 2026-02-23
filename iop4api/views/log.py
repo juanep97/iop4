@@ -38,7 +38,7 @@ def log(request):
 
     fpath = fpath.resolve()
 
-    if not fpath.is_relative_to(iop4conf.datadir / "logs"):
+    if not fpath.is_relative_to(Path(iop4conf.datadir) / "logs"):
         return HttpResponse("Access denied.", status=403)
 
     if not fpath.exists():
