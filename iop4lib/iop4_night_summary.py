@@ -68,7 +68,7 @@ def gather_context(args):
         epoch.files_with_error_astrometry_href = args.site_url + "/iop4/admin/iop4api/reducedfit/?id__in=" + ",".join(epoch.files_with_error_astrometry_ids_str_L)
         # TODO: include IOP4Admin in Django configure and use reverse as in PhotoPolResult admin for line above
 
-    # get list of all sources for which there are band R results in this night
+    # get list of all sources for which there are (R band) results in this night
         
     sources = AstroSource.objects.exclude(is_calibrator=True).filter(
         photopolresults__epoch__night=args.date, 
@@ -124,6 +124,15 @@ def gather_context(args):
             axs[1].errorbar(x=vals['datetime'], y=vals['p'], yerr=vals['p_err'], marker=".", color=color, linestyle="none")
             axs[2].errorbar(x=vals['datetime'], y=vals['chi'], yerr=vals['chi_err'], marker=".", color=color, linestyle="none")
 
+        # If the source is a calibrator/has literature magnitudes in the DB, plot also its reference values
+        
+        if source.mag_R:
+            axs[0].axhline(y=source.mag_R, color="gray", linestyle="--", linewidth=1, alpha=0.5)
+        if source.p:
+            axs[1].axhline(y=source.p, color="gray", linestyle="--", linewidth=1, alpha=0.5)
+        if source.chi:
+            axs[2].axhline(y=source.chi, color="gray", linestyle="--", linewidth=1, alpha=0.5)
+
         # x-axis date locator and formatter
         from matplotlib.dates import AutoDateLocator
         axs[-1].xaxis.set_major_locator(AutoDateLocator(interval_multiples=False, maxticks=7))
@@ -148,11 +157,11 @@ def gather_context(args):
         # y labels
         axs[0].set_ylabel(f"mag (R)")
         axs[1].set_ylabel("p")
-        axs[1].yaxis.set_major_formatter(mplt.ticker.PercentFormatter(1.0, decimals=1))
+        axs[1].yaxis.set_major_formatter(mplt.ticker.PercentFormatter(1.0, decimals=None))
         axs[2].set_ylabel("chi [º]")
 
         # title 
-        fig.suptitle(f"{source.name} ({source.other_names})" if source.other_names else source.name)
+        fig.suptitle(f"{source.name} ({source.other_names})" if (source.other_names and source.name != source.other_names) else source.name)
 
         # legend
         legend_handles = [axs[0].plot([],[],color=color, marker=".", linestyle="none", label=instrument)[0] for color, instrument in zip(colors, instruments)]
