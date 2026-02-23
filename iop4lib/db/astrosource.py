@@ -148,8 +148,9 @@ class AstroSource(models.Model):
         # object, since there are ocassions where 
         # AstroSourceQuerySet.with_is_calibrator annotation does not set it.
         # It will use cached value if set, and query the DB otherwise.
-        if self._is_calibrator_cache is not None:
-            return self._is_calibrator_cache
+        cache = getattr(self, "_is_calibrator_cache", None)
+        if cache is not None:
+            return cache
         return AstroSource.objects.filter(calibrators=self.pk).exists()
     @is_calibrator.setter
     def is_calibrator(self, value):
