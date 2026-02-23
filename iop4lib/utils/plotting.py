@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import itertools
 from astropy.coordinates import Angle, SkyCoord
+from astropy.time import Time
 from astropy.wcs import WCS
 import astropy.units as u
 from astropy.visualization import SqrtStretch, LogStretch, AsymmetricPercentileInterval
@@ -592,40 +593,64 @@ def build_astrometry_summary_images(redf, astrocalib_proc_vars, summary_kwargs):
 
 def plot_finding_chart(target_src, fig=None, ax=None):
 
-    from iop4lib.db import AstroSource
+    from iop4lib.db import AstroSource, ReducedFit
     from iop4lib.utils import get_simbad_sources
+    from iop4lib.enums import OBSMODES
 
     radius = u.Quantity("6 arcmin")
 
     if fig is None:
         fig = plt.gcf()
     
+    redf = ReducedFit.objects.filter(
+        sources_in_field__in=[target_src], 
+        flags__has=ReducedFit.FLAGS.BUILT_REDUCED,
+        obsmode=OBSMODES.PHOTOMETRY,
+    ).order_by('-juliandate').first()
+        
     if ax is None:
-        ax = plt.gca()
+        if redf is None:
+            ax = fig.gca()
+            trans = ax.transData
+        else:
+            logger.debug(f"plotting the finding chart over ReducedFit {redf.pk}")
+            ax = fig.axes[-1] if fig.axes else fig.add_subplot(projection=redf.wcs)
+            trans = ax.get_transform('world')
+
+    if redf:
+        imshow_w_sources(redf.mdata, ax=ax)
+        s = f"{redf.instrument} {Time(redf.juliandate, format='jd').iso} UTC"
+        ax.text(x=0, y=0, s=s, color="yellow")
 
     simbad_sources = get_simbad_sources(target_src.coord, radius=radius, Nmax=5, exclude_self=False)
     calibrators = AstroSource.objects.filter(calibrates=target_src)
     
     for src in calibrators:
-        ax.plot([src.coord.ra.deg], [src.coord.dec.deg], 'rx', alpha=1)
-        ax.annotate(text=src.name, xy=(src.coord.ra.deg+0.001, src.coord.dec.deg), xytext=(+30,0), textcoords="offset pixels", color="red", fontsize=10, weight="bold", verticalalignment="center", horizontalalignment="left", arrowprops=dict(color="red", width=0.5, headwidth=1, headlength=3))
+        ax.plot([src.coord.ra.deg], [src.coord.dec.deg], 'rx', transform=trans, alpha=1)
+        ax.annotate(text=src.name, xy=(src.coord.ra.deg, src.coord.dec.deg), xycoords=trans, xytext=(+30,10), textcoords="offset pixels", color="red", alpha=0.8, fontsize=10, weight="bold", verticalalignment="center", horizontalalignment="left", arrowprops=dict(color="red", width=0.5, headwidth=1, headlength=3))
     
     for src in simbad_sources:
-        ax.plot([src.coord.ra.deg], [src.coord.dec.deg], 'b+', alpha=1)
-        ax.annotate(text=src.name, xy=(src.coord.ra.deg-0.001, src.coord.dec.deg), xytext=(-30,0), textcoords="offset pixels", color="blue", fontsize=10, weight="bold", verticalalignment="center", horizontalalignment="right", arrowprops=dict(color="blue", width=0.5, headwidth=1, headlength=3))
+        ax.plot([src.coord.ra.deg], [src.coord.dec.deg], 'b+', transform=trans, alpha=1)
+        ax.annotate(text=src.name, xy=(src.coord.ra.deg, src.coord.dec.deg), xycoords=trans, xytext=(-30,10), textcoords="offset pixels", color="blue", alpha=0.8, fontsize=10, weight="bold", verticalalignment="center", horizontalalignment="right", arrowprops=dict(color="blue", width=0.5, headwidth=1, headlength=3))
 
-    ax.plot([target_src.coord.ra.deg], [target_src.coord.dec.deg], 'ro', alpha=1)
+    ax.plot([target_src.coord.ra.deg], [target_src.coord.dec.deg], 'ro', transform=trans, alpha=1)
 
     # limits (center around target source)
 
-    ax.set_xlim([target_src.coord.ra.deg - radius.to_value("deg"), target_src.coord.ra.deg + radius.to_value("deg")])
-    ax.set_ylim([target_src.coord.dec.deg - radius.to_value("deg"), target_src.coord.dec.deg + radius.to_value("deg")])
+    ra_deg_min, ra_deg_max = target_src.coord.ra.deg - radius.to_value("deg"), target_src.coord.ra.deg + radius.to_value("deg")
+    dec_deg_min, dec_deg_max = target_src.coord.dec.deg - radius.to_value("deg"), target_src.coord.dec.deg + radius.to_value("deg")
+
+    if redf is None:
+        ax.set_xlim(ra_deg_min, ra_deg_max)
+        ax.set_ylim(dec_deg_min, dec_deg_max)
+    else:
+        pass # just fit to the image
 
     # labels
 
     ax.set_xlabel("RA [deg]")
     ax.set_ylabel("DEC [deg]")
-    ax.set_title(f"{target_src.name} ({target_src.other_names})")
+    ax.set_title(f"{target_src.name} ({target_src.other_names})" if (target_src.other_names and target_src.name != target_src.other_names) else target_src.name)
 
     # legend
 
@@ -638,18 +663,21 @@ def plot_finding_chart(target_src, fig=None, ax=None):
 
     # secondary axes in hms and dms
     
-    lims_ra = ax.get_xlim()
-    ax_x2 = ax.twiny()
-    ax_x2_ticks = ax.get_xticks()
-    ax_x2.set_xticks(ax_x2_ticks)
-    ax_x2.set_xticklabels([Angle(x, unit="deg").to_string(unit="hourangle", sep="hms") for x in ax_x2_ticks], fontsize=8)
-    ax_x2.set_xlabel("RA [hms]")
-    ax_x2.set_xlim(lims_ra)
+    if redf is None:
+        lims_ra = ax.get_xlim()
+        ax_x2 = ax.twiny()
+        ax_x2_ticks = ax.get_xticks()
+        ax_x2.set_xticks(ax_x2_ticks)
+        ax_x2.set_xticklabels([Angle(x, unit="deg").to_string(unit="hourangle", sep="hms") for x in ax_x2_ticks], fontsize=8)
+        ax_x2.set_xlabel("RA [hms]")
+        ax_x2.set_xlim(lims_ra)
 
-    lims_dec = ax.get_ylim()
-    ax_y2 = ax.twinx()
-    ax_y2_ticks = ax.get_yticks()
-    ax_y2.set_yticks(ax_y2_ticks)
-    ax_y2.set_yticklabels([Angle(x, unit="deg").to_string(unit="deg", sep="dms") for x in ax_y2_ticks], fontsize=8)
-    ax_y2.set_ylabel("DEC [dms]")
-    ax_y2.set_ylim(lims_dec)
+        lims_dec = ax.get_ylim()
+        ax_y2 = ax.twinx()
+        ax_y2_ticks = ax.get_yticks()
+        ax_y2.set_yticks(ax_y2_ticks)
+        ax_y2.set_yticklabels([Angle(x, unit="deg").to_string(unit="deg", sep="dms") for x in ax_y2_ticks], fontsize=8)
+        ax_y2.set_ylabel("DEC [dms]")
+        ax_y2.set_ylim(lims_dec)
+
+    return fig, ax

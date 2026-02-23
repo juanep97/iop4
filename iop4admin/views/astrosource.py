@@ -41,9 +41,8 @@ class AstroSourceDetailsView(SingleObjView):
             width, height = 800, 800
 
             fig = mplt.figure.Figure(figsize=(width/100, height/100), dpi=iop4conf.mplt_default_dpi)
-            ax = fig.subplots()
 
-            plot_finding_chart(obj, ax=ax, fig=fig)
+            plot_finding_chart(obj, fig=fig)
 
             fig.savefig(buf, format='png', bbox_inches='tight')
             fig.clf()
