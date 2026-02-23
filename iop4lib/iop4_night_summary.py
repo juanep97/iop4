@@ -231,13 +231,14 @@ def send_email(args, summary_html):
     msg['Subject'] = f"IOP4 summary {args.date}"
     msg["From"] = args.mail_from
     msg["To"] = ", ".join(args.mail_to)
-    if args.mail_bcc: msg["Bcc"] = ", ".join(args.mail_bcc)
     msg["Reply-To"] = args.contact_email
     msg.set_content(summary_html, subtype="html")
 
     recipients = [addr for _,addr in getaddresses(
-       msg.get_all('To', []) + msg.get_all('Cc', []) + msg.get_all('Bcc', [])
+       msg.get_all('To', []) + msg.get_all('Cc', [])
     )]
+    if args.mail_bcc:
+        recipients.extend(args.mail_bcc)
 
     logger.debug(f"Recipients: {recipients}")
 
