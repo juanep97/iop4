@@ -66,7 +66,7 @@ class DIPOL(Instrument):
 
 
     # pre computed pairs distances to use in the astrometric calibrations
-    # obtained from calibrated photometry fields (see CAFOS comemnts on how to 
+    # obtained from calibrated photometry fields (see CAFOS comments on how to 
     # recompute)
     
     disp_sign_mean = np.array([-209,  13]) # actually median
