@@ -263,7 +263,7 @@ def build_wcs_centered_on(target_px: tuple[float, float],
             if redf is not None:
                 target_src = redf.header_hintobject
             else:
-                raise
+                raise ValueError("Either target_coord, target_src, or redf must be provided")
         known_ra, known_dec = target_src.coord.ra.deg, target_src.coord.dec.deg 
     else:
         known_ra, known_dec = target_coord.ra.deg, target_coord.dec.deg
