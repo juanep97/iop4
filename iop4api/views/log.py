@@ -31,9 +31,9 @@ def get_log_file_generator(fpath):
 def log(request):
     r"""Staff member required. Since the log file can be very large, we use a generator to stream it to the client."""
 
-    if request.GET.get("log_file", None) is None:
-        fpath = iop4conf.log_file
+    if (log_fname := request.GET.get("log_file", None)):
+        fpath = str(Path(iop4conf.datadir) / "logs" / log_fname)
     else:
-        fpath = str(Path(iop4conf.datadir) / "logs" / request.GET.get("log_file"))
-
+        fpath = iop4conf.log_file
+    
     return StreamingHttpResponse(get_log_file_generator(fpath), content_type="text/plain")

@@ -31,6 +31,7 @@ import sys
 import argparse
 import coloredlogs
 import datetime
+import traceback
 
 # logging
 import logging
@@ -349,7 +350,8 @@ def parse_config_overrides(overrides: Iterable[str]) -> dict:
             
     return config
 
-def main():
+def _main():
+
     # Parse args:
 
     parser = argparse.ArgumentParser(
@@ -425,6 +427,8 @@ def main():
         sys.exit(0)
 
     ## configure logging
+
+    logging.getLogger("iop4lib").setLevel(iop4conf.log_level) # log_level sets the level for all iop4lib
 
     ROOT_LOGGER = logging.getLogger()
     
@@ -557,7 +561,20 @@ def main():
 
     sys.exit(0)
 
+def main():
 
+    # Wrap main function to make sure we log any exception.
+    # This way, if the pipeline fails, we will see the exception in the
+    # configured log file. Otherwise, it would only appear in the stdout.
+    # If the exception happens before the logger is configured, the info will 
+    # probably be be missing from the configure log file, still.
+
+    try:
+        _main()
+    except Exception as e:
+        logger.critical(f'Fatal error during the pipeline execition: "{e}".')
+        logger.error(traceback.format_exc())
+        sys.exit(-1)
 
 if __name__ == '__main__':
     main()
