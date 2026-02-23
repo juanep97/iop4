@@ -23,7 +23,7 @@ dependencies = [
     "scipy>=1.10.1,<2",
     "astropy>=5.2.2,<6",
     "astroquery",
-    "photutils>=2,<3",
+    "photutils>=1.8.0,<3",
     "pandas",
     "scikit-learn>=1.2.2,<2",
     "scikit-image",
@@ -34,7 +34,7 @@ dependencies = [
     "multiprocess>=0.70.14,<1",
     "pypandoc",
     "termcolor",
-    "pyyaml<=6.0.2",
+    "pyyaml<5.4",
     "psutil",
     "paramiko",
 ]
