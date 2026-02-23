@@ -35,9 +35,8 @@ from urllib.parse import urlencode, quote_plus
 
 # logging
 import coloredlogs, logging
-coloredlogs.install(level='INFO')
 logger = logging.getLogger(__name__)
-
+coloredlogs.install(level='DEBUG', logger=logger)
 
 
 def gather_context(args):
@@ -190,6 +189,9 @@ def gather_context(args):
 
     # save vars to context and return it
     
+    if args.log_file:
+        context['log_url'] = args.site_url + "/iop4/explore/logs/?" + urlencode({'log_file':Path(args.log_file).name}, quote_via=quote_plus)
+
     context['epochs'] = epochs    
     context['sources'] = sources
     context['results_summary_images'] = results_summary_images
@@ -240,6 +242,7 @@ def main():
     argparser.add_argument('--contact-name', type=str, default=None, help='Name to indicate as contact, if any')
     argparser.add_argument('--contact-email', type=str, default=None, help='Email to indicate as contact (default is the sender address)')
     argparser.add_argument('--site-url', type=str, default="localhost:8000", help='URL of the site to link the summary')
+    argparser.add_argument('--log-file', type=str, default=None, help='IOP4 log file')
     argparser.add_argument('--saveto', type=str, default=None, help='Save the summary to a file')
     argparser.add_argument('--rc', type=int, default=None, help="Indicate the return code from IOP4 to warn the user if the data processing fails")
 

@@ -781,11 +781,18 @@ function is_log_visible(txt) {
     /* whether the given log line should be visible or not */
     
     // show only lines of the selected logging levels
-    if ((txt.includes('ERROR')) && (!vueApp.$data.pipeline_log_options.errors)){ return false; }
+    // error filter also includes logger.critical
+    if ((txt.includes('CRITICAL') || txt.includes('ERROR')) && (!vueApp.$data.pipeline_log_options.errors)){ return false; }
     if ((txt.includes('WARNING')) && (!vueApp.$data.pipeline_log_options.warnings)){ return false; }
     if ((txt.includes('INFO')) && (!vueApp.$data.pipeline_log_options.info)){ return false; }
     if ((txt.includes('DEBUG')) && (!vueApp.$data.pipeline_log_options.debug)){ return false; }
-    if (!(txt.includes('ERROR') || txt.includes('WARNING') || txt.includes('INFO') || txt.includes('DEBUG'))) { return false; }
+    if (!(txt.includes('CRITICAL') || txt.includes('ERROR') || txt.includes('WARNING') || txt.includes('INFO') || txt.includes('DEBUG'))) {
+        if (vueApp.$data.pipeline_log_options.debug) {
+            return true;  // debug filter also includes print()s
+        } else {
+            return false;
+        }
+    }
 
     // if the filter text is not empty, hide lines that do not contain it
     if (!!(vueApp.$data.pipeline_log_options.filter_text) && (vueApp.$data.pipeline_log_options.filter_text.length > 0)) {

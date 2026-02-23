@@ -3,7 +3,7 @@ import iop4lib
 iop4conf = iop4lib.Config(config_db=False)
 
 # django imports
-from django.http import StreamingHttpResponse
+from django.http import StreamingHttpResponse, HttpResponse
 from django.contrib.auth.decorators import permission_required
 from django.contrib.admin.views.decorators import staff_member_required
 
@@ -31,9 +31,17 @@ def get_log_file_generator(fpath):
 def log(request):
     r"""Staff member required. Since the log file can be very large, we use a generator to stream it to the client."""
 
-    if request.GET.get("log_file", None) is None:
-        fpath = iop4conf.log_file
+    if (log_fname := request.GET.get("log_file", None)):
+        fpath = Path(iop4conf.datadir) / "logs" / log_fname
     else:
-        fpath = str(Path(iop4conf.datadir) / "logs" / request.GET.get("log_file"))
+        fpath = Path(iop4conf.log_file)
 
+    fpath = fpath.resolve()
+
+    if not fpath.is_relative_to(Path(iop4conf.datadir) / "logs"):
+        return HttpResponse("Access denied.", status=403)
+
+    if not fpath.exists():
+        return HttpResponse("Log file not found.", status=404)
+    
     return StreamingHttpResponse(get_log_file_generator(fpath), content_type="text/plain")

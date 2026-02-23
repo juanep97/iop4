@@ -56,7 +56,14 @@
         <hr/>
 
         {% if args.rc and args.rc != 0 %}
-            <p style="color:red;font-size:large;font-weight:bold;">the pipeline did not run properly (rc={{ args.rc }}) !</p>
+            <p style="color:red;font-size:large;font-weight:bold;">
+                the pipeline did not run properly (rc={{ args.rc }}) !
+            </p>
+            {% if log_url %}
+                <p>
+                    You should be able to check the exact error in <a href="{{ log_url }}">the log</a> at the IOP4 portal (check the file for the right date).
+                </p>
+            {% endif %}
         {% endif %}
 
         <h2>Overview</h2>

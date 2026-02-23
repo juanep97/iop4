@@ -132,8 +132,18 @@ class AdminAstroSource(admin.ModelAdmin):
 
         logger.info(f"Querying PanSTARRS around {main_src.name} ({main_src.coord.ra.deg} {main_src.coord.dec.deg})")
 
+        # column defs at https://catalogs.mast.stsci.edu/api/v0.1/panstarrs/dr2/mean/metadata.json
+
         try:
-            catalog_data = Catalogs.query_criteria(coordinates=f"{main_src.coord.ra.deg} {main_src.coord.dec.deg}", catalog="PANSTARRS", version=1, radius="0.12 deg")
+            catalog_data = Catalogs.query_criteria(
+                coordinates=f"{main_src.coord.ra.deg} {main_src.coord.dec.deg}",
+                radius="0.12 deg",
+                catalog="PANSTARRS", 
+                data_release="dr2",
+                table="mean",
+                nDetections=[("gte",MIN_N_OBS)], # extra parameters will make it faster
+                rMeanApMag=[("gte",MIN_R_MAG),("lte",MAX_R_MAG)],
+            )
         except Exception as e:
             logger.error(f"Error querying PanSTARRS around {main_src.name} ({main_src.coord.ra.deg} {main_src.coord.dec.deg}): {e}")
             messages.error(request, f"Error querying PanSTARRS around {main_src.name}: {e}")
