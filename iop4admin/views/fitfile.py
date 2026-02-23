@@ -157,6 +157,18 @@ class FitDetailsView(SingleObjView):
         # stats
         context["stats"] = obj.stats
 
+        # Results from this images
+
+        if isinstance(obj, ReducedFit):
+            qs_results = PhotoPolResult.objects.filter(reducedfits__in=[obj.id]).all()
+            if qs_results.exists():
+                ids_str_L = [str(res.id) for res in qs_results]
+                a_href = reverse('iop4admin:%s_%s_changelist' % (PhotoPolResult._meta.app_label, PhotoPolResult._meta.model_name)) + "?id__in=%s" % ",".join(ids_str_L)
+                a_text = ", ".join(ids_str_L)
+                context["photopolresults"] = qs_results
+                context["photopolresults_url"] = a_href
+                context["photopolresults_text"] = a_text
+
         #logger.debug("Finished building template context for fit details view")
 
         return context

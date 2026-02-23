@@ -53,7 +53,9 @@ def index(request, tabs=None):
 
     # if the user is logged, pass source names to the template
     if request.user.is_authenticated:
-        context['source_name_list'] = AstroSource.objects.exclude(is_calibrator=True).values_list('name', flat="True")
+        source_name_list = list(AstroSource.objects.exclude(is_calibrator=True).values_list('name','other_names'))
+        source_name_list = [ (name, (other_names.split(';')[0].strip()) if other_names else '') for (name, other_names) in source_name_list]
+        context['source_name_list'] = source_name_list
 
     # add the hash of the current commit installed 
     context['git_commit_hash'] = GIT_COMMIT_HASH

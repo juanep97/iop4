@@ -18,10 +18,10 @@
     <link href="https://cdn.jsdelivr.net/npm/quasar@2.12.5/dist/quasar.prod.css" rel="stylesheet" type="text/css"> 
 
     <!-- Tabulator -->
-    <link href="https://unpkg.com/tabulator-tables@5.4.2/dist/css/tabulator.min.css" rel="stylesheet">
-    <script type="text/javascript" src="https://unpkg.com/tabulator-tables@5.4.2/dist/js/tabulator.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js" integrity="sha512-SgWewGM3r8xXm8LNXt4ZHqKVKu/7eKrJ1aBCbMaX44xXXaCcIvCAvD2kj9qnC1lhyjAu04mcPiTzcc/CaACnUQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+    <script type="text/javascript" src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js" integrity="sha384-gb+8dgIcSEcX2zwyEPEEKZiwD8km3OTz47IVU3CXdP/pYz4fRAdb9pJdlHW8VvM0" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js" integrity="sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js" integrity="sha384-Xl/CUCfJbzsngMp0CFxkmF0VW/8C160IsGujqeQlIhaGxKz2+JsIGORFqtCPeldF" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
     <!-- jquery gui required for bokeh datatable reorder -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script> 
@@ -305,7 +305,7 @@
             
                             if (value === '') { // if empty, null (works with = or != default filters)
                                 value = null;
-                            } else if (type != 'after') { // if values can be numbers, fix type
+                            } else if (type !== 'after' && type !== 'before') { // if values can be numbers, fix type
                                 if (!isNaN(value) && !isNaN(Number(value))) {
                                     value = Number(value);
                                 }
@@ -416,7 +416,7 @@
                 autoSubmitPlotForm() {
                     load_source_plot(document.getElementById('plot_astrosource_form'));
                 },
-                getPlotQueryParams() {
+                getQueryParams() {
                     const params = new URLSearchParams(window.location.search);
                     return {
                         srcname: params.get('srcname') || '',
@@ -425,6 +425,7 @@
                         band: params.get('band') || 'R',
                         fast: params.get('fast') || 'false',
                         errors: params.get('errors') || 'true',
+                        log_file: params.get('log_file'),
                     };
                 },
             },
@@ -435,14 +436,16 @@
                 window.addEventListener('popstate', () => {
                     this.updateSelectedTabFromPath();
                 });
+                const params = this.getQueryParams();
                 // auto load plot from url
-                const params = this.getPlotQueryParams();
                 this.input_astrosource = params.srcname;
                 this.input_date_start = params.date1;
                 this.input_date_end = params.date2;
                 this.plot_config_band = params.band;
                 this.plot_config_fast = params.fast === 'true';
                 this.enable_errorbars = params.errors === 'true';
+                // auto load log file from url
+                this.log_file = params.log_file ?? this.log_file;
 
                 if (this.input_astrosource) { // && this.input_date_start && this.input_date_end) {
                     console.log('auto plotting from url with params', params);

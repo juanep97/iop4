@@ -55,11 +55,11 @@ def test_host_correction_data_load(load_test_catalog):
     from iop4lib.db import AstroSource
     from iop4lib.utils import get_host_correction
 
-    val, err = get_host_correction(AstroSource.objects.get(name="2200+420"), 5)
+    val, err = get_host_correction(AstroSource.objects.get(name="2200+420"), 6, 4)
 
     assert val is not None
-    assert val == approx(1.18)
-    assert err == approx(0.06)
+    assert val == approx(1.22)
+    assert err == approx(0.03)
 
 @pytest.mark.django_db(transaction=True)
 def test_iop4_script():

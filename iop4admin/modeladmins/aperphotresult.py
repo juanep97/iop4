@@ -21,7 +21,7 @@ class AdminAperPhotResult(admin.ModelAdmin):
     readonly_fields = [field.name for field in AperPhotResult._meta.fields]
     search_fields = ['id', 'reducedfit__instrument', 'astrosource__name', 'astrosource__srctype', 'reducedfit__id']
     list_filter = ['reducedfit__instrument', 'astrosource__srctype', 'reducedfit__epoch__telescope', 'reducedfit__obsmode']
-
+    ordering = ['pairs', 'id']
 
     def get_urls(self):
         urls = super().get_urls()

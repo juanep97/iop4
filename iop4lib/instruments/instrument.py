@@ -17,10 +17,11 @@ import itertools
 import datetime
 import glob
 import astrometry
-from photutils.centroids import centroid_com, centroid_sources
+from photutils.centroids import centroid_sources, centroid_2dg
 
 # iop4lib imports
 from iop4lib.enums import *
+from iop4lib.utils import filter_zero_points, calibrate_photopolresult
 
 # logging
 import logging
@@ -229,6 +230,11 @@ class Instrument(metaclass=ABCMeta):
         """
 
         return cls._get_header_hintobject_easy(rawfit) or cls._get_header_hintobject_hard(rawfit)
+    
+    @classmethod
+    def get_header_hintcoord(cls, rawfit):
+        """ Get the position hint from the FITS header as a coordinate."""
+        raise NotImplementedError
     
     @classmethod
     @abstractmethod 
@@ -519,10 +525,17 @@ class Instrument(metaclass=ABCMeta):
         from photutils.utils import calc_total_error
         from astropy.stats import SigmaClip
 
-        bkg_box_size = redf.mdata.shape[0]//10
-
-        bkg = get_bkg(redf.mdata, filter_size=1, box_size=bkg_box_size)
         img = redf.mdata
+
+        # centroid_sources and fit_fwhm need bkg-substracted data
+
+        # opt 1) estimate bkg using more complex algs
+        bkg_box_size = redf.mdata.shape[0]//10
+        bkg = get_bkg(redf.mdata, filter_size=1, box_size=bkg_box_size)
+        median = bkg.background_median
+
+        # opt 2) estimate bkg using simple sigma clip
+        # mean, median, std = sigma_clipped_stats(img, sigma=3.0)
 
         error = calc_total_error(img, bkg.background_rms, cls.gain_e_adu)
 
@@ -531,12 +544,55 @@ class Instrument(metaclass=ABCMeta):
         for astrosource in redf.sources_in_field.all():
             for pairs, wcs in (('O', redf.wcs1), ('E', redf.wcs2)) if redf.has_pairs else (('O',redf.wcs),):
 
-                wcs_px_pos = astrosource.coord.to_pixel(wcs)
-
                 logger.debug(f"{redf}: computing aperture photometry for {astrosource}")
 
-                centroid_px_pos = centroid_sources(img, xpos=wcs_px_pos[0], ypos=wcs_px_pos[1], box_size=11, centroid_func=centroid_com)
+                wcs_px_pos = astrosource.coord.to_pixel(wcs)
+
+                # check that the wcs px position is within (r_in+r_out)/2 from ther border of the image
+
+                r_mid = (r_in + r_out) / 2
+
+                if not (r_mid < wcs_px_pos[0] < img.shape[1] - r_mid and r_mid < wcs_px_pos[1] < img.shape[0] - r_mid):
+                    logger.warning(f"{redf}: ({pairs}) image of {astrosource.name} is too close to the border, skipping aperture photometry.")
+                    continue
+
+                # # correct position using centroid
+                # # choose a box size that is somewhat larger than the aperture
+                # # in case of pairs, cap box size so that it is somewhat smaller than the distance between pairs
+
+                # box_size = math.ceil(1.6 * aperpix)//2 * 2 + 1
+
+                # if redf.has_pairs:
+                #     box_size_max = math.ceil(np.linalg.norm(Instrument.by_name(redf.instrument).disp_sign_mean))//2 * 2 - 1
+                #     box_size = min(box_size, box_size_max)
+
+                # correct position using centroid
+                # choose a box size around 12.0 arcsec (0.4'' is excellent seeing)
+                # in case of pairs, cap box size so that it is somewhat smaller than the distance between pairs
+
+                arcsec_px = redf.pixscale.to(u.arcsec/u.pix).value
+
+                box_size = math.ceil( ( 12 / arcsec_px ) ) // 2 * 2 + 1
+
+                logger.debug(f"{box_size=}")
+
+                if redf.has_pairs:
+                    box_size_max = math.ceil(np.linalg.norm(Instrument.by_name(redf.instrument).disp_sign_mean))//2 * 2 - 1
+                    box_size = min(box_size, box_size_max)
+
+                centroid_px_pos = centroid_sources(img-median, xpos=wcs_px_pos[0], ypos=wcs_px_pos[1], box_size=box_size, centroid_func=centroid_2dg)
                 centroid_px_pos = (centroid_px_pos[0][0], centroid_px_pos[1][0])
+
+                # check that the centroid position is within the borders of the image
+
+                if not (r_mid < centroid_px_pos[0] < img.shape[1] - r_mid and r_mid < centroid_px_pos[1] < img.shape[0] - r_mid):
+                    logger.warning(f"{redf}: centroid of the ({pairs}) image of {astrosource.name} is too close to the border, skipping aperture photometry.")
+                    continue
+
+                # log the difference between the WCS and the centroid
+                wcs_diff = np.sqrt((centroid_px_pos[0] - wcs_px_pos[0])**2 + (centroid_px_pos[1] - wcs_px_pos[1])**2)
+                
+                logger.debug(f"ReducedFit {redf.id}: {astrosource.name} {pairs}: WCS centroid distance = {wcs_diff:.1f} px")
 
                 ap = CircularAperture(centroid_px_pos, r=aperpix)
                 annulus = CircularAnnulus(centroid_px_pos, r_in=r_in, r_out=r_out)
@@ -550,14 +606,16 @@ class Instrument(metaclass=ABCMeta):
                 flux_counts = ap_stats.sum - annulus_stats.mean*ap_stats.sum_aper_area.value # TODO: check if i should use mean!
                 flux_counts_err = ap_stats.sum_err
 
-                apres = AperPhotResult.create(reducedfit=redf, 
-                                      astrosource=astrosource, 
-                                      aperpix=aperpix, 
-                                      r_in=r_in, r_out=r_out,
-                                      x_px=centroid_px_pos[0], y_px=centroid_px_pos[1],
-                                      pairs=pairs, 
-                                      bkg_flux_counts=bkg_flux_counts, bkg_flux_counts_err=bkg_flux_counts_err,
-                                      flux_counts=flux_counts, flux_counts_err=flux_counts_err)
+                apres = AperPhotResult.create(
+                    reducedfit=redf, 
+                    astrosource=astrosource, 
+                    aperpix=aperpix, 
+                    r_in=r_in, r_out=r_out,
+                    x_px=centroid_px_pos[0], y_px=centroid_px_pos[1],
+                    pairs=pairs, 
+                    bkg_flux_counts=bkg_flux_counts, bkg_flux_counts_err=bkg_flux_counts_err,
+                    flux_counts=flux_counts, flux_counts_err=flux_counts_err,
+                )
                 
                 apres_L.append(apres)
 
@@ -607,6 +665,8 @@ class Instrument(metaclass=ABCMeta):
             result = PhotoPolResult.create(reducedfits=[redf], astrosource=astrosource, reduction=REDUCTIONMETHODS.RELPHOT)
 
             result.aperpix = aperpix
+            result.aperas = aperpix * redf.pixscale.to(u.arcsec / u.pix).value
+            result.fwhm = target_fwhm * redf.pixscale.to(u.arcsec / u.pix).value
             result.bkg_flux_counts = aperphotresult.bkg_flux_counts
             result.bkg_flux_counts_err = aperphotresult.bkg_flux_counts_err
             result.flux_counts = aperphotresult.flux_counts
@@ -655,40 +715,9 @@ class Instrument(metaclass=ABCMeta):
             if result.astrosource.is_calibrator:
                 continue
 
-            # 3.a Average the zero points
+            logger.debug(f"{redf}: calibrating {result}")
 
-            # get all the computed photopolresults that calibrate this source
-            calibrator_results_L = [r for r in photopolresult_L if r.astrosource.calibrates.filter(pk=result.astrosource.pk).exists()]
-
-            # Create an array with nan instead of None (this avoids the dtype becoming object)
-            calib_mag_zp_array = np.array([result.mag_zp or np.nan for result in calibrator_results_L if result.astrosource.is_calibrator]) 
-            calib_mag_zp_array = calib_mag_zp_array[~np.isnan(calib_mag_zp_array)]
-
-            calib_mag_zp_array_err = np.array([result.mag_zp_err or np.nan for result in calibrator_results_L if result.astrosource.is_calibrator])
-            calib_mag_zp_array_err = calib_mag_zp_array_err[~np.isnan(calib_mag_zp_array_err)]
-
-            if len(calib_mag_zp_array) == 0:
-                logger.error(f"{redf}: can not perform relative photometry on source {result.astrosource.name}, no calibrator zero-points found.")
-                # [result.delete() for result in redf.photopolresults.all()]
-                continue
-
-            zp_avg = np.nanmean(calib_mag_zp_array)
-            zp_std = np.nanstd(calib_mag_zp_array)
-
-            zp_err = math.sqrt(np.sum(calib_mag_zp_array_err**2)) / len(calib_mag_zp_array_err)
-            zp_err = math.sqrt(zp_std**2 + zp_err**2)
-
-            # 3.b Compute the calibrated magnitude
-
-            # save the zp (to be) used
-            result.mag_zp = zp_avg
-            result.mag_zp_err = zp_err
-
-            # compute the calibrated magnitude
-            result.mag = zp_avg + result.mag_inst
-            result.mag_err = math.sqrt(result.mag_inst_err**2 + zp_err**2)
-
-            result.save()
+            calibrate_photopolresult(result, photopolresult_L)
         
         # 5. Save the results
 
@@ -702,14 +731,16 @@ class Instrument(metaclass=ABCMeta):
 
 
     @classmethod
-    def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fit_boxsize=None, search_boxsize=(90,90), fwhm_min=2, fwhm_max=50):
+    def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fit_boxsize=None, search_boxsize=(90,90), fwhm_min=2, fwhm_max=50, fwhm_default=3.5):
         r"""estimate an appropriate common aperture for a list of reduced fits.
         
         It fits the target source profile in the fields and returns some multiples of the fwhm which are used as the aperture and as the inner and outer radius of the annulus for local bkg estimation).
         """
 
-        from iop4lib.utils import fit_gaussian
-        from iop4lib.db import AstroSource
+        from photutils.psf import fit_fwhm
+        from iop4lib.utils.sourcedetection import get_bkg
+
+        # select the target source from the list of files (usually, there is only one)
 
         astrosource_S = set.union(*[set(redf.sources_in_field.all()) for redf in reducedfits])
         target_L = [astrosource for astrosource in astrosource_S if not astrosource.is_calibrator]
@@ -722,18 +753,65 @@ class Instrument(metaclass=ABCMeta):
             target = astrosource_S.pop()
         else:
             return np.nan, np.nan, np.nan, {'mean_fwhm':np.nan, 'sigma':np.nan}
+
+        logger.debug(f"{target=}")
+
+        # Iterate over each file, get the fwhm of the source
     
         fwhm_L = list()
 
         for redf in reducedfits:
+
             try:
-                gaussian = fit_gaussian(px_start=redf.wcs.world_to_pixel(target.coord), redf=redf)
-                fwhm = (2*np.sqrt(2*math.log(2))) * np.sqrt(gaussian[0].x_stddev.value**2+gaussian[0].y_stddev.value**2)
-                if not (fwhm_min < fwhm < fwhm_max):
-                    logger.warning(f"ReducedFit {redf.id} {target.name}: fwhm = {fwhm} px, skipping this reduced fit")
-                    continue
-                logger.debug(f"ReducedFit {redf.id} [{target.name}] Gaussian FWHM: {fwhm:.1f} px")
-                fwhm_L.append(fwhm)
+
+                img = redf.mdata
+
+                # centroid_sources and fit_fwhm need bkg-substracted data
+
+                # opt 1) estimate bkg using more complex algs
+                bkg_box_size = redf.mdata.shape[0]//10
+                bkg = get_bkg(redf.mdata, filter_size=1, box_size=bkg_box_size)
+                median = bkg.background_median
+
+                # opt 2) estimate bkg using simple sigma clip
+                # mean, median, std = sigma_clipped_stats(img, sigma=3.0)
+
+                for pairs, wcs in (('O', redf.wcs1), ('E', redf.wcs2)) if redf.has_pairs else (('O',redf.wcs),):
+
+                    wcs_px_pos = target.coord.to_pixel(wcs)
+
+                    # correct position using centroid
+                    # choose a box size around 12.0 arcsec (0.4'' is excellent seeing)
+                    # in case of pairs, cap box size so that it is somewhat smaller than the distance between pairs
+
+                    arcsec_px = redf.pixscale.to(u.arcsec/u.pix).value
+
+                    box_size = math.ceil( ( 12 / arcsec_px ) ) // 2 * 2 + 1
+
+                    logger.debug(f"{box_size=}")
+
+                    if redf.has_pairs:
+                        box_size_max = math.ceil(np.linalg.norm(Instrument.by_name(redf.instrument).disp_sign_mean))//2 * 2 - 1
+                        box_size = min(box_size, box_size_max)
+
+                    centroid_px_pos = centroid_sources(img-median, xpos=wcs_px_pos[0], ypos=wcs_px_pos[1], box_size=box_size, centroid_func=centroid_2dg)
+                    centroid_px_pos = (centroid_px_pos[0][0], centroid_px_pos[1][0])
+
+                    # log the difference between the WCS and the centroid
+                    wcs_diff = np.sqrt((centroid_px_pos[0] - wcs_px_pos[0])**2 + (centroid_px_pos[1] - wcs_px_pos[1])**2)
+                    
+                    logger.debug(f"ReducedFit {redf.id}: {target.name} {pairs}: WCS centroid distance = {wcs_diff:.1f} px")
+
+                    fwhm = fit_fwhm(img-median, xypos=centroid_px_pos, fit_shape=7)[0]
+
+                    if not (fwhm_min < fwhm < fwhm_max):
+                        logger.warning(f"ReducedFit {redf.id} {target.name}: fwhm = {fwhm} px, skipping this reduced fit")
+                        continue
+
+                    logger.debug(f"ReducedFit {redf.id} [{target.name}] Gaussian FWHM: {fwhm} px")
+
+                    fwhm_L.append(fwhm)
+
             except Exception as e:
                 logger.warning(f"ReducedFit {redf.id} {target.name}: error in gaussian fit, skipping this reduced fit ({e})")
                 continue
@@ -741,12 +819,12 @@ class Instrument(metaclass=ABCMeta):
         if len(fwhm_L) > 0:
             mean_fwhm = np.mean(fwhm_L)
         else:
-            logger.error(f"Could not find an appropriate aperture for Reduced Fits {[redf.id for redf in reducedfits]}, using standard fwhm of 3.5px")
-            mean_fwhm = 3.5
+            logger.error(f"Could not find an appropriate aperture for Reduced Fits {[redf.id for redf in reducedfits]}, using standard fwhm of {fwhm_default} px")
+            mean_fwhm = fwhm_default
 
         sigma = mean_fwhm / (2*np.sqrt(2*math.log(2)))
-        r = sigma
         
-        return 6.0*r, 7.0*r, 15.0*r, {'mean_fwhm':mean_fwhm, 'sigma':sigma}
+        
+        return 3.0*sigma, 5.0*sigma, 9.0*sigma, {'mean_fwhm':mean_fwhm, 'sigma':sigma}
     
 

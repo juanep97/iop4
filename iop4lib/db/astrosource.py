@@ -4,10 +4,11 @@ iop4conf = iop4lib.Config(config_db=False)
 # django imports
 from django.db import models
 from django.db.models import Exists, OuterRef
-from django.db.models import Q
+from django.db.models import Q, Avg
 
 # iop4lib imports
 from ..enums import *
+from iop4lib.utils import get_column_values
 
 # other imports
 import os
@@ -17,6 +18,8 @@ import astropy.io.fits as fits
 from astropy.wcs import WCS
 from astropy.coordinates import Angle, SkyCoord
 import astropy.units as u
+import math
+import numpy as np
 
 # logging
 import logging
@@ -64,6 +67,12 @@ class AstroSource(models.Model):
     # Calibration stars fields
 
     calibrates = models.ManyToManyField('AstroSource', related_name="calibrators", blank=True, help_text="sources that it calibrates (for calibrators only)")
+
+    p = models.FloatField(blank=True, null=True, help_text="Polarization degree [0-1] (for calibrators only)")
+    p_err = models.FloatField(blank=True, null=True, help_text="Polarization degree error (for calibrators only)")
+    
+    chi = models.FloatField(blank=True, null=True, help_text="Polarization angle [deg] (for calibrators only)")
+    chi_err = models.FloatField(blank=True, null=True, help_text="Polarization angle error (for calibrators only)")
 
     mag_R = models.FloatField(blank=True, null=True, help_text="Literature magnitude in R band (for calibrators only)")
     mag_R_err = models.FloatField(blank=True, null=True, help_text="Literature magnitude error in R band (for calibrators only)")
@@ -210,3 +219,118 @@ class AstroSource(models.Model):
                     sources_in_field.append(obj)
 
         return sources_in_field
+
+
+    @property
+    def last_reducedfit(self):
+        """Returns the last ReducedFit object associated with the source."""
+        return self.in_reducedfits.order_by('-epoch__night').first()
+    
+    @property
+    def last_night_mag_R(self):
+        """Returns the average magnitude and error of the last night in the R band."""
+
+        qs = self.photopolresults.filter(band=BANDS.R).exclude(mag=None).exclude(mag_err=None)
+
+        if not qs:
+            return None, None, None
+        
+        last_night = qs.earliest('-epoch__night').epoch.night
+
+        qs = qs.filter(epoch__night=last_night)
+        
+        vals = get_column_values(qs, ['mag', 'mag_err'])
+        mag_r, mag_r_err = vals['mag'], vals['mag_err']
+
+        mag_r_avg = np.average(mag_r, weights=1/mag_r_err**2)
+        mag_r_avg_err = 1/np.sqrt(np.sum(1/mag_r_err**2))
+
+        return mag_r_avg, mag_r_avg_err, last_night
+    
+    @property
+    def texp_andor90(self):
+        """Recommended exposure time for Andor90, based on the last R magnitude and for a SNR of 150."""
+
+        snr = 150
+        last_night_mag_R = self.last_night_mag_R[0]
+
+        if last_night_mag_R is None:
+            return None
+
+        texp = math.pow(snr,2) * 9.77 * 1e-16 * math.pow(10, 0.8*last_night_mag_R)
+
+        if texp < 30:
+            return 60
+        elif texp <= 100:
+            return 150
+        elif texp <= 250:
+            return 300
+        elif texp <= 400:
+            return 450
+        elif texp <= 800:
+            return 600
+        else:
+            return None
+        
+    @property
+    def texp_andor150(self):
+        """Recommended exposure time for Andor150, based on the last night R magnitude and for a SNR of 150."""
+
+        snr = 150
+        last_night_mag_R = self.last_night_mag_R[0]
+
+        if last_night_mag_R is None:
+            return None
+        
+        texp = 0.36 * math.pow(snr,2) * 9.77 * 1e-16 * math.pow(10, 0.8*last_night_mag_R)
+
+        if texp < 30:
+            return 60
+        elif texp <= 100:
+            return 150
+        elif texp <= 250:
+            return 300
+        elif texp <= 400:
+            return 450
+        else:
+            return 600
+    
+    @property
+    def texp_dipol(self):
+        """Recommended exposure time for DIPOL, based on the last night R magnitude and for a SNR of 150."""
+
+        snr = 150
+        last_night_mag_R = self.last_night_mag_R[0]
+
+        if last_night_mag_R is None:
+            return None
+        
+        texp = math.pow(snr,2) * 9.77 * 1e-16 * math.pow(10, 0.8*last_night_mag_R)
+
+        if  texp <= 300:
+            return math.ceil(texp / 10) * 10 + 10
+        elif texp <= 2000:
+            return 300
+        else:
+            return None
+        
+    @property
+    def nreps_dipol(self):
+        """Recommended number of repetitions for DIPOL, based on the last night R magnitude and for a SNR of 150."""
+
+        snr = 150
+        last_night_mag_R = self.last_night_mag_R[0]
+
+        if last_night_mag_R is None:
+            return None
+        
+        texp = math.pow(snr,2) * 9.77 * 1e-16 * math.pow(10, 0.8*last_night_mag_R)
+
+        if texp <= 20:
+            return 8
+        elif texp <= 40:
+            return 4
+        elif texp <= 80:
+            return 2
+        else:
+            return 1

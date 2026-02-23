@@ -17,7 +17,7 @@ from astroquery.mast import Catalogs
 from astropy.coordinates import SkyCoord
 
 # iop4lib imports
-from iop4lib.enums import BANDS
+from iop4lib.enums import BANDS, SRCTYPES
 
 # logging
 import logging
@@ -25,7 +25,10 @@ logger = logging.getLogger(__name__)
 
 class AdminAstroSource(admin.ModelAdmin):
     model = AstroSource
-    list_display = ['name', 'other_names', 'ra_hms', 'dec_dms', 'srctype', 'get_last_reducedfit', 'get_last_mag_R', 'get_calibrates', 'get_comment_firstline', 'get_details']
+    list_display = ['name', 'other_names', 'ra_hms', 'dec_dms', 'srctype', 'get_last_reducedfit', 
+                    'get_last_mag_R', 'get_calibrates',
+                    'get_texp_andor90', 'get_texp_andor150', 'get_texp_dipol', 
+                    'get_comment_firstline', 'get_details']
     search_fields = ['name', 'other_names', 'ra_hms', 'dec_dms', 'srctype', 'comment']
     list_filter = ('srctype',)
     actions = ['add_field_stars_from_panstarrs', 'remove_field_stars_from_panstarrs']
@@ -45,7 +48,7 @@ class AdminAstroSource(admin.ModelAdmin):
     
     @admin.display(description='LAST FILE')
     def get_last_reducedfit(self, obj):
-        redf = obj.in_reducedfits.order_by('-epoch__night').first()
+        redf = obj.last_reducedfit
         if redf is not None:
             url = reverse('iop4admin:%s_%s_changelist' % (ReducedFit._meta.app_label, ReducedFit._meta.model_name)) + "?id=%s" % redf.pk
             return format_html(rf'<a href="{url}">{redf.epoch.night}</a>')
@@ -54,15 +57,9 @@ class AdminAstroSource(admin.ModelAdmin):
     
     @admin.display(description="LAST MAG")
     def get_last_mag_R(self, obj):
-        ## get the average of last night
-        last_night = obj.photopolresults.filter(band=BANDS.R).earliest('-epoch__night').epoch.night
-        r_avg = obj.photopolresults.filter(band=BANDS.R, epoch__night=last_night).aggregate(mag_avg=Avg('mag'), mag_err_avg=Avg('mag_err'))
-
-        mag_r_avg = r_avg.get('mag_avg', None)
-        mag_r_err_avg = r_avg.get('mag_err_avg', None)
-
+        mag_r_avg, mag_r_err_avg, night = obj.last_night_mag_R
         if mag_r_avg is not None:
-            return f"{mag_r_avg:.2f}"
+            return f"{mag_r_avg:.2f} ± {mag_r_err_avg:.2f} ({night})"
         else:
             return None
     
@@ -78,6 +75,45 @@ class AdminAstroSource(admin.ModelAdmin):
         ]
         return my_urls + urls
     
+    @admin.display(description='T. Andor90')
+    def get_texp_andor90(self, obj):
+        last_night_mag_R = obj.last_night_mag_R[0]
+        texp = obj.texp_andor90
+
+        if last_night_mag_R is None:
+            return None
+        
+        if texp is None:
+            return "X"
+
+        return texp
+    
+    @admin.display(description='T. Andor150')
+    def get_texp_andor150(self, obj):
+        last_night_mag_R = obj.last_night_mag_R[0]
+        texp = obj.texp_andor150
+
+        if last_night_mag_R is None:
+            return None
+        
+        if texp is None:
+            return "X"
+
+        return texp
+    
+    @admin.display(description='T. x N DIPOL')
+    def get_texp_dipol(self, obj):
+        last_night_mag_R = obj.last_night_mag_R[0]
+        texp = obj.texp_dipol
+        nreps = obj.nreps_dipol
+
+        if last_night_mag_R is None:
+            return None
+        
+        if texp is None:
+            return "X"
+        
+        return f"{texp} x {nreps}"
 
     @admin.action(description='Automatically add field stars from PanSTARRS')
     def add_field_stars_from_panstarrs(self, request, queryset):
@@ -91,13 +127,23 @@ class AdminAstroSource(admin.ModelAdmin):
         # quality constraints
         MIN_R_MAG = 11 # minimum R magnitude
         MAX_R_MAG = 16  # maximum R magnitude
-        MAX_MAG_STD = 0.01 # maximum standard deviation in the required bands (we want our calibrators to be stable)
+        MAX_MAG_STD = 0.02 # maximum standard deviation in the required bands (we want our calibrators to be stable)
         MIN_N_OBS = 5 # minimum number of observations in the required bands
 
         logger.info(f"Querying PanSTARRS around {main_src.name} ({main_src.coord.ra.deg} {main_src.coord.dec.deg})")
 
+        # column defs at https://catalogs.mast.stsci.edu/api/v0.1/panstarrs/dr2/mean/metadata.json
+
         try:
-            catalog_data = Catalogs.query_criteria(coordinates=f"{main_src.coord.ra.deg} {main_src.coord.dec.deg}", catalog="PANSTARRS", version=1, radius="0.12 deg")
+            catalog_data = Catalogs.query_criteria(
+                coordinates=f"{main_src.coord.ra.deg} {main_src.coord.dec.deg}",
+                radius="0.12 deg",
+                catalog="PANSTARRS", 
+                data_release="dr2",
+                table="mean",
+                nDetections=[("gte",MIN_N_OBS)], # extra parameters will make it faster
+                rMeanApMag=[("gte",MIN_R_MAG),("lte",MAX_R_MAG)],
+            )
         except Exception as e:
             logger.error(f"Error querying PanSTARRS around {main_src.name} ({main_src.coord.ra.deg} {main_src.coord.dec.deg}): {e}")
             messages.error(request, f"Error querying PanSTARRS around {main_src.name}: {e}")
@@ -129,18 +175,22 @@ class AdminAstroSource(admin.ModelAdmin):
         idx = idx & (catalog_data["yMeanApMagNpt"] > MIN_N_OBS)
         catalog_data = catalog_data[idx]
 
+        catalog_data.sort(['rMeanApMagStd', 'rMeanApMagErr'])
+
         catalog_data.remove_columns([col for col in catalog_data.columns if col not in column_names])
 
-        logger.info(f"Filtered down to {len(catalog_data)} PanSTARRS field stars with {MIN_R_MAG} <= R <= {MAX_R_MAG}, std < {MAX_MAG_STD} and n_obs > {MIN_N_OBS}")
+        n_valid = len(catalog_data)
 
-        if len(catalog_data) == 0:
+        logger.info(f"Filtered down to {n_valid} PanSTARRS field stars with {MIN_R_MAG} <= R <= {MAX_R_MAG}, std < {MAX_MAG_STD} and n_obs > {MIN_N_OBS}")
+
+        if n_valid == 0:
             logger.error(f"No PanSTARRS field stars found for {main_src.name}, skipping")
 
         # sort by number of observations in R, take top 10 only
-        if len(catalog_data) > 10:
-            logger.info("Keeping only top 10 field stars by number of R observations")
+        if n_valid > 30:
+            logger.info("Keeping only top 30 field stars by number of R observations")
             catalog_data.sort('rMeanApMagNpt')
-            catalog_data = catalog_data[-10:]
+            catalog_data = catalog_data[-30:]
 
         field_stars = list()
 
@@ -171,7 +221,7 @@ class AdminAstroSource(admin.ModelAdmin):
                                                 f"Autogenerated from PanSTARRS catalog query.\n"
                                                 f"SDSS to Johnson-Cousins transformation by Lupton (2005).\n"
                                                 f"Field `other_names` corresponds to PanSTARRS `objName`.\n"),
-                                        srctype="star",
+                                        srctype=SRCTYPES.STAR,
                                         mag_B=B, mag_B_err=err_B,
                                         mag_V=V, mag_V_err=err_V,
                                         mag_R=R, mag_R_err=err_R,
@@ -184,11 +234,11 @@ class AdminAstroSource(admin.ModelAdmin):
                 logger.error(f"Error with {row['objName']}: {e}")
                 continue
 
-        logger.info(f"Added {len(field_stars)} PanSTARRS field stars for {main_src.name}")
+        logger.info(f"Added {len(field_stars)} out of {n_valid} PanSTARRS field stars for {main_src.name}")
 
         main_src.calibrators.add(*field_stars)
 
-        messages.success(request, f"Added {len(field_stars)} PanSTARRS field stars for {main_src.name}")
+        messages.success(request, f"Added {len(field_stars)} out of {n_valid} PanSTARRS field stars for {main_src.name}")
 
 
     @admin.action(description='Remove all field stars from PanSTARRS')
@@ -201,7 +251,8 @@ class AdminAstroSource(admin.ModelAdmin):
         main_src = queryset.first()
 
         field_stars = main_src.calibrators.filter(name__startswith="PanSTARRS")
+        n_field_stars = len(field_stars) # count before deletion
         field_stars.delete()
-        logger.info(f"Removed {len(field_stars)} PanSTARRS field stars for {main_src.name}")
+        logger.info(f"Removed {n_field_stars} PanSTARRS field stars for {main_src.name}")
 
-        messages.success(request, f"Removed {len(field_stars)} PanSTARRS field stars for {main_src.name}")
+        messages.success(request, f"Removed {n_field_stars} PanSTARRS field stars for {main_src.name}")

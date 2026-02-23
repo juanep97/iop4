@@ -26,6 +26,7 @@ import dataclasses
 from iop4lib.utils.sourcepairing import (get_pairs_d, get_pairs_dxy, get_best_pairs)
 from iop4lib.utils.sourcedetection import (get_bkg, get_segmentation, get_cat_sources_from_segment_map)
 from iop4lib.utils.plotting import build_astrometry_summary_images
+from iop4lib.enums import BANDS
 
 # logging
 
@@ -56,7 +57,7 @@ class BuildWCSResult():
         return self.success 
 
 
-def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict = None, hard : bool = False, summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}) -> BuildWCSResult:
+def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict = None, summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}) -> BuildWCSResult:
     """ Build the appropiate WCSs for a ReducedFit image, trying different parameters. See `build_wcs` for more info.
 
     Note: at the moment, this function tries source extraction with different combination of parameters and thresholds for 
@@ -71,6 +72,12 @@ def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict = 
     - Explore other detectors and solvers if necessary to improve speed, sucess rate and accuracy.
     - Use pre-computed pair distances.
     """
+
+    hard = False
+    if 'hard' in shotgun_params_kwargs:
+        if shotgun_params_kwargs['hard']:
+            hard = True
+        del shotgun_params_kwargs['hard']
 
     param_dicts_L = []
 
@@ -122,6 +129,12 @@ def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict = 
     params["seg_kernel_size"] = [None]
     params["npixels"] = [32, 8, 16]
     params["allsky"] = [False]
+
+    if redf.band == BANDS.B or redf.band == BANDS.U:
+        params["n_rms_seg"] = [0.8, 0.66]
+        params["npixels"] = [32, 16, 8]
+        params["bkg_filter_size"] = [5, 7]
+        params["bkg_box_size"] = [8]
 
     ## Substitute default params combinations with specified ones
 

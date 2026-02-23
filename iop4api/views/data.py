@@ -19,13 +19,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-@permission_required(["iop4api.view_photopolresult", "iop4api.view_astrosource"])
+@permission_required(["iop4api.view_photopolresult", "iop4api.view_astrosource"], raise_exception=True)
 def data(request):
 
     source_name = request.POST.get("source_name", None)
 
     if not AstroSource.objects.filter(name=source_name).exists(): 
-        return HttpResponseBadRequest(f"Source '{source_name}' does not exist".format(source_name=source_name))
+        return HttpResponseBadRequest(f"Source '{source_name}' does not exist")
     
     qs = PhotoPolResult.objects.filter(astrosource__name=source_name)
 
@@ -45,7 +45,7 @@ def data(request):
                         }
     }
 
-    # annotate with date fromt the julian date
+    # annotate with date from the julian date
     for r in result["data"]:
         r["date"] = Time(r["juliandate"], format='jd').iso
     result["columns"].append({"name": "date", "title": "date", "type": "date", "help": "date and time in ISO 8601 format, from the julian date"})    

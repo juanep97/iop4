@@ -108,6 +108,7 @@ class PhotoPolResult(models.Model):
 
     ## host galaxy correction 
     aperas = models.FloatField(null=True, help_text="Aperture radius in arcseconds.")
+    fwhm = models.FloatField(null=True, help_text="FWHM in arcseconds.")
     mag_corr = models.FloatField(null=True, help_text="Magnitude corrected for host galaxy.")
     mag_corr_err = models.FloatField(null=True, help_text="Error for mag_corr.")
     p_corr = models.FloatField(null=True, help_text="Polarization corrected for host galaxy.")
@@ -296,6 +297,18 @@ class PhotoPolResult(models.Model):
         """ Overriden to enforce clean() before saving. See PhotoPolResult.__docstring__ for more info."""
         self.clean()
         super().save(*args, **kwargs)
+
+    # Auto-flagging
+
+    def auto_flag(self):
+
+        if self.p is not None and not (0 <= self.p <= 1):
+            self.set_flag(PhotoPolResult.FLAGS.BAD_POLARIMETRY)
+
+        if self.mag is not None and self.mag_err is not None and self.mag_err > 0.3:
+            self.set_flag(PhotoPolResult.FLAGS.BAD_PHOTOMETRY)
+
+        self.save()        
         
     # Host galaxy correction
         
@@ -323,12 +336,22 @@ class PhotoPolResult(models.Model):
         
         # compute the used aperture in arcseconds
 
+        if self.aperas:
+            aperas = self.aperas
+        else:
+            aperas = self.aperpix * self.reducedfits.first().pixscale.to(u.arcsec / u.pix).value
+
+        if self.fwhm:
+            fwhm = self.fwhm
+        else:
+            fwhm = None
+
         aperas = self.aperpix * self.reducedfits.first().pixscale.to(u.arcsec / u.pix).value
         
         # get the host galaxy flux for this aperture
 
-        hostcorr_flux, hostcorr_flux_err = get_host_correction(self.astrosource, aperas)
-
+        hostcorr_flux, hostcorr_flux_err = get_host_correction(self.astrosource, aperas, fwhm)
+            
         if hostcorr_flux is None:
             raise PhotoPolResult.NoHostCorrectionAvailable('No host galaxy correction available for this source')
 

@@ -105,6 +105,12 @@ Tabulator.extendModule("filter", "filters", {
 
 function make_nice_table() {
     
+    var tables = Tabulator.findTable('#tableDiv');
+    if (tables && tables.length > 0) {
+        console.log("Destroying old table")
+        tables[0].destroy();
+    }
+
     var table = new Tabulator("#tableDiv", {
         data: vueApp.$data.tableData.data,
         columns: vueApp.$data.tableData.tabulatorjs_coldefs,
@@ -123,6 +129,27 @@ function make_nice_table() {
                                 action: function(e, column) { column.hide(); }
                             },
                         ]
+        },
+        downloadEncoder:function(fileContents, mimeType){
+            // if its csv format, add some comments at the top of the file
+            console.log("mimeType", mimeType);
+            if(mimeType === "text/csv"){
+                console.log("Adding comments to csv file");
+                // add citation instructions
+                headerText = "# IOP4. Cite: https://dx.doi.org/10.3847/1538-3881/ad5a80\n"
+                // if download-include-helptext is checked, add the columns help text as comments
+                if (document.getElementById("download-include-helptext").checked) {
+                    headerText += "# Columns:\n";
+                    for (let col of table.getColumns()) {
+                        if (col.isVisible()) {
+                            col_def = col.getDefinition();
+                            headerText += col_def.field ? `# - ${col_def.field}: ${col_def.headerTooltip}\n` : `# - ${col_def.title}\n`;
+                        }
+                    }
+                }
+                fileContents = headerText + fileContents;
+            }
+            return new Blob([fileContents], {type:mimeType});
         },
     });
 
@@ -754,11 +781,18 @@ function is_log_visible(txt) {
     /* whether the given log line should be visible or not */
     
     // show only lines of the selected logging levels
-    if ((txt.includes('ERROR')) && (!vueApp.$data.pipeline_log_options.errors)){ return false; }
+    // error filter also includes logger.critical
+    if ((txt.includes('CRITICAL') || txt.includes('ERROR')) && (!vueApp.$data.pipeline_log_options.errors)){ return false; }
     if ((txt.includes('WARNING')) && (!vueApp.$data.pipeline_log_options.warnings)){ return false; }
     if ((txt.includes('INFO')) && (!vueApp.$data.pipeline_log_options.info)){ return false; }
     if ((txt.includes('DEBUG')) && (!vueApp.$data.pipeline_log_options.debug)){ return false; }
-    if (!(txt.includes('ERROR') || txt.includes('WARNING') || txt.includes('INFO') || txt.includes('DEBUG'))) { return false; }
+    if (!(txt.includes('CRITICAL') || txt.includes('ERROR') || txt.includes('WARNING') || txt.includes('INFO') || txt.includes('DEBUG'))) {
+        if (vueApp.$data.pipeline_log_options.debug) {
+            return true;  // debug filter also includes print()s
+        } else {
+            return false;
+        }
+    }
 
     // if the filter text is not empty, hide lines that do not contain it
     if (!!(vueApp.$data.pipeline_log_options.filter_text) && (vueApp.$data.pipeline_log_options.filter_text.length > 0)) {

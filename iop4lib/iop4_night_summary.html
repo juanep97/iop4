@@ -3,6 +3,15 @@
         <title>iop4 summary {{night|date:"Y/m/d"}}</title>
     </head>
     <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-size: 14px;
+        }
+
         table {
             border-collapse: collapse;
             width: 100%;
@@ -27,6 +36,13 @@
             margin: 1em 0;
         }
 
+        img.source-plot {
+            min-width: 45em;
+            width: 49%;
+            max-width: 49%;
+            height: auto;
+        }
+
     </style>
     <body>
         <h1>IOP4 summary {{night|date:"Y/m/d"}}</h1>
@@ -40,7 +56,14 @@
         <hr/>
 
         {% if args.rc and args.rc != 0 %}
-            <p style="color:red;font-size:large;font-weight:bold;">the pipeline did not run properly (rc={{ args.rc }}) !</p>
+            <p style="color:red;font-size:large;font-weight:bold;">
+                the pipeline did not run properly (rc={{ args.rc }}) !
+            </p>
+            {% if log_url %}
+                <p>
+                    You should be able to check the exact error in <a href="{{ log_url }}">the log</a> at the IOP4 portal (check the file for the right date).
+                </p>
+            {% endif %}
         {% endif %}
 
         <h2>Overview</h2>
@@ -93,10 +116,27 @@
 
             <h2>Summary of results (band R only)</h2>
 
-            <p>Some of these plots might include the previous existing night for the source for comparison.</p>
+            {% if sources_without_calibrators %}
+                <p style="color:red;">
+                    Some sources do not have calibrators:
+                    {% for source in sources_without_calibrators %}
+                        {{ source.name }}{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                </p>
+            {% endif %}
 
-            {% for srcname, imgb64 in results_summary_images.items %}
-                <img src="data:image/png;base64,{{ imgb64 }}" alt="{{ srcname }}"/>
+            <p>
+                <small>
+                    Some of these plots might include the previous existing night for the source for comparison. 
+                    Click on the plots to go to the interactive plot in the web interface.
+                    A dashed grey line indicates the literature/reference value for the source when available in the database (for p and chi, keep in mind it might be in a different band; check the source in the admin to see the notes).
+                </small>
+            </p>
+
+            {% for srcname, val in results_summary_images.items %}
+                <a href="{{ val.source_plot_url}}">
+                    <img class="source-plot" src="data:image/png;base64,{{ val.imgb64 }}" alt="{{ srcname }}"/>
+                </a>
             {% endfor %}
 
         {% else %}

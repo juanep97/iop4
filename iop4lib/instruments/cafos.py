@@ -15,6 +15,7 @@ import math
 from iop4lib.enums import *
 from .instrument import Instrument
 from iop4lib.telescopes import CAHAT220
+from iop4lib.utils import filter_zero_points, calibrate_photopolresult
 
 # logging
 import logging
@@ -269,7 +270,7 @@ class CAFOS(Instrument):
         # 1. Compute all aperture photometries
 
         aperpix, r_in, r_out, fit_res_dict = cls.estimate_common_apertures(polarimetry_group, reductionmethod=REDUCTIONMETHODS.RELPHOT)
-        target_fwhm = fit_res_dict['mean_fwhm']
+        mean_fwhm = fit_res_dict['mean_fwhm']
         
         logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group with target aperpix {aperpix:.1f}.")
 
@@ -289,6 +290,10 @@ class CAFOS(Instrument):
 
             qs = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, flux_counts__isnull=False)
 
+            if not qs.exists():
+                logger.error(f"No aperture photometry results found for {astrosource}, skipping.")
+                continue
+
             equivs = ((('O',0.0),   ('E',44.98)),
                       (('O',22.48), ('E',67.48)),
                       (('O',44.98), ('E',0.0)),
@@ -299,6 +304,7 @@ class CAFOS(Instrument):
                       (('E',67.48), ('O',22.48)))
 
             flux_D = dict()
+            _skip = False
             for equiv in equivs:
                 if qs.filter(pairs=equiv[0][0], reducedfit__rotangle=equiv[0][1]).exists():
                     flux_D[(equiv[0][0], equiv[0][1])] = qs.filter(pairs=equiv[0][0], reducedfit__rotangle=equiv[0][1]).values_list("flux_counts", "flux_counts_err").last()
@@ -306,9 +312,12 @@ class CAFOS(Instrument):
                     logger.warning(f"Missing flux for {astrosource} {equiv[0][0]} {equiv[0][1]}, using {equiv[1][0]} {equiv[1][1]}")
                     flux_D[(equiv[0][0], equiv[0][1])] = qs.filter(pairs=equiv[1][0], reducedfit__rotangle=equiv[1][1]).values_list("flux_counts", "flux_counts_err").last()
                 else:
-                    logger.error(f"Missing flux for {astrosource} {equiv[0][0]} {equiv[0][1]} and {equiv[1][0]} {equiv[1][1]}")
-                    return
-
+                    logger.error(f"Missing flux for {astrosource} {equiv[0][0]} {equiv[0][1]} and {equiv[1][0]} {equiv[1][1]}, skipping this source.")
+                    _skip = True
+                    break
+            if _skip:
+                continue
+            
             flux_O_0, flux_O_0_err = flux_D[('O',0.0)]
             flux_O_22, flux_O_22_err = flux_D[('O',22.48)]
             flux_O_45, flux_O_45_err = flux_D[('O',44.98)]
@@ -374,60 +383,45 @@ class CAFOS(Instrument):
                     mag_zp_err = np.nan
                 else:
                     mag_zp = mag_known - mag_inst
-                    # mag_zp_err = math.sqrt(mag_known_err ** 2 + mag_inst_err ** 2)
-                    mag_zp_err = math.fabs(mag_inst_err) # do not add error on literature magnitude
+                    mag_zp_err = math.sqrt(mag_known_err ** 2 + mag_inst_err ** 2)
             else:
                 mag_zp = None
                 mag_zp_err = None
 
             # save the results
                     
-            result = PhotoPolResult.create(reducedfits=polarimetry_group, 
-                                           astrosource=astrosource, 
-                                           reduction=REDUCTIONMETHODS.RELPOL, 
-                                           mag_inst=mag_inst, mag_inst_err=mag_inst_err, 
-                                           mag_zp=mag_zp, mag_zp_err=mag_zp_err,
-                                           flux_counts=flux_mean, 
-                                           p=P, p_err=dP, 
-                                           chi=Theta, chi_err=dTheta,
-                                           aperpix=aperpix)
+            result = PhotoPolResult.create(
+                reducedfits=polarimetry_group, 
+                astrosource=astrosource, 
+                reduction=REDUCTIONMETHODS.RELPOL, 
+                mag_inst=mag_inst, mag_inst_err=mag_inst_err, 
+                mag_zp=mag_zp, mag_zp_err=mag_zp_err,
+                flux_counts=flux_mean, 
+                p=P, p_err=dP, 
+                chi=Theta, chi_err=dTheta,
+                aperpix=aperpix,
+                aperas=aperpix*polarimetry_group[0].pixscale.to(u.arcsec/u.pix).value,
+                fwhm=mean_fwhm*polarimetry_group[0].pixscale.to(u.arcsec/u.pix).value,
+            )
             
             result.aperphotresults.set(qs, clear=True)
             
             photopolresult_L.append(result)
 
-
-        # 3. Get average zero point from zp of all calibrators in the group
-
-        calib_mag_zp_array = np.array([result.mag_zp or np.nan for result in photopolresult_L if result.astrosource.is_calibrator]) # else it fills with None also and the dtype becomes object
-        calib_mag_zp_array = calib_mag_zp_array[~np.isnan(calib_mag_zp_array)]
-
-        calib_mag_zp_array_err = np.array([result.mag_zp_err or np.nan for result in photopolresult_L if result.astrosource.is_calibrator])
-        calib_mag_zp_array_err = calib_mag_zp_array_err[~np.isnan(calib_mag_zp_array_err)]
-
-        if len(calib_mag_zp_array) == 0:
-            logger.error(f"Can not compute magnitude during relative photo-polarimetry without any calibrators for this reduced fit.")
-
-        zp_avg = np.nanmean(calib_mag_zp_array)
-        zp_std = np.nanstd(calib_mag_zp_array)
-
-        zp_err = np.sqrt(np.nansum(calib_mag_zp_array_err ** 2)) / len(calib_mag_zp_array_err)
-        zp_err = math.sqrt(zp_err ** 2 + zp_std ** 2)
-
-        # 4. Compute the calibrated magnitudes for non-calibrators in the group using the averaged zero point
+        if not photopolresult_L:
+            logger.error("No results could be computed for this group.")
+            return
+        
+        # 3. Compute the calibrated magnitudes for non-calibrators in the group using the averaged zero point
 
         for result in photopolresult_L:
 
             if result.astrosource.is_calibrator:
                 continue
 
-            result.mag_zp = zp_avg
-            result.mag_zp_err = zp_err
-        
-            result.mag = result.mag_inst + zp_avg
-            result.mag_err = math.sqrt(result.mag_inst_err ** 2 + zp_err ** 2)
+            logger.debug(f"calibrating {result}")
 
-            result.save()
+            calibrate_photopolresult(result, photopolresult_L)
 
         # 5. Save results
         for result in photopolresult_L:

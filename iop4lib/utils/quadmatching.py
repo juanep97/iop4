@@ -1,4 +1,4 @@
-from itertools import combinations
+import itertools
 import numpy as np
 
 def distance(h1,h2):
@@ -187,3 +187,37 @@ def find_linear_transformation(P1, P2):
     t = P2_mean - R @ P1_mean
     
     return R, t
+
+def find_best_transformation(P1, P2, distance_function):
+    """Find the linear transformation of P1 to P2 that minimizes the distance function, searching over all permutations of P2."""
+
+    P1, P2 = np.array(P1), np.array(P2)
+    
+    # Store all permutations and their corresponding transformations (R, t)
+    permutations = list(itertools.permutations(P2))
+    transformations = [find_linear_transformation(P1, perm) for perm in permutations]
+    
+    # Compute distances to the target transformation (using distance_function)
+    distances = [distance_function(R) for R, _ in transformations]
+    
+    # Find the permutation with the minimum distance
+    best_index = np.argmin(distances)
+    
+    best_R, best_t = transformations[best_index]
+    best_perm = permutations[best_index]
+    
+    return best_R, best_t, best_perm
+
+def distance_to_y_flip(R):
+    # Target matrix for a single Y-axis flip
+    R_target = np.array([[1, 0], [0, -1]])
+    
+    # Compute Frobenius norm of the difference
+    return np.linalg.norm(R - R_target)
+
+def distance_to_identity(R):
+    # Target matrix is the identity matrix
+    R_target = np.eye(2)  # Identity matrix of size 2x2
+    
+    # Compute Frobenius norm of the difference
+    return np.linalg.norm(R - R_target)

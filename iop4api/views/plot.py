@@ -25,7 +25,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-@permission_required(["iop4api.view_photopolresult", "iop4api.view_astrosource"])
+@permission_required(["iop4api.view_photopolresult", "iop4api.view_astrosource"], raise_exception=True)
 def plot(request):
 
     source_name = request.POST.get("source_name", None)
