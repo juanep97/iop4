@@ -35,9 +35,8 @@ from urllib.parse import urlencode, quote_plus
 
 # logging
 import coloredlogs, logging
-coloredlogs.install(level='DEBUG')
 logger = logging.getLogger(__name__)
-
+coloredlogs.install(level='DEBUG', logger=logger)
 
 
 def gather_context(args):
