@@ -595,7 +595,7 @@ class Instrument(metaclass=ABCMeta):
                     # # this should fix when there is a large deviation...:
                     # # centroid_px_pos = centroid_sources(img-median, xpos=wcs_px_pos[0], ypos=wcs_px_pos[1], box_size=box_size, centroid_func=centroid_com)
                     # # centroid_px_pos = centroid_sources(img-median, xpos=centroid_px_pos[0], ypos=centroid_px_pos[1], box_size=box_size, centroid_func=centroid_2dg)
-                    # and this should also reduce errors due to diffreaction spikes (non-gaussian shape)
+                    # and this should also reduce errors due to diffraction spikes (non-gaussian shape)
                     centroid_px_pos = centroid_sources(img-median, xpos=wcs_px_pos[0], ypos=wcs_px_pos[1], box_size=box_size, centroid_func=centroid_com)
                     centroid_px_pos = centroid_sources(apply_gaussian_smooth(img-median,1), xpos=centroid_px_pos[0], ypos=centroid_px_pos[1], box_size=box_size, centroid_func=centroid_2dg)
 
