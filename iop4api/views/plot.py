@@ -89,9 +89,9 @@ def plot(request):
 
     # crosscheck data
 
-    df_crosscheck = pd.DataFrame(columns=['juliandate', 'mag', 'dmag', 'p', 'p_err', 'chi', 'chi_err', 'instrument'])
-
     if enable_crosscheckpts:
+
+        df_crosscheck = pd.DataFrame(columns=['juliandate', 'mag', 'dmag', 'p', 'p_err', 'chi', 'chi_err', 'instrument'])
 
         iop3_fpath = str(Path(iop4conf.datadir) / "iop4_crosscheck_data" / "iop3.csv")
 
@@ -159,17 +159,18 @@ def plot(request):
     else:
         vals = {k:np.array([]) for k in column_names}
 
-    if enable_crosscheckpts and len(df_crosscheck) > 0:
-        vals["instrument"] = np.append(vals["instrument"], df_crosscheck['instrument'])
-        vals["id"] = np.append(vals["id"], -np.arange(len(df_crosscheck))) ## assign negative ids to crosscheck data
-        vals["juliandate"] = np.append(vals["juliandate"], df_crosscheck['juliandate'])
-        vals["mag"] = np.append(vals["mag"],  df_crosscheck['mag'])
-        vals["mag_err"] = np.append(vals["mag_err"], df_crosscheck['dmag'])
-        vals["p"] = np.append(vals["p"], df_crosscheck['p'])
-        vals["p_err"] = np.append(vals["p_err"], df_crosscheck['p_err'])
-        vals["chi"] = np.append(vals["chi"], df_crosscheck['chi'])
-        vals["chi_err"] = np.append(vals["chi_err"], df_crosscheck['chi_err'])
-        vals["flags"] = np.append(vals["flags"], np.full(len(df_crosscheck), 0)) # do not show flags for crosscheck data (0 means no flags)
+    if enable_crosscheckpts:
+        if len(df_crosscheck) > 0:
+            vals["instrument"] = np.append(vals["instrument"], df_crosscheck['instrument'])
+            vals["id"] = np.append(vals["id"], -np.arange(len(df_crosscheck))) ## assign negative ids to crosscheck data
+            vals["juliandate"] = np.append(vals["juliandate"], df_crosscheck['juliandate'])
+            vals["mag"] = np.append(vals["mag"],  df_crosscheck['mag'])
+            vals["mag_err"] = np.append(vals["mag_err"], df_crosscheck['dmag'])
+            vals["p"] = np.append(vals["p"], df_crosscheck['p'])
+            vals["p_err"] = np.append(vals["p_err"], df_crosscheck['p_err'])
+            vals["chi"] = np.append(vals["chi"], df_crosscheck['chi'])
+            vals["chi_err"] = np.append(vals["chi_err"], df_crosscheck['chi_err'])
+            vals["flags"] = np.append(vals["flags"], np.full(len(df_crosscheck), 0)) # do not show flags for crosscheck data (0 means no flags)
 
     if len(vals['id']) > 0:
         pks = vals['id']
