@@ -32,8 +32,16 @@ def log(request):
     r"""Staff member required. Since the log file can be very large, we use a generator to stream it to the client."""
 
     if (log_fname := request.GET.get("log_file", None)):
-        fpath = str(Path(iop4conf.datadir) / "logs" / log_fname)
+        fpath = Path(iop4conf.datadir) / "logs" / log_fname
     else:
-        fpath = iop4conf.log_file
+        fpath = Path(iop4conf.log_file)
+
+    fpath = fpath.resolve()
+
+    if not fpath.is_relative_to(iop4conf.datadir / "logs"):
+        return HttpResponse("Access denied.", status=403)
+
+    if not fpath.exists():
+        return HttpResponse("Log file not found", status=404)
     
     return StreamingHttpResponse(get_log_file_generator(fpath), content_type="text/plain")
