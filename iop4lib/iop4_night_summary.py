@@ -129,9 +129,9 @@ def gather_context(args):
         
         if source.mag_R:
             axs[0].axhline(y=source.mag_R, color="gray", linestyle="--", linewidth=1, alpha=0.5)
-        if source.p:
+        if source.p is not None:
             axs[1].axhline(y=source.p, color="gray", linestyle="--", linewidth=1, alpha=0.5)
-        if source.chi:
+        if source.chi is not None:
             axs[2].axhline(y=source.chi, color="gray", linestyle="--", linewidth=1, alpha=0.5)
 
         # x-axis date locator and formatter
