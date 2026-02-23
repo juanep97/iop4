@@ -469,7 +469,7 @@ def _main():
         epochnames_to_process = epochnames_to_process.difference(epochnames_in_db)
         logger.info(f"Left {len(epochnames_to_process)} epochs to process.")
 
-    logger.info(f"Gathered {len(epochnames_to_process)} epochs to process between {args.date_start} and {args.date_end}.")
+    logger.info(f"Gathered {len(epochnames_to_process)} epochs to process.")
 
     if args.date_start is not None or args.date_end is not None:
         logger.info("Filtering epochs by date.")
