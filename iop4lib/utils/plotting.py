@@ -616,6 +616,17 @@ def plot_finding_chart(target_src, fig=None, ax=None):
             logger.debug(f"plotting the finding chart over ReducedFit {redf.pk}")
             ax = fig.axes[-1] if fig.axes else fig.add_subplot(projection=redf.wcs)
             trans = ax.get_transform('world')
+    else:
+        # Caller supplied an axis; choose an appropriate transform.
+        if redf is None:
+            # No WCS information available, fall back to data coordinates.
+            trans = ax.transData
+        else:
+            # If this is a WCSAxes, prefer the world transform; otherwise use data coords.
+            try:
+                trans = ax.get_transform('world')
+            except Exception:
+                trans = ax.transData
 
     if redf:
         imshow_w_sources(redf.mdata, ax=ax)
