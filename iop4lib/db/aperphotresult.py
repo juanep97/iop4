@@ -103,10 +103,10 @@ class AperPhotResult(models.Model):
                      
         wcs = self.reducedfit.wcs1 if self.pairs == 'O' else self.reducedfit.wcs2
 
+        cutout_size = np.ceil(2.2*self.r_out)
+
         if self.reducedfit.has_pairs:
-            cutout_size = np.ceil(2.2*np.linalg.norm(Instrument.by_name(self.reducedfit.instrument).disp_sign_mean))
-        else:
-            cutout_size = np.ceil(1.3*self.r_out)
+            cutout_size = max(cutout_size, 2.2*np.ceil(np.linalg.norm(Instrument.by_name(self.reducedfit.instrument).disp_sign_mean)))
 
         cutout = Cutout2D(self.reducedfit.mdata, (self.x_px, self.y_px), (cutout_size, cutout_size), wcs)
 
@@ -124,6 +124,8 @@ class AperPhotResult(models.Model):
                 with open(fpath, 'rb') as f:
                     return f.read()
 
+        logger.info(f"Building image preview for AperPhotResult {self.id}.")
+
         cmap = plt.cm.gray.copy()
         cmap.set_bad(color='red')
         cmap.set_under(color='black')
@@ -133,7 +135,6 @@ class AperPhotResult(models.Model):
             norm = ImageNormalize(cutout.data.compressed(), vmin=vmin, vmax=vmax, stretch=LogStretch(a=a))
         elif normtype == "logstretch":
             norm = ImageNormalize(stretch=LogStretch(a=a))
-
 
         buf = io.BytesIO()
 
