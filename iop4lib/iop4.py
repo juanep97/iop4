@@ -258,7 +258,7 @@ def list_local_filelocs() -> list[str]:
     for tel_cls in Telescope.get_known():
         if os.path.isdir(f"{iop4conf.datadir}/raw/{tel_cls.name}/"):
             for d in os.scandir(f"{iop4conf.datadir}/raw/{tel_cls.name}/"):
-                local_filelocs.extend([f"{tel_cls.name}/{d.name}/{f.name}" for f in os.scandir(f"{iop4conf.datadir}/raw/{tel_cls.name}/{d.name}")])
+                local_filelocs.extend([f"{tel_cls.name}/{d.name}/{f.name}" for f in os.scandir(f"{iop4conf.datadir}/raw/{tel_cls.name}/{d.name}") if not f.name.endswith(".bak")])
 
     return local_filelocs
 
