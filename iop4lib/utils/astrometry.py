@@ -194,7 +194,7 @@ def build_wcs_params_shotgun(redf: 'ReducedFit', param_dicts_L: list[dict], summ
     """ Build the appropiate WCSs for a ReducedFit image, trying different parameters. See `build_wcs` for more info.
 
     Note: at the moment, this function tries source extraction with different combination of parameters and thresholds for 
-    source extraction by calling a helper func (`_build_wcs_detect_and_try_solve`) with these parameters, which detects 
+    source extraction by calling a helper func (`try_build_wcs_detect_and_try_solve`) with these parameters, which detects 
     the  sources with `photutils` image segmentation and tries to solve the WCS with the `astrometry.net` python wrapper. 
     The parameter combinations are chosen depending on the exposure time and the presence of pairs in the image.
     
