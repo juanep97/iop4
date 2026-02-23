@@ -3,7 +3,7 @@ import iop4lib
 iop4conf = iop4lib.Config(config_db=False)
 
 # django imports
-from django.http import StreamingHttpResponse
+from django.http import StreamingHttpResponse, HttpResponse
 from django.contrib.auth.decorators import permission_required
 from django.contrib.admin.views.decorators import staff_member_required
 
