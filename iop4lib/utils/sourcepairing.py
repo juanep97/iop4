@@ -269,6 +269,7 @@ def get_pairs_dxy_sign(pos,
                   disp_sign=None, 
                   disp_sign_err=None,
                   dx_min=None, dx_max=None, dy_min=None, dy_max=None,
+                  bins=None, hist_range=None,
                   redf=None, doplot=False, axs=None, fig=None):
 
     """
