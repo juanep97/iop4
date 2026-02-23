@@ -97,18 +97,22 @@ Then, create a file ``run_iop4_daily.sh``, give it execution permissions (``chmo
     umask 0022
 
     # Run iop4 for new observations (i.e. last night)
-    iop4 --discover-missing -o log_file=/home/vhega/iop4data/logs/daily_$date.log
+
+    IOP4_LOG_FILE="{{ IOP4 DATA DIR }}/logs/daily_$date.log"
+
+    iop4 --discover-missing -o log_file="$IOP4_LOG_FILE"
 
     # save return code
     rc=$?
 
     # Create and send a summary of the results for last night, passing the return code
-    iop4-night-summary  --fromaddr '{{YOUR SENDER ADDRESS}}' \
-                        --mailto '{{ADDRESS 1}},{{ADDRESS 2}},{{ADDRESS 3}}' \
+    iop4-night-summary  --mail-from '{{YOUR SENDER ADDRESS}}' \
+                        --mail-to '{{ADDRESS 1}},{{ADDRESS 2}},{{ADDRESS 3}}' \
                         --contact-name '{{CONTACT NAME}}' \
                         --contact-email '{{CONTACT EMAIL}}' \
                         --site-url '{{DEPLOYMENT SITE URL}}' \
-                        --saveto "/home/vhega/iop4data/logs/daily_$date.html"
+                        --log-file "$IOP4_LOG_FILE" \
+                        --saveto "{{ IOP4 DATA DIR }}/logs/daily_$date.html" \
                         --rc $rc
 
 The above script will run iop4 every morning, disovering and proccessing new 

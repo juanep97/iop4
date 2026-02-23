@@ -30,7 +30,9 @@ import scipy as sp
 import matplotlib as mplt
 import matplotlib.pyplot as plt
 from astropy.time import Time
-import smtplib, email
+import smtplib
+import email
+from email.utils import getaddresses
 from urllib.parse import urlencode, quote_plus
 
 # logging
@@ -105,7 +107,6 @@ def gather_context(args):
             qs0 = PhotoPolResult.objects.filter(astrosource=source, band="R").filter(epoch__night__gte=prev_night, epoch__night__lte=args.date).order_by('-juliandate')
         else:
             qs0 = qs_today.order_by('-juliandate')
-
 
         fig = mplt.figure.Figure(figsize=(1000/100, 600/100), dpi=100)
         axs = fig.subplots(nrows=3, ncols=1, sharex=True, gridspec_kw={'hspace': 0.05})
@@ -223,19 +224,25 @@ def generate_html_summary(args, context):
 def send_email(args, summary_html):
     """ Send the html summary by email."""
 
+    logger.info("Sending email")
+
     msg = email.message.EmailMessage()
 
     msg['Subject'] = f"IOP4 summary {args.date}"
-    msg['From'] = args.fromaddr 
-    msg['To'] = args.mailto
-    msg['reply-to'] = args.contact_email
+    msg["From"] = args.mail_from
+    msg["To"] = ", ".join(args.mail_to)
+    if args.mail_bcc: msg["Bcc"] = ", ".join(args.mail_bcc)
+    msg["Reply-To"] = args.contact_email
     msg.set_content(summary_html, subtype="html")
 
-    logger.debug("Sending email")
+    recipients = [addr for _,addr in getaddresses(
+       msg.get_all('To', []) + msg.get_all('Cc', []) + msg.get_all('Bcc', [])
+    )]
+
+    logger.debug(f"Recipients: {recipients}")
 
     with smtplib.SMTP('localhost') as s:
-        s.send_message(msg)
-
+        s.send_message(msg, to_addrs=recipients)
 
 
 def main():
@@ -246,8 +253,9 @@ def main():
                                         allow_abbrev=False)
     
     argparser.add_argument('--date', type=str, default=None, help='Date of the night in format YYYY-MM-DD (default: yesterday)')
-    argparser.add_argument('--mailto', type=lambda s: s.split(','), default=None, help='One or several email addresses separated by commas')
-    argparser.add_argument('--fromaddr', type=str, default="iop4@localhost", help='Email address of the sender')
+    argparser.add_argument('--mail-to', type=lambda s: s.split(','), default=None, help='One or several email addresses separated by commas')
+    argparser.add_argument('--mail-bcc', type=lambda s: s.split(','), default=None, help='One or several email addresses separated by commas')
+    argparser.add_argument('--mail-from', type=str, default="iop4@localhost", help='Email address of the sender')
     argparser.add_argument('--contact-name', type=str, default=None, help='Name to indicate as contact, if any')
     argparser.add_argument('--contact-email', type=str, default=None, help='Email to indicate as contact (default is the sender address)')
     argparser.add_argument('--site-url', type=str, default="localhost:8000", help='URL of the site to link the summary')
@@ -267,7 +275,7 @@ def main():
             sys.exit(-1)
 
     if args.contact_email is None:
-        args.contact_email = args.fromaddr
+        args.contact_email = args.mail_from
     
     logger.info(f'Generating daily summary for {args.date}')
     context = gather_context(args)   
@@ -275,7 +283,7 @@ def main():
     logger.info('Rendering html summary')
     html_summary = generate_html_summary(args, context)
 
-    if args.mailto:
+    if args.mail_to:
         logger.info('Sending email')
         send_email(args, html_summary) 
     else:
