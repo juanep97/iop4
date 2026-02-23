@@ -572,7 +572,7 @@ def main():
     try:
         _main()
     except Exception as e:
-        logger.critical(f'Fatal error during the pipeline execition: "{e}".')
+        logger.critical(f'Fatal error during the pipeline execution: "{e}".')
         logger.error(traceback.format_exc())
         sys.exit(-1)
 
