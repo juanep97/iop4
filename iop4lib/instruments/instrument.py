@@ -173,7 +173,7 @@ class Instrument(metaclass=ABCMeta):
         return cls.get_rawfit_hint_arcsec_per_pix(rawfit) * hdr['NAXIS1'] / 60.0
 
     @classmethod
-    def get_binning_independent_px(cls, rawfit: 'RawFit', px: int):
+    def get_binning_independent_px(cls, rawfit: 'RawFit', px):
 
         if not hasattr(cls, 'reference_binning'):
             return px
