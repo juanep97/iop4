@@ -34,7 +34,7 @@ dependencies = [
     "multiprocess>=0.70.14,<1",
     "pypandoc",
     "termcolor",
-    "pyyaml<5.4",
+    "pyyaml<=6.0.2",
     "psutil",
     "paramiko",
 ]
