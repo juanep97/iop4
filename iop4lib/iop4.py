@@ -565,7 +565,7 @@ def main():
     # This way, if the pipeline fails, we will see the exception in the
     # configured log file. Otherwise, it would only appear in the stdout.
     # If the exception happens before the logger is configured, the info will 
-    # probably be be missing from the configure log file, still.
+    # probably be missing from the configured log file, still.
 
     try:
         _main()
