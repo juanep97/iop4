@@ -431,8 +431,6 @@ def _main():
     logging.getLogger("iop4lib").setLevel(iop4conf.log_level) # log_level sets the level for all iop4lib
 
     ROOT_LOGGER = logging.getLogger()
-    
-    ROOT_LOGGER.setLevel(iop4conf.log_level)
 
     logger_h1 = logging.FileHandler(iop4conf.log_file, mode="w")
     logger_h1.setFormatter(coloredlogs.ColoredFormatter(iop4conf.log_format, datefmt=iop4conf.log_date_format))
