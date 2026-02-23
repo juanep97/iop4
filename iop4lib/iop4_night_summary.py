@@ -127,7 +127,7 @@ def gather_context(args):
 
         # If the source has reference/literature magnitudes in the DB, plot also its reference values
         
-        if source.mag_R:
+        if source.mag_R is not None:
             axs[0].axhline(y=source.mag_R, color="gray", linestyle="--", linewidth=1, alpha=0.5)
         if source.p is not None:
             axs[1].axhline(y=source.p, color="gray", linestyle="--", linewidth=1, alpha=0.5)
