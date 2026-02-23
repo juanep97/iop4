@@ -106,11 +106,11 @@ Then, create a file ``run_iop4_daily.sh``, give it execution permissions (``chmo
     rc=$?
 
     # Create and send a summary of the results for last night, passing the return code
-    iop4-night-summary  --mail-from '{{YOUR SENDER ADDRESS}}' \
-                        --mail-to '{{ADDRESS 1}},{{ADDRESS 2}},{{ADDRESS 3}}' \
-                        --contact-name '{{CONTACT NAME}}' \
-                        --contact-email '{{CONTACT EMAIL}}' \
-                        --site-url '{{DEPLOYMENT SITE URL}}' \
+    iop4-night-summary  --mail-from '{{ YOUR SENDER ADDRESS }}' \
+                        --mail-to '{{ ADDRESS 1 }},{{ ADDRESS 2 }},{{ ADDRESS 3 }}' \
+                        --contact-name '{{ CONTACT NAME }}' \
+                        --contact-email '{{ CONTACT EMAIL }}' \
+                        --site-url '{{ DEPLOYMENT SITE URL }}' \
                         --log-file "$IOP4_LOG_FILE" \
                         --saveto "{{ IOP4 DATA DIR }}/logs/daily_$date.html" \
                         --rc $rc
