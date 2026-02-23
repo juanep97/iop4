@@ -125,7 +125,7 @@ def gather_context(args):
             axs[1].errorbar(x=vals['datetime'], y=vals['p'], yerr=vals['p_err'], marker=".", color=color, linestyle="none")
             axs[2].errorbar(x=vals['datetime'], y=vals['chi'], yerr=vals['chi_err'], marker=".", color=color, linestyle="none")
 
-        # If the source is a calibrator/has literature magnitudes in the DB, plot also its reference values
+        # If the source has reference/literature magnitudes in the DB, plot also its reference values
         
         if source.mag_R:
             axs[0].axhline(y=source.mag_R, color="gray", linestyle="--", linewidth=1, alpha=0.5)
