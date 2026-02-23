@@ -42,6 +42,6 @@ def log(request):
         return HttpResponse("Access denied.", status=403)
 
     if not fpath.exists():
-        return HttpResponse("Log file not found", status=404)
+        return HttpResponse("Log file not found.", status=404)
     
     return StreamingHttpResponse(get_log_file_generator(fpath), content_type="text/plain")
