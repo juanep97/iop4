@@ -279,7 +279,7 @@ def get_pairs_dxy_sign(pos,
     
     The pairs are ordered such that for pair (p1, p2), p1 is always to the left (smaller x value) than p2.
     
-    Note: this function is similar to get_paget_pairs_dxy(), but returns a signed displacement in x and y.
+    Note: this function is similar to get_pairs_dxy(), but returns a signed displacement in x and y.
     """
 
     if disp_sign_err is not None:
