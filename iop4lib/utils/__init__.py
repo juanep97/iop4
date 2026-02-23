@@ -141,11 +141,7 @@ def get_total_mem_from_child():
     return get_mem_parent_from_child() + get_mem_children_from_child()
 
 
-
-
-
-
-
+# Helpers for DIPOL
 
 
 
@@ -262,11 +258,13 @@ def build_wcs_centered_on(target_px: tuple[float, float],
     if pixel_scale is None:
         pixel_scale = Instrument.by_name(redf.instrument).arcsec_per_pix / 3600 # in degrees
 
-    if target_src is None and redf is not None:
-        target_src = redf.header_hintobject
-
-    if target_coord is None and target_src is not None:
-        known_ra, known_dec = target_src.coord.ra.deg, target_src.coord.dec.deg, 
+    if target_coord is None:
+        if target_src is None:
+            if redf is not None:
+                target_src = redf.header_hintobject
+            else:
+                raise
+        known_ra, known_dec = target_src.coord.ra.deg, target_src.coord.dec.deg 
     else:
         known_ra, known_dec = target_coord.ra.deg, target_coord.dec.deg
 
@@ -290,6 +288,7 @@ def build_wcs_centered_on(target_px: tuple[float, float],
     return w
 
 
+# Helpers for handling simbad queries and results on astrometry summary plots
 
 @dataclasses.dataclass
 class SimbadSource():
@@ -334,7 +333,7 @@ def get_simbad_table(center_coord, radius, Nmax=6, all_types=False):
 
         idx = np.full(len(tb_simbad), fill_value=False)
         for otype in otypes:
-            idx = idx | (tb_simbad["OTYPE"] == otype)
+            idx = idx | (tb_simbad["otype"] == otype)
 
         tb_simbad = tb_simbad[idx]
 
@@ -350,11 +349,11 @@ def get_simbad_sources(center_coord, radius, Nmax=6, all_types=False, exclude_se
     simbad_sources = list()
 
     for row in tb_simbad:
-        name = row['MAIN_ID']
-        coord = SkyCoord(Angle(row['RA'], unit=u.hourangle), Angle(row['DEC'], unit=u.degree), frame='icrs')
+        name = row['main_id']
+        coord = SkyCoord(Angle(row['ra'], unit=u.degree), Angle(row['dec'], unit=u.degree), frame='icrs')
         ra_hms = coord.ra.to_string(unit=u.hourangle, sep=':', precision=4, pad=True)
         dec_dms = coord.dec.to_string(unit=u.degree, sep=':', precision=4, pad=True)
-        otype = row['OTYPE']
+        otype = row['otype']
 
         simbad_sources.append(SimbadSource(name=name, ra_hms=ra_hms, dec_dms=dec_dms, otype=otype))
 
@@ -554,3 +553,5 @@ def calibrate_photopolresult(result, photopolresult_L):
     # compute the calibrated magnitude
     result.mag = zp_avg + result.mag_inst
     result.mag_err = math.sqrt(result.mag_inst_err**2 + zp_err**2)
+
+    logger.debug(f"{result.mag=}, {result.mag_err=}")

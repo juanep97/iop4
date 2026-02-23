@@ -52,7 +52,7 @@ class RawFit(FitFileModel):
     instrument = models.CharField(max_length=20, choices=INSTRUMENTS.choices, default=INSTRUMENTS.NONE, help_text="Instrument used for the observation.")
     obsmode = models.CharField(max_length=20, choices=OBSMODES.choices, default=OBSMODES.NONE, help_text="Whether the observation was photometry or polarimetry.")
     juliandate = models.FloatField(null=True, help_text="Julian date of observation, from the date and time indicated in the FITS header.")
-    imgsize = models.CharField(max_length=12, null=True, help_text="String with the format _width_x_height_ for the image, as in 1024x1024.") # as in 1024x1024, 2048x2048, etc
+    imgsize = models.CharField(max_length=12, null=True, help_text="String with the format _width_x_height_ for the image, as in 1024x1024.")
     imgtype = models.CharField(max_length=20, choices=IMGTYPES.choices, default=IMGTYPES.NONE, help_text="Whether the raw image is a bias (BIAS), flat (FLAT), or science (LIGHT).")
     band = models.CharField(max_length=10, choices=BANDS.choices, default=BANDS.NONE, help_text="Band of the observation, as in the filter used (R, V, etc).")
     rotangle = models.FloatField(null=True, help_text="Rotation angle of the polarizer in degrees.")
@@ -150,7 +150,13 @@ class RawFit(FitFileModel):
                 f" - obsmode: {self.obsmode}<br>\n"
                 f" - band: {self.band}<br>\n"
                 f" - exptime: {self.exptime}<br>\n"
-                f" - flags: {(','.join(self.flag_labels))}<br>\n")     
+                f" - flags: {(','.join(self.flag_labels))}<br>\n")  
+
+    # Helper properties
+    
+    @property
+    def instrument_cls(self):
+        return Instrument.by_name(self.instrument)
     
     # Constructor
 
@@ -335,6 +341,11 @@ class RawFit(FitFileModel):
     def header_hintobject(self):
         """ Returns the AstroSource according to the OBJECT keyword in the header of the FITS file. """
         return Instrument.by_name(self.instrument).get_header_hintobject(self)
+    
+    @property
+    def hint_disp_sign_mean(self):
+        """ Returns the expected signed displacement for pairs in this fit. """
+        return self.instrument_cls.get_binning_independent_px(self, self.instrument_cls.disp_sign_mean)
     
     # Class methods    
 

@@ -120,6 +120,28 @@ rules:
     rules:
       - conds:
           n_estimate__gt: 5
+          redf_phot__ne: null # since there is only quads, it will fail otherwise
+        attempts:
+          - 'blazar_photo_quads'
+
+      - conds:
+          n_estimate__gte: 4
+        attempts:
+          - 'blazar_photo_quads'
+          - 'blazar_target_O_and_E'
+
+      - conds: []
+        attempts:
+          - 'blazar_photo_quads'
+          - 'blazar_target_O_and_E'
+
+  # TDE (general)
+  - conds:
+      srctype: 'tde'
+    
+    rules:
+      - conds:
+          n_estimate__gt: 5
         attempts:
           - 'blazar_photo_quads'
 

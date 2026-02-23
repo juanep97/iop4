@@ -298,6 +298,12 @@ class PhotoPolResult(models.Model):
         self.clean()
         super().save(*args, **kwargs)
 
+    # Helper properties
+
+    @property
+    def datetime(self):
+        return Time(self.juliandate, format='jd').datetime
+
     # Auto-flagging
 
     def auto_flag(self):
@@ -345,8 +351,6 @@ class PhotoPolResult(models.Model):
             fwhm = self.fwhm
         else:
             fwhm = None
-
-        aperas = self.aperpix * self.reducedfits.first().pixscale.to(u.arcsec / u.pix).value
         
         # get the host galaxy flux for this aperture
 
