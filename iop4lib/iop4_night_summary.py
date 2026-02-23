@@ -30,7 +30,9 @@ import scipy as sp
 import matplotlib as mplt
 import matplotlib.pyplot as plt
 from astropy.time import Time
-import smtplib, email
+import smtplib
+import email
+from email.utils import getaddresses
 from urllib.parse import urlencode, quote_plus
 
 # logging
@@ -68,7 +70,7 @@ def gather_context(args):
         epoch.files_with_error_astrometry_href = args.site_url + "/iop4/admin/iop4api/reducedfit/?id__in=" + ",".join(epoch.files_with_error_astrometry_ids_str_L)
         # TODO: include IOP4Admin in Django configure and use reverse as in PhotoPolResult admin for line above
 
-    # get list of all sources for which there are band R results in this night
+    # get list of all sources for which there are (R band) results in this night
         
     sources = AstroSource.objects.exclude(is_calibrator=True).filter(
         photopolresults__epoch__night=args.date, 
@@ -106,7 +108,6 @@ def gather_context(args):
         else:
             qs0 = qs_today.order_by('-juliandate')
 
-
         fig = mplt.figure.Figure(figsize=(1000/100, 600/100), dpi=100)
         axs = fig.subplots(nrows=3, ncols=1, sharex=True, gridspec_kw={'hspace': 0.05})
 
@@ -123,6 +124,15 @@ def gather_context(args):
             axs[0].errorbar(x=vals['datetime'], y=vals['mag'], yerr=vals['mag_err'], marker=".", color=color, linestyle="none")
             axs[1].errorbar(x=vals['datetime'], y=vals['p'], yerr=vals['p_err'], marker=".", color=color, linestyle="none")
             axs[2].errorbar(x=vals['datetime'], y=vals['chi'], yerr=vals['chi_err'], marker=".", color=color, linestyle="none")
+
+        # If the source has reference/literature magnitudes in the DB, plot also its reference values
+        
+        if source.mag_R is not None:
+            axs[0].axhline(y=source.mag_R, color="gray", linestyle="--", linewidth=1, alpha=0.5)
+        if source.p is not None:
+            axs[1].axhline(y=source.p, color="gray", linestyle="--", linewidth=1, alpha=0.5)
+        if source.chi is not None:
+            axs[2].axhline(y=source.chi, color="gray", linestyle="--", linewidth=1, alpha=0.5)
 
         # x-axis date locator and formatter
         from matplotlib.dates import AutoDateLocator
@@ -148,11 +158,11 @@ def gather_context(args):
         # y labels
         axs[0].set_ylabel(f"mag (R)")
         axs[1].set_ylabel("p")
-        axs[1].yaxis.set_major_formatter(mplt.ticker.PercentFormatter(1.0, decimals=1))
+        axs[1].yaxis.set_major_formatter(mplt.ticker.PercentFormatter(1.0, decimals=None))
         axs[2].set_ylabel("chi [º]")
 
         # title 
-        fig.suptitle(f"{source.name} ({source.other_names})" if source.other_names else source.name)
+        fig.suptitle(f"{source.name} ({source.other_names})" if (source.other_names and source.name != source.other_names) else source.name)
 
         # legend
         legend_handles = [axs[0].plot([],[],color=color, marker=".", linestyle="none", label=instrument)[0] for color, instrument in zip(colors, instruments)]
@@ -214,19 +224,27 @@ def generate_html_summary(args, context):
 def send_email(args, summary_html):
     """ Send the html summary by email."""
 
+    logger.info("Sending email")
+
     msg = email.message.EmailMessage()
 
     msg['Subject'] = f"IOP4 summary {args.date}"
-    msg['From'] = args.fromaddr 
-    msg['To'] = args.mailto
-    msg['reply-to'] = args.contact_email
+    msg["From"] = args.mail_from
+    msg["To"] = ", ".join(args.mail_to)
+    msg["Reply-To"] = args.contact_email
     msg.set_content(summary_html, subtype="html")
 
-    logger.debug("Sending email")
+    recipients = [addr for _,addr in getaddresses(
+       msg.get_all('To', []) + msg.get_all('Cc', [])
+    )]
+    if args.mail_bcc:
+        bcc_addresses = [addr for _, addr in getaddresses(args.mail_bcc)]
+        recipients.extend(bcc_addresses)
+
+    logger.debug(f"Recipients: {recipients}")
 
     with smtplib.SMTP('localhost') as s:
-        s.send_message(msg)
-
+        s.send_message(msg, to_addrs=recipients)
 
 
 def main():
@@ -237,8 +255,9 @@ def main():
                                         allow_abbrev=False)
     
     argparser.add_argument('--date', type=str, default=None, help='Date of the night in format YYYY-MM-DD (default: yesterday)')
-    argparser.add_argument('--mailto', type=lambda s: s.split(','), default=None, help='One or several email addresses separated by commas')
-    argparser.add_argument('--fromaddr', type=str, default="iop4@localhost", help='Email address of the sender')
+    argparser.add_argument('--mail-to', type=lambda s: s.split(','), default=None, help='One or several email addresses separated by commas')
+    argparser.add_argument('--mail-bcc', type=lambda s: s.split(','), default=None, help='One or several email addresses separated by commas')
+    argparser.add_argument('--mail-from', type=str, default="iop4@localhost", help='Email address of the sender')
     argparser.add_argument('--contact-name', type=str, default=None, help='Name to indicate as contact, if any')
     argparser.add_argument('--contact-email', type=str, default=None, help='Email to indicate as contact (default is the sender address)')
     argparser.add_argument('--site-url', type=str, default="localhost:8000", help='URL of the site to link the summary')
@@ -258,7 +277,7 @@ def main():
             sys.exit(-1)
 
     if args.contact_email is None:
-        args.contact_email = args.fromaddr
+        args.contact_email = args.mail_from
     
     logger.info(f'Generating daily summary for {args.date}')
     context = gather_context(args)   
@@ -266,7 +285,7 @@ def main():
     logger.info('Rendering html summary')
     html_summary = generate_html_summary(args, context)
 
-    if args.mailto:
+    if args.mail_to:
         logger.info('Sending email')
         send_email(args, html_summary) 
     else:
