@@ -489,8 +489,8 @@ def build_astrometry_summary_images(redf, astrocalib_proc_vars, summary_kwargs):
         logger.debug(f"{redf}: plotting astrometry summary image of segmentation results")
 
         if astrocalib_proc_vars['has_pairs']:
-            fig = mplt.figure.Figure(figsize=(12,6), dpi=iop4conf.mplt_default_dpi)
-            axs = fig.subplots(nrows=2, ncols=4)
+            fig = mplt.figure.Figure(figsize=(9,6), dpi=iop4conf.mplt_default_dpi)
+            axs = fig.subplots(nrows=2, ncols=3)
 
             axs[0,0].set_title('Segmented Image')
             axs[0,0].imshow(astrocalib_proc_vars['segment_map'], origin="lower", cmap=astrocalib_proc_vars['segment_map'].cmap, interpolation="nearest")
@@ -499,25 +499,31 @@ def build_astrometry_summary_images(redf, astrocalib_proc_vars, summary_kwargs):
             imshow_w_sources(astrocalib_proc_vars['imgdata_bkg_substracted'], ax=axs[1,0])
             astrocalib_proc_vars['seg_cat'].plot_kron_apertures(ax=axs[1,0], color='red', lw=1.5)
 
-            axs[0,1].set_title(f"Pairs (n={len(astrocalib_proc_vars['seg1'])}, {len(astrocalib_proc_vars['seg1'])/len(astrocalib_proc_vars['pos_seg'])*100:.1f}%)")
-            imshow_w_sources(redf.mdata, pos1=astrocalib_proc_vars['seg1'], pos2=astrocalib_proc_vars['seg2'], ax=axs[0,1])
+            if 'seg1' in astrocalib_proc_vars.keys():
+                axs[0,1].set_title(f"Pairs (n={len(astrocalib_proc_vars['seg1'])}, {len(astrocalib_proc_vars['seg1'])/len(astrocalib_proc_vars['pos_seg'])*100:.1f}%)")
+                imshow_w_sources(redf.mdata, pos1=astrocalib_proc_vars['seg1'], pos2=astrocalib_proc_vars['seg2'], ax=axs[0,1])
 
-            axs[1,1].set_title(f"PairsXY (n={len(astrocalib_proc_vars['seg1xy'])}, {len(astrocalib_proc_vars['seg1xy'])/len(astrocalib_proc_vars['pos_seg'])*100:.1f}%)")
-            imshow_w_sources(redf.mdata, pos1=astrocalib_proc_vars['seg1xy'], pos2=astrocalib_proc_vars['seg2xy'], ax=axs[1,1])
+            if 'seg1xy' in astrocalib_proc_vars.keys():
+                axs[1,1].set_title(f"PairsXY (n={len(astrocalib_proc_vars['seg1xy'])}, {len(astrocalib_proc_vars['seg1xy'])/len(astrocalib_proc_vars['pos_seg'])*100:.1f}%)")
+                imshow_w_sources(redf.mdata, pos1=astrocalib_proc_vars['seg1xy'], pos2=astrocalib_proc_vars['seg2xy'], ax=axs[1,1])
 
-            axs[0,2].set_title(f"BestPairs (n={len(astrocalib_proc_vars['seg1_best'])}, {len(astrocalib_proc_vars['seg1_best'])/len(astrocalib_proc_vars['pos_seg'])*100:.1f}%)")
-            imshow_w_sources(redf.mdata, pos1=astrocalib_proc_vars['seg1_best'], pos2=astrocalib_proc_vars['seg2_best'], ax=axs[0,2])
+            if 'seg1_best' in astrocalib_proc_vars.keys():
+                axs[0,2].set_title(f"BestPairs (n={len(astrocalib_proc_vars['seg1_best'])}, {len(astrocalib_proc_vars['seg1_best'])/len(astrocalib_proc_vars['pos_seg'])*100:.1f}%)")
+                imshow_w_sources(redf.mdata, pos1=astrocalib_proc_vars['seg1_best'], pos2=astrocalib_proc_vars['seg2_best'], ax=axs[0,2])
 
-            axs[1,2].set_title(f"BestPairsXY (n={len(astrocalib_proc_vars['seg1xy_best'])}, {len(astrocalib_proc_vars['seg1xy_best'])/len(astrocalib_proc_vars['pos_seg'])*100:.1f}%)")
-            imshow_w_sources(redf.mdata, pos1=astrocalib_proc_vars['seg1xy_best'], pos2=astrocalib_proc_vars['seg2xy_best'], ax=axs[1,2])
+            if 'seg1xy_best' in astrocalib_proc_vars.keys():
+                axs[1,2].set_title(f"BestPairsXY (n={len(astrocalib_proc_vars['seg1xy_best'])}, {len(astrocalib_proc_vars['seg1xy_best'])/len(astrocalib_proc_vars['pos_seg'])*100:.1f}%)")
+                imshow_w_sources(redf.mdata, pos1=astrocalib_proc_vars['seg1xy_best'], pos2=astrocalib_proc_vars['seg2xy_best'], ax=axs[1,2])
 
-            axs[0,3].set_title(f"d0 (1st)")
-            get_pairs_d(astrocalib_proc_vars['pos_seg'], d_eps=astrocalib_proc_vars['d_eps'], bins=astrocalib_proc_vars['bins'], hist_range=astrocalib_proc_vars['hist_range'], ax=axs[0,3], doplot=True)
-            axs[0,3].set_xlim([0,120])
+            # if 'd_eps' in astrocalib_proc_vars.keys():
+            #     axs[0,3].set_title(f"d0 (1st)")
+            #     get_pairs_d(astrocalib_proc_vars['pos_seg'], d_eps=astrocalib_proc_vars['d_eps'], bins=astrocalib_proc_vars['bins'], hist_range=astrocalib_proc_vars['hist_range'], ax=axs[0,3], doplot=True)
+            #     axs[0,3].set_xlim([0,120])
 
-            get_pairs_dxy(astrocalib_proc_vars['pos_seg'], d_eps=astrocalib_proc_vars['d_eps'], bins=astrocalib_proc_vars['bins'], hist_range=astrocalib_proc_vars['hist_range'], axs=[axs[1,3]], doplot=True)
-            axs[1,3].set_title(f"disp (1st)")
-            axs[1,3].set_xlim([0,120])
+            # if 'd_eps' in astrocalib_proc_vars.keys():
+            #     get_pairs_dxy(astrocalib_proc_vars['pos_seg'], d_eps=astrocalib_proc_vars['d_eps'], bins=astrocalib_proc_vars['bins'], hist_range=astrocalib_proc_vars['hist_range'], axs=[axs[1,3]], doplot=True)
+            #     axs[1,3].set_title(f"disp (1st)")
+            #     axs[1,3].set_xlim([0,120])
 
             fig.savefig(Path(redf.filedpropdir) / "astrometry_2_segmentation.png", bbox_inches="tight")
             fig.clf()
