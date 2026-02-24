@@ -150,7 +150,7 @@ class OSNCCDCamera(Instrument, metaclass=ABCMeta):
         return hint_coord
     
     @classmethod
-    def get_astrometry_position_hint(cls, rawfit, allsky=False, n_field_width=1.5, hintsep=None):
+    def get_astrometry_position_hint(cls, rawfit, n_field_width=1.5, hintsep=None):
         """ Get the position hint from the FITS header as an astrometry.PositionHint.
 
         It will try to use the coordinate/pointing information from the header
@@ -161,8 +161,6 @@ class OSNCCDCamera(Instrument, metaclass=ABCMeta):
 
         Parameters
         ----------
-            allsky: bool, optional
-                If True, the hint will cover the whole sky, and n_field_width and hintsep will be ignored.
             n_field_width: float, optional
                 The search radius in units of field width. Default is 1.5.
             hintsep: Quantity, optional
@@ -191,12 +189,10 @@ class OSNCCDCamera(Instrument, metaclass=ABCMeta):
 
         if hintcoord is None:
             raise ValueError(f"Could not build astrometry hint for {rawfit.fileloc}")
-        
-        if allsky:
-            hintsep = 180.0 * u.deg
-        else:
-            if hintsep is None:
-                hintsep = (n_field_width * cls.field_width_arcmin*u.Unit("arcmin"))
+
+
+        if hintsep is None:
+            hintsep = (n_field_width * cls.field_width_arcmin*u.Unit("arcmin"))
 
         return astrometry.PositionHint(ra_deg=hintcoord.ra.deg, dec_deg=hintcoord.dec.deg, radius_deg=hintsep.to_value("deg"))
     
@@ -279,7 +275,8 @@ class OSNCCDCamera(Instrument, metaclass=ABCMeta):
             return
         
         if group_sources != set.union(*map(set, sources_in_field_qs_list)):
-            logger.warning(f"Sources in field do not match for all polarimetry groups: {set.difference(*map(set, sources_in_field_qs_list))}")
+            diff_sources = set.union(*map(set, sources_in_field_qs_list)) - set.intersection(*map(set, sources_in_field_qs_list))
+            logger.warning("Sources in field do not match for all polarimetry groups (ReducedFit %s): %s" % (",".join([str(redf.pk) for redf in polarimetry_group]), str(diff_sources)))
 
         ## check rotation angles
 

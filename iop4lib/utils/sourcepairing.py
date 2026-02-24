@@ -17,7 +17,7 @@ def get_pairs_d(pos, d0=None,
                 bins=None, hist_range=None, redf=None, doplot=False, ax=None):
     """
     From a list of positions, finds the most common distance between them (d0),
-    and pairs the points that are at such distance. If d0 is given, it is used instead of computing it.
+    and returns all pairs of points that are at such distance. If d0 is given, it is used instead of computing it.
     
     The pairs are ordered such that for pair (p1, p2), p1 is always to the left (smaller x value) than p2.
     """
@@ -81,7 +81,7 @@ def get_pairs_dxy(pos, disp=None,
                   bins=None, hist_range=None, redf=None, doplot=False, axs=None, fig=None):
     """
     From a list of positions, finds the most common distances between them in both x and y axes (disp),
-    and pairs the points that are at such distances.
+    and returns all pairs of points that are at such distance.
 
     If disp is given, it is used as the most common distance in both axes instead of computing it.
     
@@ -264,3 +264,102 @@ def get_best_pairs(list1, list2, disp_sign, dist_err=None, disp_sign_err=None):
     
     return list1, list2, d0_new, disp_sign_new
 
+
+def get_pairs_dxy_sign(pos, 
+                  disp_sign=None, 
+                  disp_sign_err=None,
+                  dx_min=None, dx_max=None, dy_min=None, dy_max=None,
+                  bins=None, hist_range=None,
+                  redf=None, doplot=False, axs=None, fig=None):
+
+    """
+    From a list of positions, finds the most common displacement between them in both x and y axes (disp_sign),
+    and pairs the points that are at such displacement.
+
+    If disp_sign is given, it is used as the most common displacement in both axes instead of computing it.
+    
+    The pairs are ordered such that for pair (p1, p2), p1 is always to the left (smaller x value) than p2.
+    
+    Note: this function is similar to get_pairs_dxy(), but returns a signed displacement in x and y.
+    """
+
+    if disp_sign_err is not None:
+        dx_eps = disp_sign_err[0]
+        dy_eps = disp_sign_err[1]
+    else:
+        dx_eps, dy_eps = 1, 1
+
+    dx_min = dx_min or 0
+    dx_max = dx_max or 60
+    dy_min = dy_min or 0
+    dy_max = dy_max or 60
+
+        
+    if pos is None or len(pos) < 2:
+        return [], [], None, None
+    
+    pairs = list(itertools.combinations(pos, 2))
+    pairs = [[p1,p2]  if p1[0]>p2[0] else [p2,p1] for (p1,p2) in pairs]
+
+    if disp_sign is None:
+
+        if bins is None:
+            if redf is not None:
+                bins = int( 0.75 * max(redf.data.shape) )
+            else:
+                raise ValueError("bins must be specified if redf is not given")
+
+        if hist_range is None:
+            if redf is not None:
+                hist_range = (0, min(redf.data.shape))
+            else:
+                raise ValueError("hist_range must be specified if redf is not given")
+        
+        disp_sign = list()
+        for i, d_min, d_max in zip([0, 1], [dx_min, dy_min], [dx_max, dy_max]):
+            displacements = [(p1[i]-p2[i]) for p1,p2 in pairs]
+
+            hist, edges = np.histogram(displacements, bins=bins, range=hist_range)
+            centers = (edges[:-1]+edges[1:])/2
+
+            idx = (d_min <= centers) & (centers <= d_max)
+            idx_max = np.argmax(hist[idx])
+            d0 = centers[idx][idx_max]
+
+            disp_sign.append(d0)
+
+    paired = [(p1,p2) for p1,p2 in pairs if ( abs( p1[0] + disp_sign[0] - p2[0] ) < dx_eps and abs( p1[1] + disp_sign[1] - p2[1] ) < dy_eps )]
+
+    if len(paired) == 0:
+        return [], [], disp_sign, None
+    
+    list1, list2 = list(zip(*paired))
+    
+    pos1 = np.array(list1)
+    pos2 = np.array(list2)
+    disp_sign_mean = np.median(pos2-pos1, axis=0)
+
+    # Plotting (optional)
+    if doplot:
+        if axs is None:
+            if fig is None:
+                fig = plt.gcf()
+            axs = fig.subplots(nrows=2)
+
+        if len(axs) == 1:
+            ax = axs[0]
+            for i, color in zip([0, 1], ['r','b']):
+                displacements = np.abs([(p1[i]-p2[i]) for p1,p2 in pairs])
+                cnts, edges, bars = ax.hist(displacements, alpha=0.3, range=(np.min(displacements),np.max(displacements)), bins=int(np.ptp(displacements)/1.1))
+                ax.axvline(x=disp_sign[i], color=color, linestyle='--', linewidth=1, alpha=0.3)
+                bars[np.argmax(cnts)].set_facecolor('red')
+        elif len(axs) == 2:
+            for i in [0, 1]:
+                displacements = np.abs([(p1[i]-p2[i]) for p1,p2 in pairs])
+                cnts, edges, bars = axs[i].hist(displacements, alpha=0.3, range=(np.min(displacements),np.max(displacements)), bins=int(np.ptp(displacements)/1.1))
+                axs[i].axvline(x=disp_sign[i], color='k', linestyle='--', linewidth=1, alpha=0.5)
+                bars[np.argmax(cnts)].set_facecolor('red')
+        else:
+            raise ValueError("axs must be a list of length 1 or 2")
+
+    return list1, list2, disp_sign, disp_sign_mean

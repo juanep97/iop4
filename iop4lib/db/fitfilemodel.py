@@ -307,4 +307,3 @@ class FitFileModel(AbstractModel):
                 f.write(imgbytes)
                     
         return imgbytes
-    

@@ -20,11 +20,12 @@ import multiprocessing
 import functools
 import itertools
 import dataclasses
+from collections.abc import Iterable
 
 # iop4lib imports
 
-from iop4lib.utils.sourcepairing import (get_pairs_d, get_pairs_dxy, get_best_pairs)
-from iop4lib.utils.sourcedetection import (get_bkg, get_segmentation, get_cat_sources_from_segment_map)
+from iop4lib.utils.sourcepairing import get_pairs_d, get_pairs_dxy, get_best_pairs, get_pairs_dxy_sign
+from iop4lib.utils.sourcedetection import get_bkg, get_segmentation, get_cat_sources_from_segment_map
 from iop4lib.utils.plotting import build_astrometry_summary_images
 from iop4lib.enums import BANDS
 
@@ -56,33 +57,38 @@ class BuildWCSResult():
     def __bool__(self):
         return self.success 
 
-
-def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict = None, summary_kwargs : dict = {'build_summary_images':True, 'with_simbad':True}) -> BuildWCSResult:
-    """ Build the appropiate WCSs for a ReducedFit image, trying different parameters. See `build_wcs` for more info.
-
-    Note: at the moment, this function tries source extraction with different combination of parameters and thresholds for 
-    source extraction by calling a helper func (`_build_wcs_detect_and_try_solve`) with these parameters, which detects 
-    the  sources with `photutils` image segmentation and tries to solve the WCS with the `astrometry.net` python wrapper. 
-    The parameter combinations are chosen depending on the exposure time and the presence of pairs in the image.
-    
-    TODO:
-
-    - Implement a more robust way to choose the parameters for source extraction such that the astrometry solver works  with less 
-      attempts.
-    - Explore other detectors and solvers if necessary to improve speed, sucess rate and accuracy.
-    - Use pre-computed pair distances.
-    """
-
-    hard = False
-    if 'hard' in shotgun_params_kwargs:
-        if shotgun_params_kwargs['hard']:
-            hard = True
-        del shotgun_params_kwargs['hard']
+def build_shotgun_param_combinations(redf: 'ReducedFit', hard=False, params_to_try : dict = None):
 
     param_dicts_L = []
 
     params = dict()
 
+    # if there is pointing mismatch information and it was not invoked with given position_hint,
+    # fine-tune the position_hint
+    # otherwise leave it alone.
+
+    if params_to_try is None:
+        params_to_try = dict()
+        
+    if 'position_hint' not in params_to_try:
+
+        default_position_hint = redf.get_astrometry_position_hint()
+        params["position_hint"] = [default_position_hint]
+
+        try:
+            if redf.header_hintobject is not None and redf.header_hintcoord is not None:
+
+                pointing_mismatch = redf.header_hintobject.coord.separation(redf.header_hintcoord)
+                
+                if pointing_mismatch.to_value('deg') > default_position_hint.radius_deg:
+                    params["position_hint"] = [
+                        astrometry.PositionHint(redf.header_hintcoord.ra.deg, redf.header_hintcoord.dec.deg, default_position_hint.radius_deg),
+                        astrometry.PositionHint(redf.header_hintobject.coord.ra.deg, redf.header_hintobject.coord.dec.deg, default_position_hint.radius_deg),
+                    ]
+                    
+        except Exception as e:
+            pass
+                
     # Define the possible values of each parameter to `_build_wcs_detect_and_try_solve`
 
     # SENSIBLE VERSION
@@ -94,7 +100,6 @@ def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict = 
     # params["seg_fwhm"] = [1.0, 8.0] # the lower the better. Higher fwhm (8.0) will discard many sources due to noise, but will decrease precision. This is specially bad for images with pairs, as a pair might be detected as one source only in the middle.
     # params["seg_kernel_size"] = [None] # automatically set according to fwhm, default is 2*int(fwhmw)+1, which is good enough.
     # params["npixels"] = [64, 32, 16, 8] # higher will discard more fake sources, but will also discard real sources. However the larger, the centroid position might be more noisy. Better to keep it 8-64 depending on need (pairs vs no pairs, crowded vs no crowded, low exp vs high exp).
-    # params["allsky"] = [False] # whether to look over all sky, sometimes the hint keywords are wrong (but vary rarely).
     # params["output_logodds_threshold"] = [80, 40, 21] # 21 is the default of the astrometry.net solver. Very rarely with very low exp. / very little sources, we might ned to put it to 14 to get a good match. LOWER IS NOT RECOMMENDED, as it might generate wrong matches.
     # params["n_rms_seg"] = [24.0, 12.0, 6.0, 3.0, 1.5, 1.0, 0.66] # might be worth it to set it depending on exposure time, very rarely even lower values might be helpful (0.5, 0.4).
 
@@ -128,7 +133,6 @@ def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict = 
     params["seg_fwhm"] = [1.0]
     params["seg_kernel_size"] = [None]
     params["npixels"] = [32, 8, 16]
-    params["allsky"] = [False]
 
     if redf.band == BANDS.B or redf.band == BANDS.U:
         params["n_rms_seg"] = [0.8, 0.66]
@@ -138,9 +142,8 @@ def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict = 
 
     ## Substitute default params combinations with specified ones
 
-    if shotgun_params_kwargs is not None:
-        for k, v in shotgun_params_kwargs.items():
-            params[k] = v
+    for k, v in params_to_try.items():
+        params[k] = v if isinstance(v,Iterable) else [v]
 
     ## Build a list of dictionaries with all the possible combinations of parameters
 
@@ -167,13 +170,11 @@ def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict = 
         params["seg_fwhm"] = [1.0, 2.0, 4.0, 8.0]
         params["seg_kernel_size"] = [None]
         params["npixels"] = [64, 32, 16, 8]
-        params["allsky"] = [False]
         params["output_logodds_threshold"] = [21, 14]
         params["n_rms_seg"] = [6.0, 3.0, 1.5, 1.0, 0.8, 0.66]
 
-        if shotgun_params_kwargs is not None:
-            for k, v in shotgun_params_kwargs.items():
-                params[k] = v
+        for k, v in params_to_try.items():
+            params[k] = v
 
         param_dicts_L_hard = []
         for values in itertools.product(*params.values()):
@@ -187,6 +188,27 @@ def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict = 
         
         param_dicts_L = param_dicts_L + param_dicts_L_hard
 
+    return param_dicts_L
+
+def build_wcs_params_shotgun(redf: 'ReducedFit', param_dicts_L: list[dict], summary_kwargs : dict=None) -> BuildWCSResult:
+    """ Build the appropiate WCSs for a ReducedFit image, trying different parameters. See `build_wcs` for more info.
+
+    Note: at the moment, this function tries source extraction with different combination of parameters and thresholds for 
+    source extraction by calling a helper func (`try_build_wcs_detect_and_try_solve`) with these parameters, which detects 
+    the  sources with `photutils` image segmentation and tries to solve the WCS with the `astrometry.net` python wrapper. 
+    The parameter combinations are chosen depending on the exposure time and the presence of pairs in the image.
+    
+    TODO:
+
+    - Implement a more robust way to choose the parameters for source extraction such that the astrometry solver works  with less 
+      attempts.
+    - Explore other detectors and solvers if necessary to improve speed, sucess rate and accuracy.
+    - Use pre-computed pair distances.
+    """
+
+    if summary_kwargs is None:
+        summary_kwargs = {'build_summary_images':True, 'with_simbad':True}
+        
     # Attempt to build the wcs with each combination of parameters
 
     logger.debug(f"{redf}: {len(param_dicts_L)} different combinations of parameters to try.")
@@ -194,12 +216,7 @@ def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict = 
     for i, params_dict in enumerate(param_dicts_L):
         logger.debug(f"{redf}: attempt {i+1} / {len(param_dicts_L)}, ({params_dict}) ...")
 
-        build_wcs_result = _build_wcs_params_shotgun_helper(redf, **params_dict)
-        # try: # if we want to allow exceptions, but if there's an error something is wrong, we should fix the cause of the underlying exception; different thing is that we could not solve astrometry
-        #     build_wcs_result = _build_wcs_params_shotgun_helper(redf, **params_dict)
-        # except Exception as e:
-        #     logger.error(f"{redf}: some error ocurred during attempt {i+1} / {len(param_dicts_L)}, ({params_dict}), ignoring. Error: {e}")
-        #     build_wcs_result = {'success': False}
+        build_wcs_result = try_build_wcs_detect_and_try_solve(redf, **params_dict)
 
         if build_wcs_result.success:
             logger.debug(f"{redf}: WCS built with attempt {i+1} / {len(param_dicts_L)} ({params_dict}).")
@@ -218,7 +235,7 @@ def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict = 
         build_astrometry_summary_images(redf, build_wcs_result.info, summary_kwargs=summary_kwargs)
 
     # to remove unwanted info from the result
-    to_save_from_info_kw_L = ['params', 'bm', 'seg_d0', 'seg_disp_sign', 'seg_disp_xy', 'seg_disp_sign_xy', 'seg_disp_xy_best']
+    to_save_from_info_kw_L = ['params', 'bm', 'seg_d0', 'seg_disp_sign', 'seg_disp_xy', 'seg_disp_sign_xy', 'seg_disp_xy_best', 'seg_disp_sign_xy_best']
     build_wcs_result.info = {k:build_wcs_result.info[k] for k in to_save_from_info_kw_L if k in build_wcs_result.info}
     build_wcs_result.info['logodds'] = build_wcs_result.info['bm'].logodds
     build_wcs_result.info['method'] = 'shotgun'
@@ -226,9 +243,7 @@ def build_wcs_params_shotgun(redf: 'ReducedFit', shotgun_params_kwargs : dict = 
     return build_wcs_result
 
 
-
-
-def _build_wcs_params_shotgun_helper(redf, has_pairs=None,
+def try_build_wcs_detect_and_try_solve(redf, has_pairs=None,
         bkg_filter_size = 11,
         bkg_box_size = 16,
         seg_kernel_size = None,
@@ -237,18 +252,14 @@ def _build_wcs_params_shotgun_helper(redf, has_pairs=None,
         n_rms_seg = 1.0,
         keep_n_seg = 200,
         border_margin_px = 20,
-        dx_eps=None,
-        dy_eps=None,
+        disp_sign_mean=None, disp_sign_err=None,
         d_eps=None,
-        dx_min=None,
-        dx_max=None,
-        dy_min=None,
-        dy_max=None,
-        d_min=None,
-        d_max=None,
+        d_min=None,d_max=None,
+        dx_eps=None, dy_eps=None,
+        dx_min=None,dx_max=None,dy_min=None,dy_max=None,
         bins=None,
         hist_range=None,
-        position_hint=None, size_hint=None, allsky=False,
+        position_hint=None, size_hint=None,
         output_logodds_threshold=21) -> BuildWCSResult:
     """ helper func, see build_wcs_params_shotgun for more info. """
 
@@ -261,7 +272,7 @@ def _build_wcs_params_shotgun_helper(redf, has_pairs=None,
         size_hint = redf.get_astrometry_size_hint()
 
     if position_hint is None:
-        position_hint = redf.get_astrometry_position_hint(allsky=allsky)
+        position_hint = redf.get_astrometry_position_hint()
 
     if has_pairs:
         if bins is None:
@@ -298,24 +309,37 @@ def _build_wcs_params_shotgun_helper(redf, has_pairs=None,
     # Pair finding with results from image segmentation
     
     if has_pairs:
-        seg1, seg2, seg_d0, seg_disp_sign = get_pairs_d(pos_seg, bins=bins, hist_range=hist_range, d_min=d_min, d_eps=d_eps, d_max=d_max)
-        logger.debug(f"{redf}: seg pairs -> {len(seg1)} ({len(seg1)/len(pos_seg)*100:.1f}%), seg_disp_sign={seg_disp_sign}")
-        seg1_best, seg2_best, seg_disp_best, seg_disp_sign_best = get_best_pairs(seg1, seg2, seg_disp_sign)
-        logger.debug(f"{redf}: seg pairs best -> {len(seg1_best)} ({len(seg1_best)/len(pos_seg)*100:.1f}%), seg_disp_sign_best={seg_disp_sign_best}")
-        seg1xy, seg2xy, seg_disp_xy, seg_disp_sign_xy = get_pairs_dxy(pos_seg, bins=bins, hist_range=hist_range, dx_min=dx_min, dx_max=dx_max, dy_min=dy_min, dy_max=dy_max, dx_eps=dx_eps, dy_eps=dy_eps)
-        logger.debug(f"{redf}: seg pairs xy -> {len(seg1xy)}, disp_sign_xy={seg_disp_sign_xy}")
-        seg1xy_best, seg2xy_best, seg_disp_xy_best, seg_disp_sign_xy_best = get_best_pairs(seg1xy, seg2xy, seg_disp_sign_xy)
-        logger.debug(f"{redf}: seg pairs xy best -> {len(seg1xy_best)} ({len(seg1xy_best)/len(pos_seg)*100:.1f}%), seg_disp_sign_xy_best={seg_disp_sign_xy_best}")
+        if disp_sign_mean is not None:
+            ## Attempt with XY pairs
+
+            seg1xy, seg2xy, seg_disp_sign_xy, seg_disp_sign_mean = get_pairs_dxy_sign(pos_seg, disp_sign=disp_sign_mean, disp_sign_err=3*disp_sign_err)
+            logger.debug(f"{redf}: seg pairs xy -> {len(seg1xy)}, disp_sign_xy={seg_disp_sign_xy}")
+            seg1xy_best, seg2xy_best, d0_new, seg_disp_sign_xy_best = get_best_pairs(seg1xy, seg2xy, seg_disp_sign_mean, disp_sign_err=disp_sign_err)
+            logger.debug(f"{redf}: seg pairs xy best -> {len(seg1xy_best)} ({len(seg1xy_best)/len(pos_seg)*100:.1f}%), seg_disp_sign_xy_best={seg_disp_sign_xy_best}")
+
+            attempts = ((f"Seg Best XY Pairs (n={len(seg1xy_best)})", seg1xy_best, seg_disp_sign_xy_best),)
+        else:
+            ## Attempt both with D pairs and XY pairs
+
+            seg1, seg2, seg_d0, seg_disp_sign = get_pairs_d(pos_seg, bins=bins, hist_range=hist_range, d_min=d_min, d_eps=d_eps, d_max=d_max)
+            logger.debug(f"{redf}: seg pairs -> {len(seg1)} ({len(seg1)/len(pos_seg)*100:.1f}%), seg_disp_sign={seg_disp_sign}")
+            seg1_best, seg2_best, d0_new, seg_disp_sign_best = get_best_pairs(seg1, seg2, seg_disp_sign)
+            logger.debug(f"{redf}: seg pairs best -> {len(seg1_best)} ({len(seg1_best)/len(pos_seg)*100:.1f}%), seg_disp_sign_best={seg_disp_sign_best}")
+            
+            seg1xy, seg2xy, seg_disp_xy, seg_disp_sign_xy = get_pairs_dxy(pos_seg, bins=bins, hist_range=hist_range, dx_min=dx_min, dx_max=dx_max, dy_min=dy_min, dy_max=dy_max, dx_eps=dx_eps, dy_eps=dy_eps)
+            logger.debug(f"{redf}: seg pairs xy -> {len(seg1xy)}, disp_sign_xy={seg_disp_sign_xy}")
+            seg1xy_best, seg2xy_best, d0_new, seg_disp_sign_xy_best = get_best_pairs(seg1xy, seg2xy, seg_disp_sign_xy)
+            logger.debug(f"{redf}: seg pairs xy best -> {len(seg1xy_best)} ({len(seg1xy_best)/len(pos_seg)*100:.1f}%), seg_disp_sign_xy_best={seg_disp_sign_xy_best}")
+
+            attempts = ((f"Seg Best XY Pairs (n={len(seg1xy_best)})", seg1xy_best, seg_disp_sign_xy_best),
+                        (f"Seg Best D Pairs (n={len(seg1_best)})", seg1_best, seg_disp_sign_best),)
+
+    else: ## Use the positions of the segments
+        attempts = ((f"Seg Pos (n={len(pos_seg)})", pos_seg, None),)
 
     # Solve astrometry 
 
     bm = None
-
-    if has_pairs: ## Attempt both with D pairs and XY pairs
-        attempts = ((f"Seg Best XY Pairs (n={len(seg1xy_best)})", seg1xy_best, seg_disp_sign_xy_best),
-                    (f"Seg Best D Pairs (n={len(seg1_best)})", seg1_best, seg_disp_sign_best),)
-    else: ## Use the positions of the segments
-        attempts = ((f"Seg Pos (n={len(pos_seg)})", pos_seg, None),)
     
     for msg, stars, disp_sign in attempts:
         if len(stars) == 0:
@@ -382,13 +406,14 @@ def _save_astrocalib_proc_vars(locals_dict):
 
     if locals_dict['has_pairs']:
         save_list += [
-        'msg',
-        'wcs2',
-        'hist_range', 'bins', 'd_eps',
-        'seg1', 'seg2', 'seg_d0', 'seg_disp_sign',
-        'seg1_best', 'seg2_best', 'seg_disp_best', 'seg_disp_sign_best',
-        'seg1xy', 'seg2xy', 'seg_disp_xy', 'seg_disp_sign_xy',
-        'seg1xy_best', 'seg2xy_best', 'seg_disp_xy_best', 'seg_disp_sign_xy_best',
+            'msg',
+            'wcs2',
+            'hist_range', 'bins', 'd_eps',
+            'seg1', 'seg2', 'seg_d0', 'seg_disp_sign',
+            'seg1_best', 'seg2_best', 'seg_disp_best', 'seg_disp_sign_best',
+            'seg1xy', 'seg2xy', 'seg_disp_xy', 'seg_disp_sign_xy',
+            'seg1xy_best', 'seg2xy_best', 'seg_disp_xy_best', 'seg_disp_sign_xy_best',
+            'seg_disp_sign_mean',
         ]
 
     astrocalib_proc_vars.update({k: v for k, v in locals_dict.items() if k in save_list})

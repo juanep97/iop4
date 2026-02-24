@@ -312,7 +312,7 @@ class Epoch(models.Model):
             logger.debug(f"Dir {self.rawfitsdir} does not exist, creating it.")
             os.makedirs(self.rawfitsdir) 
 
-        local_file_L = os.listdir(self.rawfitsdir)
+        local_file_L = [f for f in os.listdir(self.rawfitsdir) if not f.endswith(".bak")]
 
         if self.check_remote_list:
             logger.info(f"{self}: fetching file list for epoch.")

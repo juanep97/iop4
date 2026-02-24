@@ -17,12 +17,15 @@ import astropy.units as u
 from photutils.aperture import CircularAperture
 from astropy.wcs.utils import fit_wcs_from_points
 from astropy.time import Time
+from astropy.coordinates import SkyCoord, Angle, match_coordinates_sky
 import itertools
 import datetime
 import math
 import gc
 import yaml
 from importlib import resources
+from collections.abc import Iterable
+import random
 
 # iop4lib imports
 from iop4lib.enums import IMGTYPES, BANDS, OBSMODES, SRCTYPES, INSTRUMENTS, REDUCTIONMETHODS
@@ -32,6 +35,7 @@ from iop4lib.utils.sourcedetection import get_segmentation, get_cat_sources_from
 from iop4lib.utils.plotting import plot_preview_astrometry
 from iop4lib.utils.astrometry import BuildWCSResult
 from iop4lib.telescopes import OSNT090
+from iop4lib.utils import calibrate_photopolresult
 
 # logging
 import logging
@@ -51,6 +55,7 @@ class DIPOL(Instrument):
 
     instrument_kw_L = ["ASI Camera (1)"]
 
+    reference_binning = 2 # 2x2
     arcsec_per_pix = 0.134
     field_width_arcmin = 9.22
     field_height_arcmin = 6.28 
@@ -61,11 +66,12 @@ class DIPOL(Instrument):
 
 
     # pre computed pairs distances to use in the astrometric calibrations
-    # obtained from calibrated photometry fields
+    # obtained from calibrated photometry fields (see CAFOS comments on how to 
+    # recompute)
     
-    disp_sign_mean, disp_sign_std = np.array([-2.09032765e+02,  1.65384209e-02]), np.array([4.13289109, 0.66159702])
-    disp_mean, disp_std = np.abs(disp_sign_mean), disp_sign_std
-    disp_std = np.array([15, 5])
+    disp_sign_mean = np.array([-209,  13]) # actually median
+    disp_sign_std = np.array([12, 16]) # actually approx 0.05, 0.95 pcts
+    disp_mean, disp_std = np.abs(disp_sign_mean), np.abs(disp_sign_std)
 
     # pre computed image angle from ~500 full photometric fields (which dont need it as input)
     # In [19]: np.quantile(angle_L,[(1-0.9973)/2,(1-0.9545)/2,(1-0.6827)/2])
@@ -263,6 +269,15 @@ class DIPOL(Instrument):
 
         from iop4lib.db import AstroSource
 
+        # # update: from ~ 01/2025, dipol has TELRA and TELDEC fields, bu they are not correct until ??
+        # header = rawfit.header
+        # if 'TELRA' in header and 'TELDEC' in header:
+        #     hint_coord = SkyCoord(Angle(rawfit.header['TELRA'], unit=u.deg), Angle(rawfit.header['TELDEC'], unit=u.deg), frame='icrs')
+        #     cat = list(AstroSource.objects.filter(is_calibrator=False).all())
+        #     cat_coords = SkyCoord([src.ra_hms for src in cat], [src.dec_dms for src in cat], unit=(u.hourangle, u.deg))
+        #     idx, sep3d, _ = match_coordinates_sky(hint_coord, cat_coords)
+        #     return cat[idx]
+
         catalog = AstroSource.objects.exclude(is_calibrator=True).all()
 
         #pattern = re.compile(r"^([a-zA-Z0-9]{4,}|[a-zA-Z0-9]{1,3}(_[a-zA-Z0-9]+)?)(?=_|$)")
@@ -325,34 +340,30 @@ class DIPOL(Instrument):
                 El ángulo de la imagen cambia muy poco entre las posiciones muy separadas del telescopio, y es de 177.5º ± 0.3º
                 Así que como mucho se produce un error de ± 0.3º en las imágenes, y el punto cero es de 2.5º.
         """
+    
+        rawfit_arcsec_per_pix = cls.get_rawfit_hint_arcsec_per_pix(rawfit)
 
-        return astrometry.SizeHint(lower_arcsec_per_pixel=0.95*cls.arcsec_per_pix, upper_arcsec_per_pixel=1.05*cls.arcsec_per_pix)
+        return astrometry.SizeHint(
+            lower_arcsec_per_pixel=rawfit_arcsec_per_pix*0.95, 
+            upper_arcsec_per_pixel=rawfit_arcsec_per_pix*1.05,
+        )
     
     @classmethod
-    def get_astrometry_position_hint(cls, rawfit: 'RawFit', allsky=False, n_field_width=1.5, hintsep=None):
+    def get_astrometry_position_hint(cls, rawfit: 'RawFit', n_field_width=1.5, hintsep=None):
         """ Get the position hint from the FITS header as an astrometry.PositionHint.
         
         Parameters
         ----------
-        allsky: bool, optional
-            If True, the hint will cover the whole sky, and n_field_width and hintsep will be ignored.
         n_field_width: float, optional
             The search radius in units of field width. Default is 1.5.
         hintsep: Quantity, optional
             The search radius in units of degrees.
         """        
 
-        hintcoord = cls.get_header_hintcoord(rawfit)
-
-        if rawfit.header["XBINNING"] != 2:
-            logger.error(f"Cannot compute astrometry for {rawfit} because of the binning: {rawfit.header['XBINNING']}.")
-            return None
+        hintcoord = cls.get_header_hintobject(rawfit).coord #cls.get_header_hintcoord(rawfit)
         
-        if allsky:
-            hintsep = 180.0 * u.deg
-        else:
-            if hintsep is None:
-                hintsep = (n_field_width * cls.field_width_arcmin*u.Unit("arcmin"))
+        if hintsep is None:
+            hintsep = (n_field_width * cls.get_rawfit_hint_field_width_arcmin(rawfit)*u.Unit("arcmin"))
 
         return astrometry.PositionHint(ra_deg=hintcoord.ra.deg, dec_deg=hintcoord.dec.deg, radius_deg=hintsep.to_value(u.deg))
     
@@ -411,7 +422,7 @@ class DIPOL(Instrument):
 
         Therefore, to calibrate polarimetry files, we just give it a WCS centered on the source.
 
-        For PHOTOMETRY files, we use the parent class method, but we set some custom shotgun_params_kwargs to account
+        For PHOTOMETRY files, we use the parent class method, but we set some custom params_to_try to account
         for the low flux and big size of the images.
 
         """
@@ -427,8 +438,11 @@ class DIPOL(Instrument):
 
         target_src = reducedfit.header_hintobject
 
-        if reducedfit.obsmode == OBSMODES.PHOTOMETRY:
-            return super().build_wcs(reducedfit, shotgun_params_kwargs=cls._build_shotgun_params(reducedfit), summary_kwargs=summary_kwargs)
+
+        if reducedfit.obsmode == OBSMODES.PHOTOMETRY or (
+            reducedfit.obsmode == OBSMODES.POLARIMETRY and cls.get_rawfit_hint_field_width_arcmin(reducedfit.rawfit) > 6.0
+        ):
+            return super().build_wcs(reducedfit)
         elif reducedfit.obsmode == OBSMODES.POLARIMETRY:
 
             # Gather some info to perform a good decision on which methods to use
@@ -542,36 +556,88 @@ class DIPOL(Instrument):
             
         
     @classmethod
-    def _build_shotgun_params(cls, redf: 'ReducedFit'):
-        shotgun_params_kwargs = dict()
+    def build_shotgun_params(cls, redf: 'ReducedFit', params_to_try: dict = None):
 
-        shotgun_params_kwargs["keep_n_seg"] = [300]
-        shotgun_params_kwargs["border_margin_px"] = [20]
-        shotgun_params_kwargs["output_logodds_threshold"] = [14]
-        shotgun_params_kwargs["n_rms_seg"] = [1.5, 1.2, 1.0]
-        shotgun_params_kwargs["bkg_filter_size"] = [11] 
-        shotgun_params_kwargs["bkg_box_size"] = [32]
-        shotgun_params_kwargs["seg_fwhm"] = [1.0]
-        shotgun_params_kwargs["npixels"] = [32, 8]
-        shotgun_params_kwargs["seg_kernel_size"] = [None]
-        shotgun_params_kwargs["allsky"] = [False]
+        from iop4lib.utils.astrometry import build_shotgun_param_combinations
 
-        shotgun_params_kwargs["d_eps"] = [4.0]
-        shotgun_params_kwargs["dx_eps"] = [4.0]
-        shotgun_params_kwargs["dy_eps"] = [2.0]
-        shotgun_params_kwargs["dx_min"] = [150]
-        shotgun_params_kwargs["dx_max"] = [300]
-        shotgun_params_kwargs["dy_min"] = [0]
-        shotgun_params_kwargs["dy_max"] = [50]
-        shotgun_params_kwargs["d_min"] = [150]
-        shotgun_params_kwargs["d_max"] = [250]
-        shotgun_params_kwargs["bins"] = [400]
-        shotgun_params_kwargs["hist_range"] = [(0,500)]
+        params = dict()
 
-        shotgun_params_kwargs["position_hint"] = [redf.get_astrometry_position_hint(allsky=False)]
-        shotgun_params_kwargs["size_hint"] = [redf.get_astrometry_size_hint()]
+        params["keep_n_seg"] = [300]
+        params["border_margin_px"] = [20]
+        params["output_logodds_threshold"] = [14]
+        params["n_rms_seg"] = [1.5, 1.2, 1.0]
+        params["bkg_filter_size"] = [11] 
+        params["bkg_box_size"] = [32]
+        params["seg_fwhm"] = [1.0]
+        params["npixels"] = [32, 8]
+        params["seg_kernel_size"] = [None]
 
-        return shotgun_params_kwargs
+        params["position_hint"] = [redf.get_astrometry_position_hint()]
+        params["size_hint"] = [redf.get_astrometry_size_hint()]
+
+        disp_sign_mean = cls.get_binning_independent_px(redf.rawfit, cls.disp_sign_mean)
+        disp_std = cls.get_binning_independent_px(redf.rawfit, cls.disp_std)
+
+        params["disp_sign_mean"] = [disp_sign_mean]
+        params["disp_sign_err"] = [disp_std]
+
+        if params_to_try:
+            for k, v in params_to_try.items():
+                params[k] = v if isinstance(v,Iterable) else [v]
+
+        param_dicts_L = [dict(zip(params.keys(), values)) for values in itertools.product(*params.values())]
+
+        param_dicts_L.append(dict(
+            output_logodds_threshold=14,
+            position_hint=redf.get_astrometry_position_hint(),
+            size_hint=redf.get_astrometry_size_hint(),
+            bkg_filter_size = 7,
+            bkg_box_size = 64,
+            seg_kernel_size = None,
+            npixels = 64,
+            seg_fwhm = 3.0, 
+            n_rms_seg = 0.6, 
+            keep_n_seg = 200,
+            border_margin_px = 20,
+            disp_sign_mean=disp_sign_mean,
+            disp_sign_err=disp_std,
+        ))
+
+        param_dicts_L.append(dict(
+            output_logodds_threshold=14,
+            position_hint=redf.get_astrometry_position_hint(),
+            size_hint=redf.get_astrometry_size_hint(),
+            bkg_filter_size = 7,
+            bkg_box_size = 64,
+            seg_kernel_size = None,
+            npixels = 64,
+            seg_fwhm = 3.0, 
+            n_rms_seg = 0.5, 
+            keep_n_seg = 200,
+            border_margin_px = 20,
+            disp_sign_mean=disp_sign_mean,
+            disp_sign_err=disp_std,
+        ))
+
+        param_dicts_L.append(dict(
+            output_logodds_threshold=14,
+            position_hint=redf.get_astrometry_position_hint(),
+            size_hint=redf.get_astrometry_size_hint(),
+            bkg_filter_size = 7,
+            bkg_box_size = 64,
+            seg_kernel_size = None,
+            npixels = 128,
+            seg_fwhm = 3.0, 
+            n_rms_seg = 0.33, 
+            keep_n_seg = 200,
+            border_margin_px = 20,
+            disp_sign_mean=disp_sign_mean,
+            disp_sign_err=disp_std,
+        ))
+
+        random.shuffle(param_dicts_L)
+
+        return param_dicts_L
 
 
     @classmethod
@@ -589,12 +655,20 @@ class DIPOL(Instrument):
 
         redf_pol = redf
 
-        # select an already solved photometry field
+        # select an already solved photometry field 
+        # (prefer newer with similar exptime)
+        
+        from django.db.models import F, ExpressionWrapper, FloatField
+        from django.db.models.functions import Abs
 
-        redf_phot = ReducedFit.objects.filter(instrument=redf_pol.instrument, 
-                                              sources_in_field__in=[target_src], 
-                                              obsmode=OBSMODES.PHOTOMETRY, 
-                                              flags__has=ReducedFit.FLAGS.BUILT_REDUCED).order_by('-juliandate').first()
+        redf_phot = ReducedFit.objects.filter(
+            instrument=redf_pol.instrument, 
+            sources_in_field__in=[target_src], 
+            obsmode=OBSMODES.PHOTOMETRY, 
+            flags__has=ReducedFit.FLAGS.BUILT_REDUCED
+        ).annotate(
+            exptime_diff=Abs(ExpressionWrapper(F('exptime') - redf_pol.exptime, output_field=FloatField()))
+        ).order_by('exptime_diff', '-juliandate').first()
         
         if redf_phot is None:
             logger.error(f"No astro-calibrated photometry field found for {redf_pol}.")
@@ -1011,14 +1085,8 @@ class DIPOL(Instrument):
 
 
     @classmethod
-    def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fit_boxsize=None, search_boxsize=(90,90)):
-        aperpix, r_in, r_out, fit_res_dict = super().estimate_common_apertures(reducedfits, reductionmethod=reductionmethod, fit_boxsize=fit_boxsize, search_boxsize=search_boxsize, fwhm_min=5.0, fwhm_max=50, fwhm_default=30)
-        
-        sigma = fit_res_dict['sigma']
-        mean_fwhm = fit_res_dict["mean_fwhm"]
-
-
-        return 3.0*sigma, 5.0*sigma, 9.0*sigma, {'mean_fwhm':mean_fwhm, 'sigma':sigma}
+    def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fwhm_min=5, fwhm_max=50, fwhm_default=30):
+        return super().estimate_common_apertures(reducedfits, reductionmethod=reductionmethod, fwhm_min=fwhm_min, fwhm_max=fwhm_max, fwhm_default=fwhm_default)
 
     @classmethod
     def get_instrumental_polarization(cls, reducedfit) -> dict:
@@ -1088,7 +1156,8 @@ class DIPOL(Instrument):
             return
         
         if group_sources != set.union(*map(set, sources_in_field_qs_list)):
-            logger.warning("Sources in field do not match for all polarimetry groups (ReducedFit %s): %s" % (",".join([str(redf.pk) for redf in polarimetry_group]), str(set.difference(*map(set, sources_in_field_qs_list)))))
+            diff_sources = set.union(*map(set, sources_in_field_qs_list)) - set.intersection(*map(set, sources_in_field_qs_list))
+            logger.warning("Sources in field do not match for all polarimetry groups (ReducedFit %s): %s" % (",".join([str(redf.pk) for redf in polarimetry_group]), str(diff_sources)))
 
         ## check rotation angles
 
@@ -1218,25 +1287,68 @@ class DIPOL(Instrument):
 
             logger.debug(f"{P=}, {chi=}, {dP=}, {dchi=}")
 
-            # No attempt to get magnitude from polarimetry fields in dipol, they have too low exposure, and many times there are no calibrators in the subframe.
+            # Try to compute magnitude too
+
+            fluxes = (F_O + F_E)/2
+            flux_mean = fluxes.mean()
+            flux_err = fluxes.std() / math.sqrt(len(fluxes))
+
+            mag_inst = -2.5 * np.log10(flux_mean)
+            mag_inst_err = math.fabs(2.5 / math.log(10) * flux_err / flux_mean)
+
+            # if the source is a calibrator, compute also the zero point
+
+            if astrosource.is_calibrator:
+                mag_known = getattr(astrosource, f"mag_{band}")
+                mag_known_err = getattr(astrosource, f"mag_{band}_err", None) or 0.0
+
+                if mag_known is None:
+                    logger.warning(f"Calibrator {astrosource} has no magnitude for band {band}.")
+                    mag_zp = np.nan
+                    mag_zp_err = np.nan
+                else:
+                    mag_zp = mag_known - mag_inst
+                    mag_zp_err = math.sqrt(mag_known_err ** 2 + mag_inst_err ** 2)
+            else:
+                mag_zp = None
+                mag_zp_err = None
 
             # save the results
                     
             result = PhotoPolResult.create(
                 reducedfits=polarimetry_group, 
                 astrosource=astrosource, 
-                reduction=REDUCTIONMETHODS.RELPOL, 
+                reduction=REDUCTIONMETHODS.RELPOL,
+                mag_inst=mag_inst, mag_inst_err=mag_inst_err, 
+                mag_zp=mag_zp, mag_zp_err=mag_zp_err,
+                flux_counts=flux_mean,
                 p=P, p_err=dP, chi=chi, chi_err=dchi,
                 _q_nocorr=Qr_uncorr, _u_nocorr=Ur_uncorr, _p_nocorr=P_uncorr, _chi_nocorr=chi_uncorr,
                 aperpix=aperpix,
                 aperas=aperpix*polarimetry_group[0].pixscale.to(u.arcsec/u.pix).value,
-                fwhm=mean_fwhm*polarimetry_group[0].pixscale.to(u.arcsec/u.pix).value,
+                fwhm = mean_fwhm*polarimetry_group[0].pixscale.to(u.arcsec/u.pix).value,
             )
 
             result.aperphotresults.set(aperphotresults, clear=True)
                         
             photopolresult_L.append(result)
 
-        # 3. Save results
+        if not photopolresult_L:
+            logger.error("No results could be computed for this group.")
+            return
+        
+        # 3. Compute the calibrated magnitudes for non-calibrators in the group using the averaged zero point
+
+        for result in photopolresult_L:
+
+            if result.astrosource.is_calibrator:
+                continue
+
+            logger.debug(f"calibrating {result}")
+
+            calibrate_photopolresult(result, photopolresult_L)
+
+        # 4. Save results
+
         for result in photopolresult_L:
             result.save()

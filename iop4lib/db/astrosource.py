@@ -143,6 +143,23 @@ class AstroSource(models.Model):
     # helper properties
 
     @property
+    def is_calibrator(self):
+        # This is needed to ensure this property is always present in the 
+        # object, since there are ocassions where 
+        # AstroSourceQuerySet.with_is_calibrator annotation does not set it.
+        # It will use cached value if set, and query the DB otherwise.
+        cache = getattr(self, "_is_calibrator_cache", None)
+        if cache is not None:
+            return cache
+        return AstroSource.objects.filter(calibrators=self.pk).exists()
+    @is_calibrator.setter
+    def is_calibrator(self, value):
+        # and this allow Django to set the annotation value, otherwise 
+        # AstroSourceQuerySet.with_is_calibrator will raise an error
+        # because the property would be read-only.
+        self._is_calibrator_cache = value
+
+    @property
     def other_names_list(self):
         if not self.other_names:
             return []

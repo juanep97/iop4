@@ -17,11 +17,12 @@ import itertools
 import datetime
 import glob
 import astrometry
-from photutils.centroids import centroid_sources, centroid_2dg
+from photutils.centroids import centroid_sources, centroid_2dg, centroid_com
 
 # iop4lib imports
 from iop4lib.enums import *
 from iop4lib.utils import filter_zero_points, calibrate_photopolresult
+from iop4lib.utils.sourcedetection import apply_gaussian_smooth
 
 # logging
 import logging
@@ -147,7 +148,43 @@ class Instrument(metaclass=ABCMeta):
                 return rawfit.imgsize
             else:
                 raise ValueError(f"Raw fit file {rawfit.fileloc} has NAXIS != 2, cannot get imgsize.")
-            
+
+    @classmethod
+    def get_rawfit_hint_arcsec_per_pix(cls, rawfit: 'RawFit'):
+
+        if not hasattr(cls, 'reference_binning'):
+            return cls.arcsec_per_pix
+
+        hdr = rawfit.header
+
+        if hdr["XBINNING"] != hdr["YBINNING"]:
+            raise Exception("Different binning in X and Y.")
+
+        return cls.arcsec_per_pix / cls.reference_binning * hdr['XBINNING']
+
+    @classmethod
+    def get_rawfit_hint_field_width_arcmin(cls, rawfit: 'RawFit'):
+        
+        hdr = rawfit.header
+
+        if hdr["XBINNING"] != hdr["YBINNING"]:
+            raise Exception("Different binning in X and Y.")
+        
+        return cls.get_rawfit_hint_arcsec_per_pix(rawfit) * hdr['NAXIS1'] / 60.0
+
+    @classmethod
+    def get_binning_independent_px(cls, rawfit: 'RawFit', px):
+
+        if not hasattr(cls, 'reference_binning'):
+            return px
+        
+        return px * cls.reference_binning / rawfit.header['XBINNING']
+
+    @classmethod
+    @abstractmethod
+    def classify_juliandate_rawfit(cls, rawfit: 'RawFit'):
+        raise NotImplementedError
+
     @classmethod
     def classify_exptime(cls, rawfit):
         """
@@ -238,7 +275,7 @@ class Instrument(metaclass=ABCMeta):
     
     @classmethod
     @abstractmethod 
-    def get_astrometry_position_hint(cls, rawfit, allsky=False, n_field_width=1.5, hintsep=None) -> astrometry.PositionHint:
+    def get_astrometry_position_hint(cls, rawfit, n_field_width=1.5, hintsep=None) -> astrometry.PositionHint:
         """ Get the position hint from the FITS header as an astrometry.PositionHint object. """        
         raise NotImplementedError
 
@@ -257,14 +294,19 @@ class Instrument(metaclass=ABCMeta):
         raise NotImplementedError
 
     @classmethod
-    def build_wcs(self, reducedfit: 'ReducedFit', shotgun_params_kwargs : dict = None, summary_kwargs : dict = None) -> 'BuildWCSResult':
+    def build_shotgun_params(cls, redf: 'ReducedFit', params_to_try: dict = None):
+        from iop4lib.utils.astrometry import build_shotgun_param_combinations
+        return build_shotgun_param_combinations(redf, params_to_try=params_to_try)
+    
+    @classmethod
+    def build_wcs(cls, reducedfit: 'ReducedFit', params_to_try : dict = None, summary_kwargs : dict = None) -> 'BuildWCSResult':
         """ Build a WCS for a reduced fit from this instrument. 
         
         By default (Instrument class), this will just call the build_wcs_params_shotgun from iop4lib.utils.astrometry.
 
         Keyword Arguments
         -----------------
-        shotgun_params_kwargs : dict, optional
+        params_to_try : dict, optional
             The parameters to pass to the shotgun_params function.
         summary_kwargs : dict, optional
             build_summary_images : bool, optional
@@ -274,42 +316,12 @@ class Instrument(metaclass=ABCMeta):
                 check whether the found coordinates are correct. Default is True.
         """
 
-        if shotgun_params_kwargs is None:
-            shotgun_params_kwargs = dict()
-
         if summary_kwargs is None:
             summary_kwargs = {'build_summary_images':True, 'with_simbad':True}
 
         from iop4lib.utils.astrometry import build_wcs_params_shotgun
-        from iop4lib.utils.plotting import build_astrometry_summary_images
-
-
-        # if there is pointing mismatch information and it was not invoked with given allsky or position_hint,
-        # fine-tune the position_hint or set allsky = True if appropriate.
-        # otherwise leave it alone.
-
-        if reducedfit.header_hintobject is not None and 'allsky' not in shotgun_params_kwargs and 'position_hint' not in shotgun_params_kwargs:
-
-            pointing_mismatch = reducedfit.header_hintobject.coord.separation(reducedfit.header_hintcoord)
-
-            # minimum of 1.5 the field width, and max the allsky_septhreshold
-
-            hintsep = np.clip(1.1*pointing_mismatch, 
-                                1.5*Instrument.by_name(reducedfit.instrument).field_width_arcmin*u.arcmin,
-                                iop4conf.astrometry_allsky_septhreshold*u.arcmin)
-            shotgun_params_kwargs["position_hint"] = [reducedfit.get_astrometry_position_hint(hintsep=hintsep)]
-
-            # if the pointing mismatch is too large, set allsky = True if configured 
-
-            if  pointing_mismatch.to_value('arcmin') > iop4conf.astrometry_allsky_septhreshold:
-                if iop4conf.astrometry_allsky_allow:
-                    logger.debug(f"{reducedfit}: large pointing mismatch detected ({pointing_mismatch.to_value('arcmin')} arcmin), setting allsky = True for the position hint.")
-                    shotgun_params_kwargs["allsky"] = [True]
-                    del shotgun_params_kwargs["position_hint"]
-
-
-        build_wcs_result = build_wcs_params_shotgun(reducedfit, shotgun_params_kwargs, summary_kwargs=summary_kwargs)
-
+        param_dicts_L = cls.build_shotgun_params(reducedfit, params_to_try=params_to_try)
+        build_wcs_result = build_wcs_params_shotgun(reducedfit, param_dicts_L=param_dicts_L, summary_kwargs=summary_kwargs)
 
         return build_wcs_result
 
@@ -543,81 +555,89 @@ class Instrument(metaclass=ABCMeta):
 
         for astrosource in redf.sources_in_field.all():
             for pairs, wcs in (('O', redf.wcs1), ('E', redf.wcs2)) if redf.has_pairs else (('O',redf.wcs),):
+                try:
+                    logger.debug(f"{redf}: computing aperture photometry for {astrosource} {pairs}")
 
-                logger.debug(f"{redf}: computing aperture photometry for {astrosource}")
+                    wcs_px_pos = astrosource.coord.to_pixel(wcs)
 
-                wcs_px_pos = astrosource.coord.to_pixel(wcs)
+                    # check that the wcs px position is within (r_in+r_out)/2 from ther border of the image
 
-                # check that the wcs px position is within (r_in+r_out)/2 from ther border of the image
+                    r_mid = (r_in + r_out) / 2
 
-                r_mid = (r_in + r_out) / 2
+                    if not (r_mid < wcs_px_pos[0] < img.shape[1] - r_mid and r_mid < wcs_px_pos[1] < img.shape[0] - r_mid):
+                        logger.warning(f"{redf}: ({pairs}) image of {astrosource.name} is too close to the border, skipping aperture photometry.")
+                        continue
 
-                if not (r_mid < wcs_px_pos[0] < img.shape[1] - r_mid and r_mid < wcs_px_pos[1] < img.shape[0] - r_mid):
-                    logger.warning(f"{redf}: ({pairs}) image of {astrosource.name} is too close to the border, skipping aperture photometry.")
-                    continue
+                    # # choose a box size that is somewhat larger than the aperture
+                    # # in case of pairs, cap box size so that it is somewhat smaller than the distance between pairs
 
-                # # correct position using centroid
-                # # choose a box size that is somewhat larger than the aperture
-                # # in case of pairs, cap box size so that it is somewhat smaller than the distance between pairs
+                    # box_size = math.ceil(1.6 * aperpix)//2 * 2 + 1
 
-                # box_size = math.ceil(1.6 * aperpix)//2 * 2 + 1
+                    # if redf.has_pairs:
+                    #     box_size_max = math.ceil(np.linalg.norm(Instrument.by_name(redf.instrument).disp_sign_mean))//2 * 2 - 1
+                    #     box_size = min(box_size, box_size_max)
 
-                # if redf.has_pairs:
-                #     box_size_max = math.ceil(np.linalg.norm(Instrument.by_name(redf.instrument).disp_sign_mean))//2 * 2 - 1
-                #     box_size = min(box_size, box_size_max)
+                    # correct position using centroid
 
-                # correct position using centroid
-                # choose a box size around 12.0 arcsec (0.4'' is excellent seeing)
-                # in case of pairs, cap box size so that it is somewhat smaller than the distance between pairs
+                    arcsec_px = redf.pixscale.to(u.arcsec/u.pix).value
 
-                arcsec_px = redf.pixscale.to(u.arcsec/u.pix).value
+                    box_size = math.ceil( ( 12 / arcsec_px ) ) // 2 * 2 + 1
+                    # if there is some astrometric deviation (e.g. for the extaordinary image), perhaps try 24 arcsec, 12 might be to small for it...
 
-                box_size = math.ceil( ( 12 / arcsec_px ) ) // 2 * 2 + 1
+                    logger.debug(f"{box_size=}")
 
-                logger.debug(f"{box_size=}")
+                    if redf.has_pairs:
+                        disp_sign_mean = redf.instrument_cls.get_binning_independent_px(redf.rawfit, redf.instrument_cls.disp_sign_mean)
+                        box_size_max = math.ceil(np.linalg.norm(disp_sign_mean))//2 * 2 - 1
+                        box_size = min(box_size, box_size_max)
 
-                if redf.has_pairs:
-                    box_size_max = math.ceil(np.linalg.norm(Instrument.by_name(redf.instrument).disp_sign_mean))//2 * 2 - 1
-                    box_size = min(box_size, box_size_max)
+                    # centroid_px_pos = centroid_sources(img-median, xpos=wcs_px_pos[0], ypos=wcs_px_pos[1], box_size=box_size, centroid_func=centroid_2dg)
+                    # # this should fix when there is a large deviation...:
+                    # # centroid_px_pos = centroid_sources(img-median, xpos=wcs_px_pos[0], ypos=wcs_px_pos[1], box_size=box_size, centroid_func=centroid_com)
+                    # # centroid_px_pos = centroid_sources(img-median, xpos=centroid_px_pos[0], ypos=centroid_px_pos[1], box_size=box_size, centroid_func=centroid_2dg)
+                    # and this should also reduce errors due to diffraction spikes (non-gaussian shape)
+                    centroid_px_pos = centroid_sources(img-median, xpos=wcs_px_pos[0], ypos=wcs_px_pos[1], box_size=box_size, centroid_func=centroid_com)
+                    centroid_px_pos = centroid_sources(apply_gaussian_smooth(img-median,1), xpos=centroid_px_pos[0], ypos=centroid_px_pos[1], box_size=box_size, centroid_func=centroid_2dg)
 
-                centroid_px_pos = centroid_sources(img-median, xpos=wcs_px_pos[0], ypos=wcs_px_pos[1], box_size=box_size, centroid_func=centroid_2dg)
-                centroid_px_pos = (centroid_px_pos[0][0], centroid_px_pos[1][0])
+                    centroid_px_pos = (centroid_px_pos[0][0], centroid_px_pos[1][0])
 
-                # check that the centroid position is within the borders of the image
+                    # log the difference between the WCS and the centroid
+                    wcs_diff = np.sqrt((centroid_px_pos[0] - wcs_px_pos[0])**2 + (centroid_px_pos[1] - wcs_px_pos[1])**2)
+                    
+                    logger.debug(f"ReducedFit {redf.id}: {astrosource.name} {pairs}: WCS centroid distance = {wcs_diff:.1f} px")
 
-                if not (r_mid < centroid_px_pos[0] < img.shape[1] - r_mid and r_mid < centroid_px_pos[1] < img.shape[0] - r_mid):
-                    logger.warning(f"{redf}: centroid of the ({pairs}) image of {astrosource.name} is too close to the border, skipping aperture photometry.")
-                    continue
+                    # check that the centroid position is within the borders of the image
 
-                # log the difference between the WCS and the centroid
-                wcs_diff = np.sqrt((centroid_px_pos[0] - wcs_px_pos[0])**2 + (centroid_px_pos[1] - wcs_px_pos[1])**2)
-                
-                logger.debug(f"ReducedFit {redf.id}: {astrosource.name} {pairs}: WCS centroid distance = {wcs_diff:.1f} px")
+                    if not (r_mid < centroid_px_pos[0] < img.shape[1] - r_mid and r_mid < centroid_px_pos[1] < img.shape[0] - r_mid):
+                        logger.warning(f"{redf}: centroid of the ({pairs}) image of {astrosource.name} is too close to the border, skipping aperture photometry.")
+                        continue
 
-                ap = CircularAperture(centroid_px_pos, r=aperpix)
-                annulus = CircularAnnulus(centroid_px_pos, r_in=r_in, r_out=r_out)
+                    ap = CircularAperture(centroid_px_pos, r=aperpix)
+                    annulus = CircularAnnulus(centroid_px_pos, r_in=r_in, r_out=r_out)
 
-                annulus_stats = ApertureStats(redf.mdata, annulus, error=error, sigma_clip=SigmaClip(sigma=5.0, maxiters=10))
-                ap_stats = ApertureStats(redf.mdata, ap, error=error)
+                    annulus_stats = ApertureStats(redf.mdata, annulus, error=error, sigma_clip=SigmaClip(sigma=5.0, maxiters=10))
+                    ap_stats = ApertureStats(redf.mdata, ap, error=error)
 
-                bkg_flux_counts = annulus_stats.median*ap_stats.sum_aper_area.value
-                bkg_flux_counts_err = annulus_stats.sum_err / annulus_stats.sum_aper_area.value * ap_stats.sum_aper_area.value
+                    bkg_flux_counts = annulus_stats.median*ap_stats.sum_aper_area.value
+                    bkg_flux_counts_err = annulus_stats.sum_err / annulus_stats.sum_aper_area.value * ap_stats.sum_aper_area.value
 
-                flux_counts = ap_stats.sum - annulus_stats.mean*ap_stats.sum_aper_area.value # TODO: check if i should use mean!
-                flux_counts_err = ap_stats.sum_err
+                    flux_counts = ap_stats.sum - annulus_stats.mean*ap_stats.sum_aper_area.value # TODO: check if i should use mean!
+                    flux_counts_err = ap_stats.sum_err
 
-                apres = AperPhotResult.create(
-                    reducedfit=redf, 
-                    astrosource=astrosource, 
-                    aperpix=aperpix, 
-                    r_in=r_in, r_out=r_out,
-                    x_px=centroid_px_pos[0], y_px=centroid_px_pos[1],
-                    pairs=pairs, 
-                    bkg_flux_counts=bkg_flux_counts, bkg_flux_counts_err=bkg_flux_counts_err,
-                    flux_counts=flux_counts, flux_counts_err=flux_counts_err,
-                )
-                
-                apres_L.append(apres)
+                    apres = AperPhotResult.create(
+                        reducedfit=redf, 
+                        astrosource=astrosource, 
+                        aperpix=aperpix, 
+                        r_in=r_in, r_out=r_out,
+                        x_px=centroid_px_pos[0], y_px=centroid_px_pos[1],
+                        pairs=pairs, 
+                        bkg_flux_counts=bkg_flux_counts, bkg_flux_counts_err=bkg_flux_counts_err,
+                        flux_counts=flux_counts, flux_counts_err=flux_counts_err,
+                    )
+                    
+                    apres_L.append(apres)
+                except Exception as e:
+                    logger.warning(f"{redf}: error computing aperture photometry for {astrosource} {pairs}: {e}")
 
         return apres_L
     
@@ -731,11 +751,15 @@ class Instrument(metaclass=ABCMeta):
 
 
     @classmethod
-    def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fit_boxsize=None, search_boxsize=(90,90), fwhm_min=2, fwhm_max=50, fwhm_default=3.5):
+    def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fwhm_min=2, fwhm_max=50, fwhm_default=3.5):
         r"""estimate an appropriate common aperture for a list of reduced fits.
         
         It fits the target source profile in the fields and returns some multiples of the fwhm which are used as the aperture and as the inner and outer radius of the annulus for local bkg estimation).
         """
+
+        if fwhm_min is not None: fwhm_min = cls.get_binning_independent_px(reducedfits[0].rawfit, fwhm_min)
+        if fwhm_max is not None: fwhm_max = cls.get_binning_independent_px(reducedfits[0].rawfit, fwhm_max)
+        if fwhm_default is not None: fwhm_default = cls.get_binning_independent_px(reducedfits[0].rawfit, fwhm_default)
 
         from photutils.psf import fit_fwhm
         from iop4lib.utils.sourcedetection import get_bkg
@@ -787,14 +811,23 @@ class Instrument(metaclass=ABCMeta):
                     arcsec_px = redf.pixscale.to(u.arcsec/u.pix).value
 
                     box_size = math.ceil( ( 12 / arcsec_px ) ) // 2 * 2 + 1
+                    # if there is some astrometric deviation (e.g. for the extaordinary image), perhaps try 24 arcsec, 12 might be to small for it...
 
                     logger.debug(f"{box_size=}")
 
                     if redf.has_pairs:
-                        box_size_max = math.ceil(np.linalg.norm(Instrument.by_name(redf.instrument).disp_sign_mean))//2 * 2 - 1
+                        disp_sign_mean = redf.instrument_cls.get_binning_independent_px(redf.rawfit, redf.instrument_cls.disp_sign_mean)
+                        box_size_max = math.ceil(np.linalg.norm(disp_sign_mean))//2 * 2 - 1
                         box_size = min(box_size, box_size_max)
 
-                    centroid_px_pos = centroid_sources(img-median, xpos=wcs_px_pos[0], ypos=wcs_px_pos[1], box_size=box_size, centroid_func=centroid_2dg)
+                    # centroid_px_pos = centroid_sources(img-median, xpos=wcs_px_pos[0], ypos=wcs_px_pos[1], box_size=box_size, centroid_func=centroid_2dg)
+                    # # this should fix when there is a large deviation that makes the 2dg fit fail...:
+                    # # centroid_px_pos = centroid_sources(img-median, xpos=wcs_px_pos[0], ypos=wcs_px_pos[1], box_size=box_size, centroid_func=centroid_com)
+                    # # centroid_px_pos = centroid_sources(img-median, xpos=centroid_px_pos[0], ypos=centroid_px_pos[1], box_size=box_size, centroid_func=centroid_2dg)
+                    # and this should also reduce errors due to diffraction spikes (non-gaussian shape)
+                    centroid_px_pos = centroid_sources(img-median, xpos=wcs_px_pos[0], ypos=wcs_px_pos[1], box_size=box_size, centroid_func=centroid_com)
+                    centroid_px_pos = centroid_sources(apply_gaussian_smooth(img-median,1), xpos=centroid_px_pos[0], ypos=centroid_px_pos[1], box_size=box_size, centroid_func=centroid_2dg)
+
                     centroid_px_pos = (centroid_px_pos[0][0], centroid_px_pos[1][0])
 
                     # log the difference between the WCS and the centroid
@@ -802,10 +835,10 @@ class Instrument(metaclass=ABCMeta):
                     
                     logger.debug(f"ReducedFit {redf.id}: {target.name} {pairs}: WCS centroid distance = {wcs_diff:.1f} px")
 
-                    fwhm = fit_fwhm(img-median, xypos=centroid_px_pos, fit_shape=7)[0]
+                    fwhm = fit_fwhm(img-median, xypos=centroid_px_pos, fit_shape=11)[0]
 
                     if not (fwhm_min < fwhm < fwhm_max):
-                        logger.warning(f"ReducedFit {redf.id} {target.name}: fwhm = {fwhm} px, skipping this reduced fit")
+                        logger.warning(f"ReducedFit {redf.id} {target.name}: fwhm = {fwhm} px, skipping this one")
                         continue
 
                     logger.debug(f"ReducedFit {redf.id} [{target.name}] Gaussian FWHM: {fwhm} px")

@@ -207,8 +207,12 @@ class ReducedFit(RawFit):
     def header_hintobject(self):
         return self.rawfit.header_hintobject
 
-    def get_astrometry_position_hint(self, allsky=False, n_field_width=1.5, hintsep=None):
-        return Instrument.by_name(self.instrument).get_astrometry_position_hint(self.rawfit, allsky=allsky,  n_field_width=n_field_width, hintsep=hintsep)
+    @property
+    def hint_disp_sign_mean(self):
+        return self.rawfit.hint_disp_sign_mean
+
+    def get_astrometry_position_hint(self, n_field_width=1.5, hintsep=None):
+        return Instrument.by_name(self.instrument).get_astrometry_position_hint(self.rawfit,  n_field_width=n_field_width, hintsep=hintsep)
     
     def get_astrometry_size_hint(self):
         return Instrument.by_name(self.instrument).get_astrometry_size_hint(self.rawfit)

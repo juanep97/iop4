@@ -16,6 +16,7 @@ from iop4lib.enums import *
 from .instrument import Instrument
 from iop4lib.telescopes import CAHAT220
 from iop4lib.utils import filter_zero_points, calibrate_photopolresult
+from collections.abc import Iterable
 
 # logging
 import logging
@@ -149,13 +150,11 @@ class CAFOS(Instrument):
         return hint_coord
     
     @classmethod
-    def get_astrometry_position_hint(cls, rawfit, allsky=False, n_field_width=1.5, hintsep=None):
+    def get_astrometry_position_hint(cls, rawfit, n_field_width=1.5, hintsep=None):
         """ Get the position hint from the FITS header as an astrometry.PositionHint object. 
 
         Parameters
         ----------
-            allsky: bool, optional
-                If True, the hint will cover the whole sky, and n_field_width and hintsep will be ignored.
             n_field_width: float, optional
                 The search radius in units of field width. Default is 1.5.
             hintsep: Quantity, optional
@@ -164,11 +163,8 @@ class CAFOS(Instrument):
 
         hintcoord = cls.get_header_hintcoord(rawfit)
 
-        if allsky:
-            hintsep = 180.0 * u.deg
-        else:
-            if hintsep is None:
-                hintsep = n_field_width * u.Quantity("16 arcmin") # 16 arcmin is the full field size of the CAFOS T2.2, our cut is smaller (6.25, 800x800, but the pointing kws might be from anywhere in the full field)
+        if hintsep is None:
+            hintsep = n_field_width * u.Quantity("16 arcmin") # 16 arcmin is the full field size of the CAFOS T2.2, our cut is smaller (6.25, 800x800, but the pointing kws might be from anywhere in the full field)
 
         return astrometry.PositionHint(ra_deg=hintcoord.ra.deg, dec_deg=hintcoord.dec.deg, radius_deg=hintsep.to_value(u.deg))
     
@@ -257,7 +253,8 @@ class CAFOS(Instrument):
             return
         
         if group_sources != set.union(*map(set, sources_in_field_qs_list)):
-            logger.warning(f"Sources in field do not match for all polarimetry groups: {set.difference(*map(set, sources_in_field_qs_list))}")
+            diff_sources = set.union(*map(set, sources_in_field_qs_list)) - set.intersection(*map(set, sources_in_field_qs_list))
+            logger.warning("Sources in field do not match for all polarimetry groups (ReducedFit %s): %s" % (",".join([str(redf.pk) for redf in polarimetry_group]), str(diff_sources)))
 
         ## check rotation angles
 
@@ -427,38 +424,41 @@ class CAFOS(Instrument):
         for result in photopolresult_L:
             result.save()
 
-
-
     @classmethod
-    def _build_shotgun_params(cls, redf: 'ReducedFit'):
-        shotgun_params_kwargs = dict()
+    def build_shotgun_params(cls, redf: 'ReducedFit', params_to_try: dict = None):
+        from iop4lib.utils.astrometry import build_shotgun_param_combinations
 
-        shotgun_params_kwargs["d_eps"] = [1.0] #[1*np.linalg.norm(cls.disp_std)]
-        shotgun_params_kwargs["dx_eps"] = [1.0] #[1*cls.disp_std[0]]
-        shotgun_params_kwargs["dy_eps"] = [1.0] #[1*cls.disp_std[1]]
-        shotgun_params_kwargs["dx_min"] = [(cls.disp_mean[0] - 5*cls.disp_std[0])]
-        shotgun_params_kwargs["dx_max"] = [(cls.disp_mean[0] + 5*cls.disp_std[0])]
-        shotgun_params_kwargs["dy_min"] = [(cls.disp_mean[1] - 5*cls.disp_std[1])]
-        shotgun_params_kwargs["dy_max"] = [(cls.disp_mean[1] + 5*cls.disp_std[1])]
-        shotgun_params_kwargs["d_min"] = [np.linalg.norm(cls.disp_mean) - 3*np.linalg.norm(cls.disp_std)]
-        shotgun_params_kwargs["d_max"] = [np.linalg.norm(cls.disp_mean) + 3*np.linalg.norm(cls.disp_std)]
-        shotgun_params_kwargs["bins"] = [400]
-        shotgun_params_kwargs["hist_range"] = [(0,400)]
+        params = dict()
+
+        params["d_eps"] = [1.0] #[1*np.linalg.norm(cls.disp_std)]
+        params["dx_eps"] = [1.0] #[1*cls.disp_std[0]]
+        params["dy_eps"] = [1.0] #[1*cls.disp_std[1]]
+        params["dx_min"] = [(cls.disp_mean[0] - 5*cls.disp_std[0])]
+        params["dx_max"] = [(cls.disp_mean[0] + 5*cls.disp_std[0])]
+        params["dy_min"] = [(cls.disp_mean[1] - 5*cls.disp_std[1])]
+        params["dy_max"] = [(cls.disp_mean[1] + 5*cls.disp_std[1])]
+        params["d_min"] = [np.linalg.norm(cls.disp_mean) - 3*np.linalg.norm(cls.disp_std)]
+        params["d_max"] = [np.linalg.norm(cls.disp_mean) + 3*np.linalg.norm(cls.disp_std)]
+        params["bins"] = [400]
+        params["hist_range"] = [(0,400)]
 
         if redf.header_hintobject is not None and redf.header_hintobject.name == "1101+384":
-            shotgun_params_kwargs["bkg_filter_size"] = [3]
-            shotgun_params_kwargs["bkg_box_size"] = [16]
-            shotgun_params_kwargs["seg_fwhm"] = [1.0]
-            shotgun_params_kwargs["npixels"] = [8, 16]
-            shotgun_params_kwargs["n_rms_seg"] = [3.0, 1.5, 1.2, 1.1, 1.0]
+            params["bkg_filter_size"] = [3]
+            params["bkg_box_size"] = [16]
+            params["seg_fwhm"] = [1.0]
+            params["npixels"] = [8, 16]
+            params["n_rms_seg"] = [3.0, 1.5, 1.2, 1.1, 1.0]
 
+            if redf.exptime < 6:
+                params["npixels"] = [8, 4, 6]
+                params["bkg_box_size"] = [8,4,16]
 
-        return shotgun_params_kwargs
+        if params_to_try:
+            for k, v in params_to_try.items():
+                params[k] = v if isinstance(v,Iterable) else [v]
+
+        return build_shotgun_param_combinations(redf, params_to_try=params)
 
     @classmethod
-    def build_wcs(cls, reducedfit: 'ReducedFit', summary_kwargs : dict = None):
-        return super().build_wcs(reducedfit, shotgun_params_kwargs=cls._build_shotgun_params(reducedfit), summary_kwargs=summary_kwargs)
-
-    @classmethod
-    def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fit_boxsize=None, search_boxsize=(30,30), fwhm_min=2, fwhm_max=20):
-        return super().estimate_common_apertures(reducedfits, reductionmethod=reductionmethod, fit_boxsize=fit_boxsize, search_boxsize=search_boxsize, fwhm_min=fwhm_min, fwhm_max=fwhm_max)
+    def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fwhm_min=2, fwhm_max=20):
+        return super().estimate_common_apertures(reducedfits, reductionmethod=reductionmethod, fwhm_min=fwhm_min, fwhm_max=fwhm_max)

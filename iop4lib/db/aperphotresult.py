@@ -106,7 +106,7 @@ class AperPhotResult(models.Model):
         cutout_size = np.ceil(2.2*self.r_out)
 
         if self.reducedfit.has_pairs:
-            cutout_size = max(cutout_size, 2.2*np.ceil(np.linalg.norm(Instrument.by_name(self.reducedfit.instrument).disp_sign_mean)))
+            cutout_size = max(cutout_size, 2.2*np.ceil(np.linalg.norm(self.reducedfit.hint_disp_sign_mean)))
 
         cutout = Cutout2D(self.reducedfit.mdata, (self.x_px, self.y_px), (cutout_size, cutout_size), wcs)
 
@@ -147,10 +147,10 @@ class AperPhotResult(models.Model):
         annulus = CircularAnnulus(xy_px_pos, r_in=self.r_in, r_out=self.r_out)
     
         ax.imshow(cutout.data, cmap=cmap, origin='lower', norm=norm)
-        ax.plot(wcs_px_pos[0], wcs_px_pos[1], 'rx', label='WCS')
         ax.plot(xy_px_pos[0], xy_px_pos[1], 'bo', label='Photometry')
         ap.plot(ax, color='blue', lw=2, alpha=1)
         annulus.plot(ax, color='green', lw=2, alpha=1)
+        ax.plot(wcs_px_pos[0], wcs_px_pos[1], 'rx', label='WCS')
 
         ax.axis('off')
         fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
