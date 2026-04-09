@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "iop4"
-description = "A rewrite of IOP3, a pipeline to work with photometry and polarimetry of optical data from CAHA and OSN."
+description = "IOP4, the Interactive Optical Photo-Polarimetric Python Pipeline."
 readme = "README.md"
 license = {text = "BSD-3-Clause"}
 authors = [
-    {name = "Juan Escudero Pedrosa", email = "jescudero@iaa.es"},
+    {name = "Juan Escudero Pedrosa", email = "juan.escuderopedrosa@cfa.harvard.edu"},
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
