@@ -961,9 +961,10 @@ class DIPOL(Instrument):
         if summary_kwargs is None:
             summary_kwargs = {'build_summary_images':True, 'with_simbad':True}
 
-        # disp_allowed_err = 1.5*cls.disp_std
-        disp_allowed_err =  np.array([30,30]) # most times should be much smaller (1.5*std)
-        # but in bad cases, this is ~1 sigma of the gaussians
+        disp_sign_mean = cls.get_binning_independent_px(redf.rawfit, cls.disp_sign_mean)
+        disp_std = cls.get_binning_independent_px(redf.rawfit, cls.disp_std)
+
+        disp_allowed_err = 1.5*disp_std
 
         from iop4lib.db import AstroSource
         from iop4lib.utils.sourcepairing import get_best_pairs
@@ -1020,16 +1021,16 @@ class DIPOL(Instrument):
             for i, (pos1, pos2) in enumerate(zip(pre_list1, pre_list2)):
                 dist = distance(pos1, pos2)
                 disp = np.abs(np.subtract(pos1, pos2))
-                diff = np.abs(np.subtract(pos1, pos2))-np.abs(cls.disp_sign_mean)
+                diff = np.abs(np.subtract(pos1, pos2))-np.abs(disp_sign_mean)
                 with np.printoptions(precision=1, suppress=True):
                     logger.debug(f"{i=}, {pos1=!s}, {pos2=!s}, dist={dist:.2f}, {disp=!s}, {diff=!s}")
 
-            list1, list2, d0_new, disp_sign_new = get_best_pairs(pre_list1, pre_list2, cls.disp_sign_mean, disp_sign_err=disp_allowed_err)
+            list1, list2, d0_new, disp_sign_new = get_best_pairs(pre_list1, pre_list2, disp_sign_mean, disp_sign_err=disp_allowed_err)
 
             logger.debug(f"{list1=}, {list2=}, {d0_new=}, {disp_sign_new=}")
 
             if len(list1) == 0:
-                list1, list2, d0_new, disp_sign_new = get_best_pairs(pre_list1, pre_list2, -cls.disp_sign_mean, disp_sign_err=disp_allowed_err)
+                list1, list2, d0_new, disp_sign_new = get_best_pairs(pre_list1, pre_list2, -disp_sign_mean, disp_sign_err=disp_allowed_err)
                 logger.debug(f"{list1=}, {list2=}, {d0_new=}, {disp_sign_new=}")
             
             if len(list1) != 1:
@@ -1040,10 +1041,10 @@ class DIPOL(Instrument):
             
 
         # Check that the sources are pairs
-        if not np.isclose(np.abs(positions[0][0]-positions[1][0]), cls.disp_mean[0], atol=disp_allowed_err[0]):
+        if not np.isclose(np.abs(positions[0][0]-positions[1][0]), abs(disp_sign_mean[0]), atol=disp_allowed_err[0]):
             logger.error(f"These are not pairs, x mismatch detected according to hard-coded pair distance: disp x = {np.abs(positions[0][0]-positions[1][0]):.0f} px")
             return BuildWCSResult(success=False, info={'n_bright_sources':len(positions)})
-        if not np.isclose(np.abs(positions[0][1]-positions[1][1]), cls.disp_mean[1], atol=disp_allowed_err[1]):
+        if not np.isclose(np.abs(positions[0][1]-positions[1][1]), abs(disp_sign_mean[1]), atol=disp_allowed_err[1]):
             logger.error(f"These are not pairs, y mismatch detected according to hard-coded pair distance: disp y = {np.abs(positions[0][1]-positions[1][1]):.0f} px")
             return BuildWCSResult(success=False, info={'n_bright_sources':len(positions)})
 
