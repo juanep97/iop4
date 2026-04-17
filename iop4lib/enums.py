@@ -62,6 +62,7 @@ class SRCTYPES(models.TextChoices):
     BLAZAR = 'blazar', "Blazar"
     STAR = 'star', "Star"
     TDE = 'tde', "TDE"
+    GRB = 'grb', 'GRB'
 
 class REDUCTIONMETHODS(models.TextChoices):
     """
