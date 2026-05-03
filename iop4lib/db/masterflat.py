@@ -8,19 +8,24 @@ import datetime
 import numpy as np
 import astropy.io.fits as fits
 
-from .fitfilemodel import FitFileModel
-from ..enums import *
+from ..enums import (
+    INSTRUMENTS,
+    BANDS,
+    OBSMODES,
+    IMGTYPES,
+)
+from .fitfilemodel import MasterFitFileAdmin
 from .fields import FlagChoices, FlagBitField
 
 import logging
 logger = logging.getLogger(__name__)
 
-class MasterFlat(FitFileModel):
+class MasterFlat(MasterFitFileAdmin):
     """
     A class representing a master flat for an epoch.
     """
 
-    margs_kwL = ['epoch', 'instrument', 'imgsize', 'band', 'obsmode', 'rotangle', 'exptime']
+    margs_kwL = ['epoch', 'instrument', 'imgsize', 'imgbinning', 'band', 'obsmode', 'rotangle', 'exptime']
 
     imgtype = IMGTYPES.FLAT
     
@@ -39,6 +44,7 @@ class MasterFlat(FitFileModel):
     epoch = models.ForeignKey('Epoch', on_delete=models.CASCADE, related_name='masterflats') 
     instrument = models.CharField(max_length=20, choices=INSTRUMENTS.choices)
     imgsize = models.CharField(max_length=12, null=True)
+    imgbinning = models.CharField(max_length=3, null=True)
     band = models.CharField(max_length=10, choices=BANDS.choices, default=BANDS.NONE)
     obsmode = models.CharField(max_length=20, choices=OBSMODES.choices, default=OBSMODES.NONE)
     rotangle = models.FloatField(null=True)
@@ -66,50 +72,8 @@ class MasterFlat(FitFileModel):
     def fileloc(self):
         return f"{self.epoch.epochname}/{self.filename}"
 
-    # Filed Properties location
-    
-    @property
-    def filedpropdir(self):
-       return os.path.join(self.epoch.calibrationdir, 
-                            self.filename +  '.d', 
-                            self.__class__.__name__)
-    
-    # some helper properties
-
-    @property
-    def margs(self):
-        """
-        Return a dict of the arguments used to build this MasterFlat.
-        """
-        return {'epoch':self.epoch, 'instrument':self.instrument, 'imgsize':self.imgsize, 'band':self.band, 'obsmode':self.obsmode, 'rotangle':self.rotangle, 'exptime':self.exptime}
-    
-    # repr and str
-
-    @classmethod
-    def margs2str(cls, margs):
-       """
-       Class method to build a nice string rep of the arguments of a MasterFlat.
-       """
-       return f"{margs['epoch'].epochname} | {margs['instrument']} | {margs['imgsize']} | {margs['band']} | {margs['obsmode']} | {margs['rotangle']} º | {margs['exptime']}s"
-
-    def __repr__(self):
-        return f"MasterFlat.objects.get(id={self.id!r})"
-    
-    def __str__(self):
-        return f"<MasterFlat {self.id!r} | {MasterFlat.margs2str(self.margs)}>"
-    
-    def _repr_pretty_(self, p, cycle):
-        if cycle:
-            p.text(f"{self!r}")
-        else:
-            with p.group(4, f'<{self.__class__.__name__}(', ')>'):
-                p.text(f"id: {self.id},")
-                for k,v in self.margs.items():
-                    p.breakable()
-                    p.text(f"{k}: {v}")
-
-    
     # Constructor
+
     @classmethod
     def create(cls, 
                rawfits=None, 
@@ -191,10 +155,6 @@ class MasterFlat(FitFileModel):
             mf.save()
 
         return mf
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.auto_merge_to_db=True
     
     # Methods
 

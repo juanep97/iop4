@@ -1,6 +1,16 @@
 from django.contrib import admin
-from iop4api.filters import *
-from iop4api.models import *
+
+from iop4api.models import (
+    Epoch,
+    RawFit,
+    MasterBias,
+    MasterDark,
+    MasterFlat,
+    ReducedFit,
+    AstroSource,
+    PhotoPolResult,
+    AperPhotResult,
+)
 
 # IOP4Admin custom admin
 
@@ -16,9 +26,7 @@ iop4admin_site = IOP4AdminSite(name='iop4admin')
 
 from .modeladmins.epoch import AdminEpoch
 from .modeladmins.rawfit import AdminRawFit
-from .modeladmins.masterflat import AdminMasterFlat
-from .modeladmins.masterdark import AdminMasterDark
-from .modeladmins.masterbias import AdminMasterBias
+from .modeladmins.master import AdminMasterFile
 from .modeladmins.reducedfit import AdminReducedFit
 from .modeladmins.astrosource import AdminAstroSource
 from .modeladmins.aperphotresult import AdminAperPhotResult
@@ -26,11 +34,10 @@ from .modeladmins.photopolresult import AdminPhotoPolResult
 
 iop4admin_site.register(Epoch, AdminEpoch)
 iop4admin_site.register(RawFit, AdminRawFit)
-iop4admin_site.register(MasterBias, AdminMasterBias)
-iop4admin_site.register(MasterFlat, AdminMasterFlat)
-iop4admin_site.register(MasterDark, AdminMasterDark)
+iop4admin_site.register(MasterBias, AdminMasterFile)
+iop4admin_site.register(MasterFlat, AdminMasterFile)
+iop4admin_site.register(MasterDark, AdminMasterFile)
 iop4admin_site.register(ReducedFit, AdminReducedFit)
 iop4admin_site.register(AstroSource, AdminAstroSource)
 iop4admin_site.register(PhotoPolResult, AdminPhotoPolResult)
 iop4admin_site.register(AperPhotResult, AdminAperPhotResult)
-

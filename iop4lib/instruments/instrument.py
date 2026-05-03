@@ -126,6 +126,7 @@ class Instrument(metaclass=ABCMeta):
         cls.classify_band_rawfit(rawfit)
         cls.classify_obsmode_rawfit(rawfit)
         cls.classify_imgsize(rawfit)
+        cls.classify_imgbinning(rawfit)
         cls.classify_exptime(rawfit)
     
     @classmethod
@@ -148,6 +149,24 @@ class Instrument(metaclass=ABCMeta):
                 return rawfit.imgsize
             else:
                 raise ValueError(f"Raw fit file {rawfit.fileloc} has NAXIS != 2, cannot get imgsize.")
+            
+    @classmethod
+    def classify_imgbinning(cls, rawfit):
+        """ Read the binning of the image from the FITS header, and save it in rawfit.imgbinning."""
+        import astropy.io.fits as fits
+        from iop4lib.db import RawFit
+
+        with fits.open(rawfit.filepath) as hdul:
+            header = hdul[0].header
+            if header["NAXIS"] == 2:
+                binX = header.get("XBINNING") or header.get("CCDBINX")
+                binY = header.get("YBINNING") or header.get("CCDBINY")
+                if not binX or not binY:
+                    raise ValueError(f"Raw fit file {rawfit} binning could not be read from header.")
+                rawfit.imgbinning = f"{binX}x{binY}"
+                return rawfit.imgbinning
+            else:
+                raise ValueError(f"Raw fit file {rawfit} has NAXIS != 2!")
 
     @classmethod
     def get_rawfit_hint_arcsec_per_pix(cls, rawfit: 'RawFit'):
