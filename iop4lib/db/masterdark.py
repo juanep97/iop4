@@ -8,19 +8,24 @@ import datetime
 import numpy as np
 import astropy.io.fits as fits
 
-from .fitfilemodel import FitFileModel
-from ..enums import *
+from ..enums import (
+    INSTRUMENTS,
+    BANDS,
+    OBSMODES,
+    IMGTYPES,
+)
+from .fitfilemodel import MasterFitFileAdmin
 from .fields import FlagChoices, FlagBitField
 
 import logging
 logger = logging.getLogger(__name__)
 
-class MasterDark(FitFileModel):
+class MasterDark(MasterFitFileAdmin):
     """
     A class representing a master dark for an epoch.
     """
 
-    margs_kwL = ['epoch', 'instrument', 'imgsize', 'exptime']
+    margs_kwL = ['epoch', 'instrument', 'imgsize', 'imgbinning', 'exptime',]
 
     imgtype = IMGTYPES.DARK
 
@@ -39,6 +44,7 @@ class MasterDark(FitFileModel):
     epoch = models.ForeignKey('Epoch', on_delete=models.CASCADE, related_name='masterdarks') 
     instrument = models.CharField(max_length=20, choices=INSTRUMENTS.choices)
     imgsize = models.CharField(max_length=12, null=True)
+    imgbinning = models.CharField(max_length=3, null=True)
     exptime = models.FloatField(null=True)
 
     masterbias = models.ForeignKey('MasterBias', null=True, on_delete=models.CASCADE, related_name='masterdarks')
@@ -47,65 +53,9 @@ class MasterDark(FitFileModel):
         app_label = 'iop4api'
         verbose_name = "Master Dark"
         verbose_name_plural = "Master Darks"
-
-    # Properties
-
-    @property
-    def filename(self):
-        return f"masterdark_id{self.id}.fits"
-    
-    @property
-    def filepath(self):
-        return os.path.join(self.epoch.masterdarkdir, self.filename)
-    
-    @property
-    def fileloc(self):
-        return f"{self.epoch.epochname}/{self.filename}"
-
-    # Filed Properties location
-    
-    @property
-    def filedpropdir(self):
-       return os.path.join(self.epoch.calibrationdir, 
-                            self.filename +  '.d', 
-                            self.__class__.__name__)
-    
-    # some helper properties
-
-    @property
-    def margs(self):
-        """
-        Return a dict of the arguments used to build this MasterDark.
-        """
-        return {'epoch':self.epoch, 'instrument':self.instrument, 'imgsize':self.imgsize, 'exptime':self.exptime}
-    
-    # repr and str
-
-    @classmethod
-    def margs2str(cls, margs):
-       """
-       Class method to build a nice string rep of the arguments of a MasterDark.
-       """
-       return f"{margs['epoch'].epochname} | {margs['instrument']} | {margs['imgsize']} | {margs['exptime']}s"
-
-    def __repr__(self):
-        return f"MasterDark.objects.get(id={self.id!r})"
-    
-    def __str__(self):
-        return f"<MasterDark {self.id!r} | {MasterDark.margs2str(self.margs)}>"
-    
-    def _repr_pretty_(self, p, cycle):
-        if cycle:
-            p.text(f"{self!r}")
-        else:
-            with p.group(4, f'<{self.__class__.__name__}(', ')>'):
-                p.text(f"id: {self.id},")
-                for k,v in self.margs.items():
-                    p.breakable()
-                    p.text(f"{k}: {v}")
-
     
     # Constructor
+
     @classmethod
     def create(cls, 
                rawfits=None, 
@@ -179,10 +129,6 @@ class MasterDark(FitFileModel):
             md.save()
 
         return md
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.auto_merge_to_db=True
     
     # Methods
 

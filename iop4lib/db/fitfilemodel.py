@@ -307,3 +307,93 @@ class FitFileModel(AbstractModel):
                 f.write(imgbytes)
                     
         return imgbytes
+
+
+class MasterFitFileAdmin(FitFileModel):
+
+    class Meta:
+        abstract = True
+
+    # Properties
+
+    @property
+    def filename(self):
+        return f"{self.__class__.__name__.lower()}_id{self.id}.fits"
+    
+    @property
+    def filepath(self):
+        attrname = f"{self.__class__.__name__.lower()}dir"
+        return os.path.join(
+            getattr(self.epoch, attrname),
+            self.filename,
+        )
+
+    @property
+    def fileloc(self):
+        return f"{self.epoch.epochname}/{self.filename}"
+    
+    # Filed Properties location
+    
+    @property
+    def filedpropdir(self):
+        return os.path.join(
+            self.epoch.calibrationdir, 
+                self.filename +  '.d', 
+                self.__class__.__name__,
+        )
+    
+    # some helper properties
+
+    @property
+    def margs(self):
+        """
+        Return a dict of the arguments used to build this MasterFlat.
+        """
+        return {k:getattr(self, k) for k in self.margs_kwL}
+    
+    # repr and str
+
+    @classmethod
+    def margs2str(cls, margs):
+        """
+        Class method to build a nice string rep of the arguments of a MasterFlat.
+        """
+
+        res = list()
+
+        for i, k in enumerate(cls.margs_kwL):
+            if k == "epoch":
+                s = f"{margs[k].epochname}"
+            elif k == 'rotangle':
+                s = f"{margs[k]} º"
+            elif k == 'exptime':
+                s = f"{margs[k]}s"
+            else:
+                s = f"{margs[k]}"
+            res.append(s)
+        
+        res = " | ".join(res)
+
+        return res
+        
+    def __repr__(self):
+        return f"{self.__class__.__name__}.objects.get(id={self.id!r})"
+    
+    def __str__(self):
+        return f"<{self.__class__.__name__} {self.id!r} | {self.__class__.margs2str(self.margs)}>"
+    
+    def _repr_pretty_(self, p, cycle):
+        if cycle:
+            p.text(f"{self!r}")
+        else:
+            with p.group(4, f'<{self.__class__.__name__}(', ')>'):
+                p.text(f"id: {self.id},")
+                for k,v in self.margs.items():
+                    p.breakable()
+                    p.text(f"{k}: {v}")
+
+    # init
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.auto_merge_to_db=True
