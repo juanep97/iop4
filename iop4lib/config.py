@@ -59,8 +59,9 @@ class Config(dict):
             Path to the configuration file. If None, it will try to use, in order: 
             1. The current config file
             2. The file specified by the environment variable IOP4_CONFIG_FILE 
-            3. ~/.iop4.config.yaml, if it exists
-            4. The example config file in the iop4lib package.
+            3. ~/.iop4data/config.yaml, if it exists
+            4. ~/.iop4.config.yaml, if it exists
+            5. The example config file in the iop4lib package.
         config_db : bool, default False
             If True, configures django ORM to make the models and database accesible. It 
             should be used only once the top level of your script.
@@ -101,22 +102,24 @@ class Config(dict):
     
         Config._configured = True
 
-        # If config_path is None, either use the one already in use or the default one
+        paths = [
+            config_path,
+            getattr(self, 'config_path', None),
+            os.getenv("IOP4_CONFIG_FILE"),
+            "~/.iop4data/config.yaml",
+            "~/.iop4.config.yaml",
+            resources.files("iop4lib") / "config.example.yaml",
+        ]
 
-        if config_path is None:
-            if hasattr(self, 'config_path') and self.config_path is not None:
-                config_path = self.config_path
-            else:
+        paths = [Path(p).expanduser().resolve() for p in paths if p]
 
-                if os.getenv("IOP4_CONFIG_FILE") is not None:
-                    config_path = Path(os.getenv("IOP4_CONFIG_FILE")).expanduser()
-                elif Path("~/.iop4.config.yaml").expanduser().exists():
-                    config_path = Path("~/.iop4.config.yaml").expanduser()
-                else:
-                    config_path = resources.files("iop4lib") / "config.example.yaml"
-
-                if not config_path.exists():
-                    raise FileNotFoundError(f"Config file {config_path} not found.")
+        for p in paths:
+            if p and p.exists():
+                config_path = p
+                break
+        
+        if not config_path:
+            raise FileNotFoundError(f"Config file {config_path} not found.")
         
         self.config_path = Path(config_path).expanduser()
 
