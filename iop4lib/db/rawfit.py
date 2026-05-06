@@ -149,6 +149,7 @@ class RawFit(FitFileModel):
                 f" - filename: {self.filename}<br>\n"
                 f" - instrument: {self.instrument}<br>\n"
                 f" - imgtype: {self.imgtype}<br>\n"
+                f" - imgbinning: {self.imgbinning}<br>\n"
                 f" - size: {self.imgsize}<br>\n"
                 f" - obsmode: {self.obsmode}<br>\n"
                 f" - band: {self.band}<br>\n"
