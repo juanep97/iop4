@@ -925,22 +925,20 @@ class InstrumentHWP(ABC, Instrument):
             if len(angles_L) != len(cls.rot_angles_required):
                 logger.warning(f"There should be {len(cls.rot_angles_required)} different angles, there are {len(angles_L)}.")
 
-            # build a dict
-            fluxD = {}
+            fluxes = dict()
+            flux_errors = dict()
             for pair, angle, flux, flux_err in zip(values['pairs'], values['reducedfit__rotangle'], values['flux_counts'], values['flux_counts_err']):
-                if pair not in fluxD:
-                    fluxD[pair] = {}
-                fluxD[pair][angle] = (flux, flux_err)
+                fluxes[(pair, angle)] = flux
+                flux_errors[(pair, angle)] = flux_err          
 
+            theta = np.array([angle for angle in angles_L])
 
-            theta = np.array(angles_L)
+            fO = np.array([fluxes.get(('O', angle), np.nan) for angle in angles_L])
+            dfO = np.array([flux_errors.get(('O', angle), np.nan) for angle in angles_L])
 
-            fO = np.array([(fluxD['O'][angle][0]) for angle in angles_L])
-            dfO = np.array([(fluxD['O'][angle][1]) for angle in angles_L])
+            fE = np.array([fluxes.get(('E', angle), np.nan) for angle in angles_L])
+            dfE = np.array([flux_errors.get(('E', angle), np.nan) for angle in angles_L])
 
-            fE = np.array([(fluxD['E'][angle][0]) for angle in angles_L])
-            dfE = np.array([(fluxD['E'][angle][1]) for angle in angles_L])
-            
             # IOP4 astrocalibration atm works the other way, swap them here
             fO, dfO, fE, dfE = fE, dfE, fO, dfO
 

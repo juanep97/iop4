@@ -259,6 +259,7 @@ def compute_stokes_HWP_fit_full(theta, fO, fE, dfO, dfE, plot=False):
         ydata = ydata,
         sigma = sigma,
         p0 = p0,
+        nan_policy = 'omit',
         full_output = True,
     )
 
@@ -400,6 +401,7 @@ def compute_stokes_HWP_fit_1(theta, fO, fE, dfO, dfE, plot=False):
         xdata = xdata,
         ydata = ydata,
         sigma = sigma,
+        nan_policy = 'omit',
         full_output = True,
     )
 
@@ -554,6 +556,7 @@ def compute_stokes_HWP_fit_2(theta, fO=None, dfO=None, fE=None, dfE=None):
         ydata = ydata,
         sigma = sigma,
         p0 = p0,
+        nan_policy = 'omit',
         full_output = True,
     )
 
@@ -593,6 +596,7 @@ def compute_stokes_HWP_fit_3(theta, fO, fE, dfO, dfE):
         xdata = xdata,
         ydata = ydata,
         sigma = sigma,
+        nan_policy = 'omit',
         full_output = True,
     )
 
