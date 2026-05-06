@@ -12,10 +12,13 @@ import numpy as np
 import math
 
 # iop4lib imports
-from iop4lib.enums import *
-from .instrument import Instrument
+from iop4lib.enums import (
+    IMGTYPES,
+    BANDS,
+    OBSMODES,
+)
+from .instrument import Instrument, InstrumentHWP
 from iop4lib.telescopes import CAHAT220
-from iop4lib.utils import filter_zero_points, calibrate_photopolresult
 from collections.abc import Iterable
 
 # logging
@@ -26,7 +29,7 @@ import typing
 if typing.TYPE_CHECKING:
     from iop4lib.db import RawFit, ReducedFit, Epoch
 
-class CAFOS(Instrument):
+class CAFOS(InstrumentHWP):
         
     name = "CAFOS2.2"
     telescope = CAHAT220.name
@@ -51,6 +54,7 @@ class CAFOS(Instrument):
     disp_sign_mean, disp_sign_std = np.array([-35.72492116, -0.19719535]), np.array([1.34389, 1.01621491])
     disp_mean, disp_std = np.abs(disp_sign_mean), disp_sign_std
 
+    rot_angles_required = {0.0, 22.48, 44.98, 67.48}
 
     @classmethod
     def classify_juliandate_rawfit(cls, rawfit):
@@ -187,244 +191,6 @@ class CAFOS(Instrument):
         return (fit_instance.obsmode == OBSMODES.POLARIMETRY)
 
     @classmethod
-    def compute_relative_polarimetry(cls, polarimetry_group):
-        """ Computes the relative polarimetry for a polarimetry group for CAFOS observations.
-        
-        .. note::
-            CAFOS Polarimetry observations are done with a system consisting of a half-wave plate (HW) and a Wollaston prism (P).
-
-            The rotation angle theta_i refers to the angle theta_i between the HW plate and its fast (extraordinary) axes.
-
-            The effect of the HW is to rotate the polarization vector by 2*theta_i, and the effect of the Wollaston prism is to split 
-            the beam into two beams polarized in orthogonal directions (ordinary and extraordinary).
-
-            An input polarized beam with direction v will be rotated by HW by 2*theta_i. The O and E fluxes will be the projections of the
-            rotated vector onto the ordinary and extraordinary directions of the Wollaston prism (in absolute values since -45 and 45 
-            polarization directions are equivalent). A way to write this is:
-
-            fo(theta_i) = abs( <HW(theta_i)v,e_i> ) = abs ( <R(2*theta_i)v,e_i> ), where <,> denotes the scalar product and R is the rotation matrix.
-
-            Therefore the following observed fluxes should be the same (ommiting the abs for clarity):
-
-            fo(0º) = <v,e_1> = <v,R(-90)R(+90)e_1> = <R(90),R(90)e_i> = <HW(45),R(90)e_1> = fe(45º)
-            fo(22º) = <HW(22)v,e_1> = <R(45)v,e_1> = <R(90)R(45)v,R(90)e_1> = <R(135)v,e_1> = <HW(67),R(90)e_1> = fe(67º)
-            fo(45º) = <HW(45)v,e_1> = <R(90)v,e_1> = <v,R(-90)e_1> = -<v,e_2> = fe(0º)
-            fo(67º) = <HW(67)v,e_1> = <R(135)v,e_1> = <R(90)R(45)v,e_1> = <R(45)v,R(-90)e_1> = <HW(22),R(-90)e_1> = fe(22º)
-
-            See https://arxiv.org/pdf/astro-ph/0509153 (doi 10.1086/497581) for the formulas relating these fluxes to 
-            the Stokes parameters.
-
-        .. note::
-            This rotation angle has a different meaning than for OSN-T090 Polarimetry observations. For them, it is the rotation angle of a polarized filter
-            with respect to some reference direction. Therefore we have the equivalencies (again ommiting the abs for clarity):
-            
-            OSN(45º) = <v,R(45)e_1> = <R(45)v,R(45)R(45)e_1> = <HW(22),R(90)e_1> = fE(22º) = fO(67º)
-            OSN(90º) = <v,R(90)e_1> = <R(90)v,R(90)R(90)e_1> = fO(45º)
-            OSN(-45º) = OSN(135º) = abs(<v,R(-45)e_1>) = <R(45)v,e_1> = <R(135)v,R(90)e_1> = fE(67º) = fO(22º)
-            OSN(0º) = <v,e_1> = <v,e_1> = fO(0º)
-        """
-        
-        from iop4lib.db.aperphotresult import AperPhotResult
-        from iop4lib.db.photopolresult import PhotoPolResult
-
-        # Perform some checks on the group
-
-        ## get the band of the group
-
-        bands = [reducedfit.band for reducedfit in polarimetry_group]
-
-        if len(set(bands)) == 1:
-            band = bands[0]
-        else: # should not happen
-            raise Exception(f"Can not compute relative polarimetry for a group with different bands: {bands}")
-
-        ## check obsmodes
-
-        if not all([reducedfit.obsmode == OBSMODES.POLARIMETRY for reducedfit in polarimetry_group]):
-            raise Exception(f"This method is only for polarimetry images.")
-        
-        ## check sources in the fields
-
-        sources_in_field_qs_list = [reducedfit.sources_in_field.all() for reducedfit in polarimetry_group]
-        group_sources = set.intersection(*map(set, sources_in_field_qs_list))
-
-        if len(group_sources) == 0:
-            logger.error("No common sources in field for all polarimetry groups.")
-            return
-        
-        if group_sources != set.union(*map(set, sources_in_field_qs_list)):
-            diff_sources = set.union(*map(set, sources_in_field_qs_list)) - set.intersection(*map(set, sources_in_field_qs_list))
-            logger.warning("Sources in field do not match for all polarimetry groups (ReducedFit %s): %s" % (",".join([str(redf.pk) for redf in polarimetry_group]), str(diff_sources)))
-
-        ## check rotation angles
-
-        rot_angles_available = set([redf.rotangle for redf in polarimetry_group])
-        rot_angles_required = {0.0, 22.48, 44.98, 67.48}
-
-        if not rot_angles_available.issubset(rot_angles_required):
-            logger.warning(f"Rotation angles missing: {rot_angles_required - rot_angles_available}")
-
-        # 1. Compute all aperture photometries
-
-        aperpix, r_in, r_out, fit_res_dict = cls.estimate_common_apertures(polarimetry_group, reductionmethod=REDUCTIONMETHODS.RELPHOT)
-        mean_fwhm = fit_res_dict['mean_fwhm']
-        
-        logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group with target aperpix {aperpix:.1f}.")
-
-        for reducedfit in polarimetry_group:
-            cls.compute_aperture_photometry(reducedfit, aperpix, r_in, r_out)
-
-        # 2. Compute relative polarimetry for each source (uses the computed aperture photometries)
-
-        logger.debug("Computing relative polarimetry.")
-
-        photopolresult_L = list()
-
-        for astrosource in group_sources:
-            logger.debug(f"Computing relative polarimetry for {astrosource}.")
-
-            # if any angle is missing for some pair, it uses the equivalent angle of the other pair
-
-            qs = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, flux_counts__isnull=False)
-
-            if not qs.exists():
-                logger.error(f"No aperture photometry results found for {astrosource}, skipping.")
-                continue
-
-            equivs = ((('O',0.0),   ('E',44.98)),
-                      (('O',22.48), ('E',67.48)),
-                      (('O',44.98), ('E',0.0)),
-                      (('O',67.48), ('E',22.48)),
-                      (('E',0.0),   ('O',44.98)),
-                      (('E',22.48), ('O',67.48)),
-                      (('E',44.98),  ('O',0.0)),
-                      (('E',67.48), ('O',22.48)))
-
-            flux_D = dict()
-            _skip = False
-            for equiv in equivs:
-                if qs.filter(pairs=equiv[0][0], reducedfit__rotangle=equiv[0][1]).exists():
-                    flux_D[(equiv[0][0], equiv[0][1])] = qs.filter(pairs=equiv[0][0], reducedfit__rotangle=equiv[0][1]).values_list("flux_counts", "flux_counts_err").last()
-                elif qs.filter(pairs=equiv[1][0], reducedfit__rotangle=equiv[1][1]).exists():
-                    logger.warning(f"Missing flux for {astrosource} {equiv[0][0]} {equiv[0][1]}, using {equiv[1][0]} {equiv[1][1]}")
-                    flux_D[(equiv[0][0], equiv[0][1])] = qs.filter(pairs=equiv[1][0], reducedfit__rotangle=equiv[1][1]).values_list("flux_counts", "flux_counts_err").last()
-                else:
-                    logger.error(f"Missing flux for {astrosource} {equiv[0][0]} {equiv[0][1]} and {equiv[1][0]} {equiv[1][1]}, skipping this source.")
-                    _skip = True
-                    break
-            if _skip:
-                continue
-            
-            flux_O_0, flux_O_0_err = flux_D[('O',0.0)]
-            flux_O_22, flux_O_22_err = flux_D[('O',22.48)]
-            flux_O_45, flux_O_45_err = flux_D[('O',44.98)]
-            flux_O_67, flux_O_67_err = flux_D[('O',67.48)]
-            flux_E_0, flux_E_0_err = flux_D[('E',0.0)]
-            flux_E_22, flux_E_22_err = flux_D[('E',22.48)]
-            flux_E_45, flux_E_45_err = flux_D[('E',44.98)]
-            flux_E_67, flux_E_67_err = flux_D[('E',67.48)]
-
-            fluxes_O = np.array([flux_O_0, flux_O_22, flux_O_45, flux_O_67])
-            fluxes_E = np.array([flux_E_0, flux_E_22, flux_E_45, flux_E_67])
-
-            # logger.debug(f"Fluxes_O: {fluxes_O}")
-            # logger.debug(f"Fluxes_E: {fluxes_E}")
-
-            fluxes = (fluxes_O + fluxes_E) / 2.
-            flux_mean = fluxes.mean()
-            flux_err = fluxes.std() / math.sqrt(len(fluxes))
-
-            RQ = np.sqrt((flux_O_0 / flux_E_0) / (flux_O_45 / flux_E_45))
-            dRQ = RQ / 2 * math.sqrt((flux_O_0_err / flux_O_0) ** 2 + (flux_E_0_err / flux_E_0) ** 2 + (flux_O_45_err / flux_O_45) ** 2 + (flux_E_45_err / flux_E_45) ** 2)
-
-            RU = np.sqrt((flux_O_22 / flux_E_22) / (flux_O_67 / flux_E_67))
-            dRU = RU / 2 * math.sqrt((flux_O_22_err / flux_O_22) ** 2 + (flux_E_22_err / flux_E_22) ** 2 + (flux_O_67_err / flux_O_67) ** 2 + (flux_E_67_err / flux_E_67) ** 2)
-
-            Q_I = (RQ - 1) / (RQ + 1)
-            dQ_I = math.fabs( RQ / (RQ + 1) ** 2 * dRQ)
-            U_I = (RU - 1) / (RU + 1)
-            dU_I = math.fabs( RU / (RU + 1) ** 2 * dRU)
-
-            P = math.sqrt(Q_I ** 2 + U_I ** 2)
-            dP = 1/P * math.sqrt(Q_I**2 * dQ_I**2 + U_I**2 * dU_I**2)
-
-            Theta_0 = 0
-        
-            if Q_I >= 0:
-                Theta_0 = math.pi 
-                if U_I > 0:
-                    Theta_0 = -1 * math.pi
-                # if Q_I < 0:
-                #     Theta_0 = math.pi / 2
-                
-            Theta = 0.5 * math.degrees(math.atan(U_I / Q_I) + Theta_0)
-            dTheta = 0.5 * 180.0 / math.pi * (1 / (1 + (U_I/Q_I) ** 2)) * math.sqrt( (dU_I/Q_I)**2 + (U_I*dQ_I/Q_I**2)**2 )
-
-            # compute instrumental magnitude
-
-            if flux_mean <= 0.0:
-                logger.warning(f"{polarimetry_group=}: negative flux mean encountered while relative polarimetry for {astrosource=} ??!! It will be nan, but maybe we should look into this...")
-
-            mag_inst = -2.5 * np.log10(flux_mean) # slower than math.log10 but returns nan when flux < 0 instead of throwing error (see https://github.com/juanep97/iop4/issues/24)
-            mag_inst_err = math.fabs(2.5 / math.log(10) * flux_err / flux_mean)
-
-            # if the source is a calibrator, compute also the zero point
-
-            if astrosource.is_calibrator:
-                mag_known = getattr(astrosource, f"mag_{band}")
-                mag_known_err = getattr(astrosource, f"mag_{band}_err", None) or 0.0
-
-                if mag_known is None:
-                    logger.warning(f"Calibrator {astrosource} has no magnitude for band {band}.")
-                    mag_zp = np.nan
-                    mag_zp_err = np.nan
-                else:
-                    mag_zp = mag_known - mag_inst
-                    mag_zp_err = math.sqrt(mag_known_err ** 2 + mag_inst_err ** 2)
-            else:
-                mag_zp = None
-                mag_zp_err = None
-
-            # save the results
-                    
-            result = PhotoPolResult.create(
-                reducedfits=polarimetry_group, 
-                astrosource=astrosource, 
-                reduction=REDUCTIONMETHODS.RELPOL, 
-                mag_inst=mag_inst, mag_inst_err=mag_inst_err, 
-                mag_zp=mag_zp, mag_zp_err=mag_zp_err,
-                flux_counts=flux_mean, 
-                p=P, p_err=dP, 
-                chi=Theta, chi_err=dTheta,
-                aperpix=aperpix,
-                aperas=aperpix*polarimetry_group[0].pixscale.to(u.arcsec/u.pix).value,
-                fwhm=mean_fwhm*polarimetry_group[0].pixscale.to(u.arcsec/u.pix).value,
-            )
-            
-            result.aperphotresults.set(qs, clear=True)
-            
-            photopolresult_L.append(result)
-
-        if not photopolresult_L:
-            logger.error("No results could be computed for this group.")
-            return
-        
-        # 3. Compute the calibrated magnitudes for non-calibrators in the group using the averaged zero point
-
-        for result in photopolresult_L:
-
-            if result.astrosource.is_calibrator:
-                continue
-
-            logger.debug(f"calibrating {result}")
-
-            calibrate_photopolresult(result, photopolresult_L)
-
-        # 5. Save results
-        for result in photopolresult_L:
-            result.save()
-
-    @classmethod
     def build_shotgun_params(cls, redf: 'ReducedFit', params_to_try: dict = None):
         from iop4lib.utils.astrometry import build_shotgun_param_combinations
 
@@ -460,5 +226,16 @@ class CAFOS(Instrument):
         return build_shotgun_param_combinations(redf, params_to_try=params)
 
     @classmethod
-    def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fwhm_min=2, fwhm_max=20):
-        return super().estimate_common_apertures(reducedfits, reductionmethod=reductionmethod, fwhm_min=fwhm_min, fwhm_max=fwhm_max)
+    def get_instrumental_polarization(cls, reducedfit) -> dict:
+        """ Returns the instrumental polarization for to be used for a given reducedfit."""
+
+        instr_pol_dict = {
+            'q_inst' :  0,
+            'dq_inst':  0,
+            'u_inst' :  0,
+            'du_inst':  0,
+            'CPA'    :  0,
+            'dCPA'   :  0,
+        }
+
+        return instr_pol_dict
