@@ -631,9 +631,12 @@ def compute_stokes_HWP_fit_3(theta, fO, fE, dfO, dfE):
 
 class PolarimetryGroup(list['ReducedFit']):
 
+    def __str__(self):
+        return self.__repr__()
+    
     def __repr__(self):
 
         s = f"<{self.__class__.__name__}>("
-        s =  ", ".join([f"{redf.pk}" for redf in self])
+        s +=  ", ".join([f"{redf.pk}" for redf in self])
         s += ")"
         return s
