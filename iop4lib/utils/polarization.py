@@ -176,7 +176,7 @@ class Stokes:
         q = q - q_inst
         u = u - u_inst
 
-        # full transformation
+        # # full transformation
 
         # J = np.array([
         #     # I, q, u, q_inst, u_inst
@@ -194,8 +194,8 @@ class Stokes:
         # faster alternative
 
         cov = self.cov
-        cov[1,1] = cov[1,1] + dq_inst
-        cov[2,2] = cov[2,2] + du_inst
+        cov[1,1] = cov[1,1] + dq_inst**2
+        cov[2,2] = cov[2,2] + du_inst**2
         self.cov = cov
 
         stokes_corr = Stokes((I, q, u), cov=cov)        
