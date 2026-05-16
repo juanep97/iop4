@@ -212,7 +212,11 @@ class ReducedFit(RawFit):
     @property
     def hint_disp_sign_mean(self):
         return self.rawfit.hint_disp_sign_mean
-
+    
+    @property
+    def hint_disp_std(self):
+        return self.rawfit.hint_disp_std
+    
     def get_astrometry_position_hint(self, n_field_width=1.5, hintsep=None):
         return Instrument.by_name(self.instrument).get_astrometry_position_hint(self.rawfit,  n_field_width=n_field_width, hintsep=hintsep)
     
