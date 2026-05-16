@@ -206,34 +206,37 @@ class AstroSource(models.Model):
         return catalog_dict
     
     @classmethod
-    def get_sources_in_field(cls, wcs=None, width=None, height=None, fit=None, qs=None):
+    def get_sources_in_field(
+        cls,
+        redf=None,
+        wcs=None, width=None, height=None,
+    ):
         r""" Get the sources in the field of view of the image.
 
-        It accepts either a fit image or a wcs, height and width.
+        It accepts either a redf or a wcs, height and width.
         If no query set is given, it will search the whole catalog,
         otherwise it will search the given query set.
         """
 
-        if fit is not None:
-            wcs = fit.wcs
-            width, height = fit.width, fit.height
+        catalog_data = AstroSource.objects.all().values_list('id', 'ra_hms', 'dec_dms')
+        catalog_pks = np.array([src[0] for src in catalog_data])
+        catalog_skycoord = SkyCoord([src[1] for src in catalog_data], [src[2] for src in catalog_data], unit=(u.hourangle, u.deg))
 
-        if qs is None:
-            qs = cls.objects.all()
+        if redf is not None:
+            wcs, width, height = redf.wcs, redf.width, redf.height
 
-        sources_in_field = list()
+        sources_px_x, sources_px_y = wcs.world_to_pixel(catalog_skycoord)
 
-        import warnings
-        for obj in qs:
-            try:
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    x, y = obj.coord.to_pixel(wcs)
-            except:
-                pass
-            else:
-                if (0 <= x < height) and (0 <= y < width):
-                    sources_in_field.append(obj)
+        msk = (
+            (sources_px_x >= 0) &
+            (sources_px_x < width) &
+            (sources_px_y >= 0) &
+            (sources_px_y < height)
+        )
+        
+        src_pks = catalog_pks[msk]
+
+        sources_in_field = AstroSource.objects.filter(pk__in=src_pks).all()
 
         return sources_in_field
 
