@@ -124,6 +124,9 @@ class Stokes:
 
     def vector(self):
         return np.array([self.I, self.q, self.u])
+
+    def vector_err(self):
+        return np.array([self.dI, self.dq, self.du])
     
     def __repr__(self):
         return f"Stokes(I={self.I:.6g}, q={self.q:.6g}, u={self.u:.6g})"
@@ -208,6 +211,15 @@ class Stokes:
 
 
 def compute_stokes_HWP_analytical(angles, fO, fE, dfO, dfE):
+    """Compute polarimetry using an analytical method.
+    
+    Reference:
+        "Error Analysis for Dual-Beam Optical Linear Polarimetry".
+        Ferdinando Patat and Martino Romaniello.
+        PASP, 118(839):146-161, January 2006.
+        arXiv:astro-ph/0509153
+        doi:10.1086/497581.
+    """
 
     N = len(angles)
     
@@ -234,7 +246,11 @@ def compute_stokes_HWP_analytical(angles, fO, fE, dfO, dfE):
 
     return stokes
 
-def compute_stokes_HWP_fit_full(theta, fO, fE, dfO, dfE, plot=False):
+def compute_stokes_HWP_fit_full(
+        theta, fO, fE, dfO, dfE, 
+        plot=False, fig=None, annotate=False,
+    ):
+    """Compute polarimetry with a joint fit to both the O and the E pairs."""
 
     N = len(theta)
     
@@ -276,14 +292,15 @@ def compute_stokes_HWP_fit_full(theta, fO, fE, dfO, dfE, plot=False):
 
     if plot:
 
-        fig, axs = plt.subplots(figsize=(12,12), nrows=4, sharex=True, gridspec_kw=dict(hspace=0))
+        fig = fig or plt.figure(figsize=(12,12))
+        axs = fig.subplots(nrows=4, sharex=True, gridspec_kw=dict(hspace=0))
         
         for i, (func, data_y, data_dy, data_ylabel) in enumerate([
             (func_fO, fO, dfO, 'f_O'),
             (func_fE, fE, dfE, 'f_E'),
         ]):
 
-            # 1st/3rd axes -- fO(fE
+            # 1st/3rd axes -- fO/fE
             
             ax_idx = 2*i
 
@@ -340,46 +357,48 @@ def compute_stokes_HWP_fit_full(theta, fO, fE, dfO, dfE, plot=False):
 
             axs[ax_idx].set_ylabel(f"Residuals $\\Delta {data_ylabel}$")
 
-        # # annotate with result
+        if annotate:
 
-        # txt = (
-        #     "Results (uncorr instr. pol.)\n"
-        #     f"$Q_r$ = {stokes_1[0]:+.4f} $\\pm$ {stokes_err_1[0]:.4f}\n"
-        #     f"$U_r$ = {stokes_1[1]:+.4f} $\\pm$ {stokes_err_1[1]:.4f}\n"
-        #     f"$p$ = {100*p_2:.2f} $\\pm$ {100*dp_2:.2f} %\n"
-        #     f"$\\chi$ = {chi_2:+.2f} $\\pm$ {dchi_2:.2f} º"
-        # )
+            txt = (
+                "Results (uncorr. instr. pol.)\n"
+                f"$I$ = {stokes.I:+.2g} $\\pm$ {stokes.dI:.2g}\n"
+                f"$Q_r$ = ({100*stokes.q:+.2f} $\\pm$ {100*stokes.dq:.2f})%\n"
+                f"$U_r$ = ({100*stokes.u:+.2f} $\\pm$ {100*stokes.du:.2f})%\n"
+                f"$p$ = ({100*stokes.p:.2f} $\\pm$ {100*stokes.dp:.2f})%\n"
+                f"$\\chi$ = ({stokes.chi:+.2f} $\\pm$ {stokes.dchi:.2f})º"
+            )
 
-        # text_area = mplt.offsetbox.TextArea(
-        #     txt, 
-        #     textprops=dict(fontsize=None, ha="left"),
-        # )
+            text_area = mplt.offsetbox.TextArea(
+                txt, 
+                textprops=dict(fontsize=None, ha="left"),
+            )
 
-        # ab = mplt.offsetbox.AnnotationBbox(
-        #     text_area,
-        #     xy=(0.99, 0.97),
-        #     xycoords='axes fraction',
-        #     xybox=(0, 0),
-        #     boxcoords='offset points',
-        #     box_alignment=(1, 1),
-        #     frameon=True,
-        #     pad=0.3,
-        #     bboxprops=dict(
-        #         facecolor='white',
-        #         edgecolor='gray',
-        #         alpha=0.5,
-        #         linewidth=1,
-        #     ),
-        # )
+            ab = mplt.offsetbox.AnnotationBbox(
+                text_area,
+                xy=(0.99, 0.97),
+                xycoords='axes fraction',
+                xybox=(0, 0),
+                boxcoords='offset points',
+                box_alignment=(1, 1),
+                frameon=True,
+                pad=0.3,
+                bboxprops=dict(
+                    facecolor='white',
+                    edgecolor='gray',
+                    alpha=0.5,
+                    linewidth=1,
+                ),
+            )
 
-        # axs[0].add_artist(ab)
-
-        plt.show()
-        plt.close()
+            axs[0].add_artist(ab)
 
     return stokes
 
-def compute_stokes_HWP_fit_1(theta, fO, fE, dfO, dfE, plot=False):
+def compute_stokes_HWP_fit_1(
+        theta, fO, fE, dfO, dfE,
+        plot=False, fig=None, annotate=False,
+    ):
+    """Compute polarimetry with a fit to the average of the O and E pairs."""
 
     N = len(theta)
     
@@ -427,7 +446,8 @@ def compute_stokes_HWP_fit_1(theta, fO, fE, dfO, dfE, plot=False):
 
     if plot:
 
-        fig, axs = plt.subplots(figsize=(12,6), nrows=2, sharex=True, gridspec_kw=dict(hspace=0))
+        fig = fig or plt.figure(figsize=(12,6))
+        axs = fig.subplots(nrows=2, sharex=True, gridspec_kw=dict(hspace=0))
 
         axs[0].errorbar(
             x=theta,
@@ -478,39 +498,39 @@ def compute_stokes_HWP_fit_1(theta, fO, fE, dfO, dfE, plot=False):
 
         axs[1].axhline(y=0, color='k', linestyle="-", alpha=0.5)
         
-        # annotate result
-        
-        txt = (
-            "Results (uncorr instr. pol.)\n"
-            f"$Q_r$ = {stokes.q:+.4f} $\\pm$ {stokes.dq:.4f}\n"
-            f"$U_r$ = {stokes.u:+.4f} $\\pm$ {stokes.du:.4f}\n"
-            f"$p$ = {100*stokes.p:.2f} $\\pm$ {100*stokes.dp:.2f} %\n"
-            f"$\\chi$ = {stokes.chi:+.2f} $\\pm$ {stokes.dchi:.2f} º"
-        )
-        
-        text_area = mplt.offsetbox.TextArea(
-            txt, 
-            textprops=dict(fontsize=None, ha="left"),
-        )
+        if annotate:
+            
+            txt = (
+                "Results (uncorr. instr. pol.)\n"
+                f"$Q_r$ = ({100*stokes.q:+.2f} $\\pm$ {100*stokes.dq:.2f})%\n"
+                f"$U_r$ = ({100*stokes.u:+.2f} $\\pm$ {100*stokes.du:.2f})%\n"
+                f"$p$ = ({100*stokes.p:.2f} $\\pm$ {100*stokes.dp:.2f})%\n"
+                f"$\\chi$ = ({stokes.chi:+.2f} $\\pm$ {stokes.dchi:.2f})º"
+            )
+            
+            text_area = mplt.offsetbox.TextArea(
+                txt, 
+                textprops=dict(fontsize=None, ha="left"),
+            )
 
-        ab = mplt.offsetbox.AnnotationBbox(
-            text_area,
-            xy=(0.99, 0.97),
-            xycoords='axes fraction',
-            xybox=(0, 0),
-            boxcoords='offset points',
-            box_alignment=(1, 1),
-            frameon=True,
-            pad=0.3,
-            bboxprops=dict(
-                facecolor='white',
-                edgecolor='gray',
-                alpha=0.5,
-                linewidth=1,
-            ),
-        )
+            ab = mplt.offsetbox.AnnotationBbox(
+                text_area,
+                xy=(0.99, 0.97),
+                xycoords='axes fraction',
+                xybox=(0, 0),
+                boxcoords='offset points',
+                box_alignment=(1, 1),
+                frameon=True,
+                pad=0.3,
+                bboxprops=dict(
+                    facecolor='white',
+                    edgecolor='gray',
+                    alpha=0.5,
+                    linewidth=1,
+                ),
+            )
 
-        axs[0].add_artist(ab)
+            axs[0].add_artist(ab)
 
         # title, axes, labels, etc
 
@@ -522,17 +542,16 @@ def compute_stokes_HWP_fit_1(theta, fO, fE, dfO, dfE, plot=False):
         
         axs[0].legend(loc="upper left")
 
-        fig.tight_layout()
-        
-        plt.show()
-        plt.close()
-
     return stokes
 
-def compute_stokes_HWP_fit_2(theta, fO=None, dfO=None, fE=None, dfE=None):
+def compute_stokes_HWP_fit_2(
+        theta, fO=None, dfO=None, fE=None, dfE=None,
+        plot=False, fig=None, annotate=False,
+    ):
+    """Compute polarimetry fitting only the O (or E) pair."""
 
-    assert bool(fO) ^ bool(fE), "must specify one and only one of fO or fE"
-    assert bool(dfO) ^ bool(dfE), "must specify one and only one of dfO or dfE"
+    assert (fO is None) ^ bool(fE is None), "must specify one and only one of fO or fE"
+    assert bool(dfO is None) ^ bool(dfE is None), "must specify one and only one of dfO or dfE"
 
     func_fO = lambda theta_i, I, q, u: 0.5 * ( I + I*q*np.cos(4*theta_i) + I*u*np.sin(4*theta_i) )
     func_fE = lambda theta_i, I, q, u: 0.5 * ( I - I*q*np.cos(4*theta_i) - I*u*np.sin(4*theta_i) )
@@ -541,10 +560,12 @@ def compute_stokes_HWP_fit_2(theta, fO=None, dfO=None, fE=None, dfE=None):
         ydata = fO
         sigma = dfO
         func = func_fO
+        pair = "O"
     else:
         ydata = fE
         sigma = dfE
         func = func_fE
+        pair = "E"
 
     xdata = np.deg2rad(theta)
     sI0 = 2*np.mean(ydata)
@@ -560,21 +581,120 @@ def compute_stokes_HWP_fit_2(theta, fO=None, dfO=None, fE=None, dfE=None):
         full_output = True,
     )
 
+    # perr = np.sqrt(np.diag(pcov))
+
+    # print(f"{popt=}")
+    # print(f"{perr=}")
+    # print(f"{pcov=}")
+    # print(f"{infodict=}")
+    # print(f"{mesg=}")
+    # print(f"{ier=}")
+
     stokes = Stokes(popt, cov=pcov)
 
-    info = {
-        'xdata': xdata,
-        'xlabel': "\\theta_i",
-        'ydata': ydata,
-        'ylabel': 'f_O' if fO else 'f_E',
-        'f': func,
-        'popt': popt,
-        'pcov': pcov,
-    }
 
-    return stokes, info
+    if plot:
+
+        fig = fig or plt.figure(figsize=(12,6))
+        axs = fig.subplots(nrows=2, sharex=True, gridspec_kw=dict(hspace=0))
+
+        axs[0].errorbar(
+            x=theta,
+            y=ydata,
+            yerr=sigma,
+            linestyle="none",
+            marker="o",
+            color="k",
+            markersize=3,
+            label=f"$F_{pair}$",
+        )
+
+        # show fit
+        
+        x = np.linspace(min(theta), max(theta), 100)
+        y = func(np.deg2rad(x), *popt)
+        y_l1s, y_h1s = eval_model_uncertainty(func, np.deg2rad(x), popt, pcov, s=1, N=1000)
+
+        axs[0].plot(x, y, color="b", linestyle="--", alpha=1)
+
+        axs[0].fill_between(x, y_l1s, y_h1s,
+            color='b',
+            alpha=0.1,
+            label=r"$1\sigma$",
+        )
+
+        # residuals
+
+        delta_F = ydata - func(np.deg2rad(theta), *popt)
+        delta_F_err = sigma # ignore model uncert?
+        
+        axs[1].errorbar(
+            x=theta,
+            y=delta_F,
+            yerr=delta_F_err,
+            linestyle="none",
+            marker="o",
+            color="k",
+            markersize=3,
+            label="$F_i$",
+        )
+
+        axs[1].fill_between(x, y_l1s-y, y_h1s-y,
+            color='b',
+            alpha=0.1,
+            label=r"$1\sigma$",
+        )
+
+        axs[1].axhline(y=0, color='k', linestyle="-", alpha=0.5)
+        
+        if annotate:
+            
+            txt = (
+                "Results (uncorr. instr. pol.)\n"
+                f"$Q_r$ = ({100*stokes.q:+.2f} $\\pm$ {100*stokes.dq:.2f})%\n"
+                f"$U_r$ = ({100*stokes.u:+.2f} $\\pm$ {100*stokes.du:.2f})%\n"
+                f"$p$ = ({100*stokes.p:.2f} $\\pm$ {100*stokes.dp:.2f})%\n"
+                f"$\\chi$ = ({stokes.chi:+.2f} $\\pm$ {stokes.dchi:.2f})º"
+            )
+            
+            text_area = mplt.offsetbox.TextArea(
+                txt, 
+                textprops=dict(fontsize=None, ha="left"),
+            )
+
+            ab = mplt.offsetbox.AnnotationBbox(
+                text_area,
+                xy=(0.99, 0.97),
+                xycoords='axes fraction',
+                xybox=(0, 0),
+                boxcoords='offset points',
+                box_alignment=(1, 1),
+                frameon=True,
+                pad=0.3,
+                bboxprops=dict(
+                    facecolor='white',
+                    edgecolor='gray',
+                    alpha=0.5,
+                    linewidth=1,
+                ),
+            )
+
+            axs[0].add_artist(ab)
+
+        # title, axes, labels, etc
+
+        axs[-1].set_xticks(theta)
+        axs[-1].set_xlabel(r"$\theta_i$ [deg]")
+        
+        axs[0].set_ylabel("$F_i$")
+        axs[1].set_ylabel(rf"Residual $\Delta F_{pair}$")
+        
+        axs[0].legend(loc="upper left")
+    
+    return stokes
 
 def compute_stokes_HWP_fit_3(theta, fO, fE, dfO, dfE):
+    """Compute polarimetry with a p, chi fit instead of q,u (DO NOT USE)."""
 
     N = len(theta)
     
