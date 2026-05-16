@@ -76,8 +76,8 @@ class AdminAstroSource(admin.ModelAdmin):
     
     @admin.display(description='CALIBRATES')
     def get_calibrates(self, obj):
-        stars_str_L = obj.calibrates.all().values_list('name', flat=True)
-        return "\n".join(stars_str_L)
+        calibrates_str_L = obj.calibrates.all().values_list('name', flat=True)
+        return "\n".join(calibrates_str_L) or "-"
     
     @admin.display(description='COMMENTS')
     def get_comment_firstline(self, obj):
