@@ -23,6 +23,38 @@ from iop4lib.enums import BANDS, SRCTYPES
 import logging
 logger = logging.getLogger(__name__)
 
+class CalibratorFilter(admin.SimpleListFilter):
+    title = "calibrator"
+    parameter_name = "calibrator"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("all", "all"),
+            ("yes", "calibrators"),
+            ("no", "non-calibrators"),
+        )
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value == "yes":
+            return queryset.filter(is_calibrator=True)
+        elif value == "no":
+            return queryset.filter(is_calibrator=False)
+        # default (=all)
+        return queryset
+
+    def choices(self, changelist):
+        # make default = "no"
+        value = self.value() or "no"
+        for lookup, title in self.lookup_choices:
+            yield {
+                "selected": value == str(lookup),
+                "query_string": changelist.get_query_string(
+                    {self.parameter_name: lookup}
+                ),
+                "display": title,
+            }
+
 class AdminAstroSource(admin.ModelAdmin):
     model = AstroSource
     list_display = ['name', 'other_names', 'ra_hms', 'dec_dms', 'srctype', 'get_last_reducedfit', 
@@ -30,8 +62,17 @@ class AdminAstroSource(admin.ModelAdmin):
                     'get_texp_andor90', 'get_texp_andor150', 'get_texp_dipol', 
                     'get_comment_firstline', 'get_details']
     search_fields = ['name', 'other_names', 'ra_hms', 'dec_dms', 'srctype', 'comment']
-    list_filter = ('srctype',)
+    list_filter = ('srctype',CalibratorFilter)
     actions = ['add_field_stars_from_panstarrs', 'remove_field_stars_from_panstarrs']
+
+    def changelist_view(self, request, extra_context=None):
+        # make default selection calibrator=none
+        if "calibrator" not in request.GET:
+            q = request.GET.copy()
+            q["calibrator"] = "no"
+            request.GET = q
+            request.META["QUERY_STRING"] = q.urlencode()
+        return super().changelist_view(request, extra_context)
     
     @admin.display(description='CALIBRATES')
     def get_calibrates(self, obj):
