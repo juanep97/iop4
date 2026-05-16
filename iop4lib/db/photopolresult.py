@@ -152,16 +152,16 @@ class PhotoPolResult(models.Model):
                 p.breakable()
                 p.text(f'{self.instrument} {self.obsmode} {self.band} / {self.astrosource.name}')
                 p.breakable()
-                p.text(f'JD: {self.juliandate:.5f} ({Time(self.juliandate, format="jd").iso})')
+                p.text(f"JD: {self.juliandate:.5f} ({self.datetime.isoformat(timespec='seconds')}")
                 if self.mag is not None:
                     p.breakable()
-                    p.text(f'mag: {self.mag:.3f} ± {self.mag_err:.3f}')
+                    p.text(f'mag {self.band}: {self.mag:.3f} ± {self.mag_err:.3f}')
                 if self.p is not None:
                     p.breakable()
-                    p.text(f'p: {self.p:.3f} ± {self.p_err:.3f}')
+                    p.text(f'p: ({100*self.p:.3f} ± {100*self.p_err:.3f})%')
                 if self.chi is not None:
                     p.breakable()
-                    p.text(f'chi: {self.chi:.3f} ± {self.chi_err:.3f}')    
+                    p.text(f'chi: ({self.chi:.3f} ± {self.chi_err:.3f})º')    
 
     @classmethod
     def qs_exact_reducedfits(cls, reducedfits):
