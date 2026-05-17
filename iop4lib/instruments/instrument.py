@@ -825,10 +825,11 @@ class Instrument(metaclass=ABCMeta):
 
         # ap_fwhm = fwhm_median
         # ap_fwhm = targets_fwhm_median
-        # better: take the max, bc sometimes our targets has a slightly higher 
+
+        # Better: take the max, bc sometimes our targets has a slightly higher 
         # fwhm, and we prefer to overestimate than underestimate (flux might be
-        # left out otherwise).
-        ap_fwhm = max(fwhm_median, targets_fwhm_median)
+        # left out otherwise). However, it might be NaN.
+        ap_fwhm = max(fwhm_median, targets_fwhm_median) if not np.isnan(targets_fwhm_median) else fwhm_median
     
         with u.set_enabled_equivalencies(reducedfits[0].pixscale_equiv):
             
