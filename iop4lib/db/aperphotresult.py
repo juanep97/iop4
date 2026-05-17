@@ -77,7 +77,7 @@ class AperPhotResult(models.Model):
     @classmethod
     def create(cls, reducedfit, astrosource, aperpix, r_in, r_out, pairs, re_use=True, **kwargs):
 
-        if re_use:
+        if re_use: # TODO: conflicts with unique constraint
             result = AperPhotResult.objects.filter(
                 reducedfit = reducedfit,
                 astrosource = astrosource,
@@ -182,6 +182,33 @@ class AperPhotResult(models.Model):
             ha="left", va="bottom",
             color="red", fontsize=12,
         )
+
+        if self.reducedfit.has_pairs:
+            try:
+                from iop4lib.db import PhotoPolResult
+                other_pair = 'E' if self.pairs == 'O' else 'O'
+                other_apf = PhotoPolResult.objects.get(
+                    aperphotresults__in=[self.pk],
+                ).aperphotresults.get(
+                    reducedfit = self.reducedfit,
+                    astrosource = self.astrosource,
+                    aperpix = self.aperpix,
+                    r_in = self.r_in,
+                    r_out = self.r_out,
+                    pairs = other_pair
+                )
+                other_c = cutout.to_cutout_position((other_apf.x_px, other_apf.y_px))
+                other_mask = CircularAperture(other_c, r=self.aperpix).to_mask().to_image(cutout.shape).astype(bool)
+                other_mask = np.ma.masked_where(~other_mask, other_mask)
+                other_mask = np.ma.dstack([
+                    other_mask,
+                    np.zeros(other_mask.shape),
+                    np.zeros(other_mask.shape),
+                    np.full(other_mask.shape, 0.3),
+                ])
+                ax.imshow(other_mask, origin="lower")
+            except Exception as e:
+                pass
 
         return fig, ax
 
