@@ -11,28 +11,22 @@ import re
 import astrometry
 import numpy as np
 import matplotlib as mplt
-import matplotlib.patheffects
-import matplotlib.pyplot as plt
 import astropy.units as u
 from photutils.aperture import CircularAperture
 from astropy.wcs.utils import fit_wcs_from_points
-from astropy.time import Time
-from astropy.coordinates import SkyCoord, Angle, match_coordinates_sky
+from astropy.coordinates import SkyCoord, Angle
 import itertools
-import datetime
-import math
-import gc
 import yaml
 from importlib import resources
 from collections.abc import Iterable
 import random
 
 # iop4lib imports
-from iop4lib.enums import IMGTYPES, BANDS, OBSMODES, SRCTYPES, INSTRUMENTS, REDUCTIONMETHODS
-from .instrument import Instrument, InstrumentHWP
-from iop4lib.utils import imshow_w_sources, get_angle_from_history, build_wcs_centered_on, get_simbad_sources
+from iop4lib.enums import IMGTYPES, BANDS, OBSMODES, SRCTYPES
+from .instrument import InstrumentHWP
+from iop4lib.utils import get_angle_from_history, build_wcs_centered_on, get_simbad_sources
 from iop4lib.utils.sourcedetection import get_segmentation, get_cat_sources_from_segment_map, get_bkg
-from iop4lib.utils.plotting import plot_preview_astrometry
+from iop4lib.utils.plotting import imshow_w_sources, plot_preview_astrometry
 from iop4lib.utils.astrometry import BuildWCSResult
 from iop4lib.telescopes import OSNT090
 

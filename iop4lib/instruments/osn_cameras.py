@@ -14,10 +14,18 @@ import math
 import itertools
 
 # iop4lib imports
-from iop4lib.enums import *
+from iop4lib.enums import (
+    IMGTYPES,
+    BANDS,
+    OBSMODES,
+    REDUCTIONMETHODS,
+)
 from .instrument import Instrument
 from iop4lib.telescopes import OSNT090, OSNT150
-from iop4lib.utils import filter_zero_points, calibrate_photopolresult
+from iop4lib.utils.photometry import (
+    calibrate_photopolresult,
+    NoCalibratorsFound,
+)
 
 # logging
 import logging
@@ -25,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 import typing
 if typing.TYPE_CHECKING:
-    from iop4lib.db.reducedfit import ReducedFit, RawFit
+    from iop4lib.db.reducedfit import ReducedFit
 
 class OSNCCDCamera(Instrument, metaclass=ABCMeta):
     r""" Abstract class for OSN CCD cameras. """
@@ -320,7 +328,7 @@ class OSNCCDCamera(Instrument, metaclass=ABCMeta):
 
         logger.debug("Computing relative polarimetry.")
 
-        photopolresult_L = list()
+        photopolresults = list()
 
         for astrosource in group_sources:
 
@@ -461,22 +469,26 @@ class OSNCCDCamera(Instrument, metaclass=ABCMeta):
             
             result.aperphotresults.set(qs, clear=True)
 
-            photopolresult_L.append(result)
+            photopolresults.append(result)
 
 
         # 3. Compute the calibrated magnitudes for non-calibrators in the group using the averaged zero point
 
-        for result in photopolresult_L:
+        for result in photopolresults:
 
             if result.astrosource.is_calibrator:
                 continue
 
-            logger.debug(f"calibrating {result}")
-
-            calibrate_photopolresult(result, photopolresult_L)
+            try:
+                logger.debug(f"calibrating {result}")
+                calibrate_photopolresult(result, photopolresults)
+            except NoCalibratorsFound as e:
+                logger.warning(f"no calibrators for {result}")
+            except Exception as e:
+                logger.error(f"I could not calibrate {result}: {e}.")
 
         # 5. Save results
-        for result in photopolresult_L:
+        for result in photopolresults:
             result.save()
 
 

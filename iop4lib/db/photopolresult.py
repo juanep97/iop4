@@ -345,7 +345,7 @@ class PhotoPolResult(models.Model):
 
         """
 
-        from iop4lib.utils import get_host_correction
+        from iop4lib.utils.photometry import get_host_correction
 
         if self.band != BANDS.R:
             raise PhotoPolResult.NoHostCorrectionAvailable('Host galaxy correction only available for R band')

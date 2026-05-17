@@ -28,8 +28,17 @@ from iop4lib.enums import (
     OBSMODES,
     REDUCTIONMETHODS,
 )
-from iop4lib.utils import calibrate_photopolresult
-        
+from iop4lib.utils import get_column_values
+from iop4lib.utils.photometry import (
+    calibrate_photopolresult,
+    NoCalibratorsFound,
+)
+from iop4lib.utils.polarization import (
+    compute_stokes_HWP_fit_full,
+    compute_stokes_HWP_fit_1,
+    compute_stokes_HWP_fit_2,
+)
+     
 # logging
 import logging
 logger = logging.getLogger(__name__)
@@ -550,7 +559,7 @@ class Instrument(metaclass=ABCMeta):
 
 
     @classmethod
-    def get_centroids_and_fwhms(cls, redf, use_cutout=True) -> 'CentroidsAndFwhmResultTuple':
+    def get_centroids_and_fwhms(cls, redf, use_cutout=True, fwhm_stats=None) -> 'CentroidsAndFwhmResultTuple':
 
         from photutils.psf import fit_fwhm
 
@@ -613,7 +622,8 @@ class Instrument(metaclass=ABCMeta):
 
         else:
             
-            fwhm_median = fwhm_stats.fwhm_median
+            fwhm_median = fwhm_stats.median
+            detected_fwhms = None
 
         # --- Then, compute source centroids and fwhm for each of our catalog sources
 
@@ -764,29 +774,31 @@ class Instrument(metaclass=ABCMeta):
         
         centroids_and_fwhms: dict['ReducedFit', CentroidsAndFwhmResultTuple] = dict()
 
+        # # a)
+        # for redf in reducedfits:
+        #     centroids_and_fwhms[redf] = cls.get_centroids_and_fwhms(redf)
+
+        # b)
+        # speed it up by
+        # 1) trying not to compute centroids and fwhms twice for the same redf, 
+        # and attaching results as an attribute to redf for next time (useful if
+        # f.estimate_common_apertures is called twice on the same redf).
+        # and 2) passing the previous fwhm stats (if >1 images) (speeds up
+        # polarimetry groups, which should have the ~same median fwhm).
+            
+        prev_stats = None
         for i, redf in enumerate(reducedfits):
-
-            # # a)
-            # centroids_and_fwhms[redf] = cls.get_centroids_and_fwhms(redf)
-
-            # # b)
-            # try not to compute centroids and fwhms again (and attach results as
-            # an attribute to redf for next time)
-
             redf_centroids_and_fwhms = getattr(redf, 'centroids_and_fwhms', None)
             if not redf_centroids_and_fwhms:
-                # speed it up by passing the previous fwhm stats (if >1 images)
-                prev_stats = redf_centroids_and_fwhms.fwhm_stats if i>1 else None
                 redf_centroids_and_fwhms = cls.get_centroids_and_fwhms(redf, fwhm_stats=prev_stats)
                 redf.centroids_and_fwhms = redf_centroids_and_fwhms
-                
-            # ---
-
+                prev_stats = redf_centroids_and_fwhms.fwhm_stats
             centroids_and_fwhms[redf] = redf_centroids_and_fwhms
 
         # compute aggregate fwhm stats
 
         detected_fwhms = [centroids_and_fwhms[redf].detected_fwhms for redf in reducedfits]
+        detected_fwhms = [x for x in detected_fwhms if x is not None]
         detected_fwhms = list(itertools.chain.from_iterable(detected_fwhms))
         detected_fwhms = u.Quantity(detected_fwhms)
 
@@ -813,6 +825,9 @@ class Instrument(metaclass=ABCMeta):
 
         # ap_fwhm = fwhm_median
         # ap_fwhm = targets_fwhm_median
+        # better: take the max, bc sometimes our targets has a slightly higher 
+        # fwhm, and we prefer to overestimate than underestimate (flux might be
+        # left out otherwise).
         ap_fwhm = max(fwhm_median, targets_fwhm_median)
     
         with u.set_enabled_equivalencies(reducedfits[0].pixscale_equiv):
@@ -1060,10 +1075,14 @@ class Instrument(metaclass=ABCMeta):
             if result.astrosource.is_calibrator:
                 continue
 
-            logger.debug(f"{redf}: calibrating {result}")
+            try:
+                logger.debug(f"calibrating {result}")
+                calibrate_photopolresult(result, photopolresults)
+            except NoCalibratorsFound as e:
+                logger.warning(f"no calibrators for {result}")
+            except Exception as e:
+                logger.error(f"I could not calibrate {result}: {e}.")
 
-            calibrate_photopolresult(result, photopolresults)
-        
         # 5. Save the results
 
         for result in photopolresults:
@@ -1126,17 +1145,6 @@ class InstrumentHWP(ABC, Instrument):
         
         from iop4lib.db.aperphotresult import AperPhotResult
         from iop4lib.db.photopolresult import PhotoPolResult
-
-        from iop4lib.utils import (
-            get_column_values,
-            NoCalibratorsFound,
-        )
-
-        from iop4lib.utils.polarization import (
-            compute_stokes_HWP_fit_full,
-            compute_stokes_HWP_fit_1,
-            compute_stokes_HWP_fit_2,
-        )
 
         # Perform some checks on the group
 

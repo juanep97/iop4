@@ -43,7 +43,7 @@ class CentroidFwhmTuple(NamedTuple):
 class CentroidsAndFwhmResultTuple(NamedTuple):
     centroids_and_fwhms: dict[SourcePairTuple, CentroidFwhmTuple]
     fwhm_stats: FwhmStatsTuple
-    detected_fwhms: u.Quantity
+    detected_fwhms: u.Quantity | None
 
 class CommonAperturesTuple(NamedTuple):
     r_ap: u.Quantity

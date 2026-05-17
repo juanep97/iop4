@@ -62,7 +62,7 @@ def test_catalog(load_test_catalog):
 def test_host_correction_data_load(load_test_catalog):
     r""" Check that the host correction data can be correctly loaded """
     from iop4lib.db import AstroSource
-    from iop4lib.utils import get_host_correction
+    from iop4lib.utils.photometry import get_host_correction
 
     val, err = get_host_correction(AstroSource.objects.get(name="2200+420"), 6, 4)
 
