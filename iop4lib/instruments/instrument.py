@@ -22,13 +22,25 @@ import astrometry
 from photutils.centroids import centroid_sources, centroid_2dg, centroid_com
 from astropy.nddata import Cutout2D
 from astropy.utils.exceptions import AstropyUserWarning
+from photutils.psf import fit_fwhm
 
 # iop4lib imports
 from iop4lib.enums import (
     OBSMODES,
     REDUCTIONMETHODS,
 )
-from iop4lib.utils import get_column_values
+from iop4lib.utils import (
+    overlaps_border,
+    next_odd,
+    get_column_values,
+)
+from iop4lib.utils.sourcedetection import (
+    apply_gaussian_smooth,
+    get_bkg,
+    get_segmentation,
+    get_cat_sources_from_segment_map,
+    get_bkg,
+)
 from iop4lib.utils.photometry import (
     calibrate_photopolresult,
     NoCalibratorsFound,
@@ -561,21 +573,6 @@ class Instrument(metaclass=ABCMeta):
     @classmethod
     def get_centroids_and_fwhms(cls, redf, use_cutout=True, fwhm_stats=None) -> 'CentroidsAndFwhmResultTuple':
 
-        from photutils.psf import fit_fwhm
-
-        from iop4lib.utils.sourcedetection import (
-            apply_gaussian_smooth,
-            get_bkg
-        )
-
-        from iop4lib.utils.sourcedetection import (
-            get_segmentation,
-            get_cat_sources_from_segment_map,
-            get_bkg,
-        )
-
-        from iop4lib.utils import overlaps, next_odd
-
         logger.info(f"Computing centroids and fwhms for {redf}")
 
         img = redf.mdata
@@ -652,7 +649,7 @@ class Instrument(metaclass=ABCMeta):
                         if use_cutout:
                             cutout = Cutout2D(img - bkg.background_median, position=wcs_pos, size=cutout_size, wcs=wcs)
                             data = cutout.data
-                            if overlaps(*cutout.position_original, *cutout.shape, *img.shape):
+                            if overlaps_border(*cutout.position_original, *cutout.shape, *img.shape):
                                 raise Exception(f"{redf} {astrosource} {pairs}: cutout overlaps with image border, skipping")
                             wcs_pos = cutout.to_cutout_position(wcs_pos)
 
@@ -676,7 +673,7 @@ class Instrument(metaclass=ABCMeta):
 
                         logger.debug(f"box_size = {box_size:.1f}")
 
-                        if overlaps(wcs_pos_orig[1], wcs_pos_orig[0], box_size, box_size, *img.shape):
+                        if overlaps_border(wcs_pos_orig[1], wcs_pos_orig[0], box_size, box_size, *img.shape):
                             raise Exception(f"{redf} {astrosource} {pairs}: box overlaps with image border, skipping")
 
                         logger.debug("fitting with centroid_com")
@@ -857,7 +854,7 @@ class Instrument(metaclass=ABCMeta):
     @classmethod
     def compute_aperture_photometry(cls, redf, common_apertures: 'CommonAperturesTuple') -> List['AperPhotResult']:
         """ Common aperture photometry method for all instruments."""
-        from iop4lib.utils import overlaps
+        from iop4lib.utils import overlaps_border
         from iop4lib.db.aperphotresult import AperPhotResult
         from iop4lib.utils.sourcedetection import get_bkg
         from photutils.aperture import (
@@ -899,7 +896,7 @@ class Instrument(metaclass=ABCMeta):
 
                     # check that the centroid position is within the borders of the image
                 
-                    if overlaps(*(centroid[1], centroid[1]), *(r_out, r_out), *img.shape):
+                    if overlaps_border(*(centroid[1], centroid[1]), *(r_out, r_out), *img.shape):
                         logger.warning(f"{redf}: {astrosource.name}, ({pair}) is too close to the border, skipping aperture photometry.")
                         continue
 
