@@ -75,9 +75,21 @@ class AperPhotResult(models.Model):
         return f'<{self.__class__.__name__} {self.id} | {self.reducedfit.fileloc} {self.astrosource.name} ({self.aperpix:.1f}, {self.r_in:.1f}, {self.r_out:.1f}) px {self.pairs}>' 
 
     @classmethod
-    def create(cls, reducedfit, astrosource, aperpix, r_in, r_out, pairs, **kwargs):
+    def create(cls, reducedfit, astrosource, aperpix, r_in, r_out, pairs, re_use=True, **kwargs):
 
-        if (result := AperPhotResult.objects.filter(reducedfit=reducedfit, astrosource=astrosource, aperpix=aperpix, r_in=r_in, r_out=r_out, pairs=pairs).first()) is not None:
+        if re_use:
+            result = AperPhotResult.objects.filter(
+                reducedfit = reducedfit,
+                astrosource = astrosource,
+                aperpix = aperpix,
+                r_in = r_in,
+                r_out = r_out,
+                pairs = pairs,
+            ).first()
+        else:
+            result = None
+
+        if result:
             logger.debug(f"AperPhotResult for {reducedfit}, {astrosource}, ({aperpix}, {r_in}, {r_out}), {pairs} already exists, it will be used instead.")
         else:
             logger.debug(f"Creating AperPhotResult for {reducedfit}, {astrosource}, ({aperpix}, {r_in}, {r_out}), {pairs}.")
