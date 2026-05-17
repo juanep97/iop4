@@ -162,32 +162,48 @@ class DIPOL(InstrumentHWP):
 
     @classmethod
     def request_master(cls, rawfit, model, other_epochs=False):
-        r""" Overriden Instrument associate_masters.
+        r""" Overriden to handle polarymetry subcuts.
         
-        DIPOL POLARIMETRY files are a cut of the full field, so when associating master calibration files, it needs to search a different size of images.
-        For DIPOL PHOTOMETRY files, everything is the same as in the parent class.
+        For DIPOL PHOTOMETRY files, everything should be the same as in the 
+        parent class.
 
-        The full field images are 4144x2822, polarimetry images are 1100x900, the cut 
-        position is saved in the images as 
+        For some DIPOL POLARIMETRY files (full field ones), also.
+        
+        However, there are some that are a subcut of the full field, so when 
+        associating master calibration files, we need to search a different 
+        size of images, then apply the right subcut.
+        
+        The cut position is saved in the raw image headers as 
             XORGSUBF 	0
             YORGSUBF 	0
         """
 
+        master = super().request_master(rawfit, model, other_epochs=other_epochs)
+        
         if rawfit.obsmode == OBSMODES.PHOTOMETRY:
-            return super().request_master(rawfit, model, other_epochs=other_epochs)
+            return master
         
         # POLARIMETRY (see docstring)
-        # everything should be the same as in the parent class except for the line changing args["imgsize"]
+        # Sometimes, polarimetry images are a subcut of the full field.
+        # In those cases, we will search for a full-field image.
+        # But if there was some with the same size, we can just return them, too.
+
+        if master:
+            return master
+
+        logger.warning("I could not find a master with same size, searching for any size")
 
         from iop4lib.db import RawFit
 
         rf_vals = RawFit.objects.filter(id=rawfit.id).values().get()
         args = {k:rf_vals[k] for k in rf_vals if k in model.margs_kwL}
         
-        args.pop("exptime", None) # exptime might be a building keywords (for flats and darks), but masters with different exptime can be applied
+        args.pop("exptime", None) # exptime might be a building keyword (for flats and darks), but masters with different exptime can be applied
         args["epoch"] = rawfit.epoch # from .values() we only get epoch__id 
 
-        args["imgsize"] = "4144x2822" # search for full field calibration frames
+        if rawfit.header.get("XORGSUBF") or rawfit.header.get("YORGSUBF"):
+            logger.warning("Checking for flats of any imgsize")
+            args.pop("imgsize")
 
         master = model.objects.filter(**args, flags__hasnot=model.FLAGS.IGNORE).first()
         
@@ -216,6 +232,8 @@ class DIPOL(InstrumentHWP):
             XORGSUBF 	1500
             YORGSUBF 	1000
         """
+
+        # XORGSUBF might be 1-indexed, but 1px offset does not matter
 
         x_start = reducedfit.rawfit.header['XORGSUBF']
         y_start = reducedfit.rawfit.header['YORGSUBF']

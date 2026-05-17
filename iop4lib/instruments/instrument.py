@@ -370,7 +370,7 @@ class Instrument(metaclass=ABCMeta):
         rf_vals = RawFit.objects.filter(id=rawfit.id).values().get()
         args = {k:rf_vals[k] for k in rf_vals if k in model.margs_kwL}
         
-        args.pop("exptime", None) # exptime might be a building keywords (for flats and darks), but masters with different exptime can be applied
+        args.pop("exptime", None) # exptime might be a building keyword (for flats and darks), but masters with different exptime can be applied
         args["epoch"] = rawfit.epoch # from .values() we only get epoch__id 
 
         master = model.objects.filter(**args, flags__hasnot=model.FLAGS.IGNORE).first()
