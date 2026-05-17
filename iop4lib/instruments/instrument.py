@@ -576,6 +576,8 @@ class Instrument(metaclass=ABCMeta):
 
         from iop4lib.utils import overlaps, next_odd
 
+        logger.info(f"Computing centroids and fwhms for {redf}")
+
         img = redf.mdata
 
         bkg_box_size = img.shape[0]//10
