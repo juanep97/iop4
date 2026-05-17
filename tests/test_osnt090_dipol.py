@@ -44,24 +44,55 @@ def test_polarimetry(load_test_catalog):
     rawfits = RawFit.objects.filter(epoch__in=epoch_L, instrument=INSTRUMENTS.DIPOL, imgtype=IMGTYPES.LIGHT).all()
     Epoch.reduce_rawfits(rawfits)
 
-    for epoch in epoch_L:
-        epoch.compute_relative_polarimetry()
+    # 2. Test relative photo-polarimetry results
 
-    qs_res = PhotoPolResult.objects.filter(epoch__in=epoch_L).all()
+    # See `build_test_dataset.py`.
 
-    # HD 204827 (polarization standard)
-    # https://www.not.iac.es/instruments/turpol/std/hpstd.html
-    # pL(R): 4.893 +- 0.029 %, ChiL(R) 59.10 +- 0.17
+    # 2.1. "OSN-T090/2025-10-18/Hiltner960_R_IAR-0033_DIPOL.fts",
 
-    res = qs_res.filter(instrument=INSTRUMENTS.DIPOL, epoch__night="2023-10-25").get(astrosource__name="HD 204827")
-    assert res.p == approx(4.893/100, abs=max(2*res.p_err, 0.5/100)) 
-    assert res.chi == approx(59.10, abs=max(2*res.chi_err, 5))
+    # <PhotoPolResult(id: 834426
+    #     reducedfits: [303672, 303673, 303674, 303675, 303676, 303677, 303678, 303679, 303680, 303681, 303682, 303683, 303684, 303685, 303686, 303687]
+    #     DIPOL POLARIMETRY R / Hiltner960
+    #     JD: 2460967.41977 (2025-10-18T22:04:28
+    #     mag R: 9.669 ± 0.143
+    #     p: (5.215 ± 0.213)%
+    #     chi: (51.961 ± 3.596)º)>
 
-    # 3C 345 (comparison with Vilppu reduction and CAFOS observation)
+    epoch = Epoch.by_epochname("OSN-T090/2025-10-18")
+    epoch.compute_relative_polarimetry()
+    
+    # Note: the magnitude check for this source has some caveats (see the 
+    # comments in the test catalog file.
 
-    res = qs_res.filter(instrument=INSTRUMENTS.DIPOL, epoch__night="2023-10-09").get(astrosource__name="1641+399")
-    assert res.p == approx(30.1/100, abs=max(2*res.p_err, 0.5/100)) 
-    assert res.chi == approx(45.5, abs=max(2*res.chi_err, 5))
+    # TODO: DIPOL magnitude uncertainty.
+    # TODO: DIPOL chi uncertainty.
+
+    r = PhotoPolResult.objects.filter(
+        epoch=epoch,
+        astrosource__name="Hiltner960",
+    ).get()
+    
+    mag_R_lit = r.astrosource.mag_R
+    p_lit = r.astrosource.p
+    chi_lit = r.astrosource.chi
+
+    assert r.mag == approx(mag_R_lit, abs=0.15), "mag_R within 0.15 of lit. value"
+    assert r.mag == approx(mag_R_lit, abs=1.5*r.mag_err), "mag_R within mag_err of lit. value"
+    assert r.mag_err < 0.15, "dmag < 0.15"
+
+    assert r.p == approx(p_lit, abs=0.5/100), "p (%) within 0.5 of lit. value"
+    assert r.p == approx(p_lit, abs=r.p_err), "p (%) within p_err of lit. value"
+    assert r.p_err < 0.5/100, "dp < 0.5%"
+
+    assert r.chi == approx(chi_lit, abs=3), "chi (º) within 3º of lit. value"
+    assert r.chi == approx(chi_lit, abs=r.chi_err), "chi (º) within chi_err of lit.value"
+    assert r.chi_err < 4, "dchi < 4º"
+
+    # ensure also that reference values didn't change since included in tests
+    assert mag_R_lit == approx(9.786)
+    assert p_lit == approx(5.21/100)
+    assert chi_lit == approx(54.54)
+
 
 @pytest.mark.django_db(transaction=True)
 def test_astrometric_calibration(load_test_catalog):

@@ -9,13 +9,21 @@ from django.db.models.signals import m2m_changed
 from django.dispatch import receiver
 
 # other imports
+import io
 import math
 import numpy as np
+import matplotlib as mplt
+import matplotlib.pyplot as plt
 import astropy.units as u
 from astropy.time import Time
 
 # iop4lib imports
-from iop4lib.enums import *
+from iop4lib.enums import (
+    REDUCTIONMETHODS,
+    INSTRUMENTS,
+    OBSMODES,
+    BANDS,
+)
 from .fields import FlagChoices, FlagBitField
 
 # logging
@@ -76,7 +84,7 @@ class PhotoPolResult(models.Model):
 
     ## photo-polarimetric reduction info
 
-    aperpix = models.FloatField(null=True, help_text="Aperture radius in pixels.")
+    aperpix = models.FloatField(null=True, help_text="Common aperture radius in pixels.")
     bkg_flux_counts = models.FloatField(null=True, help_text="Background flux in counts from aperture photometry.")
     bkg_flux_counts_err = models.FloatField(null=True, help_text="Error for bkg_flux_counts.")
     flux_counts = models.FloatField(null=True, help_text="Flux in counts from aperture photometry (background-substracted).")
@@ -107,8 +115,10 @@ class PhotoPolResult(models.Model):
     chi_err = models.FloatField(null=True, help_text="Error for chi.")
 
     ## host galaxy correction 
+
     aperas = models.FloatField(null=True, help_text="Aperture radius in arcseconds.")
-    fwhm = models.FloatField(null=True, help_text="FWHM in arcseconds.")
+    fwhm = models.FloatField(null=True, help_text="FWHM in arcseconds (median of all sources in this result reducedfits).")
+    fwhm_source = models.FloatField(null=True, help_text="FWHM in arcseconds (median of this source in this result reducedfits).")
     mag_corr = models.FloatField(null=True, help_text="Magnitude corrected for host galaxy.")
     mag_corr_err = models.FloatField(null=True, help_text="Error for mag_corr.")
     p_corr = models.FloatField(null=True, help_text="Polarization corrected for host galaxy.")
@@ -407,7 +417,109 @@ class PhotoPolResult(models.Model):
         self.save()
 
         return mag_corr, p_corr, p_corr_err
+
+    # plot helpers
+
+    def plot_polarimetry(self, fig=None):
+        from iop4lib.utils import get_column_values
+        from iop4lib.utils.polarization import (
+            compute_stokes_HWP_fit_full,
+            compute_stokes_HWP_fit_1,
+            compute_stokes_HWP_fit_2,
+        )
+
+        fig = fig or plt.gcf()
+
+        astrosource = self.astrosource
+        values = get_column_values(self.aperphotresults.all(), ['reducedfit__rotangle', 'flux_counts', 'flux_counts_err', 'pairs'])
+
+        angles_L = list(sorted(set(values['reducedfit__rotangle'])))
+
+        fluxes = dict()
+        flux_errors = dict()
+        for pair, angle, flux, flux_err in zip(values['pairs'], values['reducedfit__rotangle'], values['flux_counts'], values['flux_counts_err']):
+            fluxes[(pair, angle)] = flux
+            flux_errors[(pair, angle)] = flux_err          
+
+        theta = np.array([angle for angle in angles_L])
+
+        fO = np.array([fluxes.get(('O', angle), np.nan) for angle in angles_L])
+        dfO = np.array([flux_errors.get(('O', angle), np.nan) for angle in angles_L])
+
+        fE = np.array([fluxes.get(('E', angle), np.nan) for angle in angles_L])
+        dfE = np.array([flux_errors.get(('E', angle), np.nan) for angle in angles_L])
+
+        fO, dfO, fE, dfE = fE, dfE, fO, dfO
+
+        if not (only_pair := astrosource.metadata.get(f"{self.instrument}.polarimetry.only_pair")):
+
+            gs = fig.add_gridspec(1, 1)
+            subfig1 = fig.add_subfigure(gs[0,0])
+            subfig2 = fig.add_subfigure(gs[0,0])
+
+            stokes_nocorr_1 = compute_stokes_HWP_fit_full(theta, fO=fO, dfO=dfO, fE=fE, dfE=dfE, plot=True, annotate=True, fig=subfig1)
+            stokes_nocorr_2 = compute_stokes_HWP_fit_1(theta, fO=fO, dfO=dfO, fE=fE, dfE=dfE, plot=True, annotate=True, fig=subfig2)
+
+            if stokes_nocorr_1.dp < stokes_nocorr_2.dp:
+                stokes_nocorr = stokes_nocorr_1
+                method_name = "compute_stokes_HWP_fit_full"
+                subfig2.clear()
+            else:
+                stokes_nocorr = stokes_nocorr_2
+                method_name = "compute_stokes_HWP_fit_1"
+                subfig1.clear()
+        else:
+            if only_pair == 'O':
+                method_name = "compute_stokes_HWP_fit_2 (O)"
+                stokes_nocorr = compute_stokes_HWP_fit_2(theta, fO=fO, dfO=dfO, plot=True, annotate=True, fig=fig)
+            elif only_pair == 'E':
+                method_name = "compute_stokes_HWP_fit_2 (E)"
+                stokes_nocorr = compute_stokes_HWP_fit_2(theta, fE=fE, dfE=dfE, plot=True, annotate=True, fig=fig)
+
+        fig_title = (
+            f"{self}\n"
+            f"{method_name}"
+        )
+
+        redf_0 = self.reducedfits.first()
+        instr_pol_dict = redf_0.instrument_cls.get_instrumental_polarization(redf_0)
+        stokes_corr = stokes_nocorr.correct(**instr_pol_dict)
+        if not (
+            np.isclose(stokes_corr.p, self.p)
+            and np.isclose(stokes_corr.dp, self.p_err)
+            and np.isclose(stokes_corr.chi, self.chi)
+            and np.isclose(stokes_corr.dchi, self.chi_err)
+        ):
+            fig_title += " -- RESULTS DIFFER FROM DB"
+
+        fig_title += ("\n"
+            f"q = ({100*stokes_corr.q:.1f} +/ {100*stokes_corr.dq:.1f})%, "
+            f"u = ({100*stokes_corr.u:.1f} +/ {100*stokes_corr.du:.1f})%"
+            "\n"
+            f"p = ({100*stokes_corr.p:.1f} +/ {100*stokes_corr.dp:.1f})%, "
+            f"chi = ({stokes_corr.chi:.1f} +/- {stokes_corr.dchi:.1f})º)"
+        )
+
+        fig.suptitle(fig_title)
         
+        return fig
+
+    def get_img_polarimetry(self, **kwargs):
+        width = kwargs.get('width', 1024)
+        height = kwargs.get('height', 1024)
+
+        buf = io.BytesIO()
+
+        fig = mplt.figure.Figure(figsize=(width/100, height/100), dpi=iop4conf.mplt_default_dpi)
+        self.plot_polarimetry(fig=fig)
+        fig.tight_layout()
+        fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
+        fig.clf()
+
+        buf.seek(0)
+        imgbytes = buf.read()
+
+        return imgbytes
 
 @receiver(m2m_changed, sender=PhotoPolResult.reducedfits.through)
 def reducedfits_on_change(sender, instance, action, **kwargs):

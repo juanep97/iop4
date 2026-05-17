@@ -24,7 +24,6 @@ def test_testdata(testdata):
     """Test that the test data is available"""
     assert (os.path.exists(Path(iop4conf.datadir) / "raw" / "OSN-T090"))
 
-
 @pytest.mark.django_db(transaction=True)
 def test_testconfig_testdb(load_test_catalog):
     """ Check that the DB is clean (it should be the test database), if it is not, all test will fail """
@@ -46,8 +45,18 @@ def test_testconfig_testdb(load_test_catalog):
 
     # there should be some test sources in the DB, and their calibrators
     assert AstroSource.objects.count() > 0
-    assert AstroSource.objects.filter(name="2200+420").exists()
 
+@pytest.mark.django_db(transaction=True)
+def test_catalog(load_test_catalog):
+    """Test that test catalog
+    Check that reference values we are using in other tests did not change since
+    we included them.
+    """
+    from iop4lib.db import AstroSource
+    src = AstroSource.objects.get(name="Hiltner960")
+    assert src.mag_R == approx(9.786)
+    assert src.p == approx(5.21/100)
+    assert src.chi == approx(54.54)
 
 @pytest.mark.django_db(transaction=True)
 def test_host_correction_data_load(load_test_catalog):

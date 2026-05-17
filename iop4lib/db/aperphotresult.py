@@ -51,6 +51,7 @@ class AperPhotResult(models.Model):
     flux_counts_err = models.FloatField(null=True, blank=True)
 
     ## extra fields
+    
     x_px = models.FloatField(null=True, help_text="used pixel position of the source in the image, x coordinate.")
     y_px = models.FloatField(null=True, help_text="used pixel position of the source in the image, y coordinate.")
     fwhm = models.FloatField(null=True, blank=True, help_text="FWHM of the source in arcseconds.")

@@ -17,6 +17,7 @@ import traceback
 
 # iop4lib imports
 from iop4lib.utils import  get_mem_parent_from_child, get_total_mem_from_child, get_mem_current, get_mem_children
+from iop4lib.typing import *
 
 # logging
 import logging
@@ -200,7 +201,7 @@ def _epoch_bulkreduce_multiprocesing_mainloop(tasks, counter, reduced_L, epoch=N
 
 # COMPUTE RELATIVE POLARIMETRY IN MULTIPROCESSING POOL
 
-def _parallel_relative_polarimetry_helper(keys, group):
+def _parallel_relative_polarimetry_helper(keys, group: 'PolarimetryGroup'):
     from iop4lib.instruments import Instrument
     try:
         Instrument.by_name(keys['instrument']).compute_relative_polarimetry(group)
@@ -209,7 +210,7 @@ def _parallel_relative_polarimetry_helper(keys, group):
     finally:
         logger.info(f"Finished computing relative polarimetry for {group=}.")
 
-def parallel_relative_polarimetry(keys, groups):
+def parallel_relative_polarimetry(keys: Iterable[Any], groups: Iterable['PolarimetryGroup']):
     mp_ctx = multiprocessing.get_context('fork') # fork is faster and does not need configuring again
     with mp_ctx.Pool(iop4conf.nthreads) as pool:
         pool.starmap(_parallel_relative_polarimetry_helper, zip(keys, groups))

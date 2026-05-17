@@ -5,7 +5,7 @@ iop4conf = iop4lib.Config(config_db=False)
 # django imports
 
 # other imports
-from abc import ABCMeta, abstractmethod
+from abc import ABC, ABCMeta, abstractmethod
 
 import os
 import re
@@ -16,14 +16,20 @@ import astropy.units as u
 import itertools
 import datetime
 import glob
+import warnings
+
 import astrometry
 from photutils.centroids import centroid_sources, centroid_2dg, centroid_com
+from astropy.nddata import Cutout2D
+from astropy.utils.exceptions import AstropyUserWarning
 
 # iop4lib imports
-from iop4lib.enums import *
-from iop4lib.utils import filter_zero_points, calibrate_photopolresult
-from iop4lib.utils.sourcedetection import apply_gaussian_smooth
-
+from iop4lib.enums import (
+    OBSMODES,
+    REDUCTIONMETHODS,
+)
+from iop4lib.utils import calibrate_photopolresult
+        
 # logging
 import logging
 logger = logging.getLogger(__name__)
@@ -542,123 +548,381 @@ class Instrument(metaclass=ABCMeta):
         if reducedfit.auto_merge_to_db:
             reducedfit.save()
 
-    @classmethod
-    def compute_aperture_photometry(cls, redf, aperpix, r_in, r_out):
-        """ Common aperture photometry method for all instruments."""
 
-        from iop4lib.db.aperphotresult import AperPhotResult
-        from iop4lib.utils.sourcedetection import get_bkg, get_segmentation
-        from photutils.utils import circular_footprint
-        from photutils.aperture import CircularAperture, CircularAnnulus, ApertureStats, aperture_photometry
-        from photutils.utils import calc_total_error
-        from astropy.stats import SigmaClip
+    @classmethod
+    def get_centroids_and_fwhms(cls, redf, use_cutout=True) -> 'CentroidsAndFwhmResultTuple':
+
+        from photutils.psf import fit_fwhm
+
+        from iop4lib.utils.sourcedetection import (
+            apply_gaussian_smooth,
+            get_bkg
+        )
+
+        from iop4lib.utils.sourcedetection import (
+            get_segmentation,
+            get_cat_sources_from_segment_map,
+            get_bkg,
+        )
+
+        from iop4lib.utils import overlaps, next_odd
 
         img = redf.mdata
 
-        # centroid_sources and fit_fwhm need bkg-substracted data
+        bkg_box_size = img.shape[0]//10
+        bkg = get_bkg(img, filter_size=1, box_size=bkg_box_size)
+        
+        # data = img - bkg.background_median
+        data = img - bkg.background
 
-        # opt 1) estimate bkg using more complex algs
-        bkg_box_size = redf.mdata.shape[0]//10
-        bkg = get_bkg(redf.mdata, filter_size=1, box_size=bkg_box_size)
-        median = bkg.background_median
+        # --- First, estimate fwhm for the image using source detection on the image
 
-        # opt 2) estimate bkg using simple sigma clip
-        # mean, median, std = sigma_clipped_stats(img, sigma=3.0)
 
+        n_seg_threshold = 3
+        npixels = 4
+        seg_threshold = n_seg_threshold * bkg.background_rms
+        segment_map, convolved_data = get_segmentation(data, fwhm=1, npixels=npixels, threshold=seg_threshold)
+        seg_cat, positions, tb = get_cat_sources_from_segment_map(segment_map, data, convolved_data)
+
+        logger.debug(f"{len(seg_cat)=}")
+
+        with u.set_enabled_equivalencies(redf.pixscale_equiv):
+
+            fwhm_init = (3*u.arcsec).to_value('pix')
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=AstropyUserWarning)
+                fwhms = fit_fwhm(data, xypos=positions, fwhm=fwhm_init, fit_shape=next_odd(3*fwhm_init))
+
+            fwhms = fwhms * u.pix
+
+            detected_fwhms = fwhms
+
+            fwhm_mean = np.nanmean(fwhms)
+            fwhm_median = np.nanmedian(fwhms)
+            fwhm_std = np.nanstd(fwhms)
+
+            logger.debug("FWHM results:")
+            logger.debug(f"  mean: {fwhm_mean:.1f} ({fwhm_mean.to('arcsec'):.1f})")
+            logger.debug(f"  median: {fwhm_median:.1f} ({fwhm_median.to('arcsec'):.1f})")
+            logger.debug(f"  std: {fwhm_std:.1f} ({fwhm_std.to('arcsec'):.1f}")
+
+        # --- Then, compute source centroids and fwhm for each of our catalog sources
+
+        centroids_and_fwhms_dict = dict()
+
+        with u.set_enabled_equivalencies(redf.pixscale_equiv):
+
+            if use_cutout:
+                # cutout_size = 10 * fwhm_median.to_value('pix')
+                cutout_size = next_odd((12*u.arcsec).to_value('pix')) 
+                logger.debug(f"cutout_size = {cutout_size:.1f}")
+            
+            for astrosource in redf.sources_in_field.all():
+
+                try:
+                    for pairs, wcs in (('O', redf.wcs1), ('E', redf.wcs2)) if redf.has_pairs else (('O',redf.wcs),):                       
+
+                        logger.debug(f"fitting fwhm for ReducedFit {redf.pk} {astrosource.name} pair {pairs}")
+
+                        wcs_pos = astrosource.coord.to_pixel(wcs)
+
+                        wcs_pos_orig = wcs_pos
+
+                        if use_cutout:
+                            cutout = Cutout2D(img - bkg.background_median, position=wcs_pos, size=cutout_size, wcs=wcs)
+                            data = cutout.data
+                            if overlaps(*cutout.position_original, *cutout.shape, *img.shape):
+                                raise Exception(f"{redf} {astrosource} {pairs}: cutout overlaps with image border, skipping")
+                            wcs_pos = cutout.to_cutout_position(wcs_pos)
+
+                        logger.debug(f"wcs_pos = {wcs_pos}")
+
+                        box_size = next_odd((12*u.arcsec).to_value('pix'))
+
+                        logger.debug(f"box_size = {box_size:.1f}")
+
+                        if redf.has_pairs:
+                            box_size_max = next_odd(np.linalg.norm(redf.hint_disp_sign_mean))
+                            box_size = min(box_size, box_size_max)
+
+                            logger.debug(f"has pairs = True -> clipped to box_size_max = {box_size_max:.1f}")
+
+                        if use_cutout:
+                            if box_size > cutout_size:
+                                box_size = cutout_size
+
+                                logger.debug("working inside a cutout, clipped box_size to cutout_size")
+
+                        logger.debug(f"box_size = {box_size:.1f}")
+
+                        if overlaps(wcs_pos_orig[1], wcs_pos_orig[0], box_size, box_size, *img.shape):
+                            raise Exception(f"{redf} {astrosource} {pairs}: box overlaps with image border, skipping")
+
+                        logger.debug("fitting with centroid_com")
+
+                        c_com = centroid_sources(data, xpos=wcs_pos[0], ypos=wcs_pos[1], box_size=box_size, centroid_func=centroid_com)
+                        c_com = np.array(c_com).reshape(2)
+
+                        logger.debug(f"c_com = {c_com}")
+
+                        # attempt to fit 2dg to c_com, then to wcs_pos, and if neither works, default to wcs_pos
+
+                        c2 = wcs_pos
+
+                        for pos1, label in [(c_com, 'c_com'), (wcs_pos, 'wcs_pos')]:
+
+                            logger.debug(f"fitting centroid_2dg with {label}")
+
+                            with warnings.catch_warnings(record=True) as fit_warnings:
+                                # sigma_kernel = next_odd(box_size/2)
+                                sigma_kernel = next_odd(fwhm_median.to_value('pix')/2)
+                                data_smooth = apply_gaussian_smooth(data, sigma_kernel)
+                                c_2dg = centroid_sources(data_smooth, xpos=pos1[0], ypos=pos1[1], box_size=box_size, centroid_func=centroid_2dg)
+                                c_2dg = np.array(c_2dg).reshape(2)
+                            
+                            logger.debug(f"c_2dg = {c_2dg}")
+
+                            if fit_warnings:
+                                logger.warning("centroid_2dg emitted warnings, might have failed:")
+                                for warning in fit_warnings:
+                                    warnings.warn(str(warning.message), warning.category)
+                                continue
+
+                            jumped_outside = not np.all((0 < c_2dg) & (c_2dg < box_size))
+                            
+                            if jumped_outside:
+                                logger.warning("centroid_2dg jumped outside fit box")
+                                continue
+
+                            c2 = c_2dg
+                            break
+
+                        logger.debug(f"c2 = {c2}")
+
+                        logger.debug("fitting fwhm to c2")
+
+                        with warnings.catch_warnings(record=True) as fit_warnings:
+                            fwhm = fit_fwhm(data, xypos=c2, fit_shape=next_odd(box_size), fwhm=fwhm_median.to_value('pix')).item()
+
+                        # # Another of way of catching any warning could be forcing the trigger of any warning as exception
+                        # with warnings.catch_warnings(record=True) as w:
+                        #     warnings.simplefilter("error")
+                        #     try:
+                        #         # code that may raise warning-as-error
+                        #         ...
+                        #     except AstropyUserWarning as e:
+                        #         ...
+
+                        logger.debug(f"fwhm = {fwhm:.1f}")
+
+                        if fit_warnings:
+                            logger.warning("fit_fwhm emitted warnings:")
+                            for warning in fit_warnings:
+                                warnings.warn(str(warning.message), warning.category)
+                        
+                        valid_fwhm = bool(fwhm < box_size)
+
+                        if not valid_fwhm:
+                            logger.warning("fwhm is invalid (>box_size), skipping")
+                            raise Exception(f"{redf} {astrosource} {pairs}: fit_fwhm failed")
+
+                        fwhm = fwhm * u.pix
+
+                        if use_cutout:
+                            c2 = cutout.to_original_position(c2)
+
+                        # TODO
+                        # fwhm should smaller than box_size to be valid...
+                        # perhaps try to fit_fwhm in c2 then in wcs_pos
+                        # like we did above for c2 itself
+                            
+                        centroids_and_fwhms_dict[(astrosource, pairs)] = CentroidFwhmTuple(c2, fwhm)
+                    
+                except Exception as e:
+                    msg = f"{redf} ({astrosource} {pairs}: error fitting centroid and fwhm: {e}"
+                    if not astrosource.is_calibrator:
+                        logger.exception(msg)
+                    else:
+                        logger.debug(msg)
+
+
+        fwhm_stats = FwhmStatsTuple(fwhm_mean, fwhm_std, fwhm_median)
+
+        return CentroidsAndFwhmResultTuple(centroids_and_fwhms_dict, fwhm_stats, detected_fwhms)
+
+    @classmethod
+    def estimate_common_apertures(cls, reducedfits: 'PolarimetryGroup', **kwargs) -> CommonAperturesTuple:
+        r"""Estimate an appropriate common aperture for a list of reduced fits. Results are in pixels."""
+
+        fwhm_max = kwargs.get('fwhm_max', 15*u.arcsec)
+        
+        centroids_and_fwhms: dict['ReducedFit', CentroidsAndFwhmResultTuple] = dict()
+
+        for redf in reducedfits:
+
+            # # a)
+            # centroids_and_fwhms[redf] = cls.get_centroids_and_fwhms(redf)
+
+            # # b)
+            # try not to compute centroids and fwhms again (and attach results as
+            # an attribute to redf for next time)
+
+            redf_centroids_and_fwhms = getattr(redf, 'centroids_and_fwhms', None)
+            if not redf_centroids_and_fwhms:
+                redf_centroids_and_fwhms = cls.get_centroids_and_fwhms(redf)
+                redf.centroids_and_fwhms = redf_centroids_and_fwhms
+                
+            # ---
+
+            centroids_and_fwhms[redf] = redf_centroids_and_fwhms
+
+        # compute aggregate fwhm stats
+
+        detected_fwhms = [centroids_and_fwhms[redf].detected_fwhms for redf in reducedfits]
+        detected_fwhms = list(itertools.chain.from_iterable(detected_fwhms))
+        detected_fwhms = u.Quantity(detected_fwhms)
+
+        fwhm_mean = np.nanmean(detected_fwhms)
+        fwhm_std = np.nanstd(detected_fwhms)
+        fwhm_median = np.nanmedian(detected_fwhms)
+
+        fwhm_stats = FwhmStatsTuple(fwhm_mean, fwhm_std, fwhm_median)
+        
+        logger.debug(f"Median FWHM (all detected sources) of {reducedfits}: {fwhm_median:.1f}")
+
+        targets__pks = {src.pk for redf in reducedfits for src in redf.sources_in_field.filter(is_calibrator=False).all()}
+
+        target_fwhm_list = list()
+
+        for redf in reducedfits:
+            for (src, pair), (c, fwhm) in centroids_and_fwhms[redf].centroids_and_fwhms.items():
+                if src.pk in targets__pks:
+                    target_fwhm_list.append(fwhm)
+                    
+        targets_fwhm_median = np.nanmedian(u.Quantity(target_fwhm_list))
+
+        logger.debug(f"Median FWHM (targets only) of {reducedfits}: {targets_fwhm_median:.1f}")
+
+        # ap_fwhm = fwhm_median
+        # ap_fwhm = targets_fwhm_median
+        ap_fwhm = max(fwhm_median, targets_fwhm_median)
+    
+        with u.set_enabled_equivalencies(reducedfits[0].pixscale_equiv):
+            
+            if ap_fwhm > fwhm_max:
+                logger.warning(f"aperture FWHM is too big, using fwhm_max {fwhm_max:.1f}")
+                ap_fwhm = fwhm_max
+
+            ap_sigma = ap_fwhm / (2*np.sqrt(2*math.log(2)))
+
+            # if reducedfits[0].has_pairs:
+            #     disp = np.linalg.norm(reducedfits[0].hint_disp_sign_mean)*u.pix
+            #     disp = disp.to(ap_sigma.unit)
+            #     if 3*ap_sigma > 0.8*disp: # TODO: needed? 3x, or x5?
+            #         logger.warning("aperpix would be larger than 0.8*disp, it will be clipped")
+            #         ap_sigma = 0.8*disp/3
+
+        # r_ap, r_in, r_out = 3.0*ap_sigma, 5.0*ap_sigma, 7.0*ap_sigma
+        r_ap, r_in, r_out = 5.0*ap_sigma, 7.0*ap_sigma, 12.0*ap_sigma # TODO: better?
+
+        return CommonAperturesTuple(r_ap, r_in, r_out, ap_fwhm, fwhm_stats, centroids_and_fwhms)
+    
+
+    @classmethod
+    def compute_aperture_photometry(cls, redf, common_apertures: 'CommonAperturesTuple') -> List['AperPhotResult']:
+        """ Common aperture photometry method for all instruments."""
+        from iop4lib.utils import overlaps
+        from iop4lib.db.aperphotresult import AperPhotResult
+        from iop4lib.utils.sourcedetection import get_bkg
+        from photutils.aperture import (
+            CircularAperture,
+            CircularAnnulus,
+            ApertureStats,
+        )
+        from photutils.utils import calc_total_error
+        from astropy.stats import SigmaClip
+
+        with u.set_enabled_equivalencies(redf.pixscale_equiv):
+            r_ap = common_apertures.r_ap.to_value('pix')
+            r_in = common_apertures.r_in.to_value('pix')
+            r_out = common_apertures.r_out.to_value('pix')
+
+        img = redf.mdata
+
+        bkg_box_size = img.shape[0]//10
+        bkg = get_bkg(img, filter_size=1, box_size=bkg_box_size)
         error = calc_total_error(img, bkg.background_rms, cls.gain_e_adu)
 
-        apres_L = list()
+        centroids_and_fwhms = common_apertures.centroids_and_fwhms[redf].centroids_and_fwhms
 
+        aperphotresults: List[AperPhotResult] = list()
+        
         for astrosource in redf.sources_in_field.all():
-            for pairs, wcs in (('O', redf.wcs1), ('E', redf.wcs2)) if redf.has_pairs else (('O',redf.wcs),):
+            
+            for pair in ('O', 'E') if redf.has_pairs else ('O',):
                 try:
-                    logger.debug(f"{redf}: computing aperture photometry for {astrosource} {pairs}")
+                    logger.debug(f"{redf}: computing aperture photometry for {astrosource} {pair}")
 
-                    wcs_px_pos = astrosource.coord.to_pixel(wcs)
+                    # get centroid position
 
-                    # check that the wcs px position is within (r_in+r_out)/2 from ther border of the image
-
-                    r_mid = (r_in + r_out) / 2
-
-                    if not (r_mid < wcs_px_pos[0] < img.shape[1] - r_mid and r_mid < wcs_px_pos[1] < img.shape[0] - r_mid):
-                        logger.warning(f"{redf}: ({pairs}) image of {astrosource.name} is too close to the border, skipping aperture photometry.")
+                    if (astrosource, pair) in centroids_and_fwhms:
+                        centroid, source_fwhm = centroids_and_fwhms[(astrosource, pair)]
+                    else:
+                        logger.warning(f"{redf} could not get centroid for {astrosource.name} {pair}, skipping aperture photometry")
                         continue
-
-                    # # choose a box size that is somewhat larger than the aperture
-                    # # in case of pairs, cap box size so that it is somewhat smaller than the distance between pairs
-
-                    # box_size = math.ceil(1.6 * aperpix)//2 * 2 + 1
-
-                    # if redf.has_pairs:
-                    #     box_size_max = math.ceil(np.linalg.norm(Instrument.by_name(redf.instrument).disp_sign_mean))//2 * 2 - 1
-                    #     box_size = min(box_size, box_size_max)
-
-                    # correct position using centroid
-
-                    arcsec_px = redf.pixscale.to(u.arcsec/u.pix).value
-
-                    box_size = math.ceil( ( 12 / arcsec_px ) ) // 2 * 2 + 1
-                    # if there is some astrometric deviation (e.g. for the extaordinary image), perhaps try 24 arcsec, 12 might be to small for it...
-
-                    logger.debug(f"{box_size=}")
-
-                    if redf.has_pairs:
-                        disp_sign_mean = redf.instrument_cls.get_binning_independent_px(redf.rawfit, redf.instrument_cls.disp_sign_mean)
-                        box_size_max = math.ceil(np.linalg.norm(disp_sign_mean))//2 * 2 - 1
-                        box_size = min(box_size, box_size_max)
-
-                    # centroid_px_pos = centroid_sources(img-median, xpos=wcs_px_pos[0], ypos=wcs_px_pos[1], box_size=box_size, centroid_func=centroid_2dg)
-                    # # this should fix when there is a large deviation...:
-                    # # centroid_px_pos = centroid_sources(img-median, xpos=wcs_px_pos[0], ypos=wcs_px_pos[1], box_size=box_size, centroid_func=centroid_com)
-                    # # centroid_px_pos = centroid_sources(img-median, xpos=centroid_px_pos[0], ypos=centroid_px_pos[1], box_size=box_size, centroid_func=centroid_2dg)
-                    # and this should also reduce errors due to diffraction spikes (non-gaussian shape)
-                    centroid_px_pos = centroid_sources(img-median, xpos=wcs_px_pos[0], ypos=wcs_px_pos[1], box_size=box_size, centroid_func=centroid_com)
-                    centroid_px_pos = centroid_sources(apply_gaussian_smooth(img-median,1), xpos=centroid_px_pos[0], ypos=centroid_px_pos[1], box_size=box_size, centroid_func=centroid_2dg)
-
-                    centroid_px_pos = (centroid_px_pos[0][0], centroid_px_pos[1][0])
-
-                    # log the difference between the WCS and the centroid
-                    wcs_diff = np.sqrt((centroid_px_pos[0] - wcs_px_pos[0])**2 + (centroid_px_pos[1] - wcs_px_pos[1])**2)
-                    
-                    logger.debug(f"ReducedFit {redf.id}: {astrosource.name} {pairs}: WCS centroid distance = {wcs_diff:.1f} px")
 
                     # check that the centroid position is within the borders of the image
-
-                    if not (r_mid < centroid_px_pos[0] < img.shape[1] - r_mid and r_mid < centroid_px_pos[1] < img.shape[0] - r_mid):
-                        logger.warning(f"{redf}: centroid of the ({pairs}) image of {astrosource.name} is too close to the border, skipping aperture photometry.")
+                
+                    if overlaps(*(centroid[1], centroid[1]), *(r_out, r_out), *img.shape):
+                        logger.warning(f"{redf}: {astrosource.name}, ({pair}) is too close to the border, skipping aperture photometry.")
                         continue
 
-                    ap = CircularAperture(centroid_px_pos, r=aperpix)
-                    annulus = CircularAnnulus(centroid_px_pos, r_in=r_in, r_out=r_out)
+                    ap = CircularAperture(centroid, r=r_ap)
+                    annulus = CircularAnnulus(centroid, r_in=r_in, r_out=r_out)
 
-                    annulus_stats = ApertureStats(redf.mdata, annulus, error=error, sigma_clip=SigmaClip(sigma=5.0, maxiters=10))
-                    ap_stats = ApertureStats(redf.mdata, ap, error=error)
+                    if redf.has_pairs:
+                        other_pair = 'E' if pair == 'O' else 'O'
+                        other_c, _ = centroids_and_fwhms[(astrosource, other_pair)]
+                        other_mask = CircularAperture(other_c, r=r_ap).to_mask().to_image(img.shape).astype(bool)
+                    else:
+                        other_mask = None
 
-                    bkg_flux_counts = annulus_stats.median*ap_stats.sum_aper_area.value
+                    ap_stats = ApertureStats(img, ap, error=error)
+                    annulus_stats = ApertureStats(img, annulus, error=error, sigma_clip=SigmaClip(sigma=3.0, maxiters=5), mask=other_mask)
+
+                    bkg_flux_counts = annulus_stats.mean*ap_stats.sum_aper_area.value
                     bkg_flux_counts_err = annulus_stats.sum_err / annulus_stats.sum_aper_area.value * ap_stats.sum_aper_area.value
 
-                    flux_counts = ap_stats.sum - annulus_stats.mean*ap_stats.sum_aper_area.value # TODO: check if i should use mean!
+                    flux_counts = ap_stats.sum - annulus_stats.mean*ap_stats.sum_aper_area.value
                     flux_counts_err = ap_stats.sum_err
 
                     apres = AperPhotResult.create(
-                        reducedfit=redf, 
-                        astrosource=astrosource, 
-                        aperpix=aperpix, 
-                        r_in=r_in, r_out=r_out,
-                        x_px=centroid_px_pos[0], y_px=centroid_px_pos[1],
-                        pairs=pairs, 
-                        bkg_flux_counts=bkg_flux_counts, bkg_flux_counts_err=bkg_flux_counts_err,
-                        flux_counts=flux_counts, flux_counts_err=flux_counts_err,
+                        reducedfit = redf, 
+                        astrosource = astrosource, 
+                        aperpix = r_ap, 
+                        r_in = r_in,
+                        r_out = r_out,
+                        pairs = pair,
+                        # photometry results
+                        bkg_flux_counts = bkg_flux_counts,
+                        bkg_flux_counts_err = bkg_flux_counts_err,
+                        flux_counts = flux_counts,
+                        flux_counts_err = flux_counts_err,
+                        # other info
+                        x_px = centroid[0],
+                        y_px = centroid[1],
+                        fwhm = source_fwhm.to_value('arcsec', equivalencies=redf.pixscale_equiv),
                     )
                     
-                    apres_L.append(apres)
+                    aperphotresults.append(apres)
                 except Exception as e:
-                    logger.warning(f"{redf}: error computing aperture photometry for {astrosource} {pairs}: {e}")
+                    logger.warning(f"{redf}: error computing aperture photometry for {astrosource} {pair}: {e}")
 
-        return apres_L
+        return aperphotresults
     
     @classmethod
-    def compute_relative_photometry(cls, redf: 'ReducedFit') -> None:
+    def compute_relative_photometry(cls, redf: 'ReducedFit') -> List['PhotoPolResult']:
         """ Common relative photometry method for all instruments. """
         
         from iop4lib.db.aperphotresult import AperPhotResult
@@ -667,18 +931,40 @@ class Instrument(metaclass=ABCMeta):
         if redf.obsmode != OBSMODES.PHOTOMETRY:
             raise Exception(f"{redf}: this method is only for plain photometry images.")
         
-        aperpix, r_in, r_out, fit_res_dict = cls.estimate_common_apertures([redf], reductionmethod=REDUCTIONMETHODS.RELPHOT)
-        target_fwhm = fit_res_dict['mean_fwhm']
+        common_aps = cls.estimate_common_apertures([redf], reductionmethod=REDUCTIONMETHODS.RELPHOT)
+
+        r_ap = common_aps.r_ap
+        r_in = common_aps.r_in
+        r_out = common_aps.r_out
         
-        if target_fwhm is None:
-            logger.error("Could not estimate a target FWHM, aborting relative photometry.")
-            return
+        fwhm_median  = common_aps.fwhm_stats.median
+
+        centroids_and_fwhms_result = common_aps.centroids_and_fwhms[redf]
 
         # 1. Compute all aperture photometries
 
-        logger.debug(f"{redf}: computing aperture photometries for {redf} (target_fwhm = {target_fwhm:.1f} px, aperpix = {aperpix:.1f} px, r_in = {r_in:.1f} px, r_out = {r_out:.1f} px).")
+        common_apertures = cls.estimate_common_apertures([redf], reductionmethod=REDUCTIONMETHODS.RELPHOT)
 
-        cls.compute_aperture_photometry(redf, aperpix, r_in, r_out)
+        r_ap = common_apertures.r_ap
+        r_in = common_apertures.r_in
+        r_out = common_apertures.r_out
+
+        ap_fwhm = common_apertures.ap_fwhm
+
+        fwhm_median = common_apertures.fwhm_stats.median     
+
+        with u.set_enabled_equivalencies(redf.pixscale_equiv):
+            aperpix = r_ap.to_value('pix')
+            r_in_px = r_in.to_value('pix')
+            r_out_px = r_out.to_value('pix')
+            aperas = r_ap.to_value('arcsec')
+            median_fwhm_as = fwhm_median.to_value('arcsec')
+
+        logger.debug(f"Computing aperture photometries for {redf} (ap_fwhm = {ap_fwhm:.1f}, r_ap = {r_ap:.1f}, r_in = {r_in:.1f}, r_out = {r_out:.1f}).")
+
+        aperphotresults = cls.compute_aperture_photometry(redf, common_apertures)
+
+        aperphotresult_pks = [aper.pk for aper in aperphotresults]
 
         # 2. Compute relative polarimetry for each source (uses the computed aperture photometries)
 
@@ -686,23 +972,39 @@ class Instrument(metaclass=ABCMeta):
 
         # 2. Compute the flux in counts and the instrumental magnitude
         
-        photopolresult_L = list()
+        photopolresults: List[PhotoPolResult] = list()
         
         for astrosource in redf.sources_in_field.all():
 
-            qs_aperphotresult = AperPhotResult.objects.filter(reducedfit=redf, astrosource=astrosource, aperpix=aperpix, pairs="O")
+            aperphotresult_qs = AperPhotResult.objects.filter(
+                pk__in=aperphotresult_pks,
+            ).filter(
+                reducedfit = redf,
+                astrosource = astrosource,
+                aperpix = aperpix,
+                r_in = r_in_px,
+                r_out = r_out_px,
+                pairs = "O",
+            ).all()
 
-            if not qs_aperphotresult.exists():
+            if not aperphotresult_qs.exists():
                 logger.error(f"{redf}: no aperture photometry for source {astrosource.name} found, skipping relative photometry.")
                 continue
 
-            aperphotresult = qs_aperphotresult.first()
+            aperphotresult = aperphotresult_qs.get()
 
             result = PhotoPolResult.create(reducedfits=[redf], astrosource=astrosource, reduction=REDUCTIONMETHODS.RELPHOT)
 
             result.aperpix = aperpix
-            result.aperas = aperpix * redf.pixscale.to(u.arcsec / u.pix).value
-            result.fwhm = target_fwhm * redf.pixscale.to(u.arcsec / u.pix).value
+            result.aperas = aperas
+            result.fwhm = median_fwhm_as
+
+            with u.set_enabled_equivalencies(redf.pixscale_equiv):
+                fwhm_source = centroids_and_fwhms_result.centroids_and_fwhms[(astrosource, 'O')].fwhm
+                fwhm_source_as = fwhm_source.to_value('arcsec')
+
+            result.fwhm_source = fwhm_source_as
+
             result.bkg_flux_counts = aperphotresult.bkg_flux_counts
             result.bkg_flux_counts_err = aperphotresult.bkg_flux_counts_err
             result.flux_counts = aperphotresult.flux_counts
@@ -742,27 +1044,27 @@ class Instrument(metaclass=ABCMeta):
 
             result.save()
 
-            photopolresult_L.append(result)
+            photopolresults.append(result)
 
         # 3. Compute the calibrated magnitudes
 
-        for result in photopolresult_L:
+        for result in photopolresults:
 
             if result.astrosource.is_calibrator:
                 continue
 
             logger.debug(f"{redf}: calibrating {result}")
 
-            calibrate_photopolresult(result, photopolresult_L)
+            calibrate_photopolresult(result, photopolresults)
         
         # 5. Save the results
 
-        for result in photopolresult_L:
+        for result in photopolresults:
             result.save()
 
+        return photopolresults
 
 
-from abc import ABC, abstractmethod
 
 class InstrumentHWP(ABC, Instrument):
 
@@ -773,11 +1075,11 @@ class InstrumentHWP(ABC, Instrument):
 
     @classmethod
     @abstractmethod
-    def get_instrumental_polarization(redf):
+    def get_instrumental_polarization(redf) -> InstrumentalPolarizationDict:
         raise NotImplementedError
 
     @classmethod
-    def compute_relative_polarimetry(cls, polarimetry_group: 'PolarimetryGroup'):
+    def compute_relative_polarimetry(cls, polarimetry_group: 'PolarimetryGroup') -> List['PhotoPolResult']:
         """ Computes the relative polarimetry for a polarimetry group (CAFOS AND DIPOL)
         
         .. note::
@@ -820,11 +1122,12 @@ class InstrumentHWP(ABC, Instrument):
 
         from iop4lib.utils import (
             get_column_values,
+            NoCalibratorsFound,
         )
 
         from iop4lib.utils.polarization import (
-            Stokes,
             compute_stokes_HWP_fit_full,
+            compute_stokes_HWP_fit_1,
             compute_stokes_HWP_fit_2,
         )
 
@@ -867,165 +1170,228 @@ class InstrumentHWP(ABC, Instrument):
         if not rot_angles_available.issubset(cls.rot_angles_required):
             logger.warning(f"Rotation angles missing: {cls.rot_angles_required - rot_angles_available}")
 
-        # and if we want to disallow missing rotation angles
+        # # if we want to disallow missing rotation angles
 
-        if len(polarimetry_group) != len(cls.rot_angles_required):
-            raise Exception(f"Can not compute relative polarimetry for a group with {len(polarimetry_group)} reducedfits, it should be {len(cls.rot_angles_required)}.")
+        # if len(polarimetry_group) != len(cls.rot_angles_required):
+        #     raise Exception(f"Can not compute relative polarimetry for a group with {len(polarimetry_group)} reducedfits, it should be {len(cls.rot_angles_required)}.")
 
         # 1. Compute all aperture photometries
 
-        aperpix, r_in, r_out, fit_res_dict = cls.estimate_common_apertures(polarimetry_group, reductionmethod=REDUCTIONMETHODS.RELPHOT)
-        target_fwhm = fit_res_dict['mean_fwhm']
-        
-        if target_fwhm is None:
-            logger.error("Could not estimate a target FWHM, aborting relative photometry.")
-            return
-        
-        logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group (target_fwhm = {target_fwhm:.1f}, aperpix = {aperpix:.1f}, r_in = {r_in:.1f}, r_out = {r_out:.1f}).")
+        common_apertures = cls.estimate_common_apertures(polarimetry_group, reductionmethod=REDUCTIONMETHODS.RELPHOT)
 
-        for reducedfit in polarimetry_group:
-            cls.compute_aperture_photometry(reducedfit, aperpix, r_in, r_out)
+        r_ap = common_apertures.r_ap
+        r_in = common_apertures.r_in
+        r_out = common_apertures.r_out
+
+        ap_fwhm = common_apertures.ap_fwhm
+
+        fwhm_median = common_apertures.fwhm_stats.median
+
+        with u.set_enabled_equivalencies(polarimetry_group[0].pixscale_equiv):
+            aperpix = r_ap.to_value('pix')
+            r_in_px = r_in.to_value('pix')
+            r_out_px = r_out.to_value('pix')
+            aperas = r_ap.to_value('arcsec')
+            median_fwhm_as = fwhm_median.to_value('arcsec')           
+        
+        logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group (ap_fwhm = {ap_fwhm:.1f}, r_ap = {r_ap:.1f}, r_in = {r_in:.1f}, r_out = {r_out:.1f}).")
+
+        aperphotresults = list(itertools.chain.from_iterable([
+            cls.compute_aperture_photometry(redf, common_apertures)
+            for redf in polarimetry_group
+        ]))
+
+        aperphotresult_pks = [aper.pk for aper in aperphotresults]
 
         # 2. Compute relative polarimetry for each source (uses the computed aperture photometries)
 
         logger.debug("Computing relative polarimetry.")
 
-        photopolresult_L = list()
+        photopolresults = list()
 
         for astrosource in group_sources:
 
-            if astrosource.calibrates.count() > 0:
-                continue
+            try:
+                
+                # if astrosource.calibrates.count() > 0:
+                #     continue
 
-            logger.debug(f"Computing relative polarimetry for {astrosource}.")
+                logger.debug(f"Computing relative polarimetry for {astrosource}.")
 
-            aperphotresults = AperPhotResult.objects.filter(
-                reducedfit__in = polarimetry_group,
-                astrosource = astrosource,
-                aperpix = aperpix,
-                flux_counts__isnull = False,
-            )
+                aperphotresults = AperPhotResult.objects.filter(
+                    pk__in=aperphotresult_pks,
+                ).filter(
+                    reducedfit__in = polarimetry_group,
+                    astrosource = astrosource,
+                    aperpix = aperpix,
+                    r_in = r_in_px,
+                    r_out = r_out_px,
+                    flux_counts__isnull = False,
+                )
 
-            if len(aperphotresults) == 0:
-                logger.error(f"No aperphotresults found for {astrosource}")
-                continue
+                if len(aperphotresults) == 0:
+                    logger.error(f"No aperphotresults found for {astrosource}")
+                    continue
 
-            # if we want to disallow missing images
+                # # if we want to disallow missing images:
+                # if len(aperphotresults) != 2*len(cls.rot_angles_required):
+                #     logger.error(f"There should be {2*len(cls.rot_angles_required)} aperphotresults for each astrosource in the group, there are {len(aperphotresults)} for {astrosource.name}.")
+                #     continue
 
-            if len(aperphotresults) != 2*len(cls.rot_angles_required):
-                logger.error(f"There should be {2*len(cls.rot_angles_required)} aperphotresults for each astrosource in the group, there are {len(aperphotresults)} for {astrosource.name}.")
-                continue
+                values = get_column_values(aperphotresults, ['reducedfit__rotangle', 'flux_counts', 'flux_counts_err', 'pairs'])
 
-            values = get_column_values(aperphotresults, ['reducedfit__rotangle', 'flux_counts', 'flux_counts_err', 'pairs'])
+                angles_L = list(sorted(set(values['reducedfit__rotangle'])))
 
-            angles_L = list(sorted(set(values['reducedfit__rotangle'])))
+                # # if we want to disallow missing rotator angles:
+                # if len(angles_L) != len(cls.rot_angles_required):
+                #     logger.warning(f"There should be {len(cls.rot_angles_required)} different angles, there are {len(angles_L)}.")
 
-            # if we want to disallow missing rotator angles
+                fluxes = dict()
+                flux_errors = dict()
+                for pair, angle, flux, flux_err in zip(values['pairs'], values['reducedfit__rotangle'], values['flux_counts'], values['flux_counts_err']):
+                    fluxes[(pair, angle)] = flux
+                    flux_errors[(pair, angle)] = flux_err          
 
-            if len(angles_L) != len(cls.rot_angles_required):
-                logger.warning(f"There should be {len(cls.rot_angles_required)} different angles, there are {len(angles_L)}.")
+                theta = np.array([angle for angle in angles_L])
 
-            fluxes = dict()
-            flux_errors = dict()
-            for pair, angle, flux, flux_err in zip(values['pairs'], values['reducedfit__rotangle'], values['flux_counts'], values['flux_counts_err']):
-                fluxes[(pair, angle)] = flux
-                flux_errors[(pair, angle)] = flux_err          
+                fO = np.array([fluxes.get(('O', angle), np.nan) for angle in angles_L])
+                dfO = np.array([flux_errors.get(('O', angle), np.nan) for angle in angles_L])
 
-            theta = np.array([angle for angle in angles_L])
+                fE = np.array([fluxes.get(('E', angle), np.nan) for angle in angles_L])
+                dfE = np.array([flux_errors.get(('E', angle), np.nan) for angle in angles_L])
 
-            fO = np.array([fluxes.get(('O', angle), np.nan) for angle in angles_L])
-            dfO = np.array([flux_errors.get(('O', angle), np.nan) for angle in angles_L])
+                logger.debug(f"{fO=}, {dfO=}, {fE=}, {dfE=}")
 
-            fE = np.array([fluxes.get(('E', angle), np.nan) for angle in angles_L])
-            dfE = np.array([flux_errors.get(('E', angle), np.nan) for angle in angles_L])
+                # IOP4 astrocalibration atm works the other way, swap them here
+                fO, dfO, fE, dfE = fE, dfE, fO, dfO
 
-            # IOP4 astrocalibration atm works the other way, swap them here
-            fO, dfO, fE, dfE = fE, dfE, fO, dfO
+                # read possible special case from target source metadata
+                only_pair = astrosource.metadata.get(f"{cls.name}.polarimetry.only_pair")
 
-            stokes_nocorr = compute_stokes_HWP_fit_full(theta, fO=fO, dfO=dfO, fE=fE, dfE=dfE)
+                if not only_pair:
 
-            if cls.name == INSTRUMENTS.DIPOL and astrosource.name == "2200+420":
-                # 2200+420 O image is not valid because of E image of some other source falls over it
-                stokes_nocorr = compute_stokes_HWP_fit_2(theta, fE=fE, dfE=dfE)
+                    # 1st -- try full compute
+                    logger.info(f"Computing stokes parameters with compute_stokes_HWP_fit_full")
+                    stokes_nocorr_1 = compute_stokes_HWP_fit_full(theta, fO=fO, dfO=dfO, fE=fE, dfE=dfE)
+                    logger.info(f"{stokes_nocorr_1=}")
+                    logger.info(f"compute_stokes_HWP_fit_full -> ({100*stokes_nocorr_1.p:.1f} +/ {100*stokes_nocorr_1.dp:.1f} %, {stokes_nocorr_1.chi:.1f} +/- {stokes_nocorr_1.dchi:.1f} º)")
 
-            # logger.debug(f"{astrosource.name} stokes_nocorr {stokes_nocorr} -> p = {stokes_nocorr.p:.2f} %, chi = {stokes_nocorr.chi:.1f}º")
+                    # 2nd -- try E+O partial (less correlation)
+                    logger.info(f"Computing stokes parameters with compute_stokes_HWP_fit_1")
+                    stokes_nocorr_2 = compute_stokes_HWP_fit_1(theta, fO=fO, dfO=dfO, fE=fE, dfE=dfE)
+                    logger.info(f"{stokes_nocorr_2=}")
+                    logger.info(f"compute_stokes_HWP_fit_1 -> ({100*stokes_nocorr_2.p:.1f} +/ {100*stokes_nocorr_2.dp:.1f} %, {stokes_nocorr_2.chi:.1f} +/- {stokes_nocorr_2.dchi:.1f} º)")
 
-            inst_pol_dict = cls.get_instrumental_polarization(reducedfit=polarimetry_group[0])
+                    if stokes_nocorr_1.dp < stokes_nocorr_2.dp:
+                        logger.info(f"keeping compute_stokes_HWP_fit_full result (less uncertainty)")
+                        stokes_nocorr = stokes_nocorr_1
+                    else:
+                        logger.info(f"selecting compute_stokes_HWP_fit_2 (less uncertainty)")
+                        stokes_nocorr = stokes_nocorr_2
 
-            stokes = stokes_nocorr.correct(**inst_pol_dict)
-
-            # logger.debug(f"{astrosource.name} stokes {stokes=} -> p = {stokes.p:.2f} %, chi = {stokes.chi:.1f}º")
-
-            flux = stokes.I
-            flux_err = stokes.dI
-
-            mag_inst = -2.5 * np.log10(flux)
-            mag_inst_err = math.fabs(2.5 / math.log(10) * flux_err / flux)
-
-            # if the source is a calibrator, compute also the zero point
-
-            if astrosource.is_calibrator:
-
-                mag_known = getattr(astrosource, f"mag_{band}")
-                mag_known_err = getattr(astrosource, f"mag_{band}_err", None) or 0.0
-
-                if mag_known is None:
-                    logger.warning(f"Calibrator {astrosource} has no magnitude for band {band}.")
-                    mag_zp = np.nan
-                    mag_zp_err = np.nan
                 else:
-                    mag_zp = mag_known - mag_inst
-                    mag_zp_err = math.sqrt(mag_known_err ** 2 + mag_inst_err ** 2)
-            else:
-                mag_zp = None
-                mag_zp_err = None
 
-            # save the results
-                    
-            result = PhotoPolResult.create(
-                reducedfits=polarimetry_group, 
-                astrosource=astrosource, 
-                reduction=REDUCTIONMETHODS.RELPOL,
-                # polarization
-                p = stokes.p,
-                p_err = stokes.dp,
-                chi = stokes.chi,
-                chi_err = stokes.dchi,
-                # photometry
-                mag_inst=mag_inst, mag_inst_err=mag_inst_err, 
-                mag_zp=mag_zp, mag_zp_err=mag_zp_err,
-                # other info
-                flux_counts = flux,
-                _q_nocorr = stokes_nocorr.q,
-                _u_nocorr = stokes_nocorr.u,
-                _p_nocorr = stokes_nocorr.p,
-                _chi_nocorr = stokes_nocorr.chi,
-                # other info
-                aperpix = aperpix,
-                aperas = aperpix * polarimetry_group[0].pixscale.to(u.arcsec / u.pix).value,
-                fwhm = target_fwhm * polarimetry_group[0].pixscale.to(u.arcsec / u.pix).value,
-            )
+                    logger.info(f"This source metadata indicates to use only the {only_pair} pair, computing stoke parameters with compute_stokes_HWP_fit_2")
 
-            result.aperphotresults.set(aperphotresults, clear=True)
+                    if only_pair == 'O':
+                        stokes_nocorr = compute_stokes_HWP_fit_2(theta, fO=fO, dfO=dfO)
+                    elif only_pair == 'E':
+                        stokes_nocorr = compute_stokes_HWP_fit_2(theta, fE=fE, dfE=dfE)
+
+                logger.info(f"{astrosource.name} stokes_nocorr {stokes_nocorr} -> p = ({100*stokes_nocorr.p:.1f} +/ {100*stokes_nocorr.dp:.1f}) %, chi = ({stokes_nocorr.chi:.1f} +/- {stokes_nocorr.dchi:.1f}) º)")
+
+                inst_pol_dict = cls.get_instrumental_polarization(reducedfit=polarimetry_group[0])
+
+                stokes = stokes_nocorr.correct(**inst_pol_dict)
+
+                logger.info(f"{astrosource.name} corrected stokes {stokes} -> p = ({100*stokes.p:.1f} +/ {100*stokes.dp:.1f}) %, chi = ({stokes.chi:.1f} +/- {stokes.dchi:.1f}) º)")
+
+                flux = stokes.I
+                flux_err = stokes.dI
+
+                mag_inst = -2.5 * np.log10(flux)
+                mag_inst_err = math.fabs(2.5 / math.log(10) * flux_err / flux)
+
+                # if the source is a calibrator, compute also the zero point
+
+                if astrosource.is_calibrator:
+
+                    mag_known = getattr(astrosource, f"mag_{band}")
+                    mag_known_err = getattr(astrosource, f"mag_{band}_err", None) or 0.0
+
+                    if mag_known is None:
+                        logger.warning(f"Calibrator {astrosource} has no magnitude for band {band}.")
+                        mag_zp = np.nan
+                        mag_zp_err = np.nan
+                    else:
+                        mag_zp = mag_known - mag_inst
+                        mag_zp_err = math.sqrt(mag_known_err ** 2 + mag_inst_err ** 2)
+                else:
+                    mag_zp = None
+                    mag_zp_err = None
+
+                # get median fwhm of the source
+                _fwhms_as = list()
+                for _redf in polarimetry_group:
+                    for (_src, _pair), (_c, _fwhm) in common_apertures.centroids_and_fwhms[_redf].centroids_and_fwhms.items():
+                        if _src == astrosource:
+                            _fwhms_as.append(_fwhm.to_value('arcsec', equivalencies=_redf.pixscale_equiv))
+                fwhm_source_as = np.nanmedian(_fwhms_as)
+
+                # save the results
                         
-            photopolresult_L.append(result)
+                result = PhotoPolResult.create(
+                    reducedfits=polarimetry_group, 
+                    astrosource=astrosource, 
+                    reduction=REDUCTIONMETHODS.RELPOL,
+                    # polarization
+                    p = stokes.p,
+                    p_err = stokes.dp,
+                    chi = stokes.chi,
+                    chi_err = stokes.dchi,
+                    # photometry
+                    mag_inst = mag_inst,
+                    mag_inst_err = mag_inst_err, 
+                    mag_zp = mag_zp,
+                    mag_zp_err = mag_zp_err,
+                    # other info
+                    flux_counts = flux,
+                    _q_nocorr = stokes_nocorr.q,
+                    _u_nocorr = stokes_nocorr.u,
+                    _p_nocorr = stokes_nocorr.p,
+                    _chi_nocorr = stokes_nocorr.chi,
+                    # other info
+                    aperpix = aperpix,
+                    aperas = aperas,
+                    fwhm = median_fwhm_as,
+                    fwhm_source = fwhm_source_as,
+                )
 
-        if not photopolresult_L:
-            logger.error("No results could be computed for this group.")
-            return
+                result.aperphotresults.set(aperphotresults, clear=True)
+                            
+                photopolresults.append(result)
+
+            except Exception as e:
+                logger.error(f"{polarimetry_group}: relative polarimetry failed for {astrosource}: {e}")
         
         # 3. Compute the calibrated magnitudes for non-calibrators in the group using the averaged zero point
 
-        for result in photopolresult_L:
+        for result in photopolresults:
 
             if result.astrosource.is_calibrator:
                 continue
 
-            logger.debug(f"calibrating {result}")
-
-            calibrate_photopolresult(result, photopolresult_L)
+            try:
+                logger.debug(f"calibrating {result}")
+                calibrate_photopolresult(result, photopolresults)
+            except NoCalibratorsFound as e:
+                logger.warning(f"no calibrators for {result}")
+            except Exception as e:
+                logger.error(f"I could not calibrate {result}: {e}.")
 
         # 4. Save results
 
-        for result in photopolresult_L:
+        for result in photopolresults:
             result.save()
+
+        return photopolresults

@@ -13,7 +13,7 @@ Edit the raw_fileloc_L list to add the paths of additional files you want to inc
 
 """
 
-import iop4lib.config
+import iop4lib
 iop4conf = iop4lib.Config(config_db=True)
 
 from iop4lib.db import Epoch, RawFit, ReducedFit, PhotoPolResult, MasterBias, MasterFlat, AperPhotResult, AstroSource
@@ -25,21 +25,20 @@ import shutil
 import hashlib
 from pathlib import Path
 
+from django.core.serializers import serialize
 
 ######################
 ### Configuration ####
 ######################
 
-
 clean_workdir = False
 
 ## Addtional files to include 
 
+# only Nmax_raw_per_master will be used for these files:
 Nmax_raw_per_master = 1
 
-# only Nmax_raw_per_master will be used for these files
-
-raw_fileloc_L = [
+raw_files_to_include = [
     # some dipol files to test calibration
     "OSN-T090/2023-11-06/BLLac_IAR-0001R.fit", # DIPIL photometry astrocalibration / shotgun
     "OSN-T090/2023-10-25/HD204827_R_IAR-0384.fts", # DIPOL polarimetry astrocalibration / target E, O in a star
@@ -52,12 +51,32 @@ raw_fileloc_L = [
 
 # Results to include 
 
-# For these, Nmax_raw_per_master will be ignored (to keep the result as close to the real one as possible)
+# Since the pks of the results might have changed since last built, specify them
+# as a list of source and files.
 
-# Since the pks of the results might have changed since last built, build the list of pks from the filelocs
+results_to_include = [
 
-results_filelocs = [
-    "OSN-T090/2022-09-08/BLLac-0001R0.fit",
+    ("Hiltner960", "CAHA-T220/2025-09-13/caf-20250913-21:43:38-sci-agui.fits"),
+
+    # <PhotoPolResult(id: 834329
+    #     reducedfits: [298086, 298087, 298088, 298089]
+    #     CAFOS2.2 POLARIMETRY R / Hiltner960
+    #     JD: 2460932.40608 (2025-09-13T21:44:45
+    #     mag R: 9.785 ± 0.020
+    #     p: (5.187 ± 0.248)%
+    #     chi: (54.119 ± 1.379)º)>
+
+    ("Hiltner960", "OSN-T090/2025-10-18/Hiltner960_R_IAR-0033_DIPOL.fts"),
+
+    # <PhotoPolResult(id: 834426
+    #     reducedfits: [303672, 303673, 303674, 303675, 303676, 303677, 303678, 303679, 303680, 303681, 303682, 303683, 303684, 303685, 303686, 303687]
+    #     DIPOL POLARIMETRY R / Hiltner960
+    #     JD: 2460967.41977 (2025-10-18T22:04:28
+    #     mag R: 9.669 ± 0.143
+    #     p: (5.215 ± 0.213)%
+    #     chi: (51.961 ± 3.596)º)>
+
+    ("2200+420", "OSN-T090/2022-09-08/BLLac-0001R0.fit"),
 
     # <PhotoPolResult(id: 287755                                                                                                                                                            
     #     reducedfits: [6565, 6566, 6567, 6568]
@@ -67,7 +86,7 @@ results_filelocs = [
     #     p: 0.125 ± 0.004                                                                       
     #     chi: 15.504 ± 0.909)> 
 
-    "OSN-T090/2022-09-18/BLLac-0001R.fit", 
+    ("2200+420", "OSN-T090/2022-09-18/BLLac-0001R.fit"), 
 
     # <PhotoPolResult(id: 284969
     #     reducedfits: [39071]                                                                   
@@ -75,47 +94,22 @@ results_filelocs = [
     #     JD: 2459841.46187 (2022-09-18 23:05:05.190)                                            
     #     mag: 13.310 ± 0.032)>
 
-    "CAHA-T220/2022-09-18/caf-20220918-23:01:33-sci-agui.fits",
-
-    # <PhotoPolResult(id: 285934
-    #     reducedfits: [40827, 40828, 40829, 40830]                                                                                                                                         
-    #     POLARIMETRY R / 2200+420 
-    #     JD: 2459841.46034 (2022-09-18 23:02:53.250)
-    #     mag: 13.338 ± 0.026
-    #     p: 0.110 ± 0.002     
-    #     chi: 25.180 ± 0.409)>   
-
-    "OSN-T090/2023-10-09/3C345_R_IAR-0001.fts",
-
-    # <PhotoPolResult(id: 239179
-    #     reducedfits: [105740, 105741, 105742, 105743, 105744, 105745, 105746, 105747, 105748, 105749, 105750, 105751, 105752, 105753, 105754, 105755]
-    #     DIPOL POLARIMETRY R / 1641+399
-    #     JD: 2460227.33940 (2023-10-09 20:08:43.813)
-    #     p: 0.301 ± 0.020
-    #     chi: 45.556 ± 1.841)>
-
-    "CAHA-T220/2023-10-09/caf-20231009-19:17:38-sci-agui.fits",
-
-    # <PhotoPolResult(id: 238940
-    #     reducedfits: [57754, 57755, 57756, 57757]
-    #     POLARIMETRY R / 1641+399
-    #     JD: 2460227.30780 (2023-10-09 19:23:13.500)
-    #     mag: 16.537 ± 0.013
-    #     p: 0.293 ± 0.003
-    #     chi: 46.617 ± 0.457)>
-
-    "OSN-T090/2023-10-25/HD204827_R_IAR-0369.fts",
-
-    # <PhotoPolResult(id: 236438
-    #     reducedfits: [100574, 100575, 100576, 100577, 100578, 100579, 100580, 100581, 100582, 100583, 100584, 100585, 100586, 100587, 100588, 100589]
-    #     DIPOL POLARIMETRY R / HD 204827
-    #     JD: 2460243.55174 (2023-10-26 01:14:30.563)
-    #     p: 0.051 ± 0.005
-    #     chi: 61.374 ± 2.836)>
 ]
 
-pk_L = list(set([PhotoPolResult.objects.filter(astrosource__in=AstroSource.objects.filter(is_calibrator=False), reducedfits__in=[ReducedFit.by_fileloc(fileloc)]).first().id for fileloc in results_filelocs]))
+# For these, Nmax_raw_per_master will be ignored to keep the result as close to 
+# the real one as possible (except for DIPOL, too many files).
 
+################################################################################
+
+results_pk_L = list()
+
+for srcname, fileloc in results_to_include:
+    redf = ReducedFit.by_fileloc(fileloc)
+    r = PhotoPolResult.objects.filter(
+        astrosource__name=srcname,
+        reducedfits__in=[redf]
+    ).get()
+    results_pk_L.append(r.pk)
 
 output_file = Path("~/iop4testdata.tar.gz").expanduser()
 workdir = Path("~/iop4testdata").expanduser()
@@ -128,18 +122,52 @@ if clean_workdir and os.path.exists(workdir):
 os.makedirs(workdir, exist_ok=True)
 
 
-###############################################
-### Files for the PhotoPolResults pk_L list ###
-###############################################
+############################################
+### Files for the specified results_pk_L ###
+############################################
 
+def get_files_needed(redf, nmax=None):
 
-print("Copying files for the PhotoPolResults pk_L list")
+    rawfitL = list()
+
+    rawfitL.append(redf.rawfit)
+
+    # the bias for its masterbias
+    for bias in redf.masterbias.rawfits.all()[:nmax]:
+        rawfitL.append(bias)
+
+    # the darks for its masterdark
+    if redf.masterdark is not None:
+        for dark in redf.masterdark.rawfits.all()[:nmax]:
+            rawfitL.append(dark)
+
+    # the flats for its masterflat
+    for flat in redf.masterflat.rawfits.all()[:nmax]:
+        rawfitL.append(flat)
+
+    # the bias for the masterbias of its masterflat
+    for bias in redf.masterflat.masterbias.rawfits.all()[:nmax]:
+        rawfitL.append(bias)
+
+    # the bias for the masterbias of its masterdark
+    if redf.masterdark is not None:
+        for bias in redf.masterdark.masterbias.rawfits.all()[:nmax]:
+            rawfitL.append(bias)
+
+    # the bias and the darks for the masterdark of its masterflat
+    if redf.masterflat.masterdark is not None:
+        for dark in redf.masterflat.masterdark.rawfits.all()[:nmax]:
+            rawfitL.append(dark)
+
+    return rawfitL
+
+print(f"Copying files for the specified ({len(results_pk_L)}) results")
 
 # get the list of files needed and copy them to the workdir
 
 rawfitL = list()
 
-for pk in pk_L:
+for pk in results_pk_L:
     res = PhotoPolResult.objects.get(id=pk)
 
     if res.instrument == "DIPOL":
@@ -148,36 +176,7 @@ for pk in pk_L:
         Nmax = None
 
     for redf in res.reducedfits.all():
-        # append all rawfits needed for this reducedfit
-        rawfitL.append(redf.rawfit)
-
-        # the bias for its masterbias
-        for bias in redf.masterbias.rawfits.all()[:Nmax]:
-            rawfitL.append(bias)
-
-        # the darks for its masterdark
-        if redf.masterdark is not None:
-            for dark in redf.masterdark.rawfits.all()[:Nmax]:
-                rawfitL.append(dark)
-
-        # the flats for its masterflat
-        for flat in redf.masterflat.rawfits.all()[:Nmax]:
-            rawfitL.append(flat)
-
-        # the bias for the masterbias of its masterflat
-        for bias in redf.masterflat.masterbias.rawfits.all()[:Nmax]:
-            rawfitL.append(bias)
-
-        # the bias for the masterbias of its masterdark
-        if redf.masterdark is not None:
-            for bias in redf.masterdark.masterbias.rawfits.all()[:Nmax]:
-                rawfitL.append(bias)
-
-        # the bias and the darks for the masterdark of its masterflat
-        if redf.masterflat.masterdark is not None:
-            for dark in redf.masterflat.masterdark.rawfits.all()[:Nmax]:
-                rawfitL.append(dark)
-
+        rawfitL.extend(get_files_needed(redf, Nmax))
 
 files_to_download = set([rawfit for rawfit in rawfitL if not os.path.exists(rawfit.filepath)])
 
@@ -203,81 +202,53 @@ for rawfit in rawfitL:
     if not os.path.exists(dest):
         shutil.copy(rawfit.filepath, dest)
 
-
-
 ###############################
 ### create the catalog file ###
 ###############################
 
 print("Creating the catalog file")
 
-astrosources_ids_L = list()
+astrosources_pk_L = list()
 
-for res in PhotoPolResult.objects.filter(id__in=pk_L):
-    astrosources_ids_L.append(res.astrosource.id)
+# add any source that appears in included results, and their calibrators
 
-    for calibrator in AstroSource.objects.filter(calibrates=res.astrosource):
-        astrosources_ids_L.append(calibrator.id)
+for res in PhotoPolResult.objects.filter(id__in=results_pk_L):
+    astrosources_pk_L.append(res.astrosource.id)
 
-for fileloc in raw_fileloc_L:
+# add any source that appears in included raw files
+
+for fileloc in raw_files_to_include:
     rf = RawFit.by_fileloc(fileloc)
     if (src := rf.header_hintobject) is not None:
-        astrosources_ids_L.append(src.id)
-        for calibrator in AstroSource.objects.filter(calibrates=src):
-            astrosources_ids_L.append(calibrator.id)
+        astrosources_pk_L.append(src.id)
 
-for astrosource in AstroSource.objects.filter(id__in=set(astrosources_ids_L)):
+# add any source that calibrates previously added sources
+for calibrator in AstroSource.objects.filter(calibrates__in=astrosources_pk_L):
+    astrosources_pk_L.append(calibrator.id)
+
+# print sources to be included
+for astrosource in AstroSource.objects.filter(id__in=set(astrosources_pk_L)):
     print(f"  {astrosource}")
 
-from django.core.serializers import serialize
+# dump the catalog as .yaml
+qs_sources = AstroSource.objects.filter(id__in=set(astrosources_pk_L))
 with open(workdir / "testcatalog.yaml", "a") as f:
-    f.write(serialize("yaml", AstroSource.objects.filter(id__in=set(astrosources_ids_L)), use_natural_foreign_keys=True, use_natural_primary_keys=True))
+    f.write(serialize("yaml", qs_sources, use_natural_foreign_keys=True, use_natural_primary_keys=True))
     f.write('\n')
-
-
 
 #############################
 ### copy additional files ###
 #############################
 
-print(f"Copying additional {len(raw_fileloc_L)} files")
+print(f"Specified {len(raw_files_to_include)} files to include")
 
 rawfitL = list()
 
-for fileloc in raw_fileloc_L:
-
+for fileloc in raw_files_to_include:
     redf = ReducedFit.by_fileloc(fileloc)
+    rawfitL.extend(get_files_needed(redf, nmax=1))
 
-    # append all rawfits needed for this reducedfit
-    rawfitL.append(redf.rawfit)
-
-    # the bias for its masterbias
-    for bias in redf.masterbias.rawfits.all()[:Nmax_raw_per_master]:
-        rawfitL.append(bias)
-
-    # the darks for its masterdark
-    if redf.masterdark is not None:
-        for dark in redf.masterdark.rawfits.all()[:Nmax_raw_per_master]:
-            rawfitL.append(dark)
-
-    # the flats for its masterflat
-    for flat in redf.masterflat.rawfits.all()[:Nmax_raw_per_master]:
-        rawfitL.append(flat)
-
-    # the bias for the masterbias of its masterflat
-    for bias in redf.masterflat.masterbias.rawfits.all()[:Nmax_raw_per_master]:
-        rawfitL.append(bias)
-
-    # the bias for the masterbias of its masterdark
-    if redf.masterdark is not None:
-        for bias in redf.masterdark.masterbias.rawfits.all()[:Nmax_raw_per_master]:
-            rawfitL.append(bias)
-
-    # the bias and the darks for the masterdark of its masterflat
-    if redf.masterflat.masterdark is not None:
-        for dark in redf.masterflat.masterdark.rawfits.all()[:Nmax_raw_per_master]:
-            rawfitL.append(dark)
-
+print(f"In total, {len(rawfitL)} raw files need to be copied")
 
 for rawfit in rawfitL:
 
@@ -303,23 +274,29 @@ print("Creating .tar.gz file")
 # in mac-os, additional ._* files are created to save xattrs, avoid it setting COPYFILE_DISABLE
 os.environ["COPYFILE_DISABLE"] = "true"
 
-result = subprocess.run(["tar", "--no-xattrs", "--exclude='.*'", "-czf", str(output_file), "-C", str(workdir.parent), str(workdir.name)])
+result = subprocess.run([
+    "tar", 
+    "--no-xattrs",
+    "--exclude='.*'",
+    "-czf", str(output_file),
+    "-C", str(workdir.parent), str(workdir.name)
+])
 
 if result.returncode != 0:
     print("Error creating the .tar.gz file")
     exit(1)
 
-print(" Created {}".format(output_file))
+print(f"Created {output_file}")
 
-# read it and give the md5 sum
-
+# get the md5 checksum
 with open(output_file, "rb") as f:
     md5 = hashlib.md5(f.read()).hexdigest()
-    print("{} {}".format(output_file.name, md5))
 
 # add the md5sum to the filename
-os.rename(output_file, output_file.parent / f"iop4testdata.{md5}.tar.gz")
+print(f"md5 is {md5}")
 
-print(f"{output_file.parent / f'iop4testdata.{md5}.tar.gz'}")
+output_path = output_file.rename(output_file.with_name(f"iop4testdata.{md5}.tar.gz"))
+
+print(f"Test dataset created at {output_path}")
 
 exit(0)

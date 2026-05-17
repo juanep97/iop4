@@ -40,12 +40,7 @@ from iop4lib.telescopes import OSNT090
 import logging
 logger = logging.getLogger(__name__)
 
-
-import typing
-from typing import Union
-if typing.TYPE_CHECKING:
-    from iop4lib.db import RawFit, ReducedFit
-
+from iop4lib.typing import *
 
 class DIPOL(InstrumentHWP):
 
@@ -575,7 +570,7 @@ class DIPOL(InstrumentHWP):
         params["position_hint"] = [redf.get_astrometry_position_hint()]
         params["size_hint"] = [redf.get_astrometry_size_hint()]
 
-        disp_sign_mean = cls.get_binning_independent_px(redf.rawfit, cls.disp_sign_mean)
+        disp_sign_mean = redf.hint_disp_sign_mean
         disp_std = cls.get_binning_independent_px(redf.rawfit, cls.disp_std)
 
         params["disp_sign_mean"] = [disp_sign_mean]
@@ -961,7 +956,7 @@ class DIPOL(InstrumentHWP):
         if summary_kwargs is None:
             summary_kwargs = {'build_summary_images':True, 'with_simbad':True}
 
-        disp_sign_mean = cls.get_binning_independent_px(redf.rawfit, cls.disp_sign_mean)
+        disp_sign_mean = redf.hint_disp_sign_mean
         disp_std = cls.get_binning_independent_px(redf.rawfit, cls.disp_std)
 
         disp_allowed_err = 1.5*disp_std
@@ -1084,7 +1079,7 @@ class DIPOL(InstrumentHWP):
     
 
     @classmethod
-    def get_instrumental_polarization(cls, reducedfit) -> dict:
+    def get_instrumental_polarization(cls, reducedfit) -> InstrumentalPolarizationDict:
         """ Returns the instrumental polarization for to be used for a given reducedfit.
 
         The instrumental polarization is a dictionary with the following keys:

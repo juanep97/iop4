@@ -519,6 +519,9 @@ def filter_zero_points(calib_mag_zp_array, calib_mag_zp_array_err):
     return calib_mag_zp_array, calib_mag_zp_array_err, zp_avg, zp_std, zp_err
 
 
+class NoCalibratorsFound(Exception):
+    pass
+
 def calibrate_photopolresult(result, photopolresult_L):
 
     # 3.a Average the zero points
@@ -535,8 +538,7 @@ def calibrate_photopolresult(result, photopolresult_L):
     calib_mag_zp_array_err = calib_mag_zp_array_err[idx]
 
     if len(calib_mag_zp_array) == 0:
-        logger.error(f"can not perform relative photometry on source {result.astrosource.name}, no calibrator zero-points found.")
-        return
+        raise NoCalibratorsFound(f"can not perform relative photometry on source {result.astrosource.name}, no calibrator zero-points found.")
 
     logger.debug(f"calibrating {result.astrosource.name} with {len(calib_mag_zp_array)} calibrators")
     logger.debug(f"{calib_mag_zp_array=}")
@@ -555,3 +557,16 @@ def calibrate_photopolresult(result, photopolresult_L):
     result.mag_err = math.sqrt(result.mag_inst_err**2 + zp_err**2)
 
     logger.debug(f"{result.mag=}, {result.mag_err=}")
+
+
+def overlaps(y, x, small_h, small_w, big_h, big_w):
+    return (
+        x - small_w//2 < 0 or
+        y - small_h//2 < 0 or
+        x + small_w//2 >= big_w or
+        y + small_h//2 >= big_h
+    )
+
+def next_odd(x):
+    x = int(x)
+    return x//2*2+1
