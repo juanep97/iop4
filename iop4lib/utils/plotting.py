@@ -24,8 +24,6 @@ from pathlib import Path
 
 from iop4lib.utils.sourcepairing import (get_pairs_d, get_pairs_dxy, get_best_pairs)
 
-from .sourcedetection import select_points
-
 # logging
 
 import logging
