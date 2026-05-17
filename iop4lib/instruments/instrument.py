@@ -576,36 +576,44 @@ class Instrument(metaclass=ABCMeta):
         data = img - bkg.background
 
         # --- First, estimate fwhm for the image using source detection on the image
+        # (if the stats are not given, already)
 
+        if fwhm_stats is None:
 
-        n_seg_threshold = 3
-        npixels = 4
-        seg_threshold = n_seg_threshold * bkg.background_rms
-        segment_map, convolved_data = get_segmentation(data, fwhm=1, npixels=npixels, threshold=seg_threshold)
-        seg_cat, positions, tb = get_cat_sources_from_segment_map(segment_map, data, convolved_data)
+            n_seg_threshold = 4 # use 3 for more stats (but 4 is faster, less sources)
+            npixels = 6 # use 4 for more stats (but 6 is faster, less sources)
+            seg_threshold = n_seg_threshold * bkg.background_rms
+            segment_map, convolved_data = get_segmentation(data, fwhm=1, npixels=npixels, threshold=seg_threshold)
+            seg_cat, positions, tb = get_cat_sources_from_segment_map(segment_map, data, convolved_data)
 
-        logger.debug(f"{len(seg_cat)=}")
+            logger.debug(f"{len(seg_cat)=}")
 
-        with u.set_enabled_equivalencies(redf.pixscale_equiv):
+            with u.set_enabled_equivalencies(redf.pixscale_equiv):
 
-            fwhm_init = (3*u.arcsec).to_value('pix')
+                fwhm_init = (3*u.arcsec).to_value('pix')
 
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=AstropyUserWarning)
-                fwhms = fit_fwhm(data, xypos=positions, fwhm=fwhm_init, fit_shape=next_odd(3*fwhm_init))
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=AstropyUserWarning)
+                    fwhms = fit_fwhm(data, xypos=positions, fwhm=fwhm_init, fit_shape=next_odd(3*fwhm_init))
 
-            fwhms = fwhms * u.pix
+                fwhms = fwhms * u.pix
 
-            detected_fwhms = fwhms
+                detected_fwhms = fwhms
 
-            fwhm_mean = np.nanmean(fwhms)
-            fwhm_median = np.nanmedian(fwhms)
-            fwhm_std = np.nanstd(fwhms)
+                fwhm_mean = np.nanmean(fwhms)
+                fwhm_median = np.nanmedian(fwhms)
+                fwhm_std = np.nanstd(fwhms)
 
-            logger.debug("FWHM results:")
-            logger.debug(f"  mean: {fwhm_mean:.1f} ({fwhm_mean.to('arcsec'):.1f})")
-            logger.debug(f"  median: {fwhm_median:.1f} ({fwhm_median.to('arcsec'):.1f})")
-            logger.debug(f"  std: {fwhm_std:.1f} ({fwhm_std.to('arcsec'):.1f}")
+                logger.debug("FWHM results:")
+                logger.debug(f"  mean: {fwhm_mean:.1f} ({fwhm_mean.to('arcsec'):.1f})")
+                logger.debug(f"  median: {fwhm_median:.1f} ({fwhm_median.to('arcsec'):.1f})")
+                logger.debug(f"  std: {fwhm_std:.1f} ({fwhm_std.to('arcsec'):.1f}")
+
+            fwhm_stats = FwhmStatsTuple(fwhm_mean, fwhm_std, fwhm_median)
+
+        else:
+            
+            fwhm_median = fwhm_stats.fwhm_median
 
         # --- Then, compute source centroids and fwhm for each of our catalog sources
 
@@ -746,9 +754,6 @@ class Instrument(metaclass=ABCMeta):
                     else:
                         logger.debug(msg)
 
-
-        fwhm_stats = FwhmStatsTuple(fwhm_mean, fwhm_std, fwhm_median)
-
         return CentroidsAndFwhmResultTuple(centroids_and_fwhms_dict, fwhm_stats, detected_fwhms)
 
     @classmethod
@@ -759,7 +764,7 @@ class Instrument(metaclass=ABCMeta):
         
         centroids_and_fwhms: dict['ReducedFit', CentroidsAndFwhmResultTuple] = dict()
 
-        for redf in reducedfits:
+        for i, redf in enumerate(reducedfits):
 
             # # a)
             # centroids_and_fwhms[redf] = cls.get_centroids_and_fwhms(redf)
@@ -770,7 +775,9 @@ class Instrument(metaclass=ABCMeta):
 
             redf_centroids_and_fwhms = getattr(redf, 'centroids_and_fwhms', None)
             if not redf_centroids_and_fwhms:
-                redf_centroids_and_fwhms = cls.get_centroids_and_fwhms(redf)
+                # speed it up by passing the previous fwhm stats (if >1 images)
+                prev_stats = redf_centroids_and_fwhms.fwhm_stats if i>1 else None
+                redf_centroids_and_fwhms = cls.get_centroids_and_fwhms(redf, fwhm_stats=prev_stats)
                 redf.centroids_and_fwhms = redf_centroids_and_fwhms
                 
             # ---
