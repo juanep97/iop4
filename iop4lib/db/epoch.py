@@ -30,7 +30,6 @@ from iop4lib.enums import (
 from iop4lib.telescopes import Telescope
 from iop4lib.instruments import Instrument
 from .fields import FlagChoices, FlagBitField
-from iop4lib.utils import  get_mem_parent_from_child, get_total_mem_from_child, get_mem_current, get_mem_children
 from iop4lib.utils.parallel import epoch_bulkreduce_multiprocesing
 
 # logging
