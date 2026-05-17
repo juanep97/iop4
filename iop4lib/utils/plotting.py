@@ -211,7 +211,7 @@ def plot_preview_astrometry(redf, with_simbad=False, legend=True, names_over=Fal
         matched_stars = None
 
     ## get sources in field
-    sources_in_field = AstroSource.get_sources_in_field(wcs1, width=redf.width, height=redf.height)
+    sources_in_field = AstroSource.get_sources_in_field(wcs=wcs1, width=redf.width, height=redf.height)
     logger.debug(f"{redf}: found {len(sources_in_field)} catalog sources in field: {sources_in_field}")
 
 

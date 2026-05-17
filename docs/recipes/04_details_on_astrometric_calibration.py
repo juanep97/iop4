@@ -270,7 +270,7 @@ imshow_w_sources(redf.mdata, ax=ax)
 from iop4lib.db import AstroSource
 from photutils.aperture import CircularAperture
 
-for src in AstroSource.get_sources_in_field(wcs1, width=redf.mdata.shape[1], height=redf.mdata.shape[0]):
+for src in AstroSource.get_sources_in_field(wcs=wcs1, width=redf.mdata.shape[1], height=redf.mdata.shape[0]):
     ax.plot(*src.coord.to_pixel(wcs1), 'rx')
     ax.annotate(src.name, src.coord.to_pixel(wcs1), xytext=(20,0), textcoords='offset points', color='red', weight='bold')
 
@@ -311,7 +311,7 @@ imshow_w_sources(redf.mdata, ax=ax)
 from iop4lib.db import AstroSource
 from photutils.aperture import CircularAperture
 
-for src in AstroSource.get_sources_in_field(wcs1, width=redf.mdata.shape[1], height=redf.mdata.shape[0]):
+for src in AstroSource.get_sources_in_field(wcs=wcs1, width=redf.mdata.shape[1], height=redf.mdata.shape[0]):
     CircularAperture([*src.coord.to_pixel(redf.wcs1)], r=20).plot(ax=ax, color='r')
     ax.annotate(src.name, src.coord.to_pixel(redf.wcs1), xytext=(20,0), textcoords='offset points', color='red', weight='bold', verticalalignment='center')
     ax.plot(*src.coord.to_pixel(redf.wcs2), 'rx')

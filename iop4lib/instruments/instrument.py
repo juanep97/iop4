@@ -532,7 +532,7 @@ class Instrument(metaclass=ABCMeta):
             reducedfit.unset_flag(ReducedFit.FLAGS.ERROR_ASTROMETRY)
 
             logger.debug(f"{reducedfit}: searching for sources in field...")
-            sources_in_field = AstroSource.get_sources_in_field(fit=reducedfit)
+            sources_in_field = AstroSource.get_sources_in_field(redf=reducedfit)
             
             logger.debug(f"{reducedfit}: found {len(sources_in_field)} sources in field.")
             reducedfit.sources_in_field.set(sources_in_field, clear=True)
