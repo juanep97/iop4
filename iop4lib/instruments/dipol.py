@@ -11,6 +11,7 @@ import re
 import astrometry
 import numpy as np
 import matplotlib as mplt
+import matplotlib.patheffects
 import astropy.units as u
 from photutils.aperture import CircularAperture
 from astropy.wcs.utils import fit_wcs_from_points
@@ -649,7 +650,7 @@ class DIPOL(InstrumentHWP):
 
     @classmethod
     def _build_wcs_for_polarimetry_images_photo_quads(cls, redf: 'ReducedFit', summary_kwargs : dict = None, n_seg_threshold=1.5, npixels=32, min_quad_distance=4.0, fwhm=None, centering=None, max_quad_t=1400, min_quad_area=0.03):
-
+        
         if summary_kwargs is None:
             summary_kwargs = {'build_summary_images':True, 'with_simbad':True}
 
