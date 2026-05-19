@@ -131,8 +131,7 @@ class Epoch(models.Model):
     def jyear(self):
         """Returns the jyear of the epoch at noon (before the night)."""
 
-        from astropy.time import Time
-        from datetime import datetime, date, time
+        from datetime import datetime, time
 
         return Time(datetime.combine(self.night, time(hour=12))).jyear
 
