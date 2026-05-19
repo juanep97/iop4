@@ -62,7 +62,7 @@ class AdminAstroSource(admin.ModelAdmin):
                     'get_texp_andor90', 'get_texp_andor150', 'get_texp_dipol', 
                     'get_comment_firstline', 'get_details']
     search_fields = ['name', 'other_names', 'ra_hms', 'dec_dms', 'srctype', 'comment']
-    list_filter = ('srctype',CalibratorFilter)
+    list_filter = ('srctype', CalibratorFilter)
     actions = ['add_field_stars_from_panstarrs', 'remove_field_stars_from_panstarrs']
 
     def changelist_view(self, request, extra_context=None):
