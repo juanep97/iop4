@@ -39,6 +39,8 @@ logger = logging.getLogger(__name__)
 
 from typing import Sequence, Iterable
 
+from iop4lib.typing import *
+
 def process_epochs(epochname_list: Iterable[str], args):
     from iop4lib.db import Epoch, RawFit, PhotoPolResult
     from iop4lib.enums import IMGTYPES, OBSMODES
@@ -147,10 +149,10 @@ def process_astrosource(args):
         Epoch.reduce_reducedfits(redfL_failed)
 
     if args.check_sources_in_field_again:
-            for reducedfit in redfL:
-                sources_in_field = AstroSource.get_sources_in_field(redf=reducedfit)    
-                logger.debug(f"{reducedfit}: found {len(sources_in_field)} sources in field.")        
-                reducedfit.sources_in_field.set(sources_in_field, clear=True)
+        for reducedfit in redfL:
+            sources_in_field = AstroSource.get_sources_in_field(redf=reducedfit)    
+            logger.debug(f"{reducedfit}: found {len(sources_in_field)} sources in field.")        
+            reducedfit.sources_in_field.set(sources_in_field, clear=True)
 
     if args.recompute:
         qs_res = PhotoPolResult.objects.filter(reducedfits__in=redfL)
