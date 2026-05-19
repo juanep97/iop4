@@ -15,7 +15,7 @@ from scipy.interpolate import (
 import logging
 logger = logging.getLogger(__name__)
 
-import typing
+from iop4lib.typing import *
     
 def get_host_correction(astrosource, aperas, fwhm=None) -> tuple[float, float]:
     r""" Returns the contaminating flux and its uncertainty for a given astrosource and aperture radius. 
@@ -169,39 +169,37 @@ def filter_zero_points(calib_mag_zp_array, calib_mag_zp_array_err):
 class NoCalibratorsFound(Exception):
     pass
 
-def calibrate_photopolresult(result, photopolresult_L):
+def calibrate_photopolresult(r: 'PhotoPolResult', photopolresults: List['PhotoPolResult']):
+    
+    calib_results = [
+        c for c in photopolresults
+        if (
+            getattr(c.astrosource, f"mag_{r.band}", None)
+            and r.astrosource in c.astrosource.calibrates.all()
+        )
+    ]
 
-    # 3.a Average the zero points
+    zps = np.array([r.mag_zp for r in calib_results], dtype=float)
+    zps_err = np.array([r.mag_zp_err for r in calib_results], dtype=float)
 
-    # get all the computed photopolresults that calibrate this source
-    # calibrator_results_L = [r for r in photopolresult_L if r.astrosource.calibrates.filter(pk=result.astrosource.pk).exists()]
-    calibrator_results_L = [r for r in photopolresult_L if getattr(r.astrosource, f"mag_{r.band}", None)]
+    idx = ~np.isnan(zps) & ~np.isnan(zps_err)
 
-    # Create an array with nan instead of None (this avoids the dtype becoming object)
-    calib_mag_zp_array = np.array([r.mag_zp or np.nan for r in calibrator_results_L if r.astrosource.is_calibrator]) 
-    calib_mag_zp_array_err = np.array([r.mag_zp_err or np.nan for r in calibrator_results_L if r.astrosource.is_calibrator])
+    zps = zps[idx]
+    zps_err = zps_err[idx]
 
-    idx = (~np.isnan(calib_mag_zp_array)) & (~np.isnan(calib_mag_zp_array_err))
-    calib_mag_zp_array = calib_mag_zp_array[idx]
-    calib_mag_zp_array_err = calib_mag_zp_array_err[idx]
+    if len(zps) == 0:
+        raise NoCalibratorsFound(f"can not perform relative photometry on source {r.astrosource.name}, no calibrator zero-points found.")
 
-    if len(calib_mag_zp_array) == 0:
-        raise NoCalibratorsFound(f"can not perform relative photometry on source {result.astrosource.name}, no calibrator zero-points found.")
-
-    logger.debug(f"calibrating {result.astrosource.name} with {len(calib_mag_zp_array)} calibrators")
-    logger.debug(f"{calib_mag_zp_array=}")
-    logger.debug(f"{calib_mag_zp_array_err=}")
-
-    calib_mag_zp_array, calib_mag_zp_array_err, zp_avg, zp_std, zp_err = filter_zero_points(calib_mag_zp_array, calib_mag_zp_array_err)
-
-    # 3.b Compute the calibrated magnitude
+    logger.debug(f"calibrating {r.astrosource.name} with {len(zps)} calibrators (em_zp)")
+    
+    _, _, zp, _, zp_err = filter_zero_points(zps, zps_err)
 
     # save the zp (to be) used
-    result.mag_zp = zp_avg
-    result.mag_zp_err = zp_err
+    r.mag_zp = zp
+    r.mag_zp_err = zp_err
 
     # compute the calibrated magnitude
-    result.mag = zp_avg + result.mag_inst
-    result.mag_err = math.sqrt(result.mag_inst_err**2 + zp_err**2)
+    r.mag = zp + r.mag_inst
+    r.mag_err = math.sqrt(r.mag_inst_err**2 + zp_err**2)
 
-    logger.debug(f"{result.mag=}, {result.mag_err=}")
+    logger.debug(f"{r.mag=}, {r.mag_err=}")
