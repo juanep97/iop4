@@ -130,10 +130,8 @@ class Epoch(models.Model):
     @property
     def jyear(self):
         """Returns the jyear of the epoch at noon (before the night)."""
-
-        from datetime import datetime, time
-
-        return Time(datetime.combine(self.night, time(hour=12))).jyear
+        t = datetime.datetime.combine(self.night, datetime.time(hour=12))
+        return Time(t).jyear
 
     # helper properties that return counts to files of this epoch.
 
