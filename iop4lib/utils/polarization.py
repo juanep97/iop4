@@ -2,11 +2,17 @@ import math
 import numpy as np
 import scipy as sp
 import astropy.units as u
+import astropy
+from astropy.stats import mad_std
 
 import matplotlib as mplt
 import matplotlib.pyplot as plt
+from matplotlib.offsetbox import TextArea, HPacker, VPacker
 
 from iop4lib.typing import *
+
+import logging
+logger = logging.getLogger(__name__)
 
 def get_p_and_chi(q, u, dq, du):
     """Polarization degree (p) and angle (chi) from Stokes (Qr, Ur)."""
@@ -55,12 +61,169 @@ def eval_model_uncertainty(f, x, popt, pcov, N=1000, s=1):
 
 import numpy as np
 
+def get_fit_statistics(func, xdata, ydata, sigma, popt):
+    
+    xdata = np.asarray(xdata, dtype=float)
+    ydata = np.asarray(ydata, dtype=float)
+    sigma = np.asarray(sigma, dtype=float)
+
+    yfit = func(xdata, *popt)
+    rres = (ydata - yfit) / sigma
+
+    N = len(ydata)
+    k = len(popt)
+
+    chi2 = np.sum(rres**2)
+    dof = N - k
+    rchi2 = chi2 / dof
+
+    aic = chi2 + 2 * k
+    aicc = aic + (2 * k * (k + 1)) / (N - k - 1)
+    
+    bic = chi2 + k * np.log(N)
+
+    return {
+        "dof": dof,
+        "chi2": chi2,
+        "rchi2": rchi2,
+        "aic": aic,
+        "aicc": aicc,
+        "bic": bic,
+        "N": N,
+        "k": k,
+    }
+
+def _do_fit(func, xdata, ydata, sigma, p0):
+    
+    popt, pcov, infodict, mesg, ier = sp.optimize.curve_fit(
+        func,
+        xdata = xdata,
+        ydata = ydata,
+        sigma = sigma,
+        p0 = p0,
+        nan_policy = 'omit',
+        full_output = True,
+    )
+
+    return popt, pcov
+
+
+def fit_with_sigma_clip(
+        func, xdata, ydata, sigma, p0,
+        clip_sigma=5, max_iter=3,
+        min_keep=3, min_keep_frac=0.74,
+        max_discard=2, max_discard_frac=0.3,
+        soft=True,
+        mode="absmedian",
+        get_func=None,
+    ):
+
+    N = len(xdata)
+    
+    min_keep = max(min_keep, round(min_keep_frac*N))
+    max_discard = min(max_discard, round(max_discard_frac*N))
+
+    # print(f"{min_keep=}")
+    # print(f"{max_discard=}")
+
+    idx = np.full(N, True)
+
+    for it in range(max_iter):
+
+        # print(f"iteration {it}")
+
+        fit_func = get_func(idx) if get_func else func
+
+        popt, pcov = _do_fit(fit_func, xdata[idx], ydata[idx], sigma[idx], p0)
+
+        res = ydata - func(xdata, *popt)
+
+        if mode == "zero":
+            # measuring dispersion around model (residuals around zero)
+            x = res
+            cent = 0
+            std = np.nanstd(x[idx])
+            clip = np.abs(x) > clip_sigma * std
+        elif mode == "absmedian":
+            # however, if all residuals are far from zero, the std will easily be so
+            # high that there is almost no sigma clip. we can measure the dispersion
+            # agains how bad they are (around the median of their abs).
+            x = np.abs(res)
+            cent = np.nanmedian(x[idx])
+            std = astropy.stats.mad_std(x[idx])
+            clip = np.abs(x) > (cent + clip_sigma * std)
+        else:
+            raise ValueError
+
+        new_idx = idx & ~clip
+
+        to_keep = sum(new_idx)
+        to_discard_total = N - to_keep
+        
+        # print(f"{x=}")
+        # print(f"{cent=}")
+        # print(f"{std=}")
+        # print(f"{(np.abs(x)-cent)/std=}")
+        # print(f"{clip=}")
+
+        # print(f"{to_keep=}")
+        # print(f"{to_discard_total=}")
+
+        if std == 0 or not np.isfinite(std):
+            break
+        
+        if soft and to_discard_total > max_discard:
+
+            # up to which one could i discard now?
+
+            can_discard_1 = max_discard - (N-sum(idx))
+            can_discard_2 = sum(idx) - min_keep
+            can_discard = min(can_discard_1, can_discard_2)
+
+            threshold = np.sort(np.abs(res[idx]))[::-1][can_discard]
+
+            clip = clip & (np.abs(res) > threshold)
+            new_idx = idx & ~clip
+
+            to_keep = sum(new_idx)
+            to_discard_total = N - to_keep
+
+            # print(f"new {clip=}")
+            # print(f"new {to_keep=}")
+            # print(f"new {to_discard_total=}")
+
+        # print(f"would keep {to_keep}, discard total {to_discard_total}")
+
+        # enforce constraints
+
+        if to_keep < min_keep:
+            # print("min keep reached")
+            break
+
+        if to_discard_total > max_discard:
+            # print("max discard reached")
+            break
+
+        if np.all(new_idx == idx):
+            # print("converged")
+            break
+        
+        idx = new_idx
+        
+        # print(f"it {it}: {to_discard_total=}")
+    
+    popt, pcov = _do_fit(func, xdata[idx], ydata[idx], sigma[idx], p0)
+
+    # print(f"final {idx=}")
+
+    return popt, pcov, idx
+
 class Stokes:
 
     def __init__(self, *args, cov=None, **kwargs):
-        
-        """
-        Flexible Stokes vector container.
+        """Stokes vector container.
+
+        (q,u) are always assumed to be relative to I.
 
         Supported forms:
         1) Stokes(s) where s = (I, q, u)
@@ -246,74 +409,167 @@ def compute_stokes_HWP_analytical(angles, fO, fE, dfO, dfE):
 
     return stokes
 
-def compute_stokes_HWP_fit_full(
-        theta, fO, fE, dfO, dfE, 
-        plot=False, fig=None, annotate=False,
-    ):
-    """Compute polarimetry with a joint fit to both the O and the E pairs."""
+def _build_figure_annotation(fig, fit_stats, stokes, stokes_corr=None):
 
-    N = len(theta)
-    
-    F = (fO - fE) / (fO + fE)
-    dF = 2 / ( fO + fE )**2 * np.sqrt(fE**2 * dfO**2 + fO**2 * dfE**2)
+    dof = fit_stats['dof']
+    chi2 = fit_stats['chi2']
+    rchi2 = fit_stats['rchi2']
+    aicc = fit_stats['aicc']
+    bic = fit_stats['bic']
 
-    I = (fO + fE)
-    dI = np.sqrt(dfO**2 + dfE**2)
-
-    func_fO = lambda theta, I, q, u: 0.5 * ( I + I*q*np.cos(4*theta) + I*u*np.sin(4*theta) )
-    func_fE = lambda theta, I, q, u: 0.5 * ( I - I*q*np.cos(4*theta) - I*u*np.sin(4*theta) )
-
-    func =  lambda x, *args: np.concatenate([func_fO(x, *args), func_fE(x, *args)])
-    xdata = np.deg2rad(theta)
-    ydata = np.concatenate([fO, fE])
-    sigma = np.concatenate([dfO, dfE])
-    p0 = (np.mean(I), 1, 1)
-
-    popt, pcov, infodict, mesg, ier = sp.optimize.curve_fit(
-        func,
-        xdata = xdata,
-        ydata = ydata,
-        sigma = sigma,
-        p0 = p0,
-        nan_policy = 'omit',
-        full_output = True,
+    stats_col = VPacker(
+        children=[
+            TextArea("Fit statistics", textprops=dict(fontsize="large", weight="bold")),
+            TextArea(f"$dof$ = {dof}", textprops=dict(fontsize="large")),
+            TextArea(f"$\\chi^2$ = {chi2:.2f}", textprops=dict(fontsize="large")),
+            TextArea(f"$\\chi^2/dof$ = {rchi2:.2f}", textprops=dict(fontsize="large")),
+            TextArea(f"AICC = {aicc:.2f}", textprops=dict(fontsize="large")),
+            TextArea(f"BIC = {bic:.2f}", textprops=dict(fontsize="large")),
+        ],
+        align="left",
+        pad=0,
+        sep=4,
     )
 
-    # perr = np.sqrt(np.diag(pcov))
+    results_col = VPacker(
+        children=[
+            TextArea("Results (uncorr. instr. pol.)", textprops=dict(fontsize="large", weight="bold")),
+            TextArea(f"$q$ = ({100*stokes.q:+.2f} ± {100*stokes.dq:.2f})%", textprops=dict(fontsize="large")),
+            TextArea(f"$u$ = ({100*stokes.u:+.2f} ± {100*stokes.du:.2f})%", textprops=dict(fontsize="large")),
+            TextArea(f"$p$ = ({100*stokes.p:.2f} ± {100*stokes.dp:.2f})%", textprops=dict(fontsize="large")),
+            TextArea(f"$\\chi$ = ({stokes.chi:+.2f} ± {stokes.dchi:.2f})º", textprops=dict(fontsize="large")),
+        ],
+        align="left",
+        pad=0,
+        sep=4,
+    )
 
-    # print(f"{popt=}")
-    # print(f"{perr=}")
-    # print(f"{pcov=}")
-    # print(f"{infodict=}")
-    # print(f"{mesg=}")
-    # print(f"{ier=}")
+    if stokes_corr:
+        results_corr_col = VPacker(
+            children=[
+                TextArea("Results (corrected instr. pol.)", textprops=dict(fontsize="large", weight="bold")),
+                TextArea(f"$q$ = ({100*stokes_corr.q:+.2f} ± {100*stokes_corr.dq:.2f})%", textprops=dict(fontsize="large")),
+                TextArea(f"$u$ = ({100*stokes_corr.u:+.2f} ± {100*stokes_corr.du:.2f})%", textprops=dict(fontsize="large")),
+                TextArea(f"$p$ = ({100*stokes_corr.p:.2f} ± {100*stokes_corr.dp:.2f})%", textprops=dict(fontsize="large")),
+                TextArea(f"$\\chi$ = ({stokes_corr.chi:+.2f} ± {stokes_corr.dchi:.2f})º", textprops=dict(fontsize="large")),
+            ],
+            align="left",
+            pad=0,
+            sep=4,
+        )
+
+    if stokes_corr:
+        annotation_columns = [stats_col, results_col, results_corr_col]
+    else:
+        annotation_columns = [stats_col, results_col]
+
+    box = HPacker(
+        children=annotation_columns,
+        align="top",
+        pad=0,
+        sep=30,
+    )
+
+    ab = mplt.offsetbox.AnnotationBbox(
+        box,
+        xy=(0.5, 0.5),
+        xycoords=fig.transSubfigure,
+        xybox=(0, 0),
+        boxcoords='offset points',
+        box_alignment=(0.5, 0.5),
+        frameon=True,
+        pad=0.3,
+        bboxprops=dict(
+            facecolor='white',
+            edgecolor='gray',
+            alpha=0.5,
+            linewidth=1,
+        ),
+    )
+
+    return ab
+
+def compute_stokes_HWP_fit_full(
+        theta, FO, FE, dFO, dFE, 
+        inst_pol_dict=None,
+        plot=False, fig=None, annotate=False,
+    ):
+    """Compute polarimetry with a fit of (I,q,u) to both the O and the E pairs.
+    
+    This might perform better when the night is stable (no changes in opacity due
+    to clouds passing) and will be more resistant to contamination in only one
+    of the pairs.
+    """
+
+    N = len(theta)
+
+    func_FO = lambda theta, I, q, u: 0.5 * ( I + I*q*np.cos(4*theta) + I*u*np.sin(4*theta) )
+    func_FE = lambda theta, I, q, u: 0.5 * ( I - I*q*np.cos(4*theta) - I*u*np.sin(4*theta) )
+
+    # func =  lambda x, *args: np.concatenate([func_FO(x, *args), func_FE(x, *args)])
+    # xdata = np.deg2rad(theta)
+    # ydata = np.concatenate([FO, FE])
+    # sigma = np.concatenate([dFO, dFE])
+    
+    # curve_fit supports the above, but to make it easier to mask a single pair,
+    # we make it so both input and output have the same length. Since the 
+    # function is a concatenation of two functions, it needs to depend on the 
+    # mask used.
+
+    xdata = np.repeat(np.deg2rad(theta),2)
+    ydata = np.concatenate([FO, FE])
+    sigma = np.concatenate([dFO, dFE])
+
+    def get_func(idx):
+        s = sum(idx[:N//2])
+        def func(x, *args):
+            x1 = x[:s]
+            x2 = x[s:]
+            y1 = func_FO(x1, *args)
+            y2 = func_FE(x2, *args)
+            y =  np.concatenate([y1, y2])
+            return y
+        return func
+    
+    func = get_func(np.full(len(xdata), True))
+        
+    I0 = (FO + FE)
+    p0 = (np.mean(I0), 1, 1)
+    
+    popt, pcov, idx = fit_with_sigma_clip(func, xdata, ydata, sigma, p0, get_func=get_func)
+
+    fit_stats = get_fit_statistics(get_func(idx), xdata[idx], ydata[idx], sigma[idx], popt)
+
+    idx = idx.reshape(2,-1) # one row for O another for E
 
     stokes = Stokes(popt, cov=pcov)
-
+    
     if plot:
 
         fig = fig or plt.figure(figsize=(12,12))
         axs = fig.subplots(nrows=4, sharex=True, gridspec_kw=dict(hspace=0))
         
         for i, (func, data_y, data_dy, data_ylabel) in enumerate([
-            (func_fO, fO, dfO, 'f_O'),
-            (func_fE, fE, dfE, 'f_E'),
+            (func_FO, FO, dFO, 'F_O'),
+            (func_FE, FE, dFE, 'F_E'),
         ]):
-
-            # 1st/3rd axes -- fO/fE
+            
+            # 1st/3rd axes -- FO/FE
             
             ax_idx = 2*i
 
-            axs[ax_idx].errorbar(
-                x=theta,
-                y=data_y,
-                yerr=data_dy,
-                linestyle="none",
-                marker="o",
-                color="k",
-                markersize=3,
-                label=f"${data_ylabel}$",
-            )
+            for c, m in [('k', idx), ('r', ~idx)]:
+                m = m[i, :]
+                axs[ax_idx].errorbar(
+                    x=theta[m],
+                    y=data_y[m],
+                    yerr=data_dy[m],
+                    linestyle="none",
+                    marker="o",
+                    color=c,
+                    markersize=3,
+                    label=f"${data_ylabel}$",
+                )
 
             x = np.linspace(min(theta), max(theta), 100)
             y = func(np.deg2rad(x), *popt)
@@ -327,25 +583,27 @@ def compute_stokes_HWP_fit_full(
                 label=r"$1\sigma$",
             )
 
-            axs[ax_idx].set_ylabel(f"${data_ylabel}$")
+            axs[ax_idx].set_ylabel(f"${data_ylabel}$ [adu]")
 
-            # 2nd/4th axis -- fO/fE residuals
+            # 2nd/4th axis -- FO/FE residuals
 
             ax_idx = 2*i + 1
 
             delta_F = data_y - func(np.deg2rad(theta), *popt)
             delta_F_err = data_dy # ignore model uncert?
             
-            axs[ax_idx].errorbar(
-                x=theta,
-                y=delta_F,
-                yerr=delta_F_err,
-                linestyle="none",
-                marker="o",
-                color="k",
-                markersize=3,
-                label=f"${data_ylabel}$",
-            )
+            for c, m in [('k', idx), ('r', ~idx)]:
+                m = m[i, :]
+                axs[ax_idx].errorbar(
+                    x=theta[m],
+                    y=delta_F[m],
+                    yerr=delta_F_err[m],
+                    linestyle="none",
+                    marker="o",
+                    color=c,
+                    markersize=3,
+                    label=f"${data_ylabel}$",
+                )
 
             axs[ax_idx].fill_between(x, y_l1s-y, y_h1s-y,
                 color='r',
@@ -355,58 +613,42 @@ def compute_stokes_HWP_fit_full(
 
             axs[ax_idx].axhline(y=0, color='k', linestyle="-", alpha=0.5)
 
-            axs[ax_idx].set_ylabel(f"Residuals $\\Delta {data_ylabel}$")
+            axs[ax_idx].set_ylabel(f"Residuals $\\Delta {data_ylabel}$ [adu]")
 
         if annotate:
 
-            txt = (
-                "Results (uncorr. instr. pol.)\n"
-                f"$I$ = {stokes.I:+.2g} $\\pm$ {stokes.dI:.2g}\n"
-                f"$Q_r$ = ({100*stokes.q:+.2f} $\\pm$ {100*stokes.dq:.2f})%\n"
-                f"$U_r$ = ({100*stokes.u:+.2f} $\\pm$ {100*stokes.du:.2f})%\n"
-                f"$p$ = ({100*stokes.p:.2f} $\\pm$ {100*stokes.dp:.2f})%\n"
-                f"$\\chi$ = ({stokes.chi:+.2f} $\\pm$ {stokes.dchi:.2f})º"
-            )
+            if inst_pol_dict:
+                stokes_corr = stokes.correct(**inst_pol_dict)
+            else:
+                stokes_corr = None
+                
+            ab = _build_figure_annotation(fig, fit_stats, stokes, stokes_corr=stokes_corr)
 
-            text_area = mplt.offsetbox.TextArea(
-                txt, 
-                textprops=dict(fontsize=None, ha="left"),
-            )
+            fig.add_artist(ab)
 
-            ab = mplt.offsetbox.AnnotationBbox(
-                text_area,
-                xy=(0.99, 0.97),
-                xycoords='axes fraction',
-                xybox=(0, 0),
-                boxcoords='offset points',
-                box_alignment=(1, 1),
-                frameon=True,
-                pad=0.3,
-                bboxprops=dict(
-                    facecolor='white',
-                    edgecolor='gray',
-                    alpha=0.5,
-                    linewidth=1,
-                ),
-            )
+    return stokes, fit_stats
 
-            axs[0].add_artist(ab)
-
-    return stokes
-
-def compute_stokes_HWP_fit_1(
-        theta, fO, fE, dfO, dfE,
+def compute_stokes_HWP_fit_rel(
+        theta, FO, FE, dFO, dFE,
+        inst_pol_dict=None,
         plot=False, fig=None, annotate=False,
     ):
-    """Compute polarimetry with a fit to the average of the O and E pairs."""
+    """Compute polarimetry with a fit to the relative difference between E and O pairs.
+    
+    This will pusually perform better, specially under certain conditions like
+    changes in opacity during observation (e.g. due to passing clouds), but it 
+    will be more affected by contamination in any one pair (since a bad data 
+    point will weight more).
+    """
 
     N = len(theta)
     
-    F = (fO - fE) / (fO + fE)
-    dF = 2 / ( fO + fE )**2 * np.sqrt(fE**2 * dfO**2 + fO**2 * dfE**2)
+    F = (FO - FE) / (FO + FE)
+    dF = 2 / ( FO + FE )**2 * np.sqrt(FE**2 * dFO**2 + FO**2 * dFE**2)
 
-    I = (fO + fE)
-    dI = np.sqrt(dfO**2 + dfE**2)
+    I = (FO + FE)
+    dI = np.sqrt(dFO**2 + dFE**2)
+
 
     func_F_qu = lambda theta, q, u: q*np.cos(4*theta) + u*np.sin(4*theta)
 
@@ -414,51 +656,41 @@ def compute_stokes_HWP_fit_1(
     xdata = np.deg2rad(theta)
     ydata = F
     sigma = dF
+    p0 = (1, 1)
 
-    popt, pcov, infodict, mesg, ier = sp.optimize.curve_fit(
-        func,
-        xdata = xdata,
-        ydata = ydata,
-        sigma = sigma,
-        nan_policy = 'omit',
-        full_output = True,
-    )
+    popt, pcov, idx = fit_with_sigma_clip(func, xdata, ydata, sigma, p0)
 
-    # perr = np.sqrt(np.diag(pcov))
+    fit_stats = get_fit_statistics(func, xdata, ydata, sigma, popt)
 
-    # print(f"{popt=}")
-    # print(f"{perr=}")
-    # print(f"{pcov=}")
-    # print(f"{infodict=}")
-    # print(f"{mesg=}")
-    # print(f"{ier=}")
+    # build full stokes and its uncertainty
 
     weights = 1 / dI**2
     sI = np.sum(weights * I) / np.sum(weights)
     dsI = np.sqrt(1 / np.sum(weights))
 
     s = (sI, *popt)
-    scov =np.zeros((3,3))
+    scov = np.zeros((3,3))
     scov[0,0] = dsI**2
     scov[1:,1:] = pcov
     
     stokes = Stokes(s, cov=scov)
-
+    
     if plot:
 
         fig = fig or plt.figure(figsize=(12,6))
         axs = fig.subplots(nrows=2, sharex=True, gridspec_kw=dict(hspace=0))
 
-        axs[0].errorbar(
-            x=theta,
-            y=F,
-            yerr=dF,
-            linestyle="none",
-            marker="o",
-            color="k",
-            markersize=3,
-            label="$F_i$",
-        )
+        for c, m in [('k', idx), ('r', ~idx)]:
+            axs[0].errorbar(
+                x=theta[m],
+                y=F[m],
+                yerr=dF[m],
+                linestyle="none",
+                marker="o",
+                color=c,
+                markersize=3,
+                label="$F_i$",
+            )
 
         # show fit
         
@@ -479,16 +711,17 @@ def compute_stokes_HWP_fit_1(
         delta_F = F - func(np.deg2rad(theta), *popt)
         delta_F_err = dF # ignore model uncert?
         
-        axs[1].errorbar(
-            x=theta,
-            y=delta_F,
-            yerr=delta_F_err,
-            linestyle="none",
-            marker="o",
-            color="k",
-            markersize=3,
-            label="$F_i$",
-        )
+        for c, m in [('k', idx), ('r', ~idx)]:
+            axs[1].errorbar(
+                x=theta[m],
+                y=delta_F[m],
+                yerr=delta_F_err[m],
+                linestyle="none",
+                marker="o",
+                color=c,
+                markersize=3,
+                label="$F$",
+            )
 
         axs[1].fill_between(x, y_l1s-y, y_h1s-y,
             color='b',
@@ -499,39 +732,16 @@ def compute_stokes_HWP_fit_1(
         axs[1].axhline(y=0, color='k', linestyle="-", alpha=0.5)
         
         if annotate:
-            
-            txt = (
-                "Results (uncorr. instr. pol.)\n"
-                f"$Q_r$ = ({100*stokes.q:+.2f} $\\pm$ {100*stokes.dq:.2f})%\n"
-                f"$U_r$ = ({100*stokes.u:+.2f} $\\pm$ {100*stokes.du:.2f})%\n"
-                f"$p$ = ({100*stokes.p:.2f} $\\pm$ {100*stokes.dp:.2f})%\n"
-                f"$\\chi$ = ({stokes.chi:+.2f} $\\pm$ {stokes.dchi:.2f})º"
-            )
-            
-            text_area = mplt.offsetbox.TextArea(
-                txt, 
-                textprops=dict(fontsize=None, ha="left"),
-            )
 
-            ab = mplt.offsetbox.AnnotationBbox(
-                text_area,
-                xy=(0.99, 0.97),
-                xycoords='axes fraction',
-                xybox=(0, 0),
-                boxcoords='offset points',
-                box_alignment=(1, 1),
-                frameon=True,
-                pad=0.3,
-                bboxprops=dict(
-                    facecolor='white',
-                    edgecolor='gray',
-                    alpha=0.5,
-                    linewidth=1,
-                ),
-            )
+            if inst_pol_dict:
+                stokes_corr = stokes.correct(**inst_pol_dict)
+            else:
+                stokes_corr = None
+                
+            ab = _build_figure_annotation(fig, fit_stats, stokes, stokes_corr=stokes_corr)
 
-            axs[0].add_artist(ab)
-
+            fig.add_artist(ab)
+        
         # title, axes, labels, etc
 
         axs[-1].set_xticks(theta)
@@ -540,74 +750,58 @@ def compute_stokes_HWP_fit_1(
         axs[0].set_ylabel("$F_i$")
         axs[1].set_ylabel(r"Residual $\Delta F_i$")
         
-        axs[0].legend(loc="upper left")
+    return stokes, fit_stats
 
-    return stokes
-
-def compute_stokes_HWP_fit_2(
-        theta, fO=None, dfO=None, fE=None, dfE=None,
+def compute_stokes_HWP_fit_1pair(
+        theta, FO=None, dFO=None, FE=None, dFE=None,
+        inst_pol_dict=None,
         plot=False, fig=None, annotate=False,
     ):
     """Compute polarimetry fitting only the O (or E) pair."""
 
-    assert (fO is None) ^ bool(fE is None), "must specify one and only one of fO or fE"
-    assert bool(dfO is None) ^ bool(dfE is None), "must specify one and only one of dfO or dfE"
+    assert (FO is None) ^ bool(FE is None), "must specify one and only one of FO or FE"
+    assert bool(dFO is None) ^ bool(dFE is None), "must specify one and only one of dFO or dFE"
 
-    func_fO = lambda theta_i, I, q, u: 0.5 * ( I + I*q*np.cos(4*theta_i) + I*u*np.sin(4*theta_i) )
-    func_fE = lambda theta_i, I, q, u: 0.5 * ( I - I*q*np.cos(4*theta_i) - I*u*np.sin(4*theta_i) )
+    func_FO = lambda theta_i, I, q, u: 0.5 * ( I + I*q*np.cos(4*theta_i) + I*u*np.sin(4*theta_i) )
+    func_FE = lambda theta_i, I, q, u: 0.5 * ( I - I*q*np.cos(4*theta_i) - I*u*np.sin(4*theta_i) )
 
-    if fO:
-        ydata = fO
-        sigma = dfO
-        func = func_fO
+    if FO:
+        ydata = FO
+        sigma = dFO
+        func = func_FO
         pair = "O"
     else:
-        ydata = fE
-        sigma = dfE
-        func = func_fE
+        ydata = FE
+        sigma = dFE
+        func = func_FE
         pair = "E"
 
     xdata = np.deg2rad(theta)
     sI0 = 2*np.mean(ydata)
     p0 = (sI0, 1, 1)
 
-    popt, pcov, infodict, mesg, ier = sp.optimize.curve_fit(
-        func,
-        xdata = xdata,
-        ydata = ydata,
-        sigma = sigma,
-        p0 = p0,
-        nan_policy = 'omit',
-        full_output = True,
-    )
+    popt, pcov, idx = fit_with_sigma_clip(func, xdata, ydata, sigma, p0)
 
-    # perr = np.sqrt(np.diag(pcov))
-
-    # print(f"{popt=}")
-    # print(f"{perr=}")
-    # print(f"{pcov=}")
-    # print(f"{infodict=}")
-    # print(f"{mesg=}")
-    # print(f"{ier=}")
+    fit_stats = get_fit_statistics(func, xdata, ydata, sigma, popt)
 
     stokes = Stokes(popt, cov=pcov)
-
 
     if plot:
 
         fig = fig or plt.figure(figsize=(12,6))
         axs = fig.subplots(nrows=2, sharex=True, gridspec_kw=dict(hspace=0))
 
-        axs[0].errorbar(
-            x=theta,
-            y=ydata,
-            yerr=sigma,
-            linestyle="none",
-            marker="o",
-            color="k",
-            markersize=3,
-            label=f"$F_{pair}$",
-        )
+        for c, m in [('k', idx), ('r', ~idx)]:
+            axs[0].errorbar(
+                x=theta[m],
+                y=ydata[m],
+                yerr=sigma[m],
+                linestyle="none",
+                marker="o",
+                color=c,
+                markersize=3,
+                label=f"$F_{pair}$",
+            )
 
         # show fit
         
@@ -628,16 +822,17 @@ def compute_stokes_HWP_fit_2(
         delta_F = ydata - func(np.deg2rad(theta), *popt)
         delta_F_err = sigma # ignore model uncert?
         
-        axs[1].errorbar(
-            x=theta,
-            y=delta_F,
-            yerr=delta_F_err,
-            linestyle="none",
-            marker="o",
-            color="k",
-            markersize=3,
-            label="$F_i$",
-        )
+        for c, m in [('k', idx), ('r', ~idx)]:
+            axs[1].errorbar(
+                x=theta[m],
+                y=delta_F[m],
+                yerr=delta_F_err[m],
+                linestyle="none",
+                marker="o",
+                color=c,
+                markersize=3,
+                label=f"$F_{pair}$",
+            )
 
         axs[1].fill_between(x, y_l1s-y, y_h1s-y,
             color='b',
@@ -648,39 +843,16 @@ def compute_stokes_HWP_fit_2(
         axs[1].axhline(y=0, color='k', linestyle="-", alpha=0.5)
         
         if annotate:
-            
-            txt = (
-                "Results (uncorr. instr. pol.)\n"
-                f"$Q_r$ = ({100*stokes.q:+.2f} $\\pm$ {100*stokes.dq:.2f})%\n"
-                f"$U_r$ = ({100*stokes.u:+.2f} $\\pm$ {100*stokes.du:.2f})%\n"
-                f"$p$ = ({100*stokes.p:.2f} $\\pm$ {100*stokes.dp:.2f})%\n"
-                f"$\\chi$ = ({stokes.chi:+.2f} $\\pm$ {stokes.dchi:.2f})º"
-            )
-            
-            text_area = mplt.offsetbox.TextArea(
-                txt, 
-                textprops=dict(fontsize=None, ha="left"),
-            )
 
-            ab = mplt.offsetbox.AnnotationBbox(
-                text_area,
-                xy=(0.99, 0.97),
-                xycoords='axes fraction',
-                xybox=(0, 0),
-                boxcoords='offset points',
-                box_alignment=(1, 1),
-                frameon=True,
-                pad=0.3,
-                bboxprops=dict(
-                    facecolor='white',
-                    edgecolor='gray',
-                    alpha=0.5,
-                    linewidth=1,
-                ),
-            )
+            if inst_pol_dict:
+                stokes_corr = stokes.correct(**inst_pol_dict)
+            else:
+                stokes_corr = None
+                
+            ab = _build_figure_annotation(fig, fit_stats, stokes, stokes_corr=stokes_corr)
 
-            axs[0].add_artist(ab)
-
+            fig.add_artist(ab)
+        
         # title, axes, labels, etc
 
         axs[-1].set_xticks(theta)
@@ -688,66 +860,8 @@ def compute_stokes_HWP_fit_2(
         
         axs[0].set_ylabel("$F_i$")
         axs[1].set_ylabel(rf"Residual $\Delta F_{pair}$")
-        
-        axs[0].legend(loc="upper left")
-    
-    return stokes
-
-def compute_stokes_HWP_fit_3(theta, fO, fE, dfO, dfE):
-    """Compute polarimetry with a p, chi fit instead of q,u (DO NOT USE)."""
-
-    N = len(theta)
-    
-    F = (fO - fE) / (fO + fE)
-    dF = 2 / ( fO + fE )**2 * np.sqrt(fE**2 * dfO**2 + fO**2 * dfE**2)
-
-    I = (fO + fE)
-    dI = np.sqrt(dfO**2 + dfE**2)
-
-    func_F_pchi = lambda theta_i, p, chi: p * np.cos(4*theta_i - 2*chi)
-
-    func = func_F_pchi
-    xdata = np.deg2rad(theta)
-    ydata = F
-    sigma = dF
-    
-    popt, pcov, infodict, mesg, ier = sp.optimize.curve_fit(
-        func,
-        xdata = xdata,
-        ydata = ydata,
-        sigma = sigma,
-        nan_policy = 'omit',
-        full_output = True,
-    )
-
-    perr = np.sqrt(np.diag(pcov))
-
-    weights = 1 / dI**2
-    sI = np.sum(weights * I) / np.sum(weights)
-    dsI = np.sqrt(1 / np.sum(weights))
-
-    # transform p, chi -> u,q and  the covariance
-    p, chi = popt
-
-    q = p * math.cos(2*chi)
-    u = p * math.sin(2*chi)
-
-    J = np.array([
-        [np.cos(2*chi), -2*p*np.sin(2*chi)],
-        [np.sin(2*chi),  2*p*np.cos(2*chi)]
-    ])
-
-    scov_qu = J @ pcov @ J.T
-
-    scov = np.zeros((3,3))
-    scov[0,0] = dsI**2
-    scov[1:,1:] = scov_qu
-
-    s = np.array([sI, q, u])
-    
-    stokes = Stokes(s, cov=scov)
-
-    return stokes
+            
+    return stokes, fit_stats
 
 class PolarimetryGroup(list['ReducedFit']):
 

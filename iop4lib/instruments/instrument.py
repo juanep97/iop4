@@ -47,8 +47,8 @@ from iop4lib.utils.photometry import (
 )
 from iop4lib.utils.polarization import (
     compute_stokes_HWP_fit_full,
-    compute_stokes_HWP_fit_1,
-    compute_stokes_HWP_fit_2,
+    compute_stokes_HWP_fit_rel,
+    compute_stokes_HWP_fit_1pair,
 )
      
 # logging
@@ -1269,49 +1269,51 @@ class InstrumentHWP(ABC, Instrument):
 
                 theta = np.array([angle for angle in angles_L])
 
-                fO = np.array([fluxes.get(('O', angle), np.nan) for angle in angles_L])
-                dfO = np.array([flux_errors.get(('O', angle), np.nan) for angle in angles_L])
+                FO = np.array([fluxes.get(('O', angle), np.nan) for angle in angles_L])
+                dFO = np.array([flux_errors.get(('O', angle), np.nan) for angle in angles_L])
 
-                fE = np.array([fluxes.get(('E', angle), np.nan) for angle in angles_L])
-                dfE = np.array([flux_errors.get(('E', angle), np.nan) for angle in angles_L])
+                FE = np.array([fluxes.get(('E', angle), np.nan) for angle in angles_L])
+                dFE = np.array([flux_errors.get(('E', angle), np.nan) for angle in angles_L])
 
-                logger.debug(f"{fO=}, {dfO=}, {fE=}, {dfE=}")
+                logger.debug(f"{FO=}, {dFO=}, {FE=}, {dFE=}")
 
                 # IOP4 astrocalibration atm works the other way, swap them here
-                fO, dfO, fE, dfE = fE, dfE, fO, dfO
+                FO, dFO, FE, dFE = FE, dFE, FO, dFO
 
                 # read possible special case from target source metadata
                 only_pair = astrosource.metadata.get(f"{cls.name}.polarimetry.only_pair")
 
                 if not only_pair:
 
-                    # 1st -- try full compute
+                    # 1st -- try full
                     logger.info(f"Computing stokes parameters with compute_stokes_HWP_fit_full")
-                    stokes_nocorr_1 = compute_stokes_HWP_fit_full(theta, fO=fO, dfO=dfO, fE=fE, dfE=dfE)
+                    stokes_nocorr_1, fit_stats_1 = compute_stokes_HWP_fit_full(theta, FO=FO, dFO=dFO, FE=FE, dFE=dFE)
                     logger.info(f"{stokes_nocorr_1=}")
+                    logger.info(f"{fit_stats_1=}")
                     logger.info(f"compute_stokes_HWP_fit_full -> ({100*stokes_nocorr_1.p:.1f} +/ {100*stokes_nocorr_1.dp:.1f} %, {stokes_nocorr_1.chi:.1f} +/- {stokes_nocorr_1.dchi:.1f} º)")
 
-                    # 2nd -- try E+O partial (less correlation)
-                    logger.info(f"Computing stokes parameters with compute_stokes_HWP_fit_1")
-                    stokes_nocorr_2 = compute_stokes_HWP_fit_1(theta, fO=fO, dfO=dfO, fE=fE, dfE=dfE)
+                    # 2nd -- try relative
+                    logger.info(f"Computing stokes parameters with compute_stokes_HWP_fit_rel")
+                    stokes_nocorr_2, fit_stats_2 = compute_stokes_HWP_fit_rel(theta, FO=FO, dFO=dFO, FE=FE, dFE=dFE)
                     logger.info(f"{stokes_nocorr_2=}")
-                    logger.info(f"compute_stokes_HWP_fit_1 -> ({100*stokes_nocorr_2.p:.1f} +/ {100*stokes_nocorr_2.dp:.1f} %, {stokes_nocorr_2.chi:.1f} +/- {stokes_nocorr_2.dchi:.1f} º)")
+                    logger.info(f"{fit_stats_2=}")
+                    logger.info(f"compute_stokes_HWP_fit_rel -> ({100*stokes_nocorr_2.p:.1f} +/ {100*stokes_nocorr_2.dp:.1f} %, {stokes_nocorr_2.chi:.1f} +/- {stokes_nocorr_2.dchi:.1f} º)")
 
-                    if stokes_nocorr_1.dp < stokes_nocorr_2.dp:
-                        logger.info(f"keeping compute_stokes_HWP_fit_full result (less uncertainty)")
+                    if fit_stats_1["rchi2"] < fit_stats_2["rchi2"]:
+                        logger.info(f"keeping compute_stokes_HWP_fit_full result (rchi2)")
                         stokes_nocorr = stokes_nocorr_1
                     else:
-                        logger.info(f"selecting compute_stokes_HWP_fit_2 (less uncertainty)")
+                        logger.info(f"selecting compute_stokes_HWP_fit_rel (rchi2)")
                         stokes_nocorr = stokes_nocorr_2
 
                 else:
 
-                    logger.info(f"This source metadata indicates to use only the {only_pair} pair, computing stoke parameters with compute_stokes_HWP_fit_2")
+                    logger.info(f"This source metadata indicates to use only the {only_pair} pair, computing stoke parameters with compute_stokes_HWP_fit_1pair")
 
                     if only_pair == 'O':
-                        stokes_nocorr = compute_stokes_HWP_fit_2(theta, fO=fO, dfO=dfO)
+                        stokes_nocorr = compute_stokes_HWP_fit_1pair(theta, FO=FO, dFO=dFO)
                     elif only_pair == 'E':
-                        stokes_nocorr = compute_stokes_HWP_fit_2(theta, fE=fE, dfE=dfE)
+                        stokes_nocorr = compute_stokes_HWP_fit_1pair(theta, FE=FE, dFE=dFE)
 
                 logger.info(f"{astrosource.name} stokes_nocorr {stokes_nocorr} -> p = ({100*stokes_nocorr.p:.1f} +/ {100*stokes_nocorr.dp:.1f}) %, chi = ({stokes_nocorr.chi:.1f} +/- {stokes_nocorr.dchi:.1f}) º)")
 

@@ -19,7 +19,7 @@ from iop4lib.enums import (
 
 # other imports
 from astropy.time import Time
-        
+
 class AdminPhotoPolResult(admin.ModelAdmin):
     model = PhotoPolResult
     list_display = ['id', 'get_telescope', 'instrument', 'get_juliandate', 'get_datetime', 'get_src_name', 'get_src_type', 'get_reducedfits', 'obsmode', 'band', 'exptime', 'get_mag', 'get_mag_err', 'get_p', 'get_p_err', 'get_chi', 'get_chi_err', 'get_aperpix', 'get_aperas', 'get_flags', 'get_aperphots', 'modified', 'get_details']

@@ -424,8 +424,8 @@ class PhotoPolResult(models.Model):
         from iop4lib.utils import get_column_values
         from iop4lib.utils.polarization import (
             compute_stokes_HWP_fit_full,
-            compute_stokes_HWP_fit_1,
-            compute_stokes_HWP_fit_2,
+            compute_stokes_HWP_fit_rel,
+            compute_stokes_HWP_fit_1pair,
         )
 
         fig = fig or plt.gcf()
@@ -443,47 +443,54 @@ class PhotoPolResult(models.Model):
 
         theta = np.array([angle for angle in angles_L])
 
-        fO = np.array([fluxes.get(('O', angle), np.nan) for angle in angles_L])
-        dfO = np.array([flux_errors.get(('O', angle), np.nan) for angle in angles_L])
+        FO = np.array([fluxes.get(('O', angle), np.nan) for angle in angles_L])
+        dFO = np.array([flux_errors.get(('O', angle), np.nan) for angle in angles_L])
 
-        fE = np.array([fluxes.get(('E', angle), np.nan) for angle in angles_L])
-        dfE = np.array([flux_errors.get(('E', angle), np.nan) for angle in angles_L])
+        FE = np.array([fluxes.get(('E', angle), np.nan) for angle in angles_L])
+        dFE = np.array([flux_errors.get(('E', angle), np.nan) for angle in angles_L])
 
-        fO, dfO, fE, dfE = fE, dfE, fO, dfO
+        FO, dFO, FE, dFE = FE, dFE, FO, dFO
+
+        redf_0 = self.reducedfits.first()
+        inst_pol_dict = redf_0.instrument_cls.get_instrumental_polarization(redf_0)
 
         if not (only_pair := astrosource.metadata.get(f"{self.instrument}.polarimetry.only_pair")):
 
-            gs = fig.add_gridspec(1, 1)
+            gs = fig.add_gridspec(1, 2)
             subfig1 = fig.add_subfigure(gs[0,0])
-            subfig2 = fig.add_subfigure(gs[0,0])
+            subfig2 = fig.add_subfigure(gs[0,1])
 
-            stokes_nocorr_1 = compute_stokes_HWP_fit_full(theta, fO=fO, dfO=dfO, fE=fE, dfE=dfE, plot=True, annotate=True, fig=subfig1)
-            stokes_nocorr_2 = compute_stokes_HWP_fit_1(theta, fO=fO, dfO=dfO, fE=fE, dfE=dfE, plot=True, annotate=True, fig=subfig2)
+            stokes_nocorr_1, fit_stats_1 = compute_stokes_HWP_fit_full(theta, FO=FO, dFO=dFO, FE=FE, dFE=dFE, inst_pol_dict=inst_pol_dict, plot=True, annotate=True, fig=subfig1)
+            title1 = subfig1.suptitle('compute_stokes_HWP_fit_full', y=1)
 
-            if stokes_nocorr_1.dp < stokes_nocorr_2.dp:
+            stokes_nocorr_2, fit_stats_2 = compute_stokes_HWP_fit_rel(theta, FO=FO, dFO=dFO, FE=FE, dFE=dFE, inst_pol_dict=inst_pol_dict, plot=True, annotate=True, fig=subfig2)
+            title2 = subfig2.suptitle('compute_stokes_HWP_fit_rel', y=1)
+
+            if fit_stats_1["rchi2"] < fit_stats_2["rchi2"]:
                 stokes_nocorr = stokes_nocorr_1
                 method_name = "compute_stokes_HWP_fit_full"
-                subfig2.clear()
+                # subfig2.clear()
+                title1.set(color='green', weight='bold')
             else:
                 stokes_nocorr = stokes_nocorr_2
-                method_name = "compute_stokes_HWP_fit_1"
-                subfig1.clear()
+                method_name = "compute_stokes_HWP_fit_rel"
+                # subfig1.clear()
+                title2.set(color='green', weight='bold')
         else:
             if only_pair == 'O':
-                method_name = "compute_stokes_HWP_fit_2 (O)"
-                stokes_nocorr = compute_stokes_HWP_fit_2(theta, fO=fO, dfO=dfO, plot=True, annotate=True, fig=fig)
+                method_name = "compute_stokes_HWP_fit_1pair (O)"
+                stokes_nocorr = compute_stokes_HWP_fit_1pair(theta, FO=FO, dFO=dFO, inst_pol_dict=inst_pol_dict, plot=True, annotate=True, fig=fig)
             elif only_pair == 'E':
-                method_name = "compute_stokes_HWP_fit_2 (E)"
-                stokes_nocorr = compute_stokes_HWP_fit_2(theta, fE=fE, dfE=dfE, plot=True, annotate=True, fig=fig)
+                method_name = "compute_stokes_HWP_fit_1pair (E)"
+                stokes_nocorr = compute_stokes_HWP_fit_1pair(theta, FE=FE, dFE=dFE, inst_pol_dict=inst_pol_dict, plot=True, annotate=True, fig=fig)
 
         fig_title = (
             f"{self}\n"
             f"{method_name}"
         )
 
-        redf_0 = self.reducedfits.first()
-        instr_pol_dict = redf_0.instrument_cls.get_instrumental_polarization(redf_0)
-        stokes_corr = stokes_nocorr.correct(**instr_pol_dict)
+        stokes_corr = stokes_nocorr.correct(**inst_pol_dict)
+
         if not (
             np.isclose(stokes_corr.p, self.p)
             and np.isclose(stokes_corr.dp, self.p_err)
@@ -505,7 +512,11 @@ class PhotoPolResult(models.Model):
         return fig
 
     def get_img_polarimetry(self, **kwargs):
-        width = kwargs.get('width', 1024)
+
+        only_pair = self.astrosource.metadata.get(f"{self.instrument}.polarimetry.only_pair")
+        default_width = 2048 if not only_pair else 1024
+
+        width = kwargs.get('width', default_width)
         height = kwargs.get('height', 1024)
 
         buf = io.BytesIO()
