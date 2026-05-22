@@ -1292,18 +1292,22 @@ class InstrumentHWP(ABC, Instrument):
                     logger.info(f"{fit_stats_1=}")
                     logger.info(f"compute_stokes_HWP_fit_full -> ({100*stokes_nocorr_1.p:.1f} +/ {100*stokes_nocorr_1.dp:.1f} %, {stokes_nocorr_1.chi:.1f} +/- {stokes_nocorr_1.dchi:.1f} º)")
 
-                    # 2nd -- try relative
+                    # 2nd -- try relative [default]
                     logger.info(f"Computing stokes parameters with compute_stokes_HWP_fit_rel")
                     stokes_nocorr_2, fit_stats_2 = compute_stokes_HWP_fit_rel(theta, FO=FO, dFO=dFO, FE=FE, dFE=dFE)
                     logger.info(f"{stokes_nocorr_2=}")
                     logger.info(f"{fit_stats_2=}")
                     logger.info(f"compute_stokes_HWP_fit_rel -> ({100*stokes_nocorr_2.p:.1f} +/ {100*stokes_nocorr_2.dp:.1f} %, {stokes_nocorr_2.chi:.1f} +/- {stokes_nocorr_2.dchi:.1f} º)")
 
-                    if fit_stats_1["rchi2"] < fit_stats_2["rchi2"]:
+                    # we will only take "full" one if's better by several metrics
+                    if (
+                        ( abs(fit_stats_1["rchi2"]-1) < abs(fit_stats_2["rchi2"]-1) )
+                        and (fit_stats_1["aicc"] < fit_stats_2["aicc"])
+                    ):
                         logger.info(f"keeping compute_stokes_HWP_fit_full result (rchi2)")
                         stokes_nocorr = stokes_nocorr_1
                     else:
-                        logger.info(f"selecting compute_stokes_HWP_fit_rel (rchi2)")
+                        logger.info(f"selecting compute_stokes_HWP_fit_rel (rchi2) [default]")
                         stokes_nocorr = stokes_nocorr_2
 
                 else:

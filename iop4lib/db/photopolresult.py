@@ -466,7 +466,11 @@ class PhotoPolResult(models.Model):
             stokes_nocorr_2, fit_stats_2 = compute_stokes_HWP_fit_rel(theta, FO=FO, dFO=dFO, FE=FE, dFE=dFE, inst_pol_dict=inst_pol_dict, plot=True, annotate=True, fig=subfig2)
             title2 = subfig2.suptitle('compute_stokes_HWP_fit_rel', y=1)
 
-            if fit_stats_1["rchi2"] < fit_stats_2["rchi2"]:
+            # (logic must be the same as in the instrument's compute_relative_polarimetry:)
+            if (
+                ( abs(fit_stats_1["rchi2"]-1) < abs(fit_stats_2["rchi2"]-1) )
+                and (fit_stats_1["aicc"] < fit_stats_2["aicc"])
+            ):
                 stokes_nocorr = stokes_nocorr_1
                 method_name = "compute_stokes_HWP_fit_full"
                 # subfig2.clear()
