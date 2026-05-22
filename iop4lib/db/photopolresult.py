@@ -420,7 +420,7 @@ class PhotoPolResult(models.Model):
 
     # plot helpers
 
-    def plot_polarimetry(self, fig=None):
+    def plot_polarimetry(self, fig=None, best=False):
         from iop4lib.utils import get_column_values
         from iop4lib.utils.polarization import (
             compute_stokes_HWP_fit_full,
@@ -456,9 +456,14 @@ class PhotoPolResult(models.Model):
 
         if not (only_pair := astrosource.metadata.get(f"{self.instrument}.polarimetry.only_pair")):
 
-            gs = fig.add_gridspec(1, 2)
-            subfig1 = fig.add_subfigure(gs[0,0])
-            subfig2 = fig.add_subfigure(gs[0,1])
+            if best:
+                gs = fig.add_gridspec(1, 1)
+                subfig1 = fig.add_subfigure(gs[0,0])
+                subfig2 = fig.add_subfigure(gs[0,0])
+            else:
+                gs = fig.add_gridspec(1, 2)
+                subfig1 = fig.add_subfigure(gs[0,0])
+                subfig2 = fig.add_subfigure(gs[0,1])
 
             stokes_nocorr_1, fit_stats_1 = compute_stokes_HWP_fit_full(theta, FO=FO, dFO=dFO, FE=FE, dFE=dFE, inst_pol_dict=inst_pol_dict, plot=True, annotate=True, fig=subfig1)
             title1 = subfig1.suptitle('compute_stokes_HWP_fit_full', y=1)
@@ -473,12 +478,12 @@ class PhotoPolResult(models.Model):
             ):
                 stokes_nocorr = stokes_nocorr_1
                 method_name = "compute_stokes_HWP_fit_full"
-                # subfig2.clear()
+                if best: subfig2.clear()
                 title1.set(color='green', weight='bold')
             else:
                 stokes_nocorr = stokes_nocorr_2
                 method_name = "compute_stokes_HWP_fit_rel"
-                # subfig1.clear()
+                if best: subfig1.clear()
                 title2.set(color='green', weight='bold')
         else:
             if only_pair == 'O':
@@ -520,13 +525,16 @@ class PhotoPolResult(models.Model):
         only_pair = self.astrosource.metadata.get(f"{self.instrument}.polarimetry.only_pair")
         default_width = 2048 if not only_pair else 1024
 
+        best = kwargs.get("best", False)
+        default_width = default_width if not best else 1024
+
         width = kwargs.get('width', default_width)
         height = kwargs.get('height', 1024)
 
         buf = io.BytesIO()
 
         fig = mplt.figure.Figure(figsize=(width/100, height/100), dpi=iop4conf.mplt_default_dpi)
-        self.plot_polarimetry(fig=fig)
+        self.plot_polarimetry(fig=fig, best=best)
         fig.tight_layout()
         fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
         fig.clf()

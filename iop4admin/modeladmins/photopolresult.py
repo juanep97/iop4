@@ -38,7 +38,10 @@ class AdminPhotoPolResult(admin.ModelAdmin):
     def view_img_polarimetry(self, request, pk):
         if ((obj := self.model.objects.filter(id=pk).first()) is None):
             return HttpResponseNotFound()
-        imgbytes = obj.get_img_polarimetry()
+
+        best = True if request.GET.get("best") == "true" else False
+        imgbytes = obj.get_img_polarimetry(best=best)
+        
         return HttpResponse(imgbytes, content_type="image/png")
     
     @admin.display(description="TELESCOPE")
@@ -118,7 +121,7 @@ class AdminPhotoPolResult(admin.ModelAdmin):
     @admin.display(description="details")
     def get_details(self, obj, allow_tags=True):
         if obj.reduction == REDUCTIONMETHODS.RELPOL:
-            url_img_polarimetry = reverse(f"iop4admin:iop4api_{self.model._meta.model_name}_img_polarimetry", args=[obj.id])
+            url_img_polarimetry = reverse(f"iop4admin:iop4api_{self.model._meta.model_name}_img_polarimetry", args=[obj.id]) +"?best=true"
             return format_html(rf"<a href='{url_img_polarimetry}' target='_blank'>polarimetry</a>")
         else:
             return "-"

@@ -224,7 +224,7 @@ class AperPhotResult(models.Model):
         fwhm = (self.fwhm*u.arcsec).to_value('pix', equivalencies=self.reducedfit.pixscale_equiv)
         sigma = fwhm / (2*math.sqrt(2*math.log(2)))
 
-        rmax = min(cutout.shape)/2
+        rmax = min(min(cutout.shape)/2, 2.2*self.r_out)
         radii = np.arange(0, rmax)
         rp = RadialProfile(cutout.data, c, radii)
 
@@ -235,10 +235,17 @@ class AperPhotResult(models.Model):
 
         ax.plot(rp.radius, rp.profile, 'k-', label="$I(r)$")
 
+        ax.axvline(x=fwhm/2, color='k', linestyle='--', linewidth=1, alpha=1, label="FWHM/2")
+
+        ax.axvline(x=1*sigma, color='r', linestyle='-', linewidth=1, alpha=1, label="1$\sigma$")
+        ax.axvline(x=3*sigma, color='r', linestyle='-', linewidth=1, alpha=1, label="3$\sigma$")
+        ax.axvline(x=5*sigma, color='r', linestyle='-', linewidth=1, alpha=1, label="5$\sigma$")
+
+        ax.axvline(x=self.aperpix, color='b', linestyle='--', linewidth=1, alpha=1, label="aperpix")
+        ax.axvline(x=self.r_in, color='g', linestyle='--', linewidth=1, alpha=1, label="$r_{in}$")
+        ax.axvline(x=self.r_out, color='g', linestyle='--', linewidth=1, alpha=1, label="$r_{out}$")
+
         ax.plot(rp.radius, rp.gaussian_fit(rp.radius), 'k:', label="Gaussian Fit")
-
-        ax.axvline(x=fwhm/2, color='b', linestyle='-', linewidth=1, alpha=1, label="FWHM/2")
-
         if fwhm_gauss_fit < 1.5*rmax:
             # sometimes it happens that it is way off
             ax.axvline(
@@ -246,11 +253,6 @@ class AperPhotResult(models.Model):
                 color='k', linestyle='--', linewidth=1, alpha=1,
                 label="FWHM/2 (from fit)",
             )
-
-        ax.axvline(x=1*sigma, color='r', linestyle='-', linewidth=1, alpha=1, label="1$\sigma$")
-
-        ax.axvline(x=3*sigma, color='r', linestyle='-', linewidth=1, alpha=1, label="3$\sigma$")
-        ax.axvline(x=5*sigma, color='r', linestyle='-', linewidth=1, alpha=1, label="5$\sigma$")
 
         ax.set_xlabel("r [px]")
 
