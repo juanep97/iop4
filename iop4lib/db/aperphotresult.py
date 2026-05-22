@@ -228,7 +228,7 @@ class AperPhotResult(models.Model):
         radii = np.arange(0, rmax)
         rp = RadialProfile(cutout.data, c, radii)
 
-        fwhm_fit = rp.gaussian_fwhm
+        fwhm_gauss_fit = rp.gaussian_fwhm
 
         cog = CurveOfGrowth(cutout.data, c, radii[1:])
         cog.normalize("max")
@@ -238,7 +238,15 @@ class AperPhotResult(models.Model):
         ax.plot(rp.radius, rp.gaussian_fit(rp.radius), 'k:', label="Gaussian Fit")
 
         ax.axvline(x=fwhm/2, color='b', linestyle='-', linewidth=1, alpha=1, label="FWHM/2")
-        ax.axvline(x=fwhm_fit/2, color='k', linestyle='--', linewidth=1, alpha=1, label="FWHM/2 (from fit)")
+
+        if fwhm_gauss_fit < 1.5*rmax:
+            # sometimes it happens that it is way off
+            ax.axvline(
+                x=fwhm_gauss_fit/2,
+                color='k', linestyle='--', linewidth=1, alpha=1,
+                label="FWHM/2 (from fit)",
+            )
+
         ax.axvline(x=1*sigma, color='r', linestyle='-', linewidth=1, alpha=1, label="1$\sigma$")
 
         ax.axvline(x=3*sigma, color='r', linestyle='-', linewidth=1, alpha=1, label="3$\sigma$")
