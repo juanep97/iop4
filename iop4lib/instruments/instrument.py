@@ -846,7 +846,9 @@ class Instrument(metaclass=ABCMeta):
             #         ap_sigma = 0.8*disp/3
 
         # r_ap, r_in, r_out = 3.0*ap_sigma, 5.0*ap_sigma, 7.0*ap_sigma
-        r_ap, r_in, r_out = 5.0*ap_sigma, 7.0*ap_sigma, 12.0*ap_sigma # TODO: better?
+        # TODO: better?
+        # r_ap, r_in, r_out = 5.0*ap_sigma, 7.0*ap_sigma, 12.0*ap_sigma
+        r_ap, r_in, r_out = 3.0*ap_sigma, 5.0*ap_sigma, 9.0*ap_sigma
 
         return CommonAperturesTuple(r_ap, r_in, r_out, ap_fwhm, fwhm_stats, centroids_and_fwhms)
     
