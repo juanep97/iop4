@@ -21,6 +21,7 @@ import yaml
 from importlib import resources
 from collections.abc import Iterable
 import random
+from astropy.time import Time
 
 # iop4lib imports
 from iop4lib.enums import IMGTYPES, BANDS, OBSMODES, SRCTYPES
