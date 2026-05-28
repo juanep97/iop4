@@ -59,9 +59,10 @@ class Config(dict):
             Path to the configuration file. If None, it will try to use, in order: 
             1. The current config file
             2. The file specified by the environment variable IOP4_CONFIG_FILE 
-            3. ~/.iop4data/config.yaml, if it exists
-            4. ~/.iop4.config.yaml, if it exists
-            5. The example config file in the iop4lib package.
+            3. ~/iop4data/config.yaml, if it exists
+            4. ~/.iop4data/config.yaml, if it exists
+            5. ~/.iop4.config.yaml, if it exists
+            6. The example config file in the iop4lib package.
         config_db : bool, default False
             If True, configures django ORM to make the models and database accesible. It 
             should be used only once the top level of your script.
@@ -106,6 +107,7 @@ class Config(dict):
             config_path,
             getattr(self, 'config_path', None),
             os.getenv("IOP4_CONFIG_FILE"),
+            "~/iop4data/config.yaml",
             "~/.iop4data/config.yaml",
             "~/.iop4.config.yaml",
             resources.files("iop4lib") / "config.example.yaml",
