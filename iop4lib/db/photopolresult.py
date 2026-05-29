@@ -314,6 +314,11 @@ class PhotoPolResult(models.Model):
     def datetime(self):
         return Time(self.juliandate, format='jd').datetime
 
+    @property
+    def instrument_cls(self):
+        from iop4lib.instruments import Instrument
+        return Instrument.by_name(self.instrument)
+
     # Auto-flagging
 
     def auto_flag(self):
@@ -420,12 +425,14 @@ class PhotoPolResult(models.Model):
 
     # plot helpers
 
-    def plot_polarimetry(self, fig=None, best=False):
+    def plot_polarimetry(self, fig=None, all_models=False):
         from iop4lib.utils import get_column_values
         from iop4lib.utils.polarization import (
             compute_stokes_HWP_fit_full,
             compute_stokes_HWP_fit_rel,
             compute_stokes_HWP_fit_1pair,
+            compute_stokes_HWP_analytical,
+            compute_stokes_HWP_fit_rel_nonideal,
         )
 
         fig = fig or plt.gcf()
@@ -456,35 +463,39 @@ class PhotoPolResult(models.Model):
 
         if not (only_pair := astrosource.metadata.get(f"{self.instrument}.polarimetry.only_pair")):
 
-            if best:
+            if not all_models:
+
                 gs = fig.add_gridspec(1, 1)
-                subfig1 = fig.add_subfigure(gs[0,0])
-                subfig2 = fig.add_subfigure(gs[0,0])
+                subfig = fig.add_subfigure(gs[0,0])
+
+                pol_method = self.instrument_cls.default_pol_method
+                stokes_nocorr, fit_stats = pol_method(theta, FO=FO, dFO=dFO, FE=FE, dFE=dFE, inst_pol_dict=inst_pol_dict, plot=True, annotate=True, fig=subfig)
+                title = subfig.suptitle(pol_method.name, y=1)
+                method_name = pol_method.name
+
             else:
-                gs = fig.add_gridspec(1, 2)
-                subfig1 = fig.add_subfigure(gs[0,0])
-                subfig2 = fig.add_subfigure(gs[0,1])
 
-            stokes_nocorr_1, fit_stats_1 = compute_stokes_HWP_fit_full(theta, FO=FO, dFO=dFO, FE=FE, dFE=dFE, inst_pol_dict=inst_pol_dict, plot=True, annotate=True, fig=subfig1)
-            title1 = subfig1.suptitle('compute_stokes_HWP_fit_full', y=1)
+                pol_methods = [
+                    compute_stokes_HWP_fit_full,
+                    compute_stokes_HWP_fit_rel,
+                    compute_stokes_HWP_analytical,
+                    compute_stokes_HWP_fit_rel_nonideal,
+                ]
 
-            stokes_nocorr_2, fit_stats_2 = compute_stokes_HWP_fit_rel(theta, FO=FO, dFO=dFO, FE=FE, dFE=dFE, inst_pol_dict=inst_pol_dict, plot=True, annotate=True, fig=subfig2)
-            title2 = subfig2.suptitle('compute_stokes_HWP_fit_rel', y=1)
+                gs = fig.add_gridspec(1, len(pol_methods))
 
-            # (logic must be the same as in the instrument's compute_relative_polarimetry:)
-            if (
-                ( abs(fit_stats_1["rchi2"]-1) < abs(fit_stats_2["rchi2"]-1) )
-                and (fit_stats_1["aicc"] < fit_stats_2["aicc"])
-            ):
-                stokes_nocorr = stokes_nocorr_1
-                method_name = "compute_stokes_HWP_fit_full"
-                if best: subfig2.clear()
-                title1.set(color='green', weight='bold')
-            else:
-                stokes_nocorr = stokes_nocorr_2
-                method_name = "compute_stokes_HWP_fit_rel"
-                if best: subfig1.clear()
-                title2.set(color='green', weight='bold')
+                for i, pol_method in enumerate(pol_methods):
+
+                    subfig = fig.add_subfigure(gs[0,i])
+
+                    stokes_nocorr_i, fit_stats_i = pol_method(theta, FO=FO, dFO=dFO, FE=FE, dFE=dFE, inst_pol_dict=inst_pol_dict, plot=True, annotate=True, fig=subfig)
+                    title = subfig.suptitle(pol_method.name, y=1)
+
+                    if pol_method == self.instrument_cls.default_pol_method:
+                        title.set(color='green', weight='bold')
+                        method_name = pol_method.name
+                        stokes_nocorr = stokes_nocorr_i
+                    
         else:
             if only_pair == 'O':
                 method_name = "compute_stokes_HWP_fit_1pair (O)"
@@ -523,10 +534,10 @@ class PhotoPolResult(models.Model):
     def get_img_polarimetry(self, **kwargs):
 
         only_pair = self.astrosource.metadata.get(f"{self.instrument}.polarimetry.only_pair")
-        default_width = 2048 if not only_pair else 1024
+        default_width = 4*1024 if not only_pair else 1024
 
-        best = kwargs.get("best", False)
-        default_width = default_width if not best else 1024
+        all_models = kwargs.get("all_models", False)
+        default_width = default_width if all_models else 1024
 
         width = kwargs.get('width', default_width)
         height = kwargs.get('height', 1024)
@@ -534,7 +545,7 @@ class PhotoPolResult(models.Model):
         buf = io.BytesIO()
 
         fig = mplt.figure.Figure(figsize=(width/100, height/100), dpi=iop4conf.mplt_default_dpi)
-        self.plot_polarimetry(fig=fig, best=best)
+        self.plot_polarimetry(fig=fig, all_models=all_models)
         fig.tight_layout()
         fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
         fig.clf()

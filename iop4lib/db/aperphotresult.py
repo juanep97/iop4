@@ -18,9 +18,12 @@ from photutils.aperture import CircularAperture, CircularAnnulus
 import astropy.units as u
 import math
 from photutils.profiles import RadialProfile, CurveOfGrowth
+import traceback
 
 # iop4lib imports
 from ..enums import PAIRS
+
+from iop4lib.utils.sourcedetection import mask_other_sources
 
 # logging
 import logging
@@ -54,7 +57,8 @@ class AperPhotResult(models.Model):
     
     x_px = models.FloatField(null=True, help_text="used pixel position of the source in the image, x coordinate.")
     y_px = models.FloatField(null=True, help_text="used pixel position of the source in the image, y coordinate.")
-    fwhm = models.FloatField(null=True, blank=True, help_text="FWHM of the source in arcseconds.")
+    fwhm = models.FloatField(null=True, blank=True, help_text="FWHM in arcseconds (median of all detected sources in the image).")
+    fwhm_source = models.FloatField(null=True, blank=True, help_text="FWHM of the source in arcseconds.")
     photopolresults = models.ManyToManyField("PhotoPolResult", related_name='aperphotresults', help_text="The PhotoPolResult(s) this AperPhotResult has been used for.")
     modified = models.DateTimeField(auto_now=True)
 
@@ -125,6 +129,100 @@ class AperPhotResult(models.Model):
 
         return cutout
 
+    @property
+    def fwhm_as(self):
+        return self.fwhm
+    
+    @property
+    def fwhm_px(self):
+        return (self.fwhm * u.arcsec).to_value('pix', equivalencies=self.reducedfit.pixscale_equiv)
+
+    @property
+    def fwhm_source_as(self):
+        return self.fwhm_source
+    
+    @property
+    def fwhm_source_px(self):
+        return (self.fwhm_source * u.arcsec).to_value('pix', equivalencies=self.reducedfit.pixscale_equiv)
+
+    def get_aperture(self, cutout=None):
+        c = (self.x_px, self.y_px)
+        if cutout is not None:
+            c = cutout.to_cutout_position(c)
+        ap = CircularAperture(c, r=self.aperpix)
+        return ap
+
+    def get_annulus(self, cutout=None):
+        c = (self.x_px, self.y_px)
+        if cutout is not None:
+            c = cutout.to_cutout_position(c)
+        annulus = CircularAnnulus(c, r_in=self.r_in, r_out=self.r_out)
+        return annulus
+
+    def get_other_pair_mask(self, cutout=None):
+
+        try:
+            cutout = cutout if cutout is not None else self.default_plot_cutout
+
+            if self.reducedfit.has_pairs:
+
+                other_pair = 'E' if self.pairs == 'O' else 'O'
+
+                other_apf = AperPhotResult.objects.get(
+                    photopolresults__aperphotresults__in=[self.pk],
+                    reducedfit = self.reducedfit,
+                    astrosource = self.astrosource,
+                    aperpix = self.aperpix,
+                    r_in = self.r_in,
+                    r_out = self.r_out,
+                    pairs = other_pair
+                )
+
+                other_c = cutout.to_cutout_position((other_apf.x_px, other_apf.y_px))
+                other_mask = CircularAperture(other_c, r=self.aperpix).to_mask().to_image(cutout.shape).astype(bool)
+            else:
+                other_mask = None
+                other_c = None
+
+            return other_mask, other_c
+        except Exception as e:
+            logger.error(f"building other pair mask: {e}")
+            logger.debug(traceback.format_exc())
+            return None, None
+
+    def get_other_detected_mask(self, cutout=None, exclude=None):
+
+        cutout = cutout if cutout is not None else self.default_plot_cutout
+
+        if not self.astrosource.metadata.get("mask_other_sources", False):
+            return None
+        
+        c = cutout.to_cutout_position((self.x_px, self.y_px))
+
+        exclude = [c] if exclude is None else [c, *exclude]
+
+        detected_mask, _ = mask_other_sources(cutout.data, self.aperpix, self.fwhm, exclude=exclude)
+
+        return detected_mask
+    
+    def get_total_mask(self, cutout=None):
+
+        cutout = cutout if cutout is not None else self.default_plot_cutout
+
+        total_mask = np.full(cutout.shape, False)
+
+        other_mask, other_c = self.get_other_pair_mask(cutout=cutout)
+
+        if other_mask is not None:
+            total_mask = total_mask | other_mask
+
+        detected_mask = self.get_other_detected_mask(cutout=cutout)
+
+        if detected_mask is not None:
+            total_mask = total_mask | detected_mask
+        
+        return total_mask
+                
     def plot(self, **kwargs):
 
         fig = kwargs.get('fig') or plt.gcf()
@@ -149,16 +247,16 @@ class AperPhotResult(models.Model):
 
         # get wcs and centroid positions
         wcs_px_pos = self.astrosource.coord.to_pixel(cutout.wcs)
-        xy_px_pos = cutout.to_cutout_position((self.x_px, self.y_px))
+        c = xy_px_pos = cutout.to_cutout_position((self.x_px, self.y_px))
 
         # build the apertures
-        ap = CircularAperture(xy_px_pos, r=self.aperpix)
-        annulus = CircularAnnulus(xy_px_pos, r_in=self.r_in, r_out=self.r_out)
+        ap = CircularAperture(c, r=self.aperpix)
+        annulus = CircularAnnulus(c, r_in=self.r_in, r_out=self.r_out)
     
         # plot
         ax.imshow(cutout.data, cmap=cmap, origin='lower', norm=norm)
         ax.plot(wcs_px_pos[0], wcs_px_pos[1], 'rx', label='wcs')
-        ax.plot(xy_px_pos[0], xy_px_pos[1], 'bo', label='centroid')
+        ax.plot(c[0], c[1], 'bo', label='centroid')
         ap.plot(ax, color='blue', lw=2, alpha=1)
         annulus.plot(ax, color='green', lw=2, alpha=1)
 
@@ -183,32 +281,30 @@ class AperPhotResult(models.Model):
             color="red", fontsize=12,
         )
 
-        if self.reducedfit.has_pairs:
-            try:
-                from iop4lib.db import PhotoPolResult
-                other_pair = 'E' if self.pairs == 'O' else 'O'
-                other_apf = PhotoPolResult.objects.get(
-                    aperphotresults__in=[self.pk],
-                ).aperphotresults.get(
-                    reducedfit = self.reducedfit,
-                    astrosource = self.astrosource,
-                    aperpix = self.aperpix,
-                    r_in = self.r_in,
-                    r_out = self.r_out,
-                    pairs = other_pair
-                )
-                other_c = cutout.to_cutout_position((other_apf.x_px, other_apf.y_px))
-                other_mask = CircularAperture(other_c, r=self.aperpix).to_mask().to_image(cutout.shape).astype(bool)
-                other_mask = np.ma.masked_where(~other_mask, other_mask)
-                other_mask = np.ma.dstack([
-                    other_mask,
-                    np.zeros(other_mask.shape),
-                    np.zeros(other_mask.shape),
-                    np.full(other_mask.shape, 0.3),
-                ])
-                ax.imshow(other_mask, origin="lower")
-            except Exception as e:
-                pass
+        # plot masks; logic should resemble Instrument.compute_aperture_photometry()
+
+        other_mask, other_c = self.get_other_pair_mask(cutout=cutout)
+
+        if other_mask is not None:
+
+            other_mask_rgba = np.zeros((*other_mask.shape,4))
+            other_mask_rgba[:,:,0] = 1.0 # red
+            other_mask_rgba[:,:,3] = np.where(other_mask, 0.3, 0.0)
+            ax.imshow(other_mask_rgba, origin="lower")
+
+        else:
+            other_c = None
+            other_mask = None
+
+        exclude = [c] if other_c is None else [c, other_c]
+        detected_mask = self.get_other_detected_mask(cutout, exclude=exclude)
+
+        if detected_mask is not None:
+        
+            detected_mask_rgba = np.zeros((*detected_mask.shape,4))
+            detected_mask_rgba[:,:,0] = 1.0; detected_mask_rgba[:,:,1] = 1.0; # yellow
+            detected_mask_rgba[:,:,3] = np.where(detected_mask, 0.3, 0.0)
+            ax.imshow(detected_mask_rgba, origin="lower")
 
         return fig, ax
 
@@ -221,16 +317,18 @@ class AperPhotResult(models.Model):
 
         c = cutout.to_cutout_position((self.x_px, self.y_px))
 
-        fwhm = (self.fwhm*u.arcsec).to_value('pix', equivalencies=self.reducedfit.pixscale_equiv)
+        fwhm = self.fwhm_px
         sigma = fwhm / (2*math.sqrt(2*math.log(2)))
+
+        mask = self.get_total_mask(cutout=cutout)
 
         rmax = min(min(cutout.shape)/2, 2.2*self.r_out)
         radii = np.arange(0, rmax)
-        rp = RadialProfile(cutout.data, c, radii)
+        rp = RadialProfile(cutout.data, c, radii, mask=mask)
 
         fwhm_gauss_fit = rp.gaussian_fwhm
 
-        cog = CurveOfGrowth(cutout.data, c, radii[1:])
+        cog = CurveOfGrowth(cutout.data, c, radii[1:], mask=mask)
         cog.normalize("max")
 
         ax.plot(rp.radius, rp.profile, 'k-', label="$I(r)$")
@@ -250,7 +348,7 @@ class AperPhotResult(models.Model):
             # sometimes it happens that it is way off
             ax.axvline(
                 x=fwhm_gauss_fit/2,
-                color='k', linestyle='--', linewidth=1, alpha=1,
+                color='k', linestyle=':', linewidth=1, alpha=1,
                 label="FWHM/2 (from fit)",
             )
 
@@ -284,7 +382,10 @@ class AperPhotResult(models.Model):
         else:
             raise
         
-        proj = np.nanmean(cutout.data, axis=i_ax)
+        mask = self.get_total_mask(cutout=cutout)
+        masked_data = np.ma.masked_where(mask, cutout.data)
+
+        proj = np.nanmean(masked_data, axis=i_ax)
         proj_i = np.arange(len(proj))
 
         if axis == 'x':

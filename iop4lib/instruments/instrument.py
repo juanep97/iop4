@@ -17,6 +17,7 @@ import itertools
 import datetime
 import glob
 import warnings
+import traceback
 
 import astrometry
 from photutils.centroids import centroid_sources, centroid_2dg, centroid_com
@@ -40,14 +41,13 @@ from iop4lib.utils.sourcedetection import (
     get_segmentation,
     get_cat_sources_from_segment_map,
     get_bkg,
+    mask_other_sources,
 )
 from iop4lib.utils.photometry import (
     calibrate_photopolresult,
     NoCalibratorsFound,
 )
 from iop4lib.utils.polarization import (
-    compute_stokes_HWP_fit_full,
-    compute_stokes_HWP_fit_rel,
     compute_stokes_HWP_fit_1pair,
 )
      
@@ -878,7 +878,13 @@ class Instrument(metaclass=ABCMeta):
         bkg = get_bkg(img, filter_size=1, box_size=bkg_box_size)
         error = calc_total_error(img, bkg.background_rms, cls.gain_e_adu)
 
-        centroids_and_fwhms = common_apertures.centroids_and_fwhms[redf].centroids_and_fwhms
+        centroids_and_fwhms_result = common_apertures.centroids_and_fwhms[redf]
+
+        centroids_and_fwhms = centroids_and_fwhms_result.centroids_and_fwhms
+
+        fwhm_stats = centroids_and_fwhms_result.fwhm_stats
+        fwhm_median_px = fwhm_stats.median.to_value('pix', equivalencies=redf.pixscale_equiv)
+        fwhm_median_as = fwhm_stats.median.to_value('arcsec', equivalencies=redf.pixscale_equiv)
 
         aperphotresults: List[AperPhotResult] = list()
         
@@ -902,6 +908,8 @@ class Instrument(metaclass=ABCMeta):
                         logger.warning(f"{redf}: {astrosource.name}, ({pair}) is too close to the border, skipping aperture photometry.")
                         continue
 
+                    source_fwhm_as = source_fwhm.to_value('arcsec', equivalencies=redf.pixscale_equiv)
+
                     ap = CircularAperture(centroid, r=r_ap)
                     annulus = CircularAnnulus(centroid, r_in=r_in, r_out=r_out)
 
@@ -911,6 +919,16 @@ class Instrument(metaclass=ABCMeta):
                         other_mask = CircularAperture(other_c, r=r_ap).to_mask().to_image(img.shape).astype(bool)
                     else:
                         other_mask = None
+
+                    if astrosource.metadata.get("mask_other_sources", False):
+
+                        detected_mask, _ = mask_other_sources(img, r_ap, fwhm_median_px, exclude=[centroid])
+
+                        if detected_mask is not None:
+                            if other_mask is not None:
+                                other_mask = other_mask | detected_mask
+                            else:
+                                other_mask = detected_mask
 
                     ap_stats = ApertureStats(img, ap, error=error)
                     annulus_stats = ApertureStats(img, annulus, error=error, sigma_clip=SigmaClip(sigma=3.0, maxiters=5), mask=other_mask)
@@ -936,12 +954,14 @@ class Instrument(metaclass=ABCMeta):
                         # other info
                         x_px = centroid[0],
                         y_px = centroid[1],
-                        fwhm = source_fwhm.to_value('arcsec', equivalencies=redf.pixscale_equiv),
+                        fwhm = fwhm_median_as,
+                        fwhm_source = source_fwhm_as,
                     )
                     
                     aperphotresults.append(apres)
                 except Exception as e:
-                    logger.warning(f"{redf}: error computing aperture photometry for {astrosource} {pair}: {e}")
+                    logger.error(f"{redf}: error computing aperture photometry for {astrosource} {pair}: {e}")
+                    logger.debug(traceback.format_exc())
 
         return aperphotresults
     
@@ -1095,6 +1115,11 @@ class Instrument(metaclass=ABCMeta):
 
 
 class InstrumentHWP(ABC, Instrument):
+
+    @property
+    @abstractmethod
+    def default_pol_method(self):
+        raise NotImplementedError
 
     @property
     @abstractmethod
@@ -1287,30 +1312,13 @@ class InstrumentHWP(ABC, Instrument):
 
                 if not only_pair:
 
-                    # 1st -- try full
-                    logger.info(f"Computing stokes parameters with compute_stokes_HWP_fit_full")
-                    stokes_nocorr_1, fit_stats_1 = compute_stokes_HWP_fit_full(theta, FO=FO, dFO=dFO, FE=FE, dFE=dFE)
-                    logger.info(f"{stokes_nocorr_1=}")
-                    logger.info(f"{fit_stats_1=}")
-                    logger.info(f"compute_stokes_HWP_fit_full -> ({100*stokes_nocorr_1.p:.1f} +/ {100*stokes_nocorr_1.dp:.1f} %, {stokes_nocorr_1.chi:.1f} +/- {stokes_nocorr_1.dchi:.1f} º)")
+                    logger.info(f"Computing stokes parameters with {cls.default_pol_method.name}")
+                    
+                    stokes_nocorr, fit_stats = cls.default_pol_method(theta, FO=FO, dFO=dFO, FE=FE, dFE=dFE)
 
-                    # 2nd -- try relative [default]
-                    logger.info(f"Computing stokes parameters with compute_stokes_HWP_fit_rel")
-                    stokes_nocorr_2, fit_stats_2 = compute_stokes_HWP_fit_rel(theta, FO=FO, dFO=dFO, FE=FE, dFE=dFE)
-                    logger.info(f"{stokes_nocorr_2=}")
-                    logger.info(f"{fit_stats_2=}")
-                    logger.info(f"compute_stokes_HWP_fit_rel -> ({100*stokes_nocorr_2.p:.1f} +/ {100*stokes_nocorr_2.dp:.1f} %, {stokes_nocorr_2.chi:.1f} +/- {stokes_nocorr_2.dchi:.1f} º)")
-
-                    # we will only take "full" one if's better by several metrics
-                    if (
-                        ( abs(fit_stats_1["rchi2"]-1) < abs(fit_stats_2["rchi2"]-1) )
-                        and (fit_stats_1["aicc"] < fit_stats_2["aicc"])
-                    ):
-                        logger.info(f"keeping compute_stokes_HWP_fit_full result (rchi2)")
-                        stokes_nocorr = stokes_nocorr_1
-                    else:
-                        logger.info(f"selecting compute_stokes_HWP_fit_rel (rchi2) [default]")
-                        stokes_nocorr = stokes_nocorr_2
+                    logger.debug(f"{stokes_nocorr=}")
+                    logger.debug(f"{fit_stats=}")
+                    logger.info(f"{cls.default_pol_method.name} -> ({100*stokes_nocorr.p:.1f} +/ {100*stokes_nocorr.dp:.1f} %, {stokes_nocorr.chi:.1f} +/- {stokes_nocorr.dchi:.1f} º)")
 
                 else:
 
@@ -1396,6 +1404,7 @@ class InstrumentHWP(ABC, Instrument):
 
             except Exception as e:
                 logger.error(f"{polarimetry_group}: relative polarimetry failed for {astrosource}: {e}")
+                logger.debug(traceback.format_exc())
         
         # 3. Compute the calibrated magnitudes for non-calibrators in the group using the averaged zero point
 

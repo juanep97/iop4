@@ -5,11 +5,11 @@ iop4conf = iop4lib.Config(config_db=False)
 # django imports
 
 # other imports
+import numpy as np
+from collections.abc import Iterable
 import astropy.units as u
 from astropy.coordinates import Angle, SkyCoord
 import astrometry
-import numpy as np
-import math
 
 # iop4lib imports
 from iop4lib.enums import (
@@ -17,9 +17,9 @@ from iop4lib.enums import (
     BANDS,
     OBSMODES,
 )
-from .instrument import Instrument, InstrumentHWP
+from .instrument import InstrumentHWP
 from iop4lib.telescopes import CAHAT220
-from collections.abc import Iterable
+from iop4lib.utils.polarization import compute_stokes_HWP_fit_rel
 
 # logging
 import logging
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 import typing
 if typing.TYPE_CHECKING:
-    from iop4lib.db import RawFit, ReducedFit, Epoch
+    from iop4lib.db import ReducedFit
 
 class CAFOS(InstrumentHWP):
         
@@ -53,6 +53,8 @@ class CAFOS(InstrumentHWP):
 
     disp_sign_mean, disp_sign_std = np.array([-35.72492116, -0.19719535]), np.array([1.34389, 1.01621491])
     disp_mean, disp_std = np.abs(disp_sign_mean), disp_sign_std
+
+    default_pol_method = compute_stokes_HWP_fit_rel
 
     rot_angles_required = {0.0, 22.48, 44.98, 67.48}
 

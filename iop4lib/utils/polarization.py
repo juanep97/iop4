@@ -61,7 +61,7 @@ def eval_model_uncertainty(f, x, popt, pcov, N=1000, s=1):
 
 import numpy as np
 
-def get_fit_statistics(func, xdata, ydata, sigma, popt):
+def get_fit_statistics(func, xdata, ydata, sigma, popt, perr, pnames):
     
     xdata = np.asarray(xdata, dtype=float)
     ydata = np.asarray(ydata, dtype=float)
@@ -78,7 +78,11 @@ def get_fit_statistics(func, xdata, ydata, sigma, popt):
     rchi2 = chi2 / dof
 
     aic = chi2 + 2 * k
-    aicc = aic + (2 * k * (k + 1)) / (N - k - 1)
+
+    try:
+        aicc = aic + (2 * k * (k + 1)) / (N - k - 1)
+    except ZeroDivisionError as e:
+        aicc = np.nan
     
     bic = chi2 + k * np.log(N)
 
@@ -91,16 +95,22 @@ def get_fit_statistics(func, xdata, ydata, sigma, popt):
         "bic": bic,
         "N": N,
         "k": k,
+        "popt": popt,
+        "perr": perr,
+        "pnames": pnames,
     }
 
-def _do_fit(func, xdata, ydata, sigma, p0):
+def _do_fit(func, xdata, ydata, sigma, p0, bounds=None):
     
+    bounds = bounds if bounds is not None else (-np.inf, +np.inf)
+
     popt, pcov, infodict, mesg, ier = sp.optimize.curve_fit(
         func,
         xdata = xdata,
         ydata = ydata,
         sigma = sigma,
         p0 = p0,
+        bounds = bounds,
         nan_policy = 'omit',
         full_output = True,
     )
@@ -109,7 +119,7 @@ def _do_fit(func, xdata, ydata, sigma, p0):
 
 
 def fit_with_sigma_clip(
-        func, xdata, ydata, sigma, p0,
+        func, xdata, ydata, sigma, p0, bounds=None,
         clip_sigma=5, max_iter=3,
         min_keep=3, min_keep_frac=0.74,
         max_discard=2, max_discard_frac=0.3,
@@ -134,7 +144,7 @@ def fit_with_sigma_clip(
 
         fit_func = get_func(idx) if get_func else func
 
-        popt, pcov = _do_fit(fit_func, xdata[idx], ydata[idx], sigma[idx], p0)
+        popt, pcov = _do_fit(fit_func, xdata[idx], ydata[idx], sigma[idx], p0, bounds)
 
         res = ydata - func(xdata, *popt)
 
@@ -373,43 +383,8 @@ class Stokes:
         return stokes_corr
 
 
-def compute_stokes_HWP_analytical(angles, fO, fE, dfO, dfE):
-    """Compute polarimetry using an analytical method.
-    
-    Reference:
-        "Error Analysis for Dual-Beam Optical Linear Polarimetry".
-        Ferdinando Patat and Martino Romaniello.
-        PASP, 118(839):146-161, January 2006.
-        arXiv:astro-ph/0509153
-        doi:10.1086/497581.
-    """
 
-    N = len(angles)
-    
-    F = (fO - fE) / (fO + fE)
-    dF = 2 / ( fO + fE )**2 * np.sqrt(fE**2 * dfO**2 + fO**2 * dfE**2)
-
-    I = (fO + fE)
-    dI = np.sqrt(dfO**2 + dfE**2)
-    
-    q = 2/N * sum([F[i] * math.cos(math.pi/2*i) for i in range(N)])
-    dq = 2/N * math.sqrt(sum([dF[i]**2 * math.cos(math.pi/2*i)**2 for i in range(N)]))
-
-    u = 2/N * sum([F[i] * math.sin(math.pi/2*i) for i in range(N)])
-    du = 2/N * math.sqrt(sum([dF[i]**2 * math.sin(math.pi/2*i)**2 for i in range(N)]))
-    
-    sI = np.mean(I)
-    dsI = np.std(I)
-
-    s = (sI, q, u)
-    ds = (dsI, dq, du)
-    scov = np.diag(ds**2)
-
-    stokes = Stokes(s, cov=scov)
-
-    return stokes
-
-def _build_figure_annotation(fig, fit_stats, stokes, stokes_corr=None):
+def _build_figure_annotation(fig, fit_stats, stokes, stokes_corr=None, kappa=None, kappa_err=np.nan):
 
     dof = fit_stats['dof']
     chi2 = fit_stats['chi2']
@@ -458,10 +433,24 @@ def _build_figure_annotation(fig, fit_stats, stokes, stokes_corr=None):
             sep=4,
         )
 
+    if kappa:
+        kappa_col = VPacker(
+            children=[
+                TextArea("kappa", textprops=dict(fontsize="large", weight="bold")),
+                TextArea(f"$\kappa$ = ({100*kappa:+.2f} ± {100*kappa_err:.2f})%", textprops=dict(fontsize="large")),
+            ],
+            align="left",
+            pad=0,
+            sep=4,
+        )
+
+    annotation_columns = [stats_col, results_col]
+
     if stokes_corr:
-        annotation_columns = [stats_col, results_col, results_corr_col]
-    else:
-        annotation_columns = [stats_col, results_col]
+        annotation_columns += [results_corr_col]
+
+    if kappa:
+        annotation_columns += [kappa_col]
 
     box = HPacker(
         children=annotation_columns,
@@ -489,6 +478,140 @@ def _build_figure_annotation(fig, fit_stats, stokes, stokes_corr=None):
 
     return ab
 
+def polmethod(name):
+    def wrap(f):
+        f.name = name
+        return f
+    return wrap
+
+@polmethod(name="HWP_analytical")
+def compute_stokes_HWP_analytical(
+        theta, FO, FE, dFO, dFE,
+        inst_pol_dict=None,
+        plot=False, fig=None, annotate=False,
+    ):
+    """Compute polarimetry using an analytical method.
+    
+    References:
+      - "Error Analysis for Dual-Beam Optical Linear Polarimetry".
+        Ferdinando Patat and Martino Romaniello.
+        PASP, 118(839):146-161, January 2006.
+        arXiv:astro-ph/0509153
+        doi:10.1086/497581.
+    """
+
+    N = len(theta)
+    
+    F = (FO - FE) / (FO + FE)
+    dF = 2 / ( FO + FE )**2 * np.sqrt(FE**2 * dFO**2 + FO**2 * dFE**2)
+
+    I = (FO + FE)
+    dI = np.sqrt(dFO**2 + dFE**2)
+    
+    q = 2/N * sum([F[i] * math.cos(math.pi/2*i) for i in range(N)])
+    dq = 2/N * math.sqrt(sum([dF[i]**2 * math.cos(math.pi/2*i)**2 for i in range(N)]))
+
+    u = 2/N * sum([F[i] * math.sin(math.pi/2*i) for i in range(N)])
+    du = 2/N * math.sqrt(sum([dF[i]**2 * math.sin(math.pi/2*i)**2 for i in range(N)]))
+    
+    sI = np.mean(I)
+    dsI = np.std(I)
+
+    s = np.array([sI, q, u])
+    ds = np.array([dsI, dq, du])
+    scov = np.diag(ds**2)
+
+    stokes = Stokes(s, cov=scov)
+
+    # we can get some fake fit info for plot
+
+    xdata = np.deg2rad(theta)
+    ydata = F
+    sigma = dF
+    func = lambda theta, q, u: q*np.cos(4*theta) + u*np.sin(4*theta)
+    popt = s[1:]
+    pcov = scov[1:,1:]
+    perr = np.sqrt(np.diag(pcov))
+    pnames = ["q", "u"]
+    fit_stats = get_fit_statistics(func, xdata, ydata, sigma, popt, perr, pnames)
+
+    if plot:
+
+        fig = fig or plt.figure(figsize=(12,6))
+        axs = fig.subplots(nrows=2, sharex=True, gridspec_kw=dict(hspace=0))
+
+        axs[0].errorbar(
+            x=theta,
+            y=F,
+            yerr=dF,
+            linestyle="none",
+            marker="o",
+            color='k',
+            markersize=3,
+            label="$F_i$",
+        )
+
+        # show "fit"
+
+        x = np.linspace(min(theta), max(theta), 100)
+        y = func(np.deg2rad(x), *popt)
+        y_l1s, y_h1s = eval_model_uncertainty(func, np.deg2rad(x), popt, pcov, s=1, N=1000)
+
+        axs[0].plot(x, y, color="b", linestyle="--", alpha=1)
+
+        axs[0].fill_between(x, y_l1s, y_h1s,
+            color='b',
+            alpha=0.1,
+            label=r"$1\sigma$",
+        )
+
+        # residuals
+
+        delta_F = F - func(np.deg2rad(theta), *popt)
+        delta_F_err = dF
+        
+        axs[1].errorbar(
+            x=theta,
+            y=delta_F,
+            yerr=delta_F_err,
+            linestyle="none",
+            marker="o",
+            color='k',
+            markersize=3,
+            label="$F$",
+        )
+
+        axs[1].fill_between(x, y_l1s-y, y_h1s-y,
+            color='b',
+            alpha=0.1,
+            label=r"$1\sigma$",
+        )
+
+        axs[1].axhline(y=0, color='k', linestyle="-", alpha=0.5)
+        
+        if annotate:
+
+            if inst_pol_dict:
+                stokes_corr = stokes.correct(**inst_pol_dict)
+            else:
+                stokes_corr = None
+                
+            ab = _build_figure_annotation(fig, fit_stats, stokes, stokes_corr=stokes_corr)
+
+            fig.add_artist(ab)
+        
+        # title, axes, labels, etc
+
+        axs[-1].set_xticks(theta)
+        axs[-1].set_xlabel(r"$\theta_i$ [deg]")
+        
+        axs[0].set_ylabel("$F_i$")
+        axs[1].set_ylabel(r"Residual $\Delta F_i$")
+        
+    return stokes, fit_stats
+
+
+@polmethod(name="HWP_fit_full")
 def compute_stokes_HWP_fit_full(
         theta, FO, FE, dFO, dFE, 
         inst_pol_dict=None,
@@ -534,11 +657,17 @@ def compute_stokes_HWP_fit_full(
     func = get_func(np.full(len(xdata), True))
         
     I0 = (FO + FE)
-    p0 = (np.mean(I0), 1, 1)
-    
-    popt, pcov, idx = fit_with_sigma_clip(func, xdata, ydata, sigma, p0, get_func=get_func)
+    p0 = (np.mean(I0), 0.01, 0.01) # ~1% polarization
+    bounds_lo = (0.0, -1, -1)
+    bounds_hi = (np.inf, +1, +1)
+    bounds = (bounds_lo, bounds_hi)
 
-    fit_stats = get_fit_statistics(get_func(idx), xdata[idx], ydata[idx], sigma[idx], popt)
+    popt, pcov, idx = fit_with_sigma_clip(func, xdata, ydata, sigma, p0, bounds, get_func=get_func)
+    perr = np.sqrt(np.diag(pcov))
+
+    pnames = ["I", "q", "u"]
+
+    fit_stats = get_fit_statistics(get_func(idx), xdata[idx], ydata[idx], sigma[idx], popt, perr, pnames)
 
     idx = idx.reshape(2,-1) # one row for O another for E
 
@@ -628,10 +757,12 @@ def compute_stokes_HWP_fit_full(
 
     return stokes, fit_stats
 
+@polmethod(name="HWP_fit_rel")
 def compute_stokes_HWP_fit_rel(
         theta, FO, FE, dFO, dFE,
         inst_pol_dict=None,
         plot=False, fig=None, annotate=False,
+        kappa=None,
     ):
     """Compute polarimetry with a fit to the relative difference between E and O pairs.
     
@@ -649,18 +780,27 @@ def compute_stokes_HWP_fit_rel(
     I = (FO + FE)
     dI = np.sqrt(dFO**2 + dFE**2)
 
-
-    func_F_qu = lambda theta, q, u: q*np.cos(4*theta) + u*np.sin(4*theta)
+    if kappa is None:
+        func_F_qu = lambda theta, q, u: q*np.cos(4*theta) + u*np.sin(4*theta)
+    else:
+        k = kappa
+        func_F_qu = lambda theta, q, u: (k + q*np.cos(4*theta) + u*np.sin(4*theta))/(1 + k*q*np.cos(4*theta) + k*u*np.sin(4*theta))
 
     func = func_F_qu
     xdata = np.deg2rad(theta)
     ydata = F
     sigma = dF
-    p0 = (1, 1)
+    p0 = (0.01, 0.01) # ~1% polarization
+    bounds_lo = (-1, -1)
+    bounds_hi = (+1, +1)
+    bounds = (bounds_lo, bounds_hi)
 
-    popt, pcov, idx = fit_with_sigma_clip(func, xdata, ydata, sigma, p0)
+    popt, pcov, idx = fit_with_sigma_clip(func, xdata, ydata, sigma, p0, bounds)
+    perr = np.sqrt(np.diag(pcov))
 
-    fit_stats = get_fit_statistics(func, xdata, ydata, sigma, popt)
+    pnames = ["q", "u"]
+
+    fit_stats = get_fit_statistics(func, xdata, ydata, sigma, popt, perr, pnames)
 
     # build full stokes and its uncertainty
 
@@ -752,6 +892,142 @@ def compute_stokes_HWP_fit_rel(
         
     return stokes, fit_stats
 
+
+@polmethod(name="HWP_fit_rel_nonideal")
+def compute_stokes_HWP_fit_rel_nonideal(
+        theta, FO, FE, dFO, dFE,
+        inst_pol_dict=None,
+        plot=False, fig=None, annotate=False,
+    ):
+    """Compute polarimetry with a fit to the relative difference between E and O pairs.
+    
+    This will pusually perform better, specially under certain conditions like
+    changes in opacity during observation (e.g. due to passing clouds), but it 
+    will be more affected by contamination in any one pair (since a bad data 
+    point will weight more).
+    """
+
+    N = len(theta)
+    
+    F = (FO - FE) / (FO + FE)
+    dF = 2 / ( FO + FE )**2 * np.sqrt(FE**2 * dFO**2 + FO**2 * dFE**2)
+
+    I = (FO + FE)
+    dI = np.sqrt(dFO**2 + dFE**2)
+
+    func_F_quk = lambda theta, q, u, k: (k + q*np.cos(4*theta) + u*np.sin(4*theta))/(1 + k*q*np.cos(4*theta) + k*u*np.sin(4*theta))
+
+    func = func_F_quk
+    xdata = np.deg2rad(theta)
+    ydata = F
+    sigma = dF
+    p0 = (0.01, 0.01, 0.0) # (~1% polarization, ideal HWP)
+    bounds_lo = (-1, -1, -1.0)
+    bounds_hi = (+1, +1, +1.0)
+    bounds = (bounds_lo, bounds_hi)
+
+    popt, pcov, idx = fit_with_sigma_clip(func, xdata, ydata, sigma, p0, bounds)
+    perr = np.sqrt(np.diag(pcov))
+
+    pnames = ["q", "u", "k"]
+
+    fit_stats = get_fit_statistics(func, xdata, ydata, sigma, popt, perr, pnames)
+
+    # build full stokes and its uncertainty
+
+    weights = 1 / dI**2
+    sI = np.sum(weights * I) / np.sum(weights)
+    dsI = np.sqrt(1 / np.sum(weights))
+
+    s = (sI, *popt[:-1])
+    scov = np.zeros((3,3))
+    scov[0,0] = dsI**2
+    scov[1:,1:] = pcov[:-1,:-1]
+    
+    stokes = Stokes(s, cov=scov)
+    
+    kappa = popt[-1]
+    kappa_err = perr[-1]
+
+    if plot:
+
+        fig = fig or plt.figure(figsize=(12,6))
+        axs = fig.subplots(nrows=2, sharex=True, gridspec_kw=dict(hspace=0))
+
+        for c, m in [('k', idx), ('r', ~idx)]:
+            axs[0].errorbar(
+                x=theta[m],
+                y=F[m],
+                yerr=dF[m],
+                linestyle="none",
+                marker="o",
+                color=c,
+                markersize=3,
+                label="$F_i$",
+            )
+
+        # show fit
+        
+        x = np.linspace(min(theta), max(theta), 100)
+        y = func(np.deg2rad(x), *popt)
+        y_l1s, y_h1s = eval_model_uncertainty(func, np.deg2rad(x), popt, pcov, s=1, N=1000)
+
+        axs[0].plot(x, y, color="b", linestyle="--", alpha=1)
+
+        axs[0].fill_between(x, y_l1s, y_h1s,
+            color='b',
+            alpha=0.1,
+            label=r"$1\sigma$",
+        )
+
+        # residuals
+
+        delta_F = F - func(np.deg2rad(theta), *popt)
+        delta_F_err = dF # ignore model uncert?
+        
+        for c, m in [('k', idx), ('r', ~idx)]:
+            axs[1].errorbar(
+                x=theta[m],
+                y=delta_F[m],
+                yerr=delta_F_err[m],
+                linestyle="none",
+                marker="o",
+                color=c,
+                markersize=3,
+                label="$F$",
+            )
+
+        axs[1].fill_between(x, y_l1s-y, y_h1s-y,
+            color='b',
+            alpha=0.1,
+            label=r"$1\sigma$",
+        )
+
+        axs[1].axhline(y=0, color='k', linestyle="-", alpha=0.5)
+        
+        if annotate:
+
+            if inst_pol_dict:
+                stokes_corr = stokes.correct(**inst_pol_dict)
+            else:
+                stokes_corr = None
+                
+            ab = _build_figure_annotation(fig, fit_stats, stokes, stokes_corr=stokes_corr, kappa=kappa, kappa_err=kappa_err)
+
+            fig.add_artist(ab)
+        
+        # title, axes, labels, etc
+
+        axs[-1].set_xticks(theta)
+        axs[-1].set_xlabel(r"$\theta_i$ [deg]")
+        
+        axs[0].set_ylabel("$F_i$")
+        axs[1].set_ylabel(r"Residual $\Delta F_i$")
+        
+    return stokes, fit_stats
+
+
+@polmethod(name="HWP_fit_1pair")
 def compute_stokes_HWP_fit_1pair(
         theta, FO=None, dFO=None, FE=None, dFE=None,
         inst_pol_dict=None,
@@ -778,11 +1054,17 @@ def compute_stokes_HWP_fit_1pair(
 
     xdata = np.deg2rad(theta)
     sI0 = 2*np.mean(ydata)
-    p0 = (sI0, 1, 1)
+    p0 = (sI0, 0.01, 0.01) # ~1% polarization
+    bounds_lo = (0.0, -1, -1)
+    bounds_hi = (np.inf, +1, +1)
+    bounds = (bounds_lo, bounds_hi)
 
-    popt, pcov, idx = fit_with_sigma_clip(func, xdata, ydata, sigma, p0)
+    popt, pcov, idx = fit_with_sigma_clip(func, xdata, ydata, sigma, p0, bounds)
+    perr = np.sqrt(np.diag(pcov))
 
-    fit_stats = get_fit_statistics(func, xdata, ydata, sigma, popt)
+    pnames = ["I", "q", "u"]
+
+    fit_stats = get_fit_statistics(func, xdata, ydata, sigma, popt, perr, pnames)
 
     stokes = Stokes(popt, cov=pcov)
 
@@ -862,6 +1144,8 @@ def compute_stokes_HWP_fit_1pair(
         axs[1].set_ylabel(rf"Residual $\Delta F_{pair}$")
             
     return stokes, fit_stats
+
+
 
 class PolarimetryGroup(list['ReducedFit']):
 

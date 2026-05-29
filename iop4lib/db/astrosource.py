@@ -243,27 +243,32 @@ class AstroSource(models.Model):
 
         return sources_in_field
 
-    allowed_metadata = {
-            "DIPOL.polarimetry.only_pair" : ['E', 'O']
-        }
-    
     @classmethod
     def validate_metadata(cls, value):
         
         if not isinstance(value, dict):
             raise TypeError("metadata must be a dict")
 
-        allowed_keys = list(cls.allowed_metadata.keys())
+        allowed_metadata = {
+            "DIPOL.polarimetry.only_pair" : ['E', 'O'],
+            "mask_other_sources": [False, True],
+        }
+        
+        allowed_keys = list(allowed_metadata.keys())
 
         for k, v in value.items():
 
             if k not in allowed_keys:
                 raise ValueError(f"Invalid metadata key. Allowed keys are: {allowed_keys}.")
             
-            allowed_k_values = cls.allowed_metadata[k]
+            allowed_k_values = allowed_metadata[k]
 
             if isinstance(allowed_k_values, list) and v not in allowed_k_values:
                 raise ValueError(f"Invalid value for metadata key '{k}'. Allowed values are: {allowed_k_values}.")
+
+            # handle more complex cases here, where allowed values can't be
+            # specified as a list of possibilities.
+            # ...
             
     @property
     def metadata(self):
