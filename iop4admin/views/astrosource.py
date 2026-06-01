@@ -33,9 +33,9 @@ class AstroSourceDetailsView(SingleObjView):
         context['fields_and_values'] = fields_and_values
 
         # finding chart
-        finding_char_path = Path(obj.filedpropdir) / "finding_chart.png"
+        finding_chart_path = Path(obj.filedpropdir) / "finding_chart.png"
 
-        if not os.path.exists(finding_char_path) or iop4conf.iop4admin['force_rebuild_finding_charts']:
+        if not os.path.exists(finding_chart_path) or iop4conf.iop4admin['force_rebuild_finding_charts']:
             buf = io.BytesIO()
 
             width, height = 800, 800
@@ -52,10 +52,10 @@ class AstroSourceDetailsView(SingleObjView):
 
             if not os.path.exists(obj.filedpropdir):
                 os.makedirs(obj.filedpropdir)
-            with open(finding_char_path, 'wb') as f:
+            with open(finding_chart_path, 'wb') as f:
                 f.write(imgbytes)
         else: 
-            with open(finding_char_path, 'rb') as f:
+            with open(finding_chart_path, 'rb') as f:
                 imgbytes = f.read()
 
         context['finding_chart_b64'] = base64.b64encode(imgbytes).decode('utf-8')
