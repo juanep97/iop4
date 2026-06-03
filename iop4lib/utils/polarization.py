@@ -352,12 +352,11 @@ class Stokes:
 
         # faster alternative
 
-        cov = self.cov
+        cov = self.cov.copy()
         cov[1,1] = cov[1,1] + dq_inst**2
         cov[2,2] = cov[2,2] + du_inst**2
-        self.cov = cov
 
-        stokes_corr = Stokes((I, q, u), cov=cov)        
+        stokes_corr = Stokes((I, q, u), cov=cov)
 
         stokes_corr.chi += CPA
         stokes_corr.dchi = np.sqrt(stokes_corr.dchi**2 + dCPA**2)
