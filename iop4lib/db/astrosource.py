@@ -290,7 +290,7 @@ class AstroSource(models.Model):
             metadata_value = yaml.safe_load(self.metadata_str)
         except yaml.YAMLError as e:
             raise ValidationError({
-                "metadata_str": f"Invalid YAML field metadata_str: {e}"
+                "metadata_str": f"Invalid YAML field metadata_str: {e}",
             })
         self.validate_metadata(metadata_value or dict())
 
