@@ -501,10 +501,10 @@ class PhotoPolResult(models.Model):
         else:
             if only_pair == 'O':
                 method_name = "compute_stokes_HWP_fit_1pair (O)"
-                stokes_nocorr = compute_stokes_HWP_fit_1pair(theta, FO=FO, dFO=dFO, inst_pol_dict=inst_pol_dict, plot=True, annotate=True, fig=fig)
+                stokes_nocorr, fit_stats = compute_stokes_HWP_fit_1pair(theta, FO=FO, dFO=dFO, inst_pol_dict=inst_pol_dict, plot=True, annotate=True, fig=fig)
             elif only_pair == 'E':
                 method_name = "compute_stokes_HWP_fit_1pair (E)"
-                stokes_nocorr = compute_stokes_HWP_fit_1pair(theta, FE=FE, dFE=dFE, inst_pol_dict=inst_pol_dict, plot=True, annotate=True, fig=fig)
+                stokes_nocorr, fit_stats = compute_stokes_HWP_fit_1pair(theta, FE=FE, dFE=dFE, inst_pol_dict=inst_pol_dict, plot=True, annotate=True, fig=fig)
 
         fig_title = (
             f"{self}\n"
