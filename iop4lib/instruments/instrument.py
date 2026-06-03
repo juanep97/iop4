@@ -1316,10 +1316,6 @@ class InstrumentHWP(ABC, Instrument):
                     
                     stokes_nocorr, fit_stats = cls.default_pol_method(theta, FO=FO, dFO=dFO, FE=FE, dFE=dFE)
 
-                    logger.debug(f"{stokes_nocorr=}")
-                    logger.debug(f"{fit_stats=}")
-                    logger.info(f"{cls.default_pol_method.name} -> ({100*stokes_nocorr.p:.1f} +/ {100*stokes_nocorr.dp:.1f} %, {stokes_nocorr.chi:.1f} +/- {stokes_nocorr.dchi:.1f} º)")
-
                 else:
 
                     logger.info(f"This source metadata indicates to use only the {only_pair} pair, computing stoke parameters with compute_stokes_HWP_fit_1pair")
@@ -1329,13 +1325,16 @@ class InstrumentHWP(ABC, Instrument):
                     elif only_pair == 'E':
                         stokes_nocorr, fit_stats = compute_stokes_HWP_fit_1pair(theta, FE=FE, dFE=dFE)
 
-                logger.info(f"{astrosource.name} stokes_nocorr {stokes_nocorr} -> p = ({100*stokes_nocorr.p:.1f} +/ {100*stokes_nocorr.dp:.1f}) %, chi = ({stokes_nocorr.chi:.1f} +/- {stokes_nocorr.dchi:.1f}) º)")
+                logger.debug(f"{stokes_nocorr=}")
+                logger.debug(f"{fit_stats=}")
+                logger.info(f"{astrosource.name} non-corrected -> p = ({100*stokes_nocorr.p:.1f} +/- {100*stokes_nocorr.dp:.1f}) %, chi = ({stokes_nocorr.chi:.1f} +/- {stokes_nocorr.dchi:.1f}) º")
 
                 inst_pol_dict = cls.get_instrumental_polarization(reducedfit=polarimetry_group[0])
 
                 stokes = stokes_nocorr.correct(**inst_pol_dict)
 
-                logger.info(f"{astrosource.name} corrected stokes {stokes} -> p = ({100*stokes.p:.1f} +/ {100*stokes.dp:.1f}) %, chi = ({stokes.chi:.1f} +/- {stokes.dchi:.1f}) º)")
+                logger.debug(f"{stokes=}")
+                logger.info(f"{astrosource.name} corrected stokes {stokes} -> p = ({100*stokes.p:.1f} +/ {100*stokes.dp:.1f}) %, chi = ({stokes.chi:.1f} +/- {stokes.dchi:.1f}) º")
 
                 flux = stokes.I
                 flux_err = stokes.dI
