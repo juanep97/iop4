@@ -19,7 +19,11 @@ from iop4lib.enums import (
 )
 from .instrument import InstrumentHWP
 from iop4lib.telescopes import CAHAT220
-from iop4lib.utils.polarization import compute_stokes_HWP_fit_rel
+from iop4lib.utils.polarization import (
+    compute_stokes_HWP_analytical,
+    # compute_stokes_HWP_fit_rel,
+    # compute_stokes_HWP_fit_rel_nonideal,
+)
 
 # logging
 import logging
@@ -54,7 +58,9 @@ class CAFOS(InstrumentHWP):
     disp_sign_mean, disp_sign_std = np.array([-35.72492116, -0.19719535]), np.array([1.34389, 1.01621491])
     disp_mean, disp_std = np.abs(disp_sign_mean), disp_sign_std
 
-    default_pol_method = compute_stokes_HWP_fit_rel
+    default_pol_method = compute_stokes_HWP_analytical
+    # default_pol_method = compute_stokes_HWP_fit_rel
+    # default_pol_method = compute_stokes_HWP_fit_rel_nonideal
 
     rot_angles_required = {0.0, 22.48, 44.98, 67.48}
 
