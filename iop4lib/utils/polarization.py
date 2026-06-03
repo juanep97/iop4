@@ -28,28 +28,13 @@ def get_p_and_chi(q, u, dq, du):
     return p, chi, dp, dchi
 
 def normalize_p_chi(p, chi):
-    """Normalizes so that p>0 and -90º < chi < +90º."""
+    """Normalizes so that p>0 and 0º <= chi <= 180º."""
     p = abs(p)
-    # chi = ((chi + 90) % 180) - 90
-    chi = chi % 180 # if we wanted 0, 180
+    chi = chi % 180
     return p, chi
     
-def apply_corr(Q, U, dQ, dU, Q_inst, U_inst, CPA, dQ_inst, dU_inst, dCPA):
-    
-    Q_corr = Q - Q_inst
-    dQ_corr = math.sqrt(dQ**2 + dQ_inst**2)
-    
-    U_corr = U - U_inst
-    dU_corr = math.sqrt(dU**2 + dU_inst**2)
-
-    p, chi, dp, dchi = get_p_and_chi(Q_corr, U_corr, dQ_corr, dU_corr)
-
-    chi = chi + CPA
-    dchi = np.sqrt(dchi**2 + dCPA**2)
-    
-    return Q_corr, U_corr, p, chi, dp, dchi
-    
 def eval_model_uncertainty(f, x, popt, pcov, N=1000, s=1):
+    """Returns model's +/- n sigma uncertainty region."""
 
     samples = np.random.multivariate_normal(popt, pcov, N)
     evaluations = u.Quantity([f(x, *sample) for sample in samples])
@@ -60,6 +45,7 @@ def eval_model_uncertainty(f, x, popt, pcov, N=1000, s=1):
     return lower_bound, upper_bound
 
 def get_fit_statistics(func, xdata, ydata, sigma, popt, perr, pnames):
+    """Returns fit info/statistics."""
     
     xdata = np.asarray(xdata, dtype=float)
     ydata = np.asarray(ydata, dtype=float)
@@ -99,6 +85,7 @@ def get_fit_statistics(func, xdata, ydata, sigma, popt, perr, pnames):
     }
 
 def _do_fit(func, xdata, ydata, sigma, p0, bounds=None):
+    """Perform curve_fit."""
     
     bounds = bounds if bounds is not None else (-np.inf, +np.inf)
 
@@ -125,6 +112,7 @@ def fit_with_sigma_clip(
         mode="absmedian",
         get_func=None,
     ):
+    """Performs curve_fit with some sigma-clip rejection of outliers."""
 
     N = len(xdata)
     
@@ -488,7 +476,7 @@ def compute_stokes_HWP_analytical(
         inst_pol_dict=None,
         plot=False, fig=None, annotate=False,
     ):
-    """Compute polarimetry using an analytical method.
+    """Compute polarimetry using an analytical expression ([1]).
     
     References
     ----------
@@ -765,7 +753,7 @@ def compute_stokes_HWP_fit_rel(
     ):
     """Compute polarimetry with a fit to the relative difference between E and O pairs.
     
-    This will pusually perform better, specially under certain conditions like
+    This will usually perform better, specially under certain conditions like
     changes in opacity during observation (e.g. due to passing clouds), but it 
     will be more affected by contamination in any one pair (since a bad data 
     point will weight more).
@@ -898,12 +886,10 @@ def compute_stokes_HWP_fit_rel_nonideal(
         inst_pol_dict=None,
         plot=False, fig=None, annotate=False,
     ):
-    """Compute polarimetry with a fit to the relative difference between E and O pairs.
+    """Compute polarimetry with a fit to the relative difference between E and O pairs (non-ideal HWP case).
     
-    This will pusually perform better, specially under certain conditions like
-    changes in opacity during observation (e.g. due to passing clouds), but it 
-    will be more affected by contamination in any one pair (since a bad data 
-    point will weight more).
+    Smae as HWP_fit_rel, but allowing deviations from a non-ideal HWP though a 
+    free kappa paremter, (see [1] in `compute_stokes_HWP_analytical()`).
     """
 
     N = len(theta)
