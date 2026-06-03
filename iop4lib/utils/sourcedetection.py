@@ -31,7 +31,7 @@ from photutils.segmentation import (
 
 from photutils.aperture import CircularAperture
 
-# from iop4lib.utils import next_odd
+from iop4lib.utils import next_odd
 
 def get_bkg(imgdata, box_size=(16,16), filter_size=(11,11), mask=None, **bkg2d_kwargs):
     """Returns the 2D background for a given box_size and filter_size. Optionally, a mask can be provided (to mask sources or bad pixels)."""
