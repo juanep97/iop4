@@ -974,40 +974,31 @@ class Instrument(metaclass=ABCMeta):
 
         if redf.obsmode != OBSMODES.PHOTOMETRY:
             raise Exception(f"{redf}: this method is only for plain photometry images.")
-        
+
+        # 1. Compute all aperture photometries
+
         common_aps = cls.estimate_common_apertures([redf], reductionmethod=REDUCTIONMETHODS.RELPHOT)
+
+        centroids_and_fwhms_result = common_aps.centroids_and_fwhms[redf]
 
         r_ap = common_aps.r_ap
         r_in = common_aps.r_in
         r_out = common_aps.r_out
-        
-        fwhm_median  = common_aps.fwhm_stats.median
 
-        centroids_and_fwhms_result = common_aps.centroids_and_fwhms[redf]
+        ap_fwhm = common_aps.ap_fwhm
 
-        # 1. Compute all aperture photometries
-
-        common_apertures = cls.estimate_common_apertures([redf], reductionmethod=REDUCTIONMETHODS.RELPHOT)
-
-        r_ap = common_apertures.r_ap
-        r_in = common_apertures.r_in
-        r_out = common_apertures.r_out
-
-        ap_fwhm = common_apertures.ap_fwhm
-
-        fwhm_median = common_apertures.fwhm_stats.median     
+        fwhm_median = common_aps.fwhm_stats.median     
 
         with u.set_enabled_equivalencies(redf.pixscale_equiv):
             aperpix = r_ap.to_value('pix')
             r_in_px = r_in.to_value('pix')
             r_out_px = r_out.to_value('pix')
             aperas = r_ap.to_value('arcsec')
-            median_fwhm_as = fwhm_median.to_value('arcsec')
+            fwhm_median_as = fwhm_median.to_value('arcsec')
 
         logger.debug(f"Computing aperture photometries for {redf} (ap_fwhm = {ap_fwhm:.1f}, r_ap = {r_ap:.1f}, r_in = {r_in:.1f}, r_out = {r_out:.1f}).")
 
-        aperphotresults = cls.compute_aperture_photometry(redf, common_apertures)
-
+        aperphotresults = cls.compute_aperture_photometry(redf, common_aps)
         aperphotresult_pks = [aper.pk for aper in aperphotresults]
 
         # 2. Compute relative polarimetry for each source (uses the computed aperture photometries)
@@ -1041,7 +1032,7 @@ class Instrument(metaclass=ABCMeta):
 
             result.aperpix = aperpix
             result.aperas = aperas
-            result.fwhm = median_fwhm_as
+            result.fwhm = fwhm_median_as
 
             with u.set_enabled_equivalencies(redf.pixscale_equiv):
                 fwhm_source = centroids_and_fwhms_result.centroids_and_fwhms[(astrosource, 'O')].fwhm
