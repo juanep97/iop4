@@ -904,7 +904,7 @@ class Instrument(metaclass=ABCMeta):
 
                     # check that the centroid position is within the borders of the image
                 
-                    if overlaps_border(*(centroid[1], centroid[1]), *(r_out, r_out), *img.shape):
+                    if overlaps_border(*(centroid[0], centroid[1]), *(r_out, r_out), *img.shape):
                         logger.warning(f"{redf}: {astrosource.name}, ({pair}) is too close to the border, skipping aperture photometry.")
                         continue
 
