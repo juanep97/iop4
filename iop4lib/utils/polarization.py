@@ -1026,7 +1026,7 @@ def compute_stokes_HWP_fit_1pair(
     func_FO = lambda theta_i, I, q, u: 0.5 * ( I + I*q*np.cos(4*theta_i) + I*u*np.sin(4*theta_i) )
     func_FE = lambda theta_i, I, q, u: 0.5 * ( I - I*q*np.cos(4*theta_i) - I*u*np.sin(4*theta_i) )
 
-    if FO:
+    if FO is not None:
         ydata = FO
         sigma = dFO
         func = func_FO
