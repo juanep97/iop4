@@ -119,7 +119,7 @@ def _do_fit(func, xdata, ydata, sigma, p0, bounds=None):
 def fit_with_sigma_clip(
         func, xdata, ydata, sigma, p0, bounds=None,
         clip_sigma=5, max_iter=3,
-        min_keep=3, min_keep_frac=0.74,
+        min_keep=4, min_keep_frac=0.74,
         max_discard=2, max_discard_frac=0.3,
         soft=True,
         mode="absmedian",
