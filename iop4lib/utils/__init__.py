@@ -357,7 +357,10 @@ def get_simbad_sources(center_coord, radius, Nmax=6, all_types=False, exclude_se
 
     return simbad_sources
 
-def overlaps_border(y, x, small_h, small_w, big_h, big_w):
+def overlaps_border(c_xy, small_shape, big_shape):
+    x, y = c_xy
+    small_h, small_w = small_shape
+    big_h, big_w = big_shape
     return (
         x - small_w//2 < 0 or
         y - small_h//2 < 0 or

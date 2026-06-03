@@ -649,7 +649,7 @@ class Instrument(metaclass=ABCMeta):
                         if use_cutout:
                             cutout = Cutout2D(img - bkg.background_median, position=wcs_pos, size=cutout_size, wcs=wcs)
                             data = cutout.data
-                            if overlaps_border(*cutout.position_original, *cutout.shape, *img.shape):
+                            if overlaps_border(cutout.position_original, cutout.shape, img.shape):
                                 raise Exception(f"{redf} {astrosource} {pairs}: cutout overlaps with image border, skipping")
                             wcs_pos = cutout.to_cutout_position(wcs_pos)
 
@@ -673,7 +673,7 @@ class Instrument(metaclass=ABCMeta):
 
                         logger.debug(f"box_size = {box_size:.1f}")
 
-                        if overlaps_border(wcs_pos_orig[1], wcs_pos_orig[0], box_size, box_size, *img.shape):
+                        if overlaps_border(wcs_pos_orig, (box_size, box_size), img.shape):
                             raise Exception(f"{redf} {astrosource} {pairs}: box overlaps with image border, skipping")
 
                         logger.debug("fitting with centroid_com")
@@ -904,7 +904,7 @@ class Instrument(metaclass=ABCMeta):
 
                     # check that the centroid position is within the borders of the image
                 
-                    if overlaps_border(*(centroid[0], centroid[1]), *(r_out, r_out), *img.shape):
+                    if overlaps_border(centroid, (r_out, r_out), img.shape):
                         logger.warning(f"{redf}: {astrosource.name}, ({pair}) is too close to the border, skipping aperture photometry.")
                         continue
 
