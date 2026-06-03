@@ -201,7 +201,7 @@ class AperPhotResult(models.Model):
 
         exclude = [c] if exclude is None else [c, *exclude]
 
-        detected_mask, _ = mask_other_sources(cutout.data, self.aperpix, self.fwhm, exclude=exclude)
+        detected_mask, _ = mask_other_sources(cutout.data, self.aperpix, self.fwhm_px, exclude=exclude)
 
         return detected_mask
     
@@ -247,7 +247,7 @@ class AperPhotResult(models.Model):
 
         # get wcs and centroid positions
         wcs_px_pos = self.astrosource.coord.to_pixel(cutout.wcs)
-        c = xy_px_pos = cutout.to_cutout_position((self.x_px, self.y_px))
+        c = cutout.to_cutout_position((self.x_px, self.y_px))
 
         # build the apertures
         ap = CircularAperture(c, r=self.aperpix)
@@ -424,19 +424,9 @@ class AperPhotResult(models.Model):
 
         return fig, ax
     
-    def plot_all(self, fig=None):
+    def plot_all(self, fig=None, **kwargs):
         
-        cutout_size = np.ceil(2.2*self.r_out)
-
-        if self.reducedfit.has_pairs:
-            cutout_size = max(cutout_size, 2.2*np.ceil(np.linalg.norm(self.reducedfit.hint_disp_sign_mean)))
-            
-        cutout = Cutout2D(
-            self.reducedfit.mdata,
-            position = (self.x_px, self.y_px),
-            size = (cutout_size, cutout_size),
-            wcs = (self.reducedfit.wcs1 if self.pairs == 'O' else self.reducedfit.wcs2),
-        )
+        cutout = kwargs.get('cutout') or self.default_plot_cutout
 
         fig = fig or plt.gcf()
 
@@ -501,8 +491,6 @@ class AperPhotResult(models.Model):
                 
         # otherwise, build image again
 
-        cutout = kwargs.get('cutout') or self.default_plot_cutout
-
         width = kwargs.get('width', 256)
         height = kwargs.get('height', 256)
 
@@ -513,7 +501,7 @@ class AperPhotResult(models.Model):
         fig = mplt.figure.Figure(figsize=(width/100, height/100), dpi=iop4conf.mplt_default_dpi)
         ax = fig.subplots()
 
-        self.plot(cutout=cutout, fig=fig, ax=ax)
+        self.plot(fig=fig, ax=ax, **kwargs)
 
         ax.axis('off')
         fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
