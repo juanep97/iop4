@@ -208,7 +208,7 @@ def fit_with_sigma_clip(
         
         # print(f"it {it}: {to_discard_total=}")
     
-    popt, pcov = _do_fit(func, xdata[idx], ydata[idx], sigma[idx], p0)
+    popt, pcov = _do_fit(func, xdata[idx], ydata[idx], sigma[idx], p0, bounds)
 
     # print(f"final {idx=}")
 
