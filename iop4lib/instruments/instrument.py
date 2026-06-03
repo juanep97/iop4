@@ -40,7 +40,6 @@ from iop4lib.utils.sourcedetection import (
     get_bkg,
     get_segmentation,
     get_cat_sources_from_segment_map,
-    get_bkg,
     mask_other_sources,
 )
 from iop4lib.utils.photometry import (
