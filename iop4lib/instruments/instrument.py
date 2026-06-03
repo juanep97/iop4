@@ -1325,9 +1325,9 @@ class InstrumentHWP(ABC, Instrument):
                     logger.info(f"This source metadata indicates to use only the {only_pair} pair, computing stoke parameters with compute_stokes_HWP_fit_1pair")
 
                     if only_pair == 'O':
-                        stokes_nocorr = compute_stokes_HWP_fit_1pair(theta, FO=FO, dFO=dFO)
+                        stokes_nocorr, fit_stats = compute_stokes_HWP_fit_1pair(theta, FO=FO, dFO=dFO)
                     elif only_pair == 'E':
-                        stokes_nocorr = compute_stokes_HWP_fit_1pair(theta, FE=FE, dFE=dFE)
+                        stokes_nocorr, fit_stats = compute_stokes_HWP_fit_1pair(theta, FE=FE, dFE=dFE)
 
                 logger.info(f"{astrosource.name} stokes_nocorr {stokes_nocorr} -> p = ({100*stokes_nocorr.p:.1f} +/ {100*stokes_nocorr.dp:.1f}) %, chi = ({stokes_nocorr.chi:.1f} +/- {stokes_nocorr.dchi:.1f}) º)")
 
