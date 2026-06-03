@@ -59,8 +59,6 @@ def eval_model_uncertainty(f, x, popt, pcov, N=1000, s=1):
 
     return lower_bound, upper_bound
 
-import numpy as np
-
 def get_fit_statistics(func, xdata, ydata, sigma, popt, perr, pnames):
     
     xdata = np.asarray(xdata, dtype=float)
