@@ -56,7 +56,6 @@ def process_epochs(epochname_list: Iterable[str], args):
     logger.info("Creating Master Biases")
 
     for epoch in epoch_L:
-        
         epoch.build_master_biases(force_rebuild=args.force_rebuild)
 
     logger.info("Creating Master Darks.")
