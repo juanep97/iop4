@@ -295,7 +295,7 @@ class Stokes:
             f"{self.__class__.__name__}:<br>\n"
                 f" - I: {100*self.I:+.2g} +/- {100*self.dI:.2g}<br>\n"
                 f" - q:  ({100*self.q:+.4f} +/- {100*self.dq:.4f} ) % <br>\n"
-                f" - p:  ({100*self.u:+.4f} +/- {100*self.du:.4f} ) % <br>\n"
+                f" - u:  ({100*self.u:+.4f} +/- {100*self.du:.4f} ) % <br>\n"
                 f" --> p: ({100*self.p:.2f} +/- {100*self.dp:.2f} ) % <br>\n"
                 f" --> chi: {self.chi:.2f} +/- {self.dchi:.2f}<br>\n"
         )  
