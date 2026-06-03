@@ -625,7 +625,7 @@ def compute_stokes_HWP_fit_full(
     # function is a concatenation of two functions, it needs to depend on the 
     # mask used.
 
-    xdata = np.repeat(np.deg2rad(theta),2)
+    xdata = np.concatenate([np.deg2rad(theta), np.deg2rad(theta)])
     ydata = np.concatenate([FO, FE])
     sigma = np.concatenate([dFO, dFE])
 
