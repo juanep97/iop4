@@ -492,12 +492,13 @@ def compute_stokes_HWP_analytical(
     ):
     """Compute polarimetry using an analytical method.
     
-    References:
-      - "Error Analysis for Dual-Beam Optical Linear Polarimetry".
-        Ferdinando Patat and Martino Romaniello.
+    References
+    ----------
+    [1] Ferdinando Patat and Martino Romaniello,
+        "Error Analysis for Dual-Beam Optical Linear Polarimetry".
         PASP, 118(839):146-161, January 2006.
-        arXiv:astro-ph/0509153
         doi:10.1086/497581.
+        arXiv:astro-ph/0509153
     """
 
     N = len(theta)
