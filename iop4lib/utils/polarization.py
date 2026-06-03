@@ -630,7 +630,7 @@ def compute_stokes_HWP_fit_full(
     sigma = np.concatenate([dFO, dFE])
 
     def get_func(idx):
-        s = sum(idx[:N//2])
+        s = sum(idx[:N])
         def func(x, *args):
             x1 = x[:s]
             x2 = x[s:]
