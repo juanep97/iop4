@@ -24,7 +24,7 @@ dependencies = [
     "astropy>=5.2.2,<6",
     "astroquery",
     "photutils>=2,<3",
-    "pandas",
+    "pandas>=2.1.0",
     "scikit-learn>=1.2.2,<2",
     "scikit-image",
     "coloredlogs",
