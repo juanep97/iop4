@@ -214,11 +214,9 @@ class AstroSource(models.Model):
         redf=None,
         wcs=None, width=None, height=None,
     ):
-        r""" Get the sources in the field of view of the image.
+        r""" Get the catalog sources in the field of view of an image.
 
-        It accepts either a redf or a wcs, height and width.
-        If no query set is given, it will search the whole catalog,
-        otherwise it will search the given query set.
+        It accepts either a redf, or a wcs, height and width.
         """
 
         catalog_data = AstroSource.objects.all().values_list('id', 'ra_hms', 'dec_dms')
