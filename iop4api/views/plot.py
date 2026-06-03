@@ -473,7 +473,7 @@ def plot(request):
                 dimension="width",
                 line_color="red",
                 line_width=1,
-                line_dash="dashed"
+                line_dash="dashed",
             )
             p.add_layout(hline)
 
