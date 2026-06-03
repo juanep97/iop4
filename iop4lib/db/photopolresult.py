@@ -355,11 +355,6 @@ class PhotoPolResult(models.Model):
         if self.band != BANDS.R:
             raise PhotoPolResult.NoHostCorrectionAvailable('Host galaxy correction only available for R band')
         
-        # compute the used aperture in arcseconds
-
-        aperas = self.aperas
-        fwhm = self.fwhm
-        
         # get the host galaxy flux for this aperture
 
         hostcorr_flux, hostcorr_flux_err = get_host_correction(self.astrosource, self.aperas, self.fwhm)
@@ -415,8 +410,6 @@ class PhotoPolResult(models.Model):
 
         self.p_corr = p_corr
         self.p_corr_err = p_corr_err
-
-        self.aperas = aperas
         
         self.used_mag_for_corr = used_mag_for_corr
         self.used_mag_err_for_corr = used_mag_err_for_corr
