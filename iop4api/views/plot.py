@@ -476,7 +476,6 @@ def plot(request):
                 line_dash="dashed"
             )
             p.add_layout(hline)
-            print(f"{yref=}")
 
         if axLabel == "ax1":
             p.y_range.flipped = True
