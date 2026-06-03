@@ -337,9 +337,9 @@ class PhotoPolResult(models.Model):
         pass
 
     def compute_host_galaxy_correction(self):
-        r""" Computes the host galaxy correction and stores it in the appropriate fields in the DB.
+        """Compute the host galaxy correction and update the result in the DB.
 
-        See [1] and the docstring of iop4lib.utils.get_host_correction for more info.
+        See [1] and `iop4lib.utils.photometry.get_host_correction()` for more info.
 
         References
         ----------
