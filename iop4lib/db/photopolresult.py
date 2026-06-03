@@ -357,19 +357,12 @@ class PhotoPolResult(models.Model):
         
         # compute the used aperture in arcseconds
 
-        if self.aperas:
-            aperas = self.aperas
-        else:
-            aperas = self.aperpix * self.reducedfits.first().pixscale.to(u.arcsec / u.pix).value
-
-        if self.fwhm:
-            fwhm = self.fwhm
-        else:
-            fwhm = None
+        aperas = self.aperas
+        fwhm = self.fwhm
         
         # get the host galaxy flux for this aperture
 
-        hostcorr_flux, hostcorr_flux_err = get_host_correction(self.astrosource, aperas, fwhm)
+        hostcorr_flux, hostcorr_flux_err = get_host_correction(self.astrosource, self.aperas, self.fwhm)
             
         if hostcorr_flux is None:
             raise PhotoPolResult.NoHostCorrectionAvailable('No host galaxy correction available for this source')
@@ -403,8 +396,17 @@ class PhotoPolResult(models.Model):
         if p is None:
             p_corr, p_corr_err = None, None
         else:
-            p_corr = p * obsflux / flux_corr 
-            p_corr_err = p_corr * math.sqrt( (p_err/p)**2 + (obsflux_err/obsflux)**2 + (flux_corr_err/flux_corr)**2 )
+            p_corr = p * obsflux / flux_corr
+
+            dp_dp = obsflux / flux_corr
+            dp_dobs = -p * hostcorr_flux / flux_corr**2
+            dp_dhost = p * obsflux / flux_corr**2
+
+            p_corr_err = math.sqrt(
+                (dp_dp * p_err)**2 +
+                (dp_dobs * obsflux_err)**2 +
+                (dp_dhost * hostcorr_flux_err)**2
+            )
 
         # store results in DB and return
 
