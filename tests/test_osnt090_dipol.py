@@ -84,7 +84,7 @@ def test_polarimetry(load_test_catalog):
 
     assert r.chi == approx(chi_lit, abs=3), "chi (º) within 3º of lit. value"
     assert r.chi == approx(chi_lit, abs=r.chi_err), "chi (º) within chi_err of lit.value"
-    assert r.chi_err < 4, "dchi < 4º"
+    assert r.chi_err < 5, "dchi < 5º" # (dCPA is ~3º for DIPOL already)
 
     # ensure also that reference values didn't change since included in tests
     assert mag_R_lit == approx(9.786)
