@@ -418,11 +418,11 @@ def _build_figure_annotation(fig, fit_stats, stokes, stokes_corr=None, kappa=Non
             sep=4,
         )
 
-    if kappa:
+    if kappa is not None:
         kappa_col = VPacker(
             children=[
                 TextArea("kappa", textprops=dict(fontsize="large", weight="bold")),
-                TextArea(f"$\kappa$ = ({100*kappa:+.2f} ± {100*kappa_err:.2f})%", textprops=dict(fontsize="large")),
+                TextArea(f"$\\kappa$ = ({100*kappa:+.2f} ± {100*kappa_err:.2f})%", textprops=dict(fontsize="large")),
             ],
             align="left",
             pad=0,
