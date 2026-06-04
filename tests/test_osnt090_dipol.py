@@ -64,7 +64,6 @@ def test_polarimetry(load_test_catalog):
     # Note: the magnitude check for this source has some caveats (see the 
     # comments in the test catalog file.
 
-
     r = PhotoPolResult.objects.filter(
         epoch=epoch,
         astrosource__name="Hiltner960",
