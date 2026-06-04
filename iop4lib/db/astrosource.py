@@ -5,6 +5,7 @@ iop4conf = iop4lib.Config(config_db=False)
 from django.db import models
 from django.db.models import Exists, OuterRef
 from django.db.models import Q, Avg
+from django.core.exceptions import ValidationError
 
 # iop4lib imports
 from ..enums import *
@@ -20,6 +21,7 @@ from astropy.coordinates import Angle, SkyCoord
 import astropy.units as u
 import math
 import numpy as np
+import yaml
 
 # logging
 import logging
@@ -59,6 +61,7 @@ class AstroSource(models.Model):
     dec_dms = models.CharField(max_length=255, help_text="Declination (ICRS) in dd:mm:ss format")
     srctype = models.CharField(max_length=255, choices=SRCTYPES.choices, help_text="Source type")  
     comment = models.TextField(null=True, blank=True, help_text="Any comment about the source (in Markdown format)")
+    metadata_str = models.TextField(null=True, blank=True, help_text="Metadata in YAML format.")
 
     # Blazar fields
 
@@ -206,37 +209,90 @@ class AstroSource(models.Model):
         return catalog_dict
     
     @classmethod
-    def get_sources_in_field(cls, wcs=None, width=None, height=None, fit=None, qs=None):
-        r""" Get the sources in the field of view of the image.
+    def get_sources_in_field(
+        cls,
+        redf=None,
+        wcs=None, width=None, height=None,
+    ):
+        r""" Get the catalog sources in the field of view of an image.
 
-        It accepts either a fit image or a wcs, height and width.
-        If no query set is given, it will search the whole catalog,
-        otherwise it will search the given query set.
+        It accepts either a redf, or a wcs, height and width.
         """
 
-        if fit is not None:
-            wcs = fit.wcs
-            width, height = fit.width, fit.height
+        catalog_data = AstroSource.objects.all().values_list('id', 'ra_hms', 'dec_dms')
+        catalog_pks = np.array([src[0] for src in catalog_data])
+        catalog_skycoord = SkyCoord([src[1] for src in catalog_data], [src[2] for src in catalog_data], unit=(u.hourangle, u.deg))
 
-        if qs is None:
-            qs = cls.objects.all()
+        if redf is not None:
+            wcs, width, height = redf.wcs, redf.width, redf.height
 
-        sources_in_field = list()
+        sources_px_x, sources_px_y = wcs.world_to_pixel(catalog_skycoord)
 
-        import warnings
-        for obj in qs:
-            try:
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    x, y = obj.coord.to_pixel(wcs)
-            except:
-                pass
-            else:
-                if (0 <= x < height) and (0 <= y < width):
-                    sources_in_field.append(obj)
+        msk = (
+            (sources_px_x >= 0) &
+            (sources_px_x < width) &
+            (sources_px_y >= 0) &
+            (sources_px_y < height)
+        )
+        
+        src_pks = catalog_pks[msk]
+
+        sources_in_field = AstroSource.objects.filter(pk__in=src_pks).all()
 
         return sources_in_field
 
+    @classmethod
+    def validate_metadata(cls, value):
+        
+        if not isinstance(value, dict):
+            raise TypeError("metadata must be a dict")
+
+        allowed_metadata = {
+            "DIPOL.polarimetry.only_pair" : ['E', 'O'],
+            "mask_other_sources": [False, True],
+        }
+        
+        allowed_keys = list(allowed_metadata.keys())
+
+        for k, v in value.items():
+
+            if k not in allowed_keys:
+                raise ValueError(f"Invalid metadata key. Allowed keys are: {allowed_keys}.")
+            
+            allowed_k_values = allowed_metadata[k]
+
+            if isinstance(allowed_k_values, list) and v not in allowed_k_values:
+                raise ValueError(f"Invalid value for metadata key '{k}'. Allowed values are: {allowed_k_values}.")
+
+            # handle more complex cases here, where allowed values can't be
+            # specified as a list of possibilities.
+            # ...
+            
+    @property
+    def metadata(self):
+        if self.metadata_str and (data := yaml.safe_load(self.metadata_str)):
+            return data
+        else:
+            return dict()
+
+    @metadata.setter
+    def metadata(self, value):
+        self.validate_metadata(value)
+        self.metadata_str = yaml.safe_dump(
+            value,
+            default_flow_style=False,
+            sort_keys=False,
+        )
+
+    def clean(self):
+        super().clean()
+        try:
+            metadata_value = yaml.safe_load(self.metadata_str)
+            self.validate_metadata(metadata_value or dict())
+        except (yaml.YAMLError, TypeError, ValueError) as e:
+            raise ValidationError({
+                "metadata_str": f"Invalid YAML field metadata_str: {e}",
+            })
 
     @property
     def last_reducedfit(self):

@@ -12,43 +12,34 @@ import astrometry
 import numpy as np
 import matplotlib as mplt
 import matplotlib.patheffects
-import matplotlib.pyplot as plt
 import astropy.units as u
 from photutils.aperture import CircularAperture
 from astropy.wcs.utils import fit_wcs_from_points
-from astropy.time import Time
-from astropy.coordinates import SkyCoord, Angle, match_coordinates_sky
+from astropy.coordinates import SkyCoord, Angle
 import itertools
-import datetime
-import math
-import gc
 import yaml
 from importlib import resources
 from collections.abc import Iterable
 import random
+from astropy.time import Time
 
 # iop4lib imports
-from iop4lib.enums import IMGTYPES, BANDS, OBSMODES, SRCTYPES, INSTRUMENTS, REDUCTIONMETHODS
-from .instrument import Instrument
-from iop4lib.utils import imshow_w_sources, get_angle_from_history, build_wcs_centered_on, get_simbad_sources
+from iop4lib.enums import IMGTYPES, BANDS, OBSMODES, SRCTYPES
+from .instrument import InstrumentHWP
+from iop4lib.utils import get_angle_from_history, build_wcs_centered_on, get_simbad_sources
 from iop4lib.utils.sourcedetection import get_segmentation, get_cat_sources_from_segment_map, get_bkg
-from iop4lib.utils.plotting import plot_preview_astrometry
+from iop4lib.utils.plotting import imshow_w_sources, plot_preview_astrometry
 from iop4lib.utils.astrometry import BuildWCSResult
 from iop4lib.telescopes import OSNT090
-from iop4lib.utils import calibrate_photopolresult
+from iop4lib.utils.polarization import compute_stokes_HWP_fit_rel_nonideal
 
 # logging
 import logging
 logger = logging.getLogger(__name__)
 
+from iop4lib.typing import *
 
-import typing
-from typing import Union
-if typing.TYPE_CHECKING:
-    from iop4lib.db import RawFit, ReducedFit
-
-
-class DIPOL(Instrument):
+class DIPOL(InstrumentHWP):
 
     name = "DIPOL"
     telescope = OSNT090.name
@@ -63,7 +54,6 @@ class DIPOL(Instrument):
     gain_e_adu = 1
 
     required_masters = ['masterbias', 'masterflat', 'masterdark']
-
 
     # pre computed pairs distances to use in the astrometric calibrations
     # obtained from calibrated photometry fields (see CAFOS comments on how to 
@@ -83,6 +73,10 @@ class DIPOL(Instrument):
     # In [21]: np.mean(angle_L), np.median(angle_L), np.std(angle_L)
     # Out[21]: (179.08971366048235, 177.6282921156412, 1.9341471640122656)
 
+    default_pol_method = compute_stokes_HWP_fit_rel_nonideal
+
+    rot_angles_required = {0.0, 22.5, 45.0, 67.5, 90.0, 112.5, 135.0, 157.5, 180.0, 202.5, 225.0, 247.5, 270.0, 292.5, 315.0, 337.5}
+    
     default_sky_angle = 177.6
     default_sky_angle_std = 2.3
 
@@ -167,32 +161,48 @@ class DIPOL(Instrument):
 
     @classmethod
     def request_master(cls, rawfit, model, other_epochs=False):
-        r""" Overriden Instrument associate_masters.
+        r""" Overriden to handle polarymetry subcuts.
         
-        DIPOL POLARIMETRY files are a cut of the full field, so when associating master calibration files, it needs to search a different size of images.
-        For DIPOL PHOTOMETRY files, everything is the same as in the parent class.
+        For DIPOL PHOTOMETRY files, everything should be the same as in the 
+        parent class.
 
-        The full field images are 4144x2822, polarimetry images are 1100x900, the cut 
-        position is saved in the images as 
+        For some DIPOL POLARIMETRY files (full field ones), also.
+        
+        However, there are some that are a subcut of the full field, so when 
+        associating master calibration files, we need to search a different 
+        size of images, then apply the right subcut.
+        
+        The cut position is saved in the raw image headers as 
             XORGSUBF 	0
             YORGSUBF 	0
         """
 
+        master = super().request_master(rawfit, model, other_epochs=other_epochs)
+        
         if rawfit.obsmode == OBSMODES.PHOTOMETRY:
-            return super().request_master(rawfit, model, other_epochs=other_epochs)
+            return master
         
         # POLARIMETRY (see docstring)
-        # everything should be the same as in the parent class except for the line changing args["imgsize"]
+        # Sometimes, polarimetry images are a subcut of the full field.
+        # In those cases, we will search for a full-field image.
+        # But if there was some with the same size, we can just return them, too.
+
+        if master:
+            return master
+
+        logger.warning("I could not find a master with same size, searching for any size")
 
         from iop4lib.db import RawFit
 
         rf_vals = RawFit.objects.filter(id=rawfit.id).values().get()
         args = {k:rf_vals[k] for k in rf_vals if k in model.margs_kwL}
         
-        args.pop("exptime", None) # exptime might be a building keywords (for flats and darks), but masters with different exptime can be applied
+        args.pop("exptime", None) # exptime might be a building keyword (for flats and darks), but masters with different exptime can be applied
         args["epoch"] = rawfit.epoch # from .values() we only get epoch__id 
 
-        args["imgsize"] = "4144x2822" # search for full field calibration frames
+        if rawfit.header.get("XORGSUBF") or rawfit.header.get("YORGSUBF"):
+            logger.warning("Checking for flats of any imgsize")
+            args.pop("imgsize")
 
         master = model.objects.filter(**args, flags__hasnot=model.FLAGS.IGNORE).first()
         
@@ -221,6 +231,8 @@ class DIPOL(Instrument):
             XORGSUBF 	1500
             YORGSUBF 	1000
         """
+
+        # XORGSUBF might be 1-indexed, but 1px offset does not matter
 
         x_start = reducedfit.rawfit.header['XORGSUBF']
         y_start = reducedfit.rawfit.header['YORGSUBF']
@@ -575,7 +587,7 @@ class DIPOL(Instrument):
         params["position_hint"] = [redf.get_astrometry_position_hint()]
         params["size_hint"] = [redf.get_astrometry_size_hint()]
 
-        disp_sign_mean = cls.get_binning_independent_px(redf.rawfit, cls.disp_sign_mean)
+        disp_sign_mean = redf.hint_disp_sign_mean
         disp_std = cls.get_binning_independent_px(redf.rawfit, cls.disp_std)
 
         params["disp_sign_mean"] = [disp_sign_mean]
@@ -642,7 +654,7 @@ class DIPOL(Instrument):
 
     @classmethod
     def _build_wcs_for_polarimetry_images_photo_quads(cls, redf: 'ReducedFit', summary_kwargs : dict = None, n_seg_threshold=1.5, npixels=32, min_quad_distance=4.0, fwhm=None, centering=None, max_quad_t=1400, min_quad_area=0.03):
-
+        
         if summary_kwargs is None:
             summary_kwargs = {'build_summary_images':True, 'with_simbad':True}
 
@@ -961,7 +973,7 @@ class DIPOL(Instrument):
         if summary_kwargs is None:
             summary_kwargs = {'build_summary_images':True, 'with_simbad':True}
 
-        disp_sign_mean = cls.get_binning_independent_px(redf.rawfit, cls.disp_sign_mean)
+        disp_sign_mean = redf.hint_disp_sign_mean
         disp_std = cls.get_binning_independent_px(redf.rawfit, cls.disp_std)
 
         disp_allowed_err = 1.5*disp_std
@@ -1083,14 +1095,8 @@ class DIPOL(Instrument):
         return BuildWCSResult(success=True, wcslist=[wcs1,wcs2],  info={'n_bright_sources':len(positions)})
     
 
-
-
     @classmethod
-    def estimate_common_apertures(cls, reducedfits, reductionmethod=None, fwhm_min=5, fwhm_max=50, fwhm_default=30):
-        return super().estimate_common_apertures(reducedfits, reductionmethod=reductionmethod, fwhm_min=fwhm_min, fwhm_max=fwhm_max, fwhm_default=fwhm_default)
-
-    @classmethod
-    def get_instrumental_polarization(cls, reducedfit) -> dict:
+    def get_instrumental_polarization(cls, reducedfit) -> InstrumentalPolarizationDict:
         """ Returns the instrumental polarization for to be used for a given reducedfit.
 
         The instrumental polarization is a dictionary with the following keys:
@@ -1102,254 +1108,25 @@ class DIPOL(Instrument):
         """
 
         if reducedfit.juliandate <= Time("2023-09-28 12:00").jd: # limpieza de espejos
-            CPA = 44.5
-            dCPA = 0.05
-            Q_inst = 0.05777 / 100
-            dQ_inst = 0.005 / 100
-            U_inst = -3.77095 / 100
-            dU_inst = 0.005 / 100
+
+            instr_pol_dict = {
+                'q_inst' : +0.05777 / 100,
+                'dq_inst':  0.005   / 100,
+                'u_inst' : -3.77095 / 100,
+                'du_inst':  0.005   / 100,
+                'CPA'    :  44.5,
+                'dCPA'   :  0.05,
+            }
+
         else:
-            CPA = 45.1
-            dCPA = 0.05
-            Q_inst = -0.0138 / 100
-            dQ_inst = 0.005 / 100
-            U_inst = -4.0806 / 100
-            dU_inst = 0.005 / 100
 
-        return {'Q_inst':Q_inst, 'dQ_inst':dQ_inst, 'U_inst':U_inst, 'dU_inst':dU_inst, 'CPA':CPA, 'dCPA':dCPA}
-
-
-    @classmethod
-    def compute_relative_polarimetry(cls, polarimetry_group):
-        """ Computes the relative polarimetry for a polarimetry group for DIPOL
-        """
-        
-        from iop4lib.db.aperphotresult import AperPhotResult
-        from iop4lib.db.photopolresult import PhotoPolResult
-        from iop4lib.utils import get_column_values
-
-        # Perform some checks on the group
-
-        if not all([reducedfit.instrument == INSTRUMENTS.DIPOL for reducedfit in polarimetry_group]):
-            raise Exception(f"This method is only for DIPOL images.")
-
-        ## get the band of the group
-
-        bands = [reducedfit.band for reducedfit in polarimetry_group]
-
-        if len(set(bands)) == 1:
-            band = bands[0]
-        else: # should not happen
-            raise Exception(f"Can not compute relative polarimetry for a group with different bands: {bands}")
-
-        ## check obsmodes
-
-        if not all([reducedfit.obsmode == OBSMODES.POLARIMETRY for reducedfit in polarimetry_group]):
-            raise Exception(f"This method is only for polarimetry images.")
-        
-        ## check sources in the fields
-
-        sources_in_field_qs_list = [reducedfit.sources_in_field.all() for reducedfit in polarimetry_group]
-        group_sources = set.intersection(*map(set, sources_in_field_qs_list))
-
-        if len(group_sources) == 0:
-            logger.error("No common sources in field for all polarimetry groups.")
-            return
-        
-        if group_sources != set.union(*map(set, sources_in_field_qs_list)):
-            diff_sources = set.union(*map(set, sources_in_field_qs_list)) - set.intersection(*map(set, sources_in_field_qs_list))
-            logger.warning("Sources in field do not match for all polarimetry groups (ReducedFit %s): %s" % (",".join([str(redf.pk) for redf in polarimetry_group]), str(diff_sources)))
-
-        ## check rotation angles
-
-        rot_angles_available = set([redf.rotangle for redf in polarimetry_group])
-        rot_angles_required = {0.0, 22.5, 45.0, 67.5, 90.0, 112.5, 135.0, 157.5, 180.0, 202.5, 225.0, 247.5, 270.0, 292.5, 315.0, 337.5}
-
-        if not rot_angles_available.issubset(rot_angles_required):
-            logger.warning(f"Rotation angles missing: {rot_angles_required - rot_angles_available}")
-
-        if len(polarimetry_group) != 16:
-            raise Exception(f"Can not compute relative polarimetry for a group with {len(polarimetry_group)} reducedfits, it should be 16.")
-
-        # 1. Compute all aperture photometries
-
-        aperpix, r_in, r_out, fit_res_dict = cls.estimate_common_apertures(polarimetry_group, reductionmethod=REDUCTIONMETHODS.RELPHOT)
-        mean_fwhm = fit_res_dict['mean_fwhm']
-        
-        logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group with target aperpix {aperpix:.1f}.")
-
-        for reducedfit in polarimetry_group:
-            cls.compute_aperture_photometry(reducedfit, aperpix, r_in, r_out)
-
-        # 2. Compute relative polarimetry for each source (uses the computed aperture photometries)
-
-        logger.debug("Computing relative polarimetry.")
-
-        photopolresult_L = list()
-
-        for astrosource in group_sources:
-
-            if astrosource.calibrates.count() > 0:
-                continue
-
-            logger.debug(f"Computing relative polarimetry for {astrosource}.")
-
-            # if any angle is missing for some pair, it uses the equivalent angle of the other pair
-
-            aperphotresults = AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, flux_counts__isnull=False)
-
-            if len(aperphotresults) == 0:
-                logger.error(f"No aperphotresults found for {astrosource}")
-                continue
-
-            if len(aperphotresults) != 32:
-                logger.error(f"There should be 32 aperphotresults for each astrosource in the group, there are {len(aperphotresults)} for {astrosource.name}.")
-                continue
-
-            values = get_column_values(aperphotresults, ['reducedfit__rotangle', 'flux_counts', 'flux_counts_err', 'pairs'])
-
-            angles_L = list(sorted(set(values['reducedfit__rotangle'])))
-
-            if len(angles_L) != 16:
-                logger.warning(f"There should be 16 different angles, there are {len(angles_L)}.")
-
-            fluxD = {}
-            for pair, angle, flux, flux_err in zip(values['pairs'], values['reducedfit__rotangle'], values['flux_counts'], values['flux_counts_err']):
-                if pair not in fluxD:
-                    fluxD[pair] = {}
-                fluxD[pair][angle] = (flux, flux_err)
-
-            # Dipol has the ordinary to the left and extraordinary to the right, IOP4 astrocalibration atm works the other way, swap them here
-
-            F_O = np.array([(fluxD['E'][angle][0]) for angle in angles_L])
-            dF_O = np.array([(fluxD['E'][angle][1]) for angle in angles_L])
-
-            F_E = np.array([(fluxD['O'][angle][0]) for angle in angles_L])
-            dF_E = np.array([(fluxD['O'][angle][1]) for angle in angles_L])
-
-            N = len(angles_L)
-
-            if astrosource.name == "2200+420":
-                F_O = np.roll(F_E, 2)
-                dF_O = np.roll(dF_E, 2)
-
-            F = (F_O - F_E) / (F_O + F_E)
-            dF = 2 / ( F_O + F_E )**2 * np.sqrt(F_E**2 * dF_O**2 + F_O**2 * dF_E**2)
-
-            I = (F_O + F_E)
-            dI = np.sqrt(dF_O**2 + dF_E**2)
-
-            # Compute both the uncorrected and corrected values
-
-            Qr_uncorr = 2/N * sum([F[i] * math.cos(math.pi/2*i) for i in range(N)])
-            dQr_uncorr = 2/N * math.sqrt(sum([dF[i]**2 * math.cos(math.pi/2*i)**2 for i in range(N)]))
-
-            logger.debug(f"{Qr_uncorr=}, {dQr_uncorr=}")
-
-            Ur_uncorr = 2/N * sum([F[i] * math.sin(math.pi/2*i) for i in range(N)])
-            dUr_uncorr = 2/N * math.sqrt(sum([dF[i]**2 * math.sin(math.pi/2*i)**2 for i in range(N)]))
-
-            intrumental_polarization = cls.get_instrumental_polarization(reducedfit=polarimetry_group[0])
-            Q_inst = intrumental_polarization['Q_inst']
-            dQ_inst = intrumental_polarization['dQ_inst']
-            U_inst = intrumental_polarization['U_inst']
-            dU_inst = intrumental_polarization['dU_inst']
-            CPA = intrumental_polarization['CPA']
-            dCPA = intrumental_polarization['dCPA']
-
-            logger.debug(f"{Q_inst=}, {dQ_inst=}")
-            logger.debug(f"{U_inst=}, {dU_inst=}")
-
-            Qr = Qr_uncorr - Q_inst
-            dQr = math.sqrt(dQr_uncorr**2 + dQ_inst**2)
-
-            logger.debug(f"{Qr=}, {dQr=}")
-
-            Ur = Ur_uncorr - U_inst
-            dUr = math.sqrt(dUr_uncorr**2 + dU_inst**2)
-
-            logger.debug(f"{Ur=}, {dUr=}")
-
-            def _get_p_and_chi(Qr, Ur, dQr, dUr):
-                # linear polarization (0 to 1)
-                P = math.sqrt(Qr**2+Ur**2)
-                dP = 1/P * math.sqrt((Qr*dQr)**2 + (Ur*dUr)**2)
-
-                # polarization angle (degrees)
-                chi = 0.5 * math.degrees(math.atan2(Ur, Qr))
-                dchi = 0.5 * math.degrees( 1 / (Qr**2 + Ur**2) * math.sqrt((Qr*dUr)**2 + (Ur*dQr)**2) )
-
-                return P, chi, dP, dchi
-            
-            P_uncorr, chi_uncorr, dP_uncorr, dchi_uncorr = _get_p_and_chi(Qr_uncorr, Ur_uncorr, dQr_uncorr, dUr_uncorr)
-            P, chi, dP, dchi = _get_p_and_chi(Qr, Ur, dQr, dUr)
-            chi = chi + CPA
-            dchi = math.sqrt(dchi**2 + dCPA**2)
-
-            logger.debug(f"{P=}, {chi=}, {dP=}, {dchi=}")
-
-            # Try to compute magnitude too
-
-            fluxes = (F_O + F_E)/2
-            flux_mean = fluxes.mean()
-            flux_err = fluxes.std() / math.sqrt(len(fluxes))
-
-            mag_inst = -2.5 * np.log10(flux_mean)
-            mag_inst_err = math.fabs(2.5 / math.log(10) * flux_err / flux_mean)
-
-            # if the source is a calibrator, compute also the zero point
-
-            if astrosource.is_calibrator:
-                mag_known = getattr(astrosource, f"mag_{band}")
-                mag_known_err = getattr(astrosource, f"mag_{band}_err", None) or 0.0
-
-                if mag_known is None:
-                    logger.warning(f"Calibrator {astrosource} has no magnitude for band {band}.")
-                    mag_zp = np.nan
-                    mag_zp_err = np.nan
-                else:
-                    mag_zp = mag_known - mag_inst
-                    mag_zp_err = math.sqrt(mag_known_err ** 2 + mag_inst_err ** 2)
-            else:
-                mag_zp = None
-                mag_zp_err = None
-
-            # save the results
-                    
-            result = PhotoPolResult.create(
-                reducedfits=polarimetry_group, 
-                astrosource=astrosource, 
-                reduction=REDUCTIONMETHODS.RELPOL,
-                mag_inst=mag_inst, mag_inst_err=mag_inst_err, 
-                mag_zp=mag_zp, mag_zp_err=mag_zp_err,
-                flux_counts=flux_mean,
-                p=P, p_err=dP, chi=chi, chi_err=dchi,
-                _q_nocorr=Qr_uncorr, _u_nocorr=Ur_uncorr, _p_nocorr=P_uncorr, _chi_nocorr=chi_uncorr,
-                aperpix=aperpix,
-                aperas=aperpix*polarimetry_group[0].pixscale.to(u.arcsec/u.pix).value,
-                fwhm = mean_fwhm*polarimetry_group[0].pixscale.to(u.arcsec/u.pix).value,
-            )
-
-            result.aperphotresults.set(aperphotresults, clear=True)
-                        
-            photopolresult_L.append(result)
-
-        if not photopolresult_L:
-            logger.error("No results could be computed for this group.")
-            return
-        
-        # 3. Compute the calibrated magnitudes for non-calibrators in the group using the averaged zero point
-
-        for result in photopolresult_L:
-
-            if result.astrosource.is_calibrator:
-                continue
-
-            logger.debug(f"calibrating {result}")
-
-            calibrate_photopolresult(result, photopolresult_L)
-
-        # 4. Save results
-
-        for result in photopolresult_L:
-            result.save()
+            instr_pol_dict = {
+                'q_inst' :  -0.0138 / 100,
+                'dq_inst':   0.005 / 100,
+                'u_inst' :  -4.0806 / 100,
+                'du_inst':   0.005 / 100,
+                'CPA'    :  45.1,
+                'dCPA'   :  0.05,
+            }
+
+        return instr_pol_dict

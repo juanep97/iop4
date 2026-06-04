@@ -22,11 +22,14 @@ from astropy.time import Time
 
 # iop4 imports
 
-from iop4lib.enums import *
+from iop4lib.enums import (
+    IMGTYPES,
+    OBSMODES,
+    TELESCOPES,
+)
 from iop4lib.telescopes import Telescope
 from iop4lib.instruments import Instrument
 from .fields import FlagChoices, FlagBitField
-from iop4lib.utils import  get_mem_parent_from_child, get_total_mem_from_child, get_mem_current, get_mem_children
 from iop4lib.utils.parallel import epoch_bulkreduce_multiprocesing
 
 # logging
@@ -34,10 +37,17 @@ from iop4lib.utils.parallel import epoch_bulkreduce_multiprocesing
 import logging
 logger = logging.getLogger(__name__)
 
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from iop4lib.db import RawFit, ReducedFit, Epoch
-    
+from iop4lib.typing import *
+
+# BULK REDUCTION ONE BY ONE
+
+def epoch_bulkreduce_onebyone(reduced_L: Sequence['ReducedFit'], epoch: 'Epoch' = None) -> None:
+    """ Reduces a list of ReducedFit instances one by one."""
+    logger.info(f"{epoch}: building {len(reduced_L)} reduced files one by one. This may take a while.")
+    for i, redf in enumerate(reduced_L):
+        logger.info(f"{epoch}: building reduced file {i+1}/{len(reduced_L)}: {redf}.")
+        redf.build_file()
+
 class Epoch(models.Model):
     """A class representing an epoch.
     
@@ -120,11 +130,8 @@ class Epoch(models.Model):
     @property
     def jyear(self):
         """Returns the jyear of the epoch at noon (before the night)."""
-
-        from astropy.time import Time
-        from datetime import datetime, date, time
-
-        return Time(datetime.combine(self.night, time(hour=12))).jyear
+        t = datetime.datetime.combine(self.night, datetime.time(hour=12))
+        return Time(t).jyear
 
     # helper properties that return counts to files of this epoch.
 
@@ -525,7 +532,7 @@ class Epoch(models.Model):
 
 
 
-    def make_polarimetry_groups(self, redf_qs=None):
+    def make_polarimetry_groups(self, redf_qs=None) -> tuple[list['PolarimetryGroup'], list[Any]] : 
         """
         To reduce the polarimetry data, we need to group the reduced fits corresponding to rotated polarization angles.
 
@@ -539,6 +546,7 @@ class Epoch(models.Model):
         logger.debug(f"{self}: grouping observations for polarimetry...")
 
         from .reducedfit import ReducedFit
+        from iop4lib.utils.polarization import PolarimetryGroup
 
         if redf_qs is None:
             redf_qs = ReducedFit.objects.filter(epoch=self, obsmode=OBSMODES.POLARIMETRY, flags__has=ReducedFit.FLAGS.BUILT_REDUCED).order_by('juliandate', 'filename').all()
@@ -619,6 +627,9 @@ class Epoch(models.Model):
 
         # return the groups and their keys:
 
+        # but as polarimetry groups (custom repr)
+        split_groups = [PolarimetryGroup(grp) for grp in split_groups]
+
         return split_groups, split_groups_keys
 
 
@@ -654,25 +665,3 @@ class Epoch(models.Model):
                     logger.error(f"{self}: error computing relative polarimetry for group n {i} {keys}: {e}")
                 finally:
                     logger.info(f"{self}: computed relative polarimetry for group n {i} {keys}.")
-
-
-
-
-
-
-
-# BULK REDUCTION ONE BY ONE
-
-def epoch_bulkreduce_onebyone(reduced_L: Sequence['ReducedFit'], epoch: Epoch = None) -> None:
-    """ Reduces a list of ReducedFit instances one by one."""
-    logger.info(f"{epoch}: building {len(reduced_L)} reduced files one by one. This may take a while.")
-    for i, redf in enumerate(reduced_L):
-        logger.info(f"{epoch}: building reduced file {i+1}/{len(reduced_L)}: {redf}.")
-        redf.build_file()
-
-
-
-
-
-
-

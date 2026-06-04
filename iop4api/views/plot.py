@@ -11,6 +11,7 @@ from django.contrib.auth.decorators import permission_required
 # iop4lib imports
 from iop4lib.db import PhotoPolResult, AstroSource
 from iop4lib.utils import get_column_values
+from iop4lib.instruments import Instrument
 
 # other imports
 import os
@@ -63,6 +64,7 @@ def plot(request):
     from bokeh.transform import factor_cmap, factor_mark, transform
     from bokeh.events import Event, PanStart, PanEnd, Press, PressUp, RangesUpdate
     from bokeh.models.widgets import HTMLTemplateFormatter, NumberFormatter
+    from bokeh.models import Span
 
     lod_threshold = 2000
     lod_factor = 10
@@ -184,10 +186,8 @@ def plot(request):
         x2 = np.array([])
         y1 = np.array([])
 
-    # Instruments and colors (auto)
-    instruments_L = sorted(list(set(vals['instrument'])), reverse=True)
-
-    #instrument_color_L = [bokeh.palettes.TolRainbow[max(3,len(instruments_L))][i % len(instruments_L)] for i in range(len(instruments_L))]
+    # Instruments and colors
+    instruments_L = sorted([x.name for x in Instrument.get_known()])
     instrument_color_L = [bokeh.palettes.Category10[max(3,len(instruments_L))][i % len(instruments_L)] for i in range(len(instruments_L))]
 
     rgb_L = [bokeh.colors.RGB.from_hex_string(hexcolor) for hexcolor in instrument_color_L]
@@ -407,8 +407,8 @@ def plot(request):
                                 'x':"x1", 
                                 'y':"y1", 
                                 "y_label": "mag" if not use_hostcorrected else "mag (corr)",
-                                "err": ["y1_min", "y1_max"],                                  
-                                # "marker": "circle", # better done
+                                "err": ["y1_min", "y1_max"],     
+                                "yref": getattr(target_src, f'mag_{band}', None),                        
                                 "marker": markermap,
                                 "size": 5,
                                 "color": index_cmap_selected,
@@ -423,7 +423,7 @@ def plot(request):
                                 'y':"y2", 
                                 "y_label": "p [%]" if not use_hostcorrected else "p (corr) [%]",
                                 "err": ["y2_min", "y2_max"],
-                                # "marker":"circle",
+                                "yref": getattr(target_src, f'p', None),                       
                                 "marker": markermap,
                                 "size": 5,
                                 "color": index_cmap_selected,
@@ -437,8 +437,8 @@ def plot(request):
                                 'x':"x1", 
                                 'y':"y3", 
                                 "y_label": "chi [º]",
-                                "err": ["y3_min", "y3_max"],                                  
-                                # "marker":"circle",
+                                "err": ["y3_min", "y3_max"],                               
+                                "yref": getattr(target_src, f'chi', None),                             
                                 "marker": markermap,
                                 "size": 5,
                                 "color": index_cmap_selected,
@@ -465,6 +465,17 @@ def plot(request):
             segs_nonselected = Segment(x0=axDict['x'], y0=axDict["err"][0], x1=axDict['x'], y1=axDict["err"][1], line_color=axDict["nonselected_color"], line_alpha=axDict["nonselected_alpha"])
             errorbars_renderer = p.add_glyph(source, segs_initial, selection_glyph=segs_initial, nonselection_glyph=segs_nonselected, view=view, name=f"{axLabel}_errorbars_renderer")
             errorbars_renderer.visible = True
+
+
+        if (yref := axDict.get('yref')):
+            hline = Span(
+                location=yref,
+                dimension="width",
+                line_color="red",
+                line_width=1,
+                line_dash="dashed",
+            )
+            p.add_layout(hline)
 
         if axLabel == "ax1":
             p.y_range.flipped = True

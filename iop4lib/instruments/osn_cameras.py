@@ -11,12 +11,21 @@ from astropy.coordinates import Angle, SkyCoord
 import astrometry
 import numpy as np
 import math
+import itertools
 
 # iop4lib imports
-from iop4lib.enums import *
+from iop4lib.enums import (
+    IMGTYPES,
+    BANDS,
+    OBSMODES,
+    REDUCTIONMETHODS,
+)
 from .instrument import Instrument
 from iop4lib.telescopes import OSNT090, OSNT150
-from iop4lib.utils import filter_zero_points, calibrate_photopolresult
+from iop4lib.utils.photometry import (
+    calibrate_photopolresult,
+    NoCalibratorsFound,
+)
 
 # logging
 import logging
@@ -24,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 import typing
 if typing.TYPE_CHECKING:
-    from iop4lib.db.reducedfit import ReducedFit, RawFit
+    from iop4lib.db.reducedfit import ReducedFit
 
 class OSNCCDCamera(Instrument, metaclass=ABCMeta):
     r""" Abstract class for OSN CCD cameras. """
@@ -230,7 +239,7 @@ class OSNCCDCamera(Instrument, metaclass=ABCMeta):
         Instrumental polarization is corrected. Currently values are hardcoded in qoff, uoff, dqoff, duoff, Phi, dPhi (see code),
         but the values without any correction are stored in the DB so the correction can be automatically obtained in the future.
         """
-                
+
         from iop4lib.db.aperphotresult import AperPhotResult
         from iop4lib.db.photopolresult import PhotoPolResult
 
@@ -289,24 +298,57 @@ class OSNCCDCamera(Instrument, metaclass=ABCMeta):
 
         # 1. Compute all aperture photometries
 
-        aperpix, r_in, r_out, fit_res_dict = cls.estimate_common_apertures(polarimetry_group, reductionmethod=REDUCTIONMETHODS.RELPHOT)
-        mean_fwhm = fit_res_dict["mean_fwhm"]
-        
-        logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group with target {aperpix:.1f}.")
+        common_apertures = cls.estimate_common_apertures(polarimetry_group, reductionmethod=REDUCTIONMETHODS.RELPHOT)
 
-        for reducedfit in polarimetry_group:
-            cls.compute_aperture_photometry(reducedfit, aperpix, r_in, r_out)
+        r_ap = common_apertures.r_ap
+        r_in = common_apertures.r_in
+        r_out = common_apertures.r_out
+
+        ap_fwhm = common_apertures.ap_fwhm
+
+        fwhm_median = common_apertures.fwhm_stats.median
+
+        with u.set_enabled_equivalencies(polarimetry_group[0].pixscale_equiv):
+            aperpix = r_ap.to_value('pix')
+            r_in_px = r_in.to_value('pix')
+            r_out_px = r_out.to_value('pix')
+            aperas = r_ap.to_value('arcsec')
+            median_fwhm_as = fwhm_median.to_value('arcsec')           
+        
+        logger.debug(f"Computing aperture photometries for the {len(polarimetry_group)} reducedfits in the group (ap_fwhm = {ap_fwhm:.1f}, r_ap = {r_ap:.1f}, r_in = {r_in:.1f}, r_out = {r_out:.1f}).")
+
+        aperphotresults = list(itertools.chain.from_iterable([
+            cls.compute_aperture_photometry(redf, common_apertures)
+            for redf in polarimetry_group
+        ]))
+
+        aperphotresult_pks = [aper.pk for aper in aperphotresults]
 
         # 2. Compute relative polarimetry for each source (uses the computed aperture photometries)
 
         logger.debug("Computing relative polarimetry.")
 
-        photopolresult_L = list()
+        photopolresults = list()
 
         for astrosource in group_sources:
 
-            qs =  AperPhotResult.objects.filter(reducedfit__in=polarimetry_group, astrosource=astrosource, aperpix=aperpix, pairs="O")
-            
+            logger.debug(f"Computing relative polarimetry for {astrosource}.")
+
+            qs = AperPhotResult.objects.filter(
+                pk__in=aperphotresult_pks,
+            ).filter(
+                reducedfit__in = polarimetry_group,
+                astrosource = astrosource,
+                aperpix = aperpix,
+                r_in = r_in_px,
+                r_out = r_out_px,
+                flux_counts__isnull = False,
+            )
+
+            if len(qs) == 0:
+                logger.error(f"No aperphotresults found for {astrosource}")
+                continue
+                        
             flux_0 = qs.get(reducedfit__rotangle=0.0).flux_counts
             flux_0_err = qs.get(reducedfit__rotangle=0.0).flux_counts_err
 
@@ -328,7 +370,7 @@ class OSNCCDCamera(Instrument, metaclass=ABCMeta):
             qraw = (flux_0 - flux_90) / (flux_0 + flux_90)
             uraw = (flux_45 - flux_n45) / (flux_45 + flux_n45)
             
-            #Applying error propagation...
+            # apply error propagation...
             
             dqraw = qraw * math.sqrt(((flux_0_err**2+flux_90_err**2)/(flux_0+flux_90)**2)+(((flux_0_err**2+flux_90_err**2))/(flux_0-flux_90)**2))
             duraw = uraw * math.sqrt(((flux_45_err**2+flux_n45_err**2)/(flux_45+flux_n45)**2)+(((flux_45_err**2+flux_n45_err**2))/(flux_45-flux_n45)**2))
@@ -388,43 +430,65 @@ class OSNCCDCamera(Instrument, metaclass=ABCMeta):
                 mag_zp = None
                 mag_zp_err = None
 
+            # get median fwhm of the source
+            _fwhms_as = list()
+            for _redf in polarimetry_group:
+                for (_src, _pair), (_c, _fwhm) in common_apertures.centroids_and_fwhms[_redf].centroids_and_fwhms.items():
+                    if _src == astrosource:
+                        _fwhms_as.append(_fwhm.to_value('arcsec', equivalencies=_redf.pixscale_equiv))
+            fwhm_source_as = np.nanmedian(_fwhms_as)
+
             # save the results
-                    
+
             result = PhotoPolResult.create(
                 reducedfits=polarimetry_group, 
                 astrosource=astrosource, 
-                reduction=REDUCTIONMETHODS.RELPOL, 
-                mag_inst=mag_inst, mag_inst_err=mag_inst_err, 
-                mag_zp=mag_zp, mag_zp_err=mag_zp_err,
-                flux_counts=flux_mean, 
-                p=P, p_err=dP, 
-                chi=Theta, chi_err=dTheta,
-                aperpix=aperpix,
-                aperas=aperpix*polarimetry_group[0].pixscale.to(u.arcsec/u.pix).value,
-                fwhm=mean_fwhm*polarimetry_group[0].pixscale.to(u.arcsec/u.pix).value,
-                _x_px=_x_px, _y_px=_y_px, 
-                _q_nocorr=qraw, _u_nocorr=uraw, 
-                _p_nocorr=_p_nocorr, _chi_nocorr=_Theta_nocorr,
+                reduction=REDUCTIONMETHODS.RELPOL,
+                # polarization
+                p = P,
+                p_err = dP,
+                chi = Theta,
+                chi_err = dTheta,
+                # photometry
+                mag_inst = mag_inst,
+                mag_inst_err = mag_inst_err, 
+                mag_zp = mag_zp,
+                mag_zp_err = mag_zp_err,
+                # other info
+                flux_counts = flux_mean,
+                _q_nocorr = qraw,
+                _u_nocorr = uraw,
+                _p_nocorr = _p_nocorr,
+                _chi_nocorr = _Theta_nocorr,
+                # other info
+                aperpix = aperpix,
+                aperas = aperas,
+                fwhm = median_fwhm_as,
+                fwhm_source = fwhm_source_as,
             )
             
             result.aperphotresults.set(qs, clear=True)
 
-            photopolresult_L.append(result)
+            photopolresults.append(result)
 
 
         # 3. Compute the calibrated magnitudes for non-calibrators in the group using the averaged zero point
 
-        for result in photopolresult_L:
+        for result in photopolresults:
 
             if result.astrosource.is_calibrator:
                 continue
 
-            logger.debug(f"calibrating {result}")
-
-            calibrate_photopolresult(result, photopolresult_L)
+            try:
+                logger.debug(f"calibrating {result}")
+                calibrate_photopolresult(result, photopolresults)
+            except NoCalibratorsFound as e:
+                logger.warning(f"no calibrators for {result}")
+            except Exception as e:
+                logger.error(f"I could not calibrate {result}: {e}.")
 
         # 5. Save results
-        for result in photopolresult_L:
+        for result in photopolresults:
             result.save()
 
 

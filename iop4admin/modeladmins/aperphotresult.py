@@ -3,16 +3,15 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.urls import path, reverse 
-from django.http import HttpResponse, HttpResponseRedirect, HttpResponseNotFound
-from django.shortcuts import render
+from django.http import HttpResponse, HttpResponseNotFound
+
+# iop4api imports
+from iop4api.models import (
+    AperPhotResult,
+    ReducedFit,
+)
 
 # other imports
-from iop4api.filters import *
-from iop4api.models import *
-from iop4api import views
-
-# other imports
-from iop4lib.enums import *
 from astropy.time import Time
 
 class AdminAperPhotResult(admin.ModelAdmin):
@@ -21,23 +20,28 @@ class AdminAperPhotResult(admin.ModelAdmin):
     readonly_fields = [field.name for field in AperPhotResult._meta.fields]
     search_fields = ['id', 'reducedfit__instrument', 'astrosource__name', 'astrosource__srctype', 'reducedfit__id']
     list_filter = ['reducedfit__instrument', 'astrosource__srctype', 'reducedfit__epoch__telescope', 'reducedfit__obsmode']
-    ordering = ['pairs', 'id']
+    ordering = ['pairs', '-id']
 
     def get_urls(self):
         urls = super().get_urls()
         my_urls = [
             path('preview/<int:pk>', self.admin_site.admin_view(self.view_preview),  name=f"iop4api_{self.model._meta.model_name}_preview"),
+            path('img_all/<int:pk>', self.admin_site.admin_view(self.view_img_all),  name=f"iop4api_{self.model._meta.model_name}_img_all"),
         ]
         return my_urls + urls
     
     def view_preview(self, request, pk):
-        
-        if ((fit := self.model.objects.filter(id=pk).first()) is None):
+        if ((obj := self.model.objects.filter(id=pk).first()) is None):
             return HttpResponseNotFound()
-
-        imgbytes = fit.get_img()
+        imgbytes = obj.get_img()
         return HttpResponse(imgbytes, content_type="image/png")
     
+    def view_img_all(self, request, pk):
+        if ((obj := self.model.objects.filter(id=pk).first()) is None):
+            return HttpResponseNotFound()
+        imgbytes = obj.get_img_all()
+        return HttpResponse(imgbytes, content_type="image/png")
+        
     @admin.display(description="TELESCOPE")
     def get_telescope(self, obj):
         return obj.reducedfit.epoch.telescope
@@ -72,25 +76,25 @@ class AdminAperPhotResult(admin.ModelAdmin):
     def get_rotangle(self, obj):
         return obj.reducedfit.rotangle
     
-    @admin.display(description="fwhm")
+    @admin.display(description="fwhm [as]")
     def get_fwhm(self, obj):
         if obj.fwhm is None:
             return "-"
         return f"{obj.fwhm:.1f}"
     
-    @admin.display(description="aperpix")
+    @admin.display(description="r_ap [px]")
     def get_aperpix(self, obj):
         if obj.aperpix is None:
             return "-"
         return f"{obj.aperpix:.1f}"
     
-    @admin.display(description="r_in")
+    @admin.display(description="r_in [px]")
     def get_r_in(self, obj):
         if obj.r_in is None:
             return "-"
         return f"{obj.r_in:.1f}"
     
-    @admin.display(description="r_out")
+    @admin.display(description="r_out [px]")
     def get_r_out(self, obj):
         if obj.r_out is None:
             return "-"
@@ -127,4 +131,5 @@ class AdminAperPhotResult(admin.ModelAdmin):
     @admin.display(description="img")
     def get_image_preview(self, obj, allow_tags=True):
         url_img_preview = reverse(f"iop4admin:iop4api_{self.model._meta.model_name}_preview", args=[obj.id])
-        return format_html(rf"<img src='{url_img_preview}' width='64' height='64' />")
+        url_img_all = reverse(f"iop4admin:iop4api_{self.model._meta.model_name}_img_all", args=[obj.id])
+        return format_html(rf"<a href='{url_img_all}' target='_blank'><img src='{url_img_preview}' width='64' height='64'/></a>")

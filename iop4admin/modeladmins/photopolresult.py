@@ -6,22 +6,43 @@ from django.urls import path, reverse
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseNotFound
 from django.shortcuts import render
 
-from iop4api.filters import *
-from iop4api.models import *
+# iop4lib imports
+from iop4api.models import (
+    PhotoPolResult,
+    AperPhotResult,
+    ReducedFit,
+)
+
+from iop4lib.enums import (
+    REDUCTIONMETHODS,
+)
 
 # other imports
-from iop4lib.enums import *
 from astropy.time import Time
 
 class AdminPhotoPolResult(admin.ModelAdmin):
     model = PhotoPolResult
-    list_display = ['id', 'get_telescope', 'get_juliandate', 'get_datetime', 'get_src_name', 'get_src_type', 'get_reducedfits', 'obsmode', 'band', 'exptime', 'get_mag', 'get_mag_err', 'get_p', 'get_p_err', 'get_chi', 'get_chi_err', 'get_aperpix', 'get_aperas', 'get_flags', 'get_aperphots', 'modified']
+    list_display = ['id', 'get_telescope', 'instrument', 'get_juliandate', 'get_datetime', 'get_src_name', 'get_src_type', 'get_reducedfits', 'obsmode', 'band', 'exptime', 'get_mag', 'get_mag_err', 'get_p', 'get_p_err', 'get_chi', 'get_chi_err', 'get_aperpix', 'get_aperas', 'get_flags', 'get_aperphots', 'modified', 'get_details']
     readonly_fields = [field.name for field in PhotoPolResult._meta.fields]
     search_fields = ['id', 'astrosource__name', 'astrosource__srctype', 'epoch__night']
     ordering = ['-juliandate']
-    list_filter = ['astrosource__srctype', 'epoch__telescope', 'obsmode']
+    list_filter = ['astrosource__srctype', 'epoch__telescope', 'obsmode', 'instrument']
 
+    def get_urls(self):
+        urls = super().get_urls()
+        my_urls = [
+            path('img_polarimetry/<int:pk>', self.admin_site.admin_view(self.view_img_polarimetry),  name=f"iop4api_{self.model._meta.model_name}_img_polarimetry"),
+        ]
+        return my_urls + urls
+    
+    def view_img_polarimetry(self, request, pk):
+        if ((obj := self.model.objects.filter(id=pk).first()) is None):
+            return HttpResponseNotFound()
 
+        all_models = True if request.GET.get("all_models") == "true" else False
+        imgbytes = obj.get_img_polarimetry(all_models=all_models)
+        
+        return HttpResponse(imgbytes, content_type="image/png")
     
     @admin.display(description="TELESCOPE")
     def get_telescope(self, obj):
@@ -96,3 +117,11 @@ class AdminPhotoPolResult(admin.ModelAdmin):
         a_href = reverse('iop4admin:%s_%s_changelist' % (AperPhotResult._meta.app_label, AperPhotResult._meta.model_name)) + "?id__in=%s" % ",".join(ids_str_L)
         a_text = ", ".join(ids_str_L)
         return mark_safe(f'<a href="{a_href}">{a_text}</a>')
+
+    @admin.display(description="details")
+    def get_details(self, obj, allow_tags=True):
+        if obj.reduction == REDUCTIONMETHODS.RELPOL:
+            url_img_polarimetry = reverse(f"iop4admin:iop4api_{self.model._meta.model_name}_img_polarimetry", args=[obj.id]) +"?all_models=false"
+            return format_html(rf"<a href='{url_img_polarimetry}' target='_blank'>polarimetry</a>")
+        else:
+            return "-"

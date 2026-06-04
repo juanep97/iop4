@@ -24,6 +24,8 @@ from .astrosource import AstroSource
 from .photopolresult import PhotoPolResult
 from .aperphotresult import AperPhotResult
 
+from iop4lib.typing import *
+
 # logging
 import logging
 logger = logging.getLogger(__name__)
@@ -210,7 +212,11 @@ class ReducedFit(RawFit):
     @property
     def hint_disp_sign_mean(self):
         return self.rawfit.hint_disp_sign_mean
-
+    
+    @property
+    def hint_disp_std(self):
+        return self.rawfit.hint_disp_std
+    
     def get_astrometry_position_hint(self, n_field_width=1.5, hintsep=None):
         return Instrument.by_name(self.instrument).get_astrometry_position_hint(self.rawfit,  n_field_width=n_field_width, hintsep=hintsep)
     
@@ -226,7 +232,7 @@ class ReducedFit(RawFit):
         return Instrument.by_name(self.instrument).compute_relative_photometry(self, *args, **kwargs)
     
     @classmethod
-    def compute_relative_polarimetry(cls, polarimetry_group, *args, **kwargs):
+    def compute_relative_polarimetry(cls, polarimetry_group: 'PolarimetryGroup', *args, **kwargs):
         """ Delegated to the instrument. """
         
         if not all([redf.telescope == polarimetry_group[0].telescope for redf in polarimetry_group]):

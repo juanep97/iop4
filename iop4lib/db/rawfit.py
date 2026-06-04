@@ -149,6 +149,7 @@ class RawFit(FitFileModel):
                 f" - filename: {self.filename}<br>\n"
                 f" - instrument: {self.instrument}<br>\n"
                 f" - imgtype: {self.imgtype}<br>\n"
+                f" - imgbinning: {self.imgbinning}<br>\n"
                 f" - size: {self.imgsize}<br>\n"
                 f" - obsmode: {self.obsmode}<br>\n"
                 f" - band: {self.band}<br>\n"
@@ -347,8 +348,19 @@ class RawFit(FitFileModel):
     
     @property
     def hint_disp_sign_mean(self):
-        """ Returns the expected signed displacement for pairs in this fit. """
+        """Returns the expected signed displacement for pairs in this fit.
+        
+        The result is in pixels and is adjusted for binning.
+        """
         return self.instrument_cls.get_binning_independent_px(self, self.instrument_cls.disp_sign_mean)
+    
+    @property
+    def hint_disp_std(self):
+        """Returns the expected signed displacement for pairs in this fit.
+        
+        The result is in pixels and is adjusted for binning.
+        """
+        return self.instrument_cls.get_binning_independent_px(self, self.instrument_cls.disp_sign_std)
     
     # Class methods    
 
