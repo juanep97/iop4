@@ -94,6 +94,7 @@ def _do_fit(func, xdata, ydata, sigma, p0, bounds=None):
         xdata = xdata,
         ydata = ydata,
         sigma = sigma,
+        absolute_sigma = False,
         p0 = p0,
         bounds = bounds,
         nan_policy = 'omit',
@@ -500,6 +501,8 @@ def compute_stokes_HWP_analytical(
     u = 2/N * sum([F[i] * math.sin(math.pi/2*i) for i in range(N)])
     du = 2/N * math.sqrt(sum([dF[i]**2 * math.sin(math.pi/2*i)**2 for i in range(N)]))
     
+    # the weighted mean would be better, but for consistency with this method's 
+    # polarimetry, since it does not weight:
     sI = np.mean(I)
     dsI = np.std(I)
 
@@ -781,7 +784,27 @@ def compute_stokes_HWP_fit_rel(
     bounds_hi = (+1, +1)
     bounds = (bounds_lo, bounds_hi)
 
+    # # a) no sigma clipping
+    
+    # idx = np.full(len(xdata), True)
+    # popt, pcov, infodict, mesg, ier = sp.optimize.curve_fit(
+    #     func,
+    #     xdata = xdata,
+    #     ydata = ydata,
+    #     sigma = sigma,
+    #     absolute_sigma = False,
+    #     p0 = p0,
+    #     bounds = bounds,
+    #     nan_policy = 'omit',
+    #     full_output = True,
+    # )
+
+    # b) with sigma clip
+
     popt, pcov, idx = fit_with_sigma_clip(func, xdata, ydata, sigma, p0, bounds)
+
+    # ---
+
     perr = np.sqrt(np.diag(pcov))
 
     pnames = ["q", "u"]

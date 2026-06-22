@@ -455,7 +455,7 @@ class Instrument(metaclass=ABCMeta):
             logger.warning(f"{reducedfit}: no masterdark found, assuming dark current = 0, is this a CCD camera and it's cold?")
             md_dark = 0
 
-        data_new = (rf_data - mb_data - md_dark*reducedfit.rawfit.exptime) / (mf_data)
+        data_new = (rf_data - mb_data - md_dark*reducedfit.rawfit.exptime) / mf_data
 
         header_new = fits.Header()
 
@@ -824,10 +824,12 @@ class Instrument(metaclass=ABCMeta):
         # ap_fwhm = fwhm_median
         # ap_fwhm = targets_fwhm_median
 
-        # Better: take the max, bc sometimes our targets has a slightly higher 
-        # fwhm, and we prefer to overestimate than underestimate (flux might be
-        # left out otherwise). However, it might be NaN.
-        ap_fwhm = max(fwhm_median, targets_fwhm_median) if not np.isnan(targets_fwhm_median) else fwhm_median
+        # # Or we might take the max, since sometimes our target has a slightly
+        # # higher fwhm, and we might prefer to overestimate than underestimate
+        # # and ensure no flux is left out.
+        # ap_fwhm = max(fwhm_median, targets_fwhm_median) if not np.isnan(targets_fwhm_median) else fwhm_median
+
+        ap_fwhm = fwhm_median
     
         with u.set_enabled_equivalencies(reducedfits[0].pixscale_equiv):
             
@@ -844,9 +846,7 @@ class Instrument(metaclass=ABCMeta):
             #         logger.warning("aperpix would be larger than 0.8*disp, it will be clipped")
             #         ap_sigma = 0.8*disp/3
 
-        # r_ap, r_in, r_out = 3.0*ap_sigma, 5.0*ap_sigma, 7.0*ap_sigma
-        # TODO: better?
-        # r_ap, r_in, r_out = 5.0*ap_sigma, 7.0*ap_sigma, 12.0*ap_sigma
+        # TODO: best choice?
         r_ap, r_in, r_out = 3.0*ap_sigma, 5.0*ap_sigma, 9.0*ap_sigma
 
         return CommonAperturesTuple(r_ap, r_in, r_out, ap_fwhm, fwhm_stats, centroids_and_fwhms)
@@ -1199,13 +1199,15 @@ class InstrumentHWP(ABC, Instrument):
 
         rot_angles_available = set([redf.rotangle for redf in polarimetry_group])
 
-        if not rot_angles_available.issubset(cls.rot_angles_required):
-            logger.warning(f"Rotation angles missing: {cls.rot_angles_required - rot_angles_available}")
+        if not cls.rot_angles_expected.issubset(rot_angles_available):
+            logger.warning(f"Rotation angles missing: {cls.rot_angles_expected - rot_angles_available}")
 
-        # # if we want to disallow missing rotation angles
+        if not rot_angles_available.issubset(cls.rot_angles_expected):
+            logger.warning(f"Rotation angles not expected: {rot_angles_available - cls.rot_angles_expected}")
 
-        # if len(polarimetry_group) != len(cls.rot_angles_required):
-        #     raise Exception(f"Can not compute relative polarimetry for a group with {len(polarimetry_group)} reducedfits, it should be {len(cls.rot_angles_required)}.")
+        # disallow if rotator angles below a certain minimum
+        if len(polarimetry_group) < cls.min_rot_angles_required:
+            raise Exception(f"Will not compute relative polarimetry for a group with {len(polarimetry_group)} reducedfits, it should be at least {cls.min_rot_angles_required}.")
 
         # 1. Compute all aperture photometries
 
@@ -1265,18 +1267,29 @@ class InstrumentHWP(ABC, Instrument):
                     logger.error(f"No aperphotresults found for {astrosource}")
                     continue
 
-                # # if we want to disallow missing images:
-                # if len(aperphotresults) != 2*len(cls.rot_angles_required):
-                #     logger.error(f"There should be {2*len(cls.rot_angles_required)} aperphotresults for each astrosource in the group, there are {len(aperphotresults)} for {astrosource.name}.")
+                # # if we want to disallow any missing expected image pair:
+                # if len(aperphotresults) < 2*len(cls.rot_angles_expected):
+                #     logger.error(f"There should be {2*len(cls.rot_angles_expected)} aperphotresults for each astrosource in the group, there are {len(aperphotresults)} for {astrosource.name}.")
                 #     continue
+
+                # but at minimum:
+                if len(aperphotresults) < 2*cls.min_rot_angles_required:
+                    logger.error(f"There should be at least {2*cls.min_rot_angles_required} aperphotresults for each astrosource in the group, there are {len(aperphotresults)} for {astrosource.name}.")
+                    continue
 
                 values = get_column_values(aperphotresults, ['reducedfit__rotangle', 'flux_counts', 'flux_counts_err', 'pairs'])
 
                 angles_L = list(sorted(set(values['reducedfit__rotangle'])))
 
-                # # if we want to disallow missing rotator angles:
-                # if len(angles_L) != len(cls.rot_angles_required):
-                #     logger.warning(f"There should be {len(cls.rot_angles_required)} different angles, there are {len(angles_L)}.")
+                # # if we want to disallow any missing rotator angles:
+                # if len(angles_L) < len(cls.rot_angles_expected):
+                #     logger.error(f"There should be {len(cls.rot_angles_expected)} different angles, there are {len(angles_L)}.")
+                #     continue
+
+                # but at minimum (too few angles, esp. < 4, results are quite bad, so skip)
+                if len(angles_L) < cls.min_rot_angles_required:
+                    logger.error(f"Less than {cls.min_rot_angles_required} rotator angles present, skipping")
+                    continue
 
                 fluxes = dict()
                 flux_errors = dict()

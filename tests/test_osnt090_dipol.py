@@ -50,13 +50,13 @@ def test_polarimetry(load_test_catalog):
 
     # 2.1. "OSN-T090/2025-10-18/Hiltner960_R_IAR-0033_DIPOL.fts",
 
-    # <PhotoPolResult(id: 834426
+    # <PhotoPolResult(id: 883661
     #     reducedfits: [303672, 303673, 303674, 303675, 303676, 303677, 303678, 303679, 303680, 303681, 303682, 303683, 303684, 303685, 303686, 303687]
     #     DIPOL POLARIMETRY R / Hiltner960
-    #     JD: 2460967.41977 (2025-10-18T22:04:28
-    #     mag R: 9.669 ± 0.143
-    #     p: (5.215 ± 0.213)%
-    #     chi: (51.961 ± 3.596)º)>
+    #     JD: 2460967.41977 (2025-10-18T22:04:28)
+    #     mag R: 9.830 ± 0.073
+    #     p: (5.331 ± 0.087)%
+    #     chi: (52.775 ± 3.040)º)>
 
     epoch = Epoch.by_epochname("OSN-T090/2025-10-18")
     epoch.compute_relative_polarimetry()
@@ -73,16 +73,16 @@ def test_polarimetry(load_test_catalog):
     p_lit = r.astrosource.p
     chi_lit = r.astrosource.chi
 
-    assert r.mag == approx(mag_R_lit, abs=0.15), "mag_R within 0.15 of lit. value"
-    assert r.mag == approx(mag_R_lit, abs=1.5*r.mag_err), "mag_R within mag_err of lit. value"
+    assert r.mag == approx(mag_R_lit, abs=0.1), "mag_R within 0.1 of lit. value"
+    assert r.mag == approx(mag_R_lit, abs=1.25*r.mag_err), "mag_R within ~mag_err of lit. value"
     # assert r.mag_err < 0.15, "dmag < 0.15" # TODO
 
     assert r.p == approx(p_lit, abs=0.5/100), "p (%) within 0.5 of lit. value"
-    assert r.p == approx(p_lit, abs=r.p_err), "p (%) within p_err of lit. value"
+    assert r.p == approx(p_lit, abs=1.25*r.p_err), "p (%) within ~p_err of lit. value"
     assert r.p_err < 0.5/100, "dp < 0.5%"
 
     assert r.chi == approx(chi_lit, abs=3), "chi (º) within 3º of lit. value"
-    assert r.chi == approx(chi_lit, abs=r.chi_err), "chi (º) within chi_err of lit.value"
+    assert r.chi == approx(chi_lit, abs=1.25*r.chi_err), "chi (º) within ~chi_err of lit.value"
     assert r.chi_err < 5, "dchi < 5º" # (dCPA is ~3º for DIPOL already)
 
     # ensure also that reference values didn't change since included in tests

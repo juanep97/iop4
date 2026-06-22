@@ -32,6 +32,7 @@ class AdminPhotoPolResult(admin.ModelAdmin):
         urls = super().get_urls()
         my_urls = [
             path('img_polarimetry/<int:pk>', self.admin_site.admin_view(self.view_img_polarimetry),  name=f"iop4api_{self.model._meta.model_name}_img_polarimetry"),
+            path('img_photometry/<int:pk>', self.admin_site.admin_view(self.view_img_photometry),  name=f"iop4api_{self.model._meta.model_name}_img_photometry"),
         ]
         return my_urls + urls
     
@@ -44,6 +45,12 @@ class AdminPhotoPolResult(admin.ModelAdmin):
         
         return HttpResponse(imgbytes, content_type="image/png")
     
+    def view_img_photometry(self, request, pk):
+        if ((obj := self.model.objects.filter(id=pk).first()) is None):
+            return HttpResponseNotFound()
+        imgbytes = obj.get_img_photometry()
+        return HttpResponse(imgbytes, content_type="image/png")
+        
     @admin.display(description="TELESCOPE")
     def get_telescope(self, obj):
         return obj.epoch.telescope
@@ -120,8 +127,18 @@ class AdminPhotoPolResult(admin.ModelAdmin):
 
     @admin.display(description="details")
     def get_details(self, obj, allow_tags=True):
+        links = list()
+
         if obj.reduction == REDUCTIONMETHODS.RELPOL:
-            url_img_polarimetry = reverse(f"iop4admin:iop4api_{self.model._meta.model_name}_img_polarimetry", args=[obj.id]) +"?all_models=false"
-            return format_html(rf"<a href='{url_img_polarimetry}' target='_blank'>polarimetry</a>")
+            url_img_polarimetry = reverse(f"iop4admin:iop4api_{self.model._meta.model_name}_img_polarimetry", args=[obj.id]) +"?all_models=true"
+            link = rf"<a href='{url_img_polarimetry}' target='_blank'>polarimetry</a>"
+            links.append(link)
+
+        url_img_photometry =  reverse(f"iop4admin:iop4api_{self.model._meta.model_name}_img_photometry", args=[obj.id])
+        link = rf"<a href='{url_img_photometry}' target='_blank'>photometry</a>"
+        links.append(link)
+
+        if links:
+            return format_html(", ".join([link for link in links]))
         else:
             return "-"
