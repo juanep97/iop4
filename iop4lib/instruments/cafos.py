@@ -20,8 +20,8 @@ from iop4lib.enums import (
 from .instrument import InstrumentHWP
 from iop4lib.telescopes import CAHAT220
 from iop4lib.utils.polarization import (
-    compute_stokes_HWP_analytical,
-    # compute_stokes_HWP_fit_rel,
+    # compute_stokes_HWP_analytical,
+    compute_stokes_HWP_fit_rel,
     # compute_stokes_HWP_fit_rel_nonideal,
 )
 
@@ -58,11 +58,15 @@ class CAFOS(InstrumentHWP):
     disp_sign_mean, disp_sign_std = np.array([-35.72492116, -0.19719535]), np.array([1.34389, 1.01621491])
     disp_mean, disp_std = np.abs(disp_sign_mean), disp_sign_std
 
-    default_pol_method = compute_stokes_HWP_analytical
-    # default_pol_method = compute_stokes_HWP_fit_rel
+    # TODO: which polarimetry method is better will depend on the instrument
+    # and the number of observations.
+
+    # default_pol_method = compute_stokes_HWP_analytical
+    default_pol_method = compute_stokes_HWP_fit_rel
     # default_pol_method = compute_stokes_HWP_fit_rel_nonideal
 
-    rot_angles_required = {0.0, 22.48, 44.98, 67.48}
+    rot_angles_expected = {0.0, 22.48, 44.98, 67.48}
+    min_rot_angles_required = 4
 
     @classmethod
     def classify_juliandate_rawfit(cls, rawfit):
@@ -237,13 +241,14 @@ class CAFOS(InstrumentHWP):
     def get_instrumental_polarization(cls, reducedfit) -> dict:
         """ Returns the instrumental polarization for to be used for a given reducedfit."""
 
+        # compute_stokes_HWP_fit_rel:
         instr_pol_dict = {
-            'q_inst' :  0,
-            'dq_inst':  0,
-            'u_inst' :  0,
-            'du_inst':  0,
-            'CPA'    :  0,
-            'dCPA'   :  0,
+            'q_inst' :  +0.0/100,
+            'dq_inst':  0.05/100,
+            'u_inst' :  +0.0/100,
+            'du_inst':  0.05/100,
+            'CPA'    :  -1.5,
+            'dCPA'   :  1.5,
         }
 
         return instr_pol_dict

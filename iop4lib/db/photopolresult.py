@@ -420,6 +420,157 @@ class PhotoPolResult(models.Model):
 
     # plot helpers
 
+    def plot_zeropoints(self, fig=None):
+
+        from iop4lib.utils.photometry import zp_weighted_mean, zp_student
+        
+        fig = fig or plt.gcf()
+
+        qs_res = PhotoPolResult.objects.filter(reducedfits__in=self.reducedfits.all()).exclude(astrosource=self.astrosource).distinct()
+
+        if not qs_res.exists():
+            return
+
+        zps, dzps = zip(*[(r.mag_zp, r.mag_zp_err) for r in qs_res])
+        zps, dzps = map(np.ravel, [zps, dzps])
+
+        try:
+            zp1, dzp1, *_ = zp_weighted_mean(zps, dzps)
+        except Exception as e:
+            zp1, dzp1 = None, None
+
+        try:
+            zp2, dzp2, *_ = zp_student(zps, dzps)
+        except Exception as e:
+            zp2, dzp2 = None, None
+
+        if len(zps) < 4 or (len(zps) == 4 and (dzp1 is not None and dzp1 < 0.05)) or dzp2 is None:
+            zp, dzp = zp1, dzp1
+            zp_method = "weighted mean"
+        else:
+            zp, dzp = zp2, dzp2
+            zp_method = "Student-t"
+
+        mag_true = getattr(self.astrosource, f"mag_{self.band}", None)
+
+        if mag_true is not None:
+            zp_true = mag_true - self.mag_inst
+        else:
+            zp_true = None
+
+        # zero points plot
+
+        ax = fig.subplots()
+
+        x = np.arange(len(zps))
+
+        ax.errorbar(
+            x = x,
+            y = zps,
+            xerr = 0,
+            yerr = dzps,
+            linestyle="",
+            marker=".",
+            color="b",
+            alpha=1,
+        )
+
+        if zp_true is not None:
+            ax.axhline(y=zp_true, color='r', linestyle='--', label="true zp")
+
+        ax.axhline(y=zp, color='b', linestyle='--', label=f"estimate ({zp_method})")
+        ax.axhspan(zp-dzp, zp+dzp, color='b', alpha=0.1)
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(f"{r.pk}" for r in qs_res)
+        ax.set_xlabel("PhotoPolResult")
+        ax.set_ylabel("zp")
+        ax.legend()
+
+        fig.suptitle("Zero Points")
+        
+        return fig, ax
+    
+    def plot_magnitude(self, fig=None):
+
+        mag_true = getattr(self.astrosource, f"mag_{self.band}", None)
+
+        aprs = self.aperphotresults.all()
+
+        fO = aprs.filter(pairs="O").values_list("flux_counts")
+        dfO = aprs.filter(pairs="O").values_list("flux_counts_err")
+
+        fE = aprs.filter(pairs="E").values_list("flux_counts")
+        dfE = aprs.filter(pairs="E").values_list("flux_counts_err")
+
+        fO, fE, dfO, dfE = map(np.ravel, [fO, fE, dfO, dfE])
+
+        if self.reduction == REDUCTIONMETHODS.RELPOL:
+            f = (fO+fE)
+            df = (dfO+dfE)
+        else:
+            f, df = fO, dfO
+
+        mag_inst = -2.5 * np.log10(f)
+        dmag_inst = np.fabs(2.5 / np.log(10) / f * df)
+
+        if self.mag_zp is None:
+            return
+        
+        mag = self.mag_zp + mag_inst
+        dmag = np.sqrt(self.mag_zp_err**2 + dmag_inst**2)
+
+        # plot magnitude
+
+        ax = fig.subplots()
+
+        x = np.arange(len(mag))
+
+        ax.errorbar(
+            x = x,
+            y = mag,
+            xerr = 0,
+            yerr = dmag,
+            linestyle="",
+            marker=".",
+            color="b",
+            alpha=1,
+        )
+
+        ax.axhspan(self.mag-self.mag_err, self.mag+self.mag_err, color='b', alpha=0.1, label="this result")
+
+        if mag_true is not None:
+            ax.axhline(y=mag_true, color='r', linestyle='--', label="true mag")
+        
+        ax.set_ylabel('mag')
+
+        ax.set_xticks(x)
+        ax.set_xticklabels([f"{apr.reducedfit.pk}" for apr in aprs.filter(pairs="O")])
+        ax.set_xlabel("ReducedFit")
+        ax.set_ylabel(f"mag {self.band}")
+        ax.legend()
+
+        fig.suptitle("Magnitude")
+
+        return fig, ax
+
+    def plot_photometry(self, fig=None):
+        
+        gs = fig.add_gridspec(2, 1, hspace=1)
+
+        sf1, sf2 = fig.subfigures(
+            2, 1,
+            # hspace=0.2,
+            height_ratios=[1, 1],
+        )
+
+        self.plot_zeropoints(sf1)
+        self.plot_magnitude(sf2)
+
+        fig.suptitle(f"PhotoPolResult {self.pk}")
+
+        return fig
+
     def plot_polarimetry(self, fig=None, all_models=False):
         from iop4lib.utils import get_column_values
         from iop4lib.utils.polarization import (
@@ -484,7 +635,7 @@ class PhotoPolResult(models.Model):
                     subfig = fig.add_subfigure(gs[0,i])
 
                     stokes_nocorr_i, fit_stats_i = pol_method(theta, FO=FO, dFO=dFO, FE=FE, dFE=dFE, inst_pol_dict=inst_pol_dict, plot=True, annotate=True, fig=subfig)
-                    title = subfig.suptitle(pol_method.name, y=1)
+                    title = subfig.suptitle(pol_method.name)
 
                     if pol_method == self.instrument_cls.default_pol_method:
                         title.set(color='green', weight='bold')
@@ -539,9 +690,27 @@ class PhotoPolResult(models.Model):
 
         buf = io.BytesIO()
 
-        fig = mplt.figure.Figure(figsize=(width/100, height/100), dpi=iop4conf.mplt_default_dpi)
+        fig = mplt.figure.Figure(figsize=(width/100, height/100), dpi=iop4conf.mplt_default_dpi, constrained_layout=True)
         self.plot_polarimetry(fig=fig, all_models=all_models)
-        fig.tight_layout()
+        # fig.tight_layout()
+        fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
+        fig.clf()
+
+        buf.seek(0)
+        imgbytes = buf.read()
+
+        return imgbytes
+
+    def get_img_photometry(self, **kwargs):
+
+        width = kwargs.get('width', 1024)
+        height = kwargs.get('height', 1024)
+
+        buf = io.BytesIO()
+
+        fig = mplt.figure.Figure(figsize=(width/100, height/100), dpi=iop4conf.mplt_default_dpi, constrained_layout=True)
+        self.plot_photometry(fig=fig)
+        # fig.tight_layout()
         fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
         fig.clf()
 

@@ -7,6 +7,7 @@ help:
 	@echo '     help               Print this help message (the default)'
 	@echo ''
 	@echo '     test               Run pytest'
+	@echo '     test-debug         Run pytest, with full debug logging output'
 	@echo '     test-cov           Run pytest with coverage'
 	@echo ''
 	@echo '     docs-sphinx        Build docs (Sphinx only)'
@@ -16,6 +17,9 @@ help:
 
 test:
 	python -m pytest -vx tests/
+
+test-debug:
+	python -m pytest -vxs -log-cli=true --log-cli-level=DEBUG --show-capture=no  tests/
 
 test-cov:
 	python -m pytest -vx --cov=iop4lib tests/
