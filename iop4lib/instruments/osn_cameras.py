@@ -290,11 +290,20 @@ class OSNCCDCamera(Instrument, metaclass=ABCMeta):
         ## check rotation angles
 
         rot_angles_available = set([redf.rotangle for redf in polarimetry_group])
-        rot_angles_required = {0.0, 45.0, 90.0, -45.0}
+        rot_angles_expected = {0.0, 45.0, 90.0, -45.0}
+        min_rot_angles_required = 4
 
-        if not rot_angles_required.issubset(rot_angles_available):
-            logger.error(f"Rotation angles missing: {rot_angles_required - rot_angles_available}; returning early.")
-            return
+        rot_angles_available = set([redf.rotangle for redf in polarimetry_group])
+
+        if not rot_angles_expected.issubset(rot_angles_available):
+            logger.warning(f"Rotation angles missing: {rot_angles_expected - rot_angles_available}")
+
+        if not rot_angles_available.issubset(rot_angles_expected):
+            logger.warning(f"Rotation angles not expected: {rot_angles_available - rot_angles_expected}")
+
+        # disallow if rotator angles below a certain minimum
+        if len(polarimetry_group) < min_rot_angles_required:
+            raise Exception(f"Will not compute relative polarimetry for a group with {len(polarimetry_group)} reducedfits, it should be at least {min_rot_angles_required}.")
 
         # 1. Compute all aperture photometries
 

@@ -75,8 +75,9 @@ class DIPOL(InstrumentHWP):
 
     default_pol_method = compute_stokes_HWP_fit_rel_nonideal
 
-    rot_angles_required = {0.0, 22.5, 45.0, 67.5, 90.0, 112.5, 135.0, 157.5, 180.0, 202.5, 225.0, 247.5, 270.0, 292.5, 315.0, 337.5}
-    
+    rot_angles_expected = {0.0, 22.5, 45.0, 67.5, 90.0, 112.5, 135.0, 157.5, 180.0, 202.5, 225.0, 247.5, 270.0, 292.5, 315.0, 337.5}
+    min_rot_angles_required = 8
+
     default_sky_angle = 177.6
     default_sky_angle_std = 2.3
 
@@ -251,7 +252,11 @@ class DIPOL(InstrumentHWP):
 
         if reducedfit.obsmode == OBSMODES.PHOTOMETRY:
             mf_data = fits.getdata(reducedfit.masterflat.filepath)[idx]
-        else: # no flat fielding for polarimetry
+        elif cls.get_rawfit_hint_field_width_arcmin(reducedfit.rawfit) > 6.0:
+            # it should not matter much since we are using *_rel methods, but it
+            # matters for photometry and zero-points
+            mf_data = fits.getdata(reducedfit.masterflat.filepath)[idx]
+        else: # no flat fielding for polarimetry-only
             mf_data = 1.0
 
         if reducedfit.masterdark is not None:
@@ -260,7 +265,7 @@ class DIPOL(InstrumentHWP):
             logger.warning(f"{reducedfit}: no masterdark found, assuming dark current = 0, is this a CCD camera and it's cold?")
             md_dark = 0.0
 
-        data_new = (rf_data - mb_data - md_dark*reducedfit.rawfit.exptime) / (mf_data)
+        data_new = (rf_data - mb_data - md_dark*reducedfit.rawfit.exptime) / mf_data
 
         header_new = fits.Header()
 
@@ -1107,26 +1112,14 @@ class DIPOL(InstrumentHWP):
             - CPA: zero-angle (deg)
         """
 
-        if reducedfit.juliandate <= Time("2023-09-28 12:00").jd: # limpieza de espejos
-
-            instr_pol_dict = {
-                'q_inst' : +0.05777 / 100,
-                'dq_inst':  0.005   / 100,
-                'u_inst' : -3.77095 / 100,
-                'du_inst':  0.005   / 100,
-                'CPA'    :  44.5,
-                'dCPA'   :  0.05,
-            }
-
-        else:
-
-            instr_pol_dict = {
-                'q_inst' :  -0.0138 / 100,
-                'dq_inst':   0.005 / 100,
-                'u_inst' :  -4.0806 / 100,
-                'du_inst':   0.005 / 100,
-                'CPA'    :  45.1,
-                'dCPA'   :  0.05,
-            }
+        # compute_stokes_HWP_fit_rel_nonideal:
+        instr_pol_dict = {
+            'q_inst' :  +0.04 / 100,
+            'dq_inst':   0.07 / 100,
+            'u_inst' :  -4.55 / 100,
+            'du_inst':   0.07 / 100,
+            'CPA'    :  41.0,
+            'dCPA'   :  3.0,
+        }
 
         return instr_pol_dict
