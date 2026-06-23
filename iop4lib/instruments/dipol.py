@@ -248,23 +248,32 @@ class DIPOL(InstrumentHWP):
         logger.debug(f"{reducedfit}: applying masters")
 
         rf_data = fits.getdata(reducedfit.rawfit.filepath)
-        mb_data = fits.getdata(reducedfit.masterbias.filepath)[idx]
+        mb_data = fits.getdata(reducedfit.masterbias.filepath)
 
         if reducedfit.obsmode == OBSMODES.PHOTOMETRY:
-            mf_data = fits.getdata(reducedfit.masterflat.filepath)[idx]
+            mf_data = fits.getdata(reducedfit.masterflat.filepath)
         elif cls.get_rawfit_hint_field_width_arcmin(reducedfit.rawfit) > 6.0:
             # it should not matter much since we are using *_rel methods, but it
             # matters for photometry and zero-points
-            mf_data = fits.getdata(reducedfit.masterflat.filepath)[idx]
+            mf_data = fits.getdata(reducedfit.masterflat.filepath)
         else: # no flat fielding for polarimetry-only
             mf_data = 1.0
 
         if reducedfit.masterdark is not None:
-            md_dark = fits.getdata(reducedfit.masterdark.filepath)[idx]
+            md_dark = fits.getdata(reducedfit.masterdark.filepath)
         else :
             logger.warning(f"{reducedfit}: no masterdark found, assuming dark current = 0, is this a CCD camera and it's cold?")
             md_dark = 0.0
 
+        if hasattr(mb_data, 'shape') and rf_data.shape != mb_data.shape:
+            mb_data = mb_data[idx]
+            
+        if hasattr(mf_data, 'shape') and rf_data.shape != mf_data.shape:
+            mf_data = mf_data[idx]
+
+        if hasattr(md_dark, 'shape') and rf_data.shape != md_dark.shape:
+            md_dark = md_dark[idx]
+            
         data_new = (rf_data - mb_data - md_dark*reducedfit.rawfit.exptime) / mf_data
 
         header_new = fits.Header()
