@@ -482,8 +482,8 @@ class PhotoPolResult(models.Model):
         ax.axhspan(zp-dzp, zp+dzp, color='b', alpha=0.1)
 
         ax.set_xticks(x)
-        ax.set_xticklabels(f"{r.pk}" for r in qs_res)
-        ax.set_xlabel("PhotoPolResult")
+        ax.set_xticklabels(f"{r.pk}\n{r.astrosource.pk}" for r in qs_res)
+        ax.set_xlabel("PhotoPolResult\nAstroSource")
         ax.set_ylabel("zp")
         ax.legend()
 
