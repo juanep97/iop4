@@ -1153,6 +1153,97 @@ def compute_stokes_HWP_fit_1pair(
     return stokes, fit_stats
 
 
+@polmethod(name="HWP_analytical_1pair")
+def compute_stokes_HWP_analytical_1pair(
+        theta, FO=None, dFO=None, FE=None, dFE=None,
+        inst_pol_dict=None,
+        plot=False, fig=None, annotate=False,
+    ):
+    """Compute polarimetry fitting only the O (or E) pair (analytical)."""
+
+    assert (FO is None) ^ bool(FE is None), "must specify one and only one of FO or FE"
+    assert bool(dFO is None) ^ bool(dFE is None), "must specify one and only one of dFO or dFE"
+
+    if FO is not None:
+        FE = np.roll(FO, 1)
+        dFE = np.roll(dFO, 1)
+    else:
+        FO = np.roll(FE, 1)
+        dFO = np.roll(dFE, 1)
+
+    return compute_stokes_HWP_analytical(
+        theta=theta,
+        FO=FO,
+        FE=FE,
+        dFO=dFO,
+        dFE=dFE,
+        inst_pol_dict=inst_pol_dict,
+        plot=plot,
+        fig=fig,
+        annotate=annotate,
+    )
+
+@polmethod(name="HWP_fit_1pair_rel")
+def compute_stokes_HWP_fit_1pair_rel(
+        theta, FO=None, dFO=None, FE=None, dFE=None,
+        inst_pol_dict=None,
+        plot=False, fig=None, annotate=False,
+        kappa=None,
+    ):
+    """Compute polarimetry fitting only the O (or E) pair (relative)."""
+
+    assert (FO is None) ^ bool(FE is None), "must specify one and only one of FO or FE"
+    assert bool(dFO is None) ^ bool(dFE is None), "must specify one and only one of dFO or dFE"
+
+    if FO is not None:
+        FE = np.roll(FO, 1)
+        dE = np.roll(dFO, 1)
+    else:
+        FO = np.roll(FE, 1)
+        dFO = np.roll(dFE, 1)
+
+    return compute_stokes_HWP_fit_rel(
+        theta=theta,
+        FO=FO,
+        FE=FE,
+        dFO=dFO,
+        dFE=dFE,
+        inst_pol_dict=inst_pol_dict,
+        plot=plot,
+        fig=fig,
+        annotate=annotate,
+        kappa=kappa,
+    )
+
+@polmethod(name="HWP_fit_1pair_rel_nonideal")
+def compute_stokes_HWP_fit_1pair_rel_nonideal(
+        theta, FO=None, dFO=None, FE=None, dFE=None,
+        inst_pol_dict=None,
+        plot=False, fig=None, annotate=False,
+    ):
+    """Compute polarimetry fitting only the O (or E) pair (relative, non-ideal HWP)."""
+
+    assert (FO is None) ^ bool(FE is None), "must specify one and only one of FO or FE"
+    assert bool(dFO is None) ^ bool(dFE is None), "must specify one and only one of dFO or dFE"
+
+    if FO is not None:
+        FE = np.roll(FO, 1)
+        dFE = np.roll(dFO, 1)
+    else:
+        FO = np.roll(FE, 1)
+        dFO = np.roll(dFE, 1)
+
+    return compute_stokes_HWP_fit_rel_nonideal(
+        theta=theta,
+        FO=FO,
+        FE=FE,
+        dFO=dFO,
+        dFE=dFE,
+        inst_pol_dict=inst_pol_dict,
+        plot=plot,
+        fig=fig,
+        annotate=annotate,
+    )
 
 class PolarimetryGroup(list['ReducedFit']):
 
