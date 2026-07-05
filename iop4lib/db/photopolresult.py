@@ -582,7 +582,6 @@ class PhotoPolResult(models.Model):
             compute_stokes_HWP_fit_1pair,
             compute_stokes_HWP_analytical_1pair,
             compute_stokes_HWP_fit_1pair_rel,
-            compute_stokes_HWP_fit_1pair_rel_nonideal,
         )
 
         fig = fig or plt.gcf()
@@ -650,7 +649,6 @@ class PhotoPolResult(models.Model):
                     compute_stokes_HWP_fit_1pair,
                     compute_stokes_HWP_fit_1pair_rel,
                     compute_stokes_HWP_analytical_1pair,
-                    compute_stokes_HWP_fit_1pair_rel_nonideal,
                 ]
 
         gs = fig.add_gridspec(1, len(pol_methods))
@@ -697,8 +695,9 @@ class PhotoPolResult(models.Model):
 
     def get_img_polarimetry(self, **kwargs):
 
-        default_width = 4*1024
-
+        only_pair = self.astrosource.metadata.get(f"{self.instrument}.polarimetry.only_pair")
+        default_width = 4*1024 if not only_pair else 3*1024
+        
         all_models = kwargs.get("all_models", False)
         default_width = default_width if all_models else 1024
 
