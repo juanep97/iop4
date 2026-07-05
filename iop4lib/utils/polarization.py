@@ -1197,7 +1197,7 @@ def compute_stokes_HWP_fit_1pair_rel(
 
     if FO is not None:
         FE = np.roll(FO, 1)
-        dE = np.roll(dFO, 1)
+        dFE = np.roll(dFO, 1)
     else:
         FO = np.roll(FE, 1)
         dFO = np.roll(dFE, 1)
