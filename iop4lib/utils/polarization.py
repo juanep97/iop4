@@ -1215,35 +1215,7 @@ def compute_stokes_HWP_fit_1pair_rel(
         kappa=kappa,
     )
 
-@polmethod(name="HWP_fit_1pair_rel_nonideal")
-def compute_stokes_HWP_fit_1pair_rel_nonideal(
-        theta, FO=None, dFO=None, FE=None, dFE=None,
-        inst_pol_dict=None,
-        plot=False, fig=None, annotate=False,
-    ):
-    """Compute polarimetry fitting only the O (or E) pair (relative, non-ideal HWP)."""
 
-    assert (FO is None) ^ bool(FE is None), "must specify one and only one of FO or FE"
-    assert bool(dFO is None) ^ bool(dFE is None), "must specify one and only one of dFO or dFE"
-
-    if FO is not None:
-        FE = np.roll(FO, 1)
-        dFE = np.roll(dFO, 1)
-    else:
-        FO = np.roll(FE, 1)
-        dFO = np.roll(dFE, 1)
-
-    return compute_stokes_HWP_fit_rel_nonideal(
-        theta=theta,
-        FO=FO,
-        FE=FE,
-        dFO=dFO,
-        dFE=dFE,
-        inst_pol_dict=inst_pol_dict,
-        plot=plot,
-        fig=fig,
-        annotate=annotate,
-    )
 
 class PolarimetryGroup(list['ReducedFit']):
 
