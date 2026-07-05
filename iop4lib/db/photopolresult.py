@@ -625,7 +625,7 @@ class PhotoPolResult(models.Model):
             args_dict.pop("dFE")
         elif only_pair == "E":
             args_dict.pop("FO")
-            args_dict.pop("dF0")
+            args_dict.pop("dFO")
 
         if not all_models:
 

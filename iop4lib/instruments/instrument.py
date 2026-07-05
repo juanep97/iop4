@@ -1321,7 +1321,7 @@ class InstrumentHWP(ABC, Instrument):
                     args_dict.pop("dFE")
                 elif only_pair == "E":
                     args_dict.pop("FO")
-                    args_dict.pop("dF0")
+                    args_dict.pop("dFO")
                     
                 pol_method = cls.default_pol_method[0 if not only_pair else 1]
                 method_name = pol_method.name if not only_pair else f"{pol_method.name} ({only_pair})"
