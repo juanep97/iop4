@@ -575,10 +575,13 @@ class PhotoPolResult(models.Model):
         from iop4lib.utils import get_column_values
         from iop4lib.utils.polarization import (
             compute_stokes_HWP_fit_full,
-            compute_stokes_HWP_fit_rel,
-            compute_stokes_HWP_fit_1pair,
             compute_stokes_HWP_analytical,
+            compute_stokes_HWP_fit_rel,
             compute_stokes_HWP_fit_rel_nonideal,
+            # and equivalent for 1 pair only
+            compute_stokes_HWP_fit_1pair,
+            compute_stokes_HWP_analytical_1pair,
+            compute_stokes_HWP_fit_1pair_rel,
         )
 
         fig = fig or plt.gcf()
@@ -607,19 +610,31 @@ class PhotoPolResult(models.Model):
         redf_0 = self.reducedfits.first()
         inst_pol_dict = redf_0.instrument_cls.get_instrumental_polarization(redf_0)
 
-        if not (only_pair := astrosource.metadata.get(f"{self.instrument}.polarimetry.only_pair")):
+        only_pair = astrosource.metadata.get(f"{self.instrument}.polarimetry.only_pair")
 
-            if not all_models:
+        args_dict = dict(
+            theta=theta,
+            FO=FO, dFO=dFO,
+            FE=FE, dFE=dFE,
+            inst_pol_dict=inst_pol_dict,
+        )
 
-                gs = fig.add_gridspec(1, 1)
-                subfig = fig.add_subfigure(gs[0,0])
+        if only_pair == "O":
+            args_dict.pop("FE")
+            args_dict.pop("dFE")
+        elif only_pair == "E":
+            args_dict.pop("FO")
+            args_dict.pop("dFO")
 
-                pol_method = self.instrument_cls.default_pol_method
-                stokes_nocorr, fit_stats = pol_method(theta, FO=FO, dFO=dFO, FE=FE, dFE=dFE, inst_pol_dict=inst_pol_dict, plot=True, annotate=True, fig=subfig)
-                title = subfig.suptitle(pol_method.name, y=1)
-                method_name = pol_method.name
+        if not all_models:
 
-            else:
+            pol_methods = [
+                self.instrument_cls.default_pol_method[0 if not only_pair else 1]
+            ]
+
+        else:
+
+            if not only_pair:
 
                 pol_methods = [
                     compute_stokes_HWP_fit_full,
@@ -628,27 +643,28 @@ class PhotoPolResult(models.Model):
                     compute_stokes_HWP_fit_rel_nonideal,
                 ]
 
-                gs = fig.add_gridspec(1, len(pol_methods))
+            else:
 
-                for i, pol_method in enumerate(pol_methods):
+                pol_methods = [
+                    compute_stokes_HWP_fit_1pair,
+                    compute_stokes_HWP_fit_1pair_rel,
+                    compute_stokes_HWP_analytical_1pair,
+                ]
 
-                    subfig = fig.add_subfigure(gs[0,i])
+        gs = fig.add_gridspec(1, len(pol_methods))
 
-                    stokes_nocorr_i, fit_stats_i = pol_method(theta, FO=FO, dFO=dFO, FE=FE, dFE=dFE, inst_pol_dict=inst_pol_dict, plot=True, annotate=True, fig=subfig)
-                    title = subfig.suptitle(pol_method.name)
+        for i, pol_method in enumerate(pol_methods):
 
-                    if pol_method == self.instrument_cls.default_pol_method:
-                        title.set(color='green', weight='bold')
-                        method_name = pol_method.name
-                        stokes_nocorr = stokes_nocorr_i
-                    
-        else:
-            if only_pair == 'O':
-                method_name = "compute_stokes_HWP_fit_1pair (O)"
-                stokes_nocorr, fit_stats = compute_stokes_HWP_fit_1pair(theta, FO=FO, dFO=dFO, inst_pol_dict=inst_pol_dict, plot=True, annotate=True, fig=fig)
-            elif only_pair == 'E':
-                method_name = "compute_stokes_HWP_fit_1pair (E)"
-                stokes_nocorr, fit_stats = compute_stokes_HWP_fit_1pair(theta, FE=FE, dFE=dFE, inst_pol_dict=inst_pol_dict, plot=True, annotate=True, fig=fig)
+            subfig = fig.add_subfigure(gs[0,i])
+
+            args_dict_i = args_dict | dict(plot=True, annotate=True, fig=subfig)
+            stokes_nocorr_i, fit_stats_i = pol_method(**args_dict_i)
+            title = subfig.suptitle(pol_method.name)
+
+            if pol_method == self.instrument_cls.default_pol_method[0 if not only_pair else 1]:
+                title.set(color='green', weight='bold')
+                method_name =  pol_method.name if not only_pair else f"{pol_method.name} ({only_pair})"
+                stokes_nocorr = stokes_nocorr_i
 
         fig_title = (
             f"{self}\n"
@@ -680,8 +696,8 @@ class PhotoPolResult(models.Model):
     def get_img_polarimetry(self, **kwargs):
 
         only_pair = self.astrosource.metadata.get(f"{self.instrument}.polarimetry.only_pair")
-        default_width = 4*1024 if not only_pair else 1024
-
+        default_width = 4*1024 if not only_pair else 3*1024
+        
         all_models = kwargs.get("all_models", False)
         default_width = default_width if all_models else 1024
 

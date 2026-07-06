@@ -31,7 +31,10 @@ from iop4lib.utils.sourcedetection import get_segmentation, get_cat_sources_from
 from iop4lib.utils.plotting import imshow_w_sources, plot_preview_astrometry
 from iop4lib.utils.astrometry import BuildWCSResult
 from iop4lib.telescopes import OSNT090
-from iop4lib.utils.polarization import compute_stokes_HWP_fit_rel_nonideal
+from iop4lib.utils.polarization import (
+    compute_stokes_HWP_fit_rel_nonideal,
+    compute_stokes_HWP_fit_1pair_rel,
+)
 
 # logging
 import logging
@@ -73,7 +76,7 @@ class DIPOL(InstrumentHWP):
     # In [21]: np.mean(angle_L), np.median(angle_L), np.std(angle_L)
     # Out[21]: (179.08971366048235, 177.6282921156412, 1.9341471640122656)
 
-    default_pol_method = compute_stokes_HWP_fit_rel_nonideal
+    default_pol_method = compute_stokes_HWP_fit_rel_nonideal, compute_stokes_HWP_fit_1pair_rel
 
     rot_angles_expected = {0.0, 22.5, 45.0, 67.5, 90.0, 112.5, 135.0, 157.5, 180.0, 202.5, 225.0, 247.5, 270.0, 292.5, 315.0, 337.5}
     min_rot_angles_required = 8

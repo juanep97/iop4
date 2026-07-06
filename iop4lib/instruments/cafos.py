@@ -20,9 +20,8 @@ from iop4lib.enums import (
 from .instrument import InstrumentHWP
 from iop4lib.telescopes import CAHAT220
 from iop4lib.utils.polarization import (
-    # compute_stokes_HWP_analytical,
     compute_stokes_HWP_fit_rel,
-    # compute_stokes_HWP_fit_rel_nonideal,
+    compute_stokes_HWP_fit_1pair_rel,
 )
 
 # logging
@@ -61,9 +60,7 @@ class CAFOS(InstrumentHWP):
     # TODO: which polarimetry method is better will depend on the instrument
     # and the number of observations.
 
-    # default_pol_method = compute_stokes_HWP_analytical
-    default_pol_method = compute_stokes_HWP_fit_rel
-    # default_pol_method = compute_stokes_HWP_fit_rel_nonideal
+    default_pol_method = compute_stokes_HWP_fit_rel, compute_stokes_HWP_fit_1pair_rel
 
     rot_angles_expected = {0.0, 22.48, 44.98, 67.48}
     min_rot_angles_required = 4

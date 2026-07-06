@@ -46,9 +46,6 @@ from iop4lib.utils.photometry import (
     calibrate_photopolresult,
     NoCalibratorsFound,
 )
-from iop4lib.utils.polarization import (
-    compute_stokes_HWP_fit_1pair,
-)
      
 # logging
 import logging
@@ -1313,20 +1310,24 @@ class InstrumentHWP(ABC, Instrument):
                 # read possible special case from target source metadata
                 only_pair = astrosource.metadata.get(f"{cls.name}.polarimetry.only_pair")
 
-                if not only_pair:
+                args_dict = dict(
+                    theta=theta,
+                    FO=FO, dFO=dFO,
+                    FE=FE, dFE=dFE,
+                )
 
-                    logger.info(f"Computing stokes parameters with {cls.default_pol_method.name}")
+                if only_pair == "O":
+                    args_dict.pop("FE")
+                    args_dict.pop("dFE")
+                elif only_pair == "E":
+                    args_dict.pop("FO")
+                    args_dict.pop("dFO")
                     
-                    stokes_nocorr, fit_stats = cls.default_pol_method(theta, FO=FO, dFO=dFO, FE=FE, dFE=dFE)
+                pol_method = cls.default_pol_method[0 if not only_pair else 1]
+                method_name = pol_method.name if not only_pair else f"{pol_method.name} ({only_pair})"
 
-                else:
-
-                    logger.info(f"This source metadata indicates to use only the {only_pair} pair, computing stoke parameters with compute_stokes_HWP_fit_1pair")
-
-                    if only_pair == 'O':
-                        stokes_nocorr, fit_stats = compute_stokes_HWP_fit_1pair(theta, FO=FO, dFO=dFO)
-                    elif only_pair == 'E':
-                        stokes_nocorr, fit_stats = compute_stokes_HWP_fit_1pair(theta, FE=FE, dFE=dFE)
+                logger.info(f"Computing stokes parameters with {method_name}")
+                stokes_nocorr, fit_stats = pol_method(**args_dict)
 
                 logger.debug(f"{stokes_nocorr=}")
                 logger.debug(f"{fit_stats=}")
