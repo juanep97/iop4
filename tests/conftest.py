@@ -79,7 +79,7 @@ def setUpClass():
     if not os.path.exists(TESTDATA_FPATH):
         print("Downloading test dataset")
         import requests
-        with requests.get(f"https://vhega.iaa.es/iop4/testdata/{Path(TESTDATA_FPATH).name}", stream=True) as r:
+        with requests.get(f"https://iop4.iaa.es/iop4/testdata/{Path(TESTDATA_FPATH).name}", stream=True) as r:
             r.raise_for_status()
             with open(TESTDATA_FPATH, 'wb') as f:
                 for chunk in r.iter_content(chunk_size=None):
