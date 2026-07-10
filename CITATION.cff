@@ -24,7 +24,7 @@ identifiers:
   - type: doi
     value: 10.5281/zenodo.10222722
 repository-code: 'https://github.com/juanep97/iop4'
-url: 'https://vhega.iaa.es/iop4/about/'
+url: 'https://iop4.iaa.es/iop4/about/'
 abstract: IOP4, the Interactive Optical Photo-Polarimetric Python Pipeline.
 keywords:
   - astronomy
