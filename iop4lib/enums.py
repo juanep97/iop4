@@ -63,6 +63,7 @@ class SRCTYPES(models.TextChoices):
     STAR = 'star', "Star"
     TDE = 'tde', "TDE"
     GRB = 'grb', 'GRB'
+    CHLAGN = 'ChL-AGN', "Changing Look AGN"
 
 class REDUCTIONMETHODS(models.TextChoices):
     """
