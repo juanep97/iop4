@@ -119,8 +119,9 @@ class Instrument(metaclass=ABCMeta):
         from .osn_cameras import RoperT90, AndorT90, AndorT150
         from .cafos import CAFOS
         from .dipol import DIPOL
+        from .portent import PORTENT
 
-        return [RoperT90, AndorT90, AndorT150, CAFOS, DIPOL]
+        return [RoperT90, AndorT90, AndorT150, CAFOS, DIPOL, PORTENT]
 
     @classmethod
     def by_name(cls, name: str) -> 'Instrument':
