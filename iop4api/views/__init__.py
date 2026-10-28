@@ -21,3 +21,4 @@ from .auth import login_view, logout_view
 from .log import log
 from .flag import flag
 from .docs import docs
+from .last_mag import last_mag

@@ -34,6 +34,7 @@ urlpatterns = urlpatterns + [
     path('api/plot/', views.plot, name='plot'),
     path('api/data/', views.data, name='data'),
     path('api/catalog/', views.catalog, name='catalog'),
+    path('api/last-mag/', views.last_mag, name='last_mag'),
     path('api/log/', views.log, name='log'),
     path('api/flag/', views.flag, name='flag'),
     path('<tabs:tabs>/', views.index, name='index'),

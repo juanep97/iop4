@@ -29,7 +29,7 @@ def index(request, tabs=None):
 
     context = {}
 
-    tab_tree = {"about":{}, "login":{}, "explore": {"catalog":{}, "query":{}, "plot":{}, "data":{}, "logs":{}}}
+    tab_tree = {"about":{}, "login":{}, "explore": {"catalog":{}, "query":{}, "plot":{}, "data":{}, "last_mag":{}, "logs":{}}}
     context["tab_tree"] =  json.dumps(tab_tree)
     
     # pass the tabs to the template (e.g. /iop4/tab1/tab2/, see urls.py)
