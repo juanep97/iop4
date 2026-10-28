@@ -2,34 +2,11 @@
 import iop4lib.config
 iop4conf = iop4lib.Config(config_db=False)
 
-# django imports
-
 # other imports
-import os
-from pathlib import Path
-import re
-import astrometry
 import numpy as np
-import matplotlib as mplt
-import matplotlib.patheffects
-import astropy.units as u
-from photutils.aperture import CircularAperture
-from astropy.wcs.utils import fit_wcs_from_points
-from astropy.coordinates import SkyCoord, Angle
-import itertools
-import yaml
-from importlib import resources
-from collections.abc import Iterable
-import random
-from astropy.time import Time
 
 # iop4lib imports
-from iop4lib.enums import IMGTYPES, BANDS, OBSMODES, SRCTYPES
-from .instrument import InstrumentHWP
-from iop4lib.utils import get_angle_from_history, build_wcs_centered_on, get_simbad_sources
-from iop4lib.utils.sourcedetection import get_segmentation, get_cat_sources_from_segment_map, get_bkg
-from iop4lib.utils.plotting import imshow_w_sources, plot_preview_astrometry
-from iop4lib.utils.astrometry import BuildWCSResult
+from iop4lib.instruments.dipol import DIPOL
 from iop4lib.telescopes import OSNT150
 from iop4lib.utils.polarization import (
     compute_stokes_HWP_fit_rel_nonideal,
@@ -50,12 +27,12 @@ class PORTENT(DIPOL):
 
     instrument_kw_L = ["PORTENT"]
 
-    reference_binning = 2 # 2x2
-    arcsec_per_pix = 0.134
-    field_width_arcmin = 9.22
-    field_height_arcmin = 6.28 
+    reference_binning = 4 # 4x4
+    arcsec_per_pix = 0.258
+    field_width_arcmin = 6.71
+    field_height_arcmin = 4.50 
     
-    gain_e_adu = 1
+    gain_e_adu = 1 #To modify
 
     required_masters = ['masterbias', 'masterflat', 'masterdark']
 
@@ -66,16 +43,6 @@ class PORTENT(DIPOL):
     disp_sign_mean = np.array([-209,  13]) # actually median
     disp_sign_std = np.array([12, 16]) # actually approx 0.05, 0.95 pcts
     disp_mean, disp_std = np.abs(disp_sign_mean), np.abs(disp_sign_std)
-
-    # pre computed image angle from ~500 full photometric fields (which dont need it as input)
-    # In [19]: np.quantile(angle_L,[(1-0.9973)/2,(1-0.9545)/2,(1-0.6827)/2])
-    # Out[19]: array([176.85992732, 177.06814576, 177.34785346])
-
-    # In [20]: np.quantile(angle_L,[1-(1-0.9973)/2,1-(1-0.9545)/2,1-(1-0.6827)/2])
-    # Out[20]: array([181.73222701, 181.51777191, 181.36541356])
-
-    # In [21]: np.mean(angle_L), np.median(angle_L), np.std(angle_L)
-    # Out[21]: (179.08971366048235, 177.6282921156412, 1.9341471640122656)
 
     default_pol_method = compute_stokes_HWP_fit_rel_nonideal, compute_stokes_HWP_fit_1pair_rel
 
