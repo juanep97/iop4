@@ -184,6 +184,8 @@ class Telescope(metaclass=ABCMeta):
             rawfit.instrument = INSTRUMENTS.CAFOS
         elif instrume_header == "ASI Camera (1)":
             rawfit.instrument = INSTRUMENTS.DIPOL
+        elif instrume_header == "PORTENT":
+            rawfit.instrument = INSTRUMENTS.PORTENT
         else:
             raise ValueError(f"INSTRUME in fits header ({instrume_header}) not known.")
     
