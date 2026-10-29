@@ -8,10 +8,6 @@ import numpy as np
 # iop4lib imports
 from iop4lib.instruments.dipol import DIPOL
 from iop4lib.telescopes import OSNT150
-from iop4lib.utils.polarization import (
-    compute_stokes_HWP_fit_rel_nonideal,
-    compute_stokes_HWP_fit_1pair_rel,
-)
 
 # logging
 import logging
@@ -19,8 +15,6 @@ logger = logging.getLogger(__name__)
 
 from iop4lib.typing import *
 
-
-###############################################################################
 class PORTENT(DIPOL):
     name = "PORTENT"
     telescope = OSNT150.name
@@ -33,24 +27,6 @@ class PORTENT(DIPOL):
     field_height_arcmin = 4.50 
     
     gain_e_adu = 1 #To modify
-
-    required_masters = ['masterbias', 'masterflat', 'masterdark']
-
-    # pre computed pairs distances to use in the astrometric calibrations
-    # obtained from calibrated photometry fields (see CAFOS comments on how to 
-    # recompute)
-    
-    disp_sign_mean = np.array([-209,  13]) # actually median
-    disp_sign_std = np.array([12, 16]) # actually approx 0.05, 0.95 pcts
-    disp_mean, disp_std = np.abs(disp_sign_mean), np.abs(disp_sign_std)
-
-    default_pol_method = compute_stokes_HWP_fit_rel_nonideal, compute_stokes_HWP_fit_1pair_rel
-
-    rot_angles_expected = {0.0, 22.5, 45.0, 67.5, 90.0, 112.5, 135.0, 157.5, 180.0, 202.5, 225.0, 247.5, 270.0, 292.5, 315.0, 337.5}
-    min_rot_angles_required = 8
-
-    default_sky_angle = 177.6
-    default_sky_angle_std = 2.3
 
     @classmethod
     def get_instrumental_polarization(cls, reducedfit) -> InstrumentalPolarizationDict:
