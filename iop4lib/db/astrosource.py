@@ -303,20 +303,29 @@ class AstroSource(models.Model):
     def last_night_mag_R(self):
         """Returns the average magnitude and error of the last night in the R band."""
 
-        qs = self.photopolresults.filter(band=BANDS.R).exclude(mag=None).exclude(mag_err=None)
+        qs = self.photopolresults.filter(
+            band=BANDS.R,
+            mag__isnull=False,
+            mag_err__isnull=False,
+        )
 
-        if not qs:
+        last_night = qs.order_by("-epoch__night").values_list("epoch__night", flat=True).first()
+
+        if last_night is None:
             return None, None, None
-        
-        last_night = qs.earliest('-epoch__night').epoch.night
 
-        qs = qs.filter(epoch__night=last_night)
-        
-        vals = get_column_values(qs, ['mag', 'mag_err'])
-        mag_r, mag_r_err = vals['mag'], vals['mag_err']
+        vals = get_column_values(qs.filter(epoch__night=last_night), ["mag", "mag_err"])
+        mag_r, mag_r_err = vals["mag"], vals["mag_err"]
 
-        mag_r_avg = np.average(mag_r, weights=1/mag_r_err**2)
-        mag_r_avg_err = 1/np.sqrt(np.sum(1/mag_r_err**2))
+        idx = np.isfinite(mag_r) & np.isfinite(mag_r_err) & (mag_r_err > 0)
+
+        if idx.any():
+            w = 1 / mag_r_err[idx]**2
+            mag_r_avg = np.average(mag_r[idx], weights=w)
+            mag_r_avg_err = 1 / np.sqrt(np.sum(w))
+        else:
+            mag_r_avg = np.nanmean(mag_r)
+            mag_r_avg_err = np.nan
 
         return mag_r_avg, mag_r_avg_err, last_night
     
