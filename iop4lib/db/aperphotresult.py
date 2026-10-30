@@ -76,7 +76,20 @@ class AperPhotResult(models.Model):
         return f'{self.__class__.__name__}.objects.get(id={self.id!r})'
     
     def __str__(self):
-        return f'<{self.__class__.__name__} {self.id} | {self.reducedfit.fileloc} {self.astrosource.name} ({self.aperpix:.1f}, {self.r_in:.1f}, {self.r_out:.1f}) px {self.pairs}>' 
+
+        def _fmt(value, spec=""):
+            return f"{value:{spec}}" if value is not None else "None"
+        
+        return (
+            f'<{self.__class__.__name__} {self.id} | '
+            f"{_fmt(self.id)} | "
+            f"{_fmt(self.reducedfit.fileloc)} "
+            f"{_fmt(self.astrosource.name)} "
+            f"({_fmt(self.aperpix, '.1f')}, "
+            f"{_fmt(self.r_in, '.1f')}, "
+            f"{_fmt(self.r_out, '.1f')}) "
+            f"px {_fmt(self.pairs)}>"
+        )
 
     @classmethod
     def create(cls, reducedfit, astrosource, aperpix, r_in, r_out, pairs, re_use=True, **kwargs):
@@ -135,6 +148,8 @@ class AperPhotResult(models.Model):
     
     @property
     def fwhm_px(self):
+        if self.fwhm is None:
+            return np.nan
         return (self.fwhm * u.arcsec).to_value('pix', equivalencies=self.reducedfit.pixscale_equiv)
 
     @property
