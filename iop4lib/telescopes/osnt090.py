@@ -37,7 +37,7 @@ class OSNT090(FTPArchiveMixin, Telescope, metaclass=ABCMeta):
 
     name = "OSN-T090"
     abbrv = "T090"
-    telescop_kw = "T90-OSN"
+    telescop_kw = ["T90-OSN", "OSN-T090"]
 
     # telescope specific properties
 

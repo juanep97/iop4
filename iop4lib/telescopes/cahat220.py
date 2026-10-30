@@ -46,7 +46,7 @@ class CAHAT220(SFTPArchiveMixin, Telescope, metaclass=ABCMeta):
 
     name = "CAHA-T220"
     abbrv = "T220"
-    telescop_kw = "CA-2.2"
+    telescop_kw = ["CA-2.2"]
 
     # telescope specific properties
 
