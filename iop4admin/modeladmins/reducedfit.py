@@ -23,7 +23,7 @@ class AdminReducedFit(AdminFitFile):
     search_fields = ['id', 'filename', 'epoch__telescope', 'epoch__night', 'sources_in_field__name']
     ordering = ['-epoch__night', '-epoch__telescope', '-juliandate']
     list_filter = (
-        RawFitIdFilter,
+        IdFilter,
         RawFitTelescopeFilter,
         RawFitNightFilter,
         RawFitFilenameFilter,

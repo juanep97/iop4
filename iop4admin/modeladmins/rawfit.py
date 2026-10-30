@@ -19,7 +19,7 @@ class AdminRawFit(AdminFitFile):
     search_fields = ['id', 'filename', 'epoch__telescope', 'epoch__night'] 
     ordering = ['-epoch__night','-epoch__telescope']
     list_filter = (
-            RawFitIdFilter,
+            IdFilter,
             RawFitTelescopeFilter,
             RawFitNightFilter,
             RawFitFilenameFilter,
