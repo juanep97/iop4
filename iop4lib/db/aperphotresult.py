@@ -175,7 +175,7 @@ class AperPhotResult(models.Model):
         annulus = CircularAnnulus(c, r_in=self.r_in, r_out=self.r_out)
         return annulus
 
-    def get_other_pair_mask(self, cutout=None):
+    def get_other_pair_mask(self, cutout=None, other_apres=None):
 
         try:
 
@@ -186,14 +186,28 @@ class AperPhotResult(models.Model):
                 other_pair = 'E' if self.pairs == 'O' else 'O'
 
                 other_apf = AperPhotResult.objects.filter(
-                    # photopolresults__aperphotresults__in=[self.pk],
                     reducedfit = self.reducedfit,
                     astrosource = self.astrosource,
                     aperpix = self.aperpix,
                     r_in = self.r_in,
                     r_out = self.r_out,
                     pairs = other_pair,
-                ).order_by('-modified').first()
+                )
+
+                if other_apres:
+                    other_apres_pks = [othr.pk for othr in other_apres]
+                    other_apf = other_apf.filter(pk__in=other_apres_pks).get()
+                else:
+
+                    same_res = other_apf.filter(
+                        photopolresults__aperphotresults__in=[self.pk],
+                    )
+
+                    if same_res.exists() is not None:
+                        other_apf = same_res.get()
+                    else:
+                        other_apf = other_apf.order_by('-modified').first()
+
 
                 other_c = (other_apf.x_px, other_apf.y_px)
 
@@ -261,9 +275,9 @@ class AperPhotResult(models.Model):
 
         return other_masks
 
-    def get_all_masks(self, cutout=None):
+    def get_all_masks(self, cutout=None, other_apres=None):
 
-        other_pair_mask, other_pair_c = self.get_other_pair_mask(cutout=cutout)
+        other_pair_mask, other_pair_c = self.get_other_pair_mask(cutout=cutout, other_apres=other_apres)
 
         c = (self.x_px, self.y_px)
 
@@ -282,16 +296,13 @@ class AperPhotResult(models.Model):
             other_masks,
         ]
 
-    def get_total_mask(self, cutout=None):
+    def get_total_mask(self, cutout=None, other_apres=None):
 
-        if cutout:
-            shape = cutout.shape
-        else:
-            shape = self.reducedfit.mdata.shape
+        shape = cutout.shape if cutout else self.reducedfit.mdata.shape
 
         total_mask = np.full(shape, False)
 
-        for mask in self.get_all_masks(cutout=cutout):
+        for mask in self.get_all_masks(cutout=cutout, other_apres=other_apres):
             if mask is not None:
                 total_mask = total_mask | mask
         
