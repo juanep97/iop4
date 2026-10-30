@@ -495,7 +495,7 @@ class PhotoPolResult(models.Model):
 
         mag_true = getattr(self.astrosource, f"mag_{self.band}", None)
 
-        aprs = self.aperphotresults.all()
+        aprs = self.aperphotresults.order_by('reducedfit__juliandate').all()
 
         fO = aprs.filter(pairs="O").values_list("flux_counts")
         dfO = aprs.filter(pairs="O").values_list("flux_counts_err")
