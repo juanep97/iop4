@@ -24,7 +24,7 @@ class TextInputFilter(admin.SimpleListFilter):
         )
         yield all_choice
 
-class RawFitIdFilter(TextInputFilter):
+class IdFilter(TextInputFilter):
     title = 'id'
     name = 'id'
     parameter_name = 'id'

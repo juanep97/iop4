@@ -10,6 +10,7 @@ from django.db.models import Avg
 
 # other imports
 from iop4api.models import AstroSource, ReducedFit
+from iop4api.filters import IdFilter
 from iop4admin import views
 
 import numpy as np
@@ -27,6 +28,13 @@ class CalibratorFilter(admin.SimpleListFilter):
     title = "calibrator"
     parameter_name = "calibrator"
 
+    def __init__(self, request, params, model, model_admin):
+        super().__init__(request, params, model, model_admin)
+        self.filtering_by_id = bool(request.GET.get(IdFilter.parameter_name))
+
+    def default_value(self):
+        return "all" if self.filtering_by_id else "no"
+
     def lookups(self, request, model_admin):
         return (
             ("all", "all"),
@@ -35,7 +43,7 @@ class CalibratorFilter(admin.SimpleListFilter):
         )
 
     def queryset(self, request, queryset):
-        value = self.value()
+        value = self.value() or self.default_value()
         if value == "yes":
             return queryset.filter(is_calibrator=True)
         elif value == "no":
@@ -45,7 +53,7 @@ class CalibratorFilter(admin.SimpleListFilter):
 
     def choices(self, changelist):
         # make default = "no"
-        value = self.value() or "no"
+        value = self.value() or self.default_value()
         for lookup, title in self.lookup_choices:
             yield {
                 "selected": value == str(lookup),
@@ -62,16 +70,10 @@ class AdminAstroSource(admin.ModelAdmin):
                     'get_texp_andor90', 'get_texp_andor150', 'get_texp_dipol', 
                     'get_comment_firstline', 'get_details']
     search_fields = ['name', 'other_names', 'ra_hms', 'dec_dms', 'srctype', 'comment']
-    list_filter = ('srctype', CalibratorFilter)
+    list_filter = (IdFilter, 'srctype', CalibratorFilter)
     actions = ['add_field_stars_from_panstarrs', 'remove_field_stars_from_panstarrs']
 
     def changelist_view(self, request, extra_context=None):
-        # make default selection calibrator=none
-        if "calibrator" not in request.GET:
-            q = request.GET.copy()
-            q["calibrator"] = "no"
-            request.GET = q
-            request.META["QUERY_STRING"] = q.urlencode()
         return super().changelist_view(request, extra_context)
     
     @admin.display(description='CALIBRATES')

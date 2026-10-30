@@ -5,7 +5,7 @@ from django.urls import reverse
 from django.utils.safestring import mark_safe
 
 from iop4api.filters import (
-    RawFitIdFilter,
+    IdFilter,
     RawFitTelescopeFilter,
     RawFitNightFilter,
     RawFitInstrumentFilter,
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 class AdminMasterFile(AdminFitFile):
 
     list_filter = (
-            RawFitIdFilter,
+            IdFilter,
             RawFitTelescopeFilter,
             RawFitNightFilter,
             RawFitInstrumentFilter,
