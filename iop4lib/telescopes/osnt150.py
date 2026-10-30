@@ -33,7 +33,7 @@ class OSNT150(OSNT090, Telescope, metaclass=ABCMeta):
 
     name = "OSN-T150"
     abbrv = "T150"
-    telescop_kw = "T150-OSN"
+    telescop_kw = ["T150-OSN", "OSN-T150"]
 
     # telescope specific properties
 

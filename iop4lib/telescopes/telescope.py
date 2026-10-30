@@ -162,7 +162,7 @@ class Telescope(metaclass=ABCMeta):
         """
         telescop_header = fits.getheader(rawfit.filepath, ext=0)["TELESCOP"] 
 
-        if (telescop_header != cls.telescop_kw):
+        if (telescop_header not in cls.telescop_kw):
             raise ValueError(f"TELESCOP in fits header ({telescop_header}) does not match telescope class kw ({cls.telescop_kw}).")
         
     @classmethod
