@@ -250,6 +250,7 @@ class AstroSource(models.Model):
         allowed_metadata = {
             "DIPOL.polarimetry.only_pair" : ['E', 'O'],
             "mask_other_sources": [False, True],
+            "other_masks": None,
         }
         
         allowed_keys = list(allowed_metadata.keys())

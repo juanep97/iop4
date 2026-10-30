@@ -855,11 +855,7 @@ class Instrument(metaclass=ABCMeta):
         from iop4lib.utils import overlaps_border
         from iop4lib.db.aperphotresult import AperPhotResult
         from iop4lib.utils.sourcedetection import get_bkg
-        from photutils.aperture import (
-            CircularAperture,
-            CircularAnnulus,
-            ApertureStats,
-        )
+        from photutils.aperture import ApertureStats
         from photutils.utils import calc_total_error
         from astropy.stats import SigmaClip
 
@@ -879,7 +875,6 @@ class Instrument(metaclass=ABCMeta):
         centroids_and_fwhms = centroids_and_fwhms_result.centroids_and_fwhms
 
         fwhm_stats = centroids_and_fwhms_result.fwhm_stats
-        fwhm_median_px = fwhm_stats.median.to_value('pix', equivalencies=redf.pixscale_equiv)
         fwhm_median_as = fwhm_stats.median.to_value('arcsec', equivalencies=redf.pixscale_equiv)
 
         aperphotresults: List[AperPhotResult] = list()
@@ -906,35 +901,6 @@ class Instrument(metaclass=ABCMeta):
 
                     source_fwhm_as = source_fwhm.to_value('arcsec', equivalencies=redf.pixscale_equiv)
 
-                    ap = CircularAperture(centroid, r=r_ap)
-                    annulus = CircularAnnulus(centroid, r_in=r_in, r_out=r_out)
-
-                    if redf.has_pairs:
-                        other_pair = 'E' if pair == 'O' else 'O'
-                        other_c, _ = centroids_and_fwhms[(astrosource, other_pair)]
-                        other_mask = CircularAperture(other_c, r=r_ap).to_mask().to_image(img.shape).astype(bool)
-                    else:
-                        other_mask = None
-
-                    if astrosource.metadata.get("mask_other_sources", False):
-
-                        detected_mask, _ = mask_other_sources(img, r_ap, fwhm_median_px, exclude=[centroid])
-
-                        if detected_mask is not None:
-                            if other_mask is not None:
-                                other_mask = other_mask | detected_mask
-                            else:
-                                other_mask = detected_mask
-
-                    ap_stats = ApertureStats(img, ap, error=error)
-                    annulus_stats = ApertureStats(img, annulus, error=error, sigma_clip=SigmaClip(sigma=3.0, maxiters=5), mask=other_mask)
-
-                    bkg_flux_counts = annulus_stats.mean*ap_stats.sum_aper_area.value
-                    bkg_flux_counts_err = annulus_stats.sum_err / annulus_stats.sum_aper_area.value * ap_stats.sum_aper_area.value
-
-                    flux_counts = ap_stats.sum - annulus_stats.mean*ap_stats.sum_aper_area.value
-                    flux_counts_err = ap_stats.sum_err
-
                     apres = AperPhotResult.create(
                         reducedfit = redf, 
                         astrosource = astrosource, 
@@ -942,11 +908,6 @@ class Instrument(metaclass=ABCMeta):
                         r_in = r_in,
                         r_out = r_out,
                         pairs = pair,
-                        # photometry results
-                        bkg_flux_counts = bkg_flux_counts,
-                        bkg_flux_counts_err = bkg_flux_counts_err,
-                        flux_counts = flux_counts,
-                        flux_counts_err = flux_counts_err,
                         # other info
                         x_px = centroid[0],
                         y_px = centroid[1],
@@ -956,9 +917,40 @@ class Instrument(metaclass=ABCMeta):
                     
                     aperphotresults.append(apres)
                 except Exception as e:
-                    logger.error(f"{redf}: error computing aperture photometry for {astrosource} {pair}: {e}")
+                    logger.error(f"{redf}: error creating AperPhotResult for {astrosource} {pair}: {e}")
                     logger.debug(traceback.format_exc())
 
+        for apres in aperphotresults:
+
+            try:
+
+                ap = apres.get_aperture()
+                annulus = apres.get_annulus()
+                total_mask = apres.get_total_mask()
+
+                ap_stats = ApertureStats(img, ap, error=error)
+                annulus_stats = ApertureStats(img, annulus, error=error, sigma_clip=SigmaClip(sigma=3.0, maxiters=5), mask=total_mask)
+
+                bkg_flux_counts = annulus_stats.mean*ap_stats.sum_aper_area.value
+                bkg_flux_counts_err = annulus_stats.sum_err / annulus_stats.sum_aper_area.value * ap_stats.sum_aper_area.value
+
+                flux_counts = ap_stats.sum - annulus_stats.mean*ap_stats.sum_aper_area.value
+                flux_counts_err = ap_stats.sum_err
+
+                # set photometry results
+
+                apres.bkg_flux_counts = bkg_flux_counts
+                apres.bkg_flux_counts_err = bkg_flux_counts_err
+                apres.flux_counts = flux_counts
+                apres.flux_counts_err = flux_counts_err
+
+                apres.save()
+
+            except Exception as e:
+                logger.error(f"{redf}: error computing aperture photometry for {apres}: {e}")
+                logger.debug(traceback.format_exc())
+                apres.delete()
+            
         return aperphotresults
     
     @classmethod
