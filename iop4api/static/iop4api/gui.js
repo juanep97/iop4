@@ -53,7 +53,31 @@ function load_source_datatable(form_element) {
         if (request.readyState === 4) {
             if (request.status === 200) {
                 vueApp.addLogEntry(null, "", "Query - Resonse OK");
-                vueApp.$data.tableData = JSON.parse(request.responseText)
+
+                function parseJSONWithNonFinite(text) {
+                    const SENTINELS = {
+                        "Infinity":  "__IOP4_POS_INF__",
+                        "-Infinity": "__IOP4_NEG_INF__",
+                        "NaN":       "__IOP4_NAN__",
+                    };
+                    const REVERSE = {
+                        "__IOP4_POS_INF__": Infinity,
+                        "__IOP4_NEG_INF__": -Infinity,
+                        "__IOP4_NAN__":     NaN,
+                    };
+
+                    // Group 1: a JSON string (kept as-is). Group 2: a bare non-finite token.
+                    const safe = text.replace(
+                        /("(?:\\.|[^"\\])*")|(-?Infinity|NaN)/g,
+                        (m, str, tok) => str !== undefined ? str : `"${SENTINELS[tok]}"`
+                    );
+
+                    return JSON.parse(safe, (k, v) =>
+                        (typeof v === "string" && v in REVERSE) ? REVERSE[v] : v
+                    );
+                }
+
+                vueApp.$data.tableData = parseJSONWithNonFinite(request.responseText)
                 vueApp.$data.tableData.tabulatorjs_coldefs = vueApp.$data.tableData.columns.map(function(c) {
                     cdef = {
                                 field: c.name,
