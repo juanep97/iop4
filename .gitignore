@@ -147,3 +147,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Google Sheets
+last_mag_config/
