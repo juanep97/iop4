@@ -18,6 +18,7 @@ polarimetry_max_group_size: null # <int> or null. Max number of reducedfits per 
 ################
 
 mplt_default_dpi: 100 # <int> dpi for matplotlib (e.g. 100)
+use_simbad: False # <bool> Whether to query SIMBAD when generating astrometry summary images and finding charts
 
 ###############
 ### LOGGING ###

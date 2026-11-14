@@ -317,6 +317,7 @@ class SimbadSource():
 
 def get_simbad_table(center_coord, radius, Nmax=6, all_types=False):
     from astroquery.simbad import Simbad
+    Simbad.TIMEOUT = 30
     Simbad.ROW_LIMIT = 100
     Simbad.add_votable_fields('otype')
     Simbad.add_votable_fields('flux(R)', 'flux(G)')

@@ -476,18 +476,37 @@ class DIPOL(InstrumentHWP):
 
             # Gather some info to perform a good decision on which methods to use
 
-            n_estimate = len(cls._estimate_positions_from_segments(redf=reducedfit, n_seg_threshold=1.3, npixels=64, centering=None))
-            n_estimate_centered = len(cls._estimate_positions_from_segments(redf=reducedfit, n_seg_threshold=1.3, npixels=64, centering=2/3))
-            redf_phot = ReducedFit.objects.filter(instrument=reducedfit.instrument,
-                                                  sources_in_field__in=[reducedfit.header_hintobject], 
-                                                  obsmode=OBSMODES.PHOTOMETRY, 
-                                                  flags__has=ReducedFit.FLAGS.BUILT_REDUCED).order_by('-juliandate').first()
-            try:
-                n_expected_simbad_sources = len(get_simbad_sources(reducedfit.header_hintobject.coord, radius=(reducedfit.width*cls.arcsec_per_pix*u.arcsec)))
-            except Exception as e:
-                logger.error(f"Error getting simbad sources for {reducedfit}: {e}")
-                n_expected_simbad_sources = None
-            n_expected_calibrators = AstroSource.objects.filter(calibrates__in=[reducedfit.header_hintobject]).count()
+            n_estimate = len(cls._estimate_positions_from_segments(
+                redf=reducedfit, n_seg_threshold=1.3, npixels=64, centering=None,
+            ))
+
+            n_estimate_centered = len(cls._estimate_positions_from_segments(
+                redf=reducedfit, n_seg_threshold=1.3, npixels=64, centering=2/3,
+            ))
+
+            redf_phot = ReducedFit.objects.filter(
+                instrument=reducedfit.instrument,
+                sources_in_field__in=[reducedfit.header_hintobject],
+                obsmode=OBSMODES.PHOTOMETRY,
+                flags__has=ReducedFit.FLAGS.BUILT_REDUCED,
+            ).order_by('-juliandate').first()
+
+            n_expected_simbad_sources = None
+            if iop4conf.get('use_simbad', False):
+                try:
+                    simbad_sources = get_simbad_sources(
+                        reducedfit.header_hintobject.coord,
+                        radius=reducedfit.width*cls.arcsec_per_pix*u.arcsec,
+                    )
+                    n_expected_simbad_sources = len(simbad_sources)
+                except Exception as e:
+                    logger.error(
+                        f"Error getting simbad sources for {reducedfit}: {e}"
+                    )
+
+            n_expected_calibrators = AstroSource.objects.filter(
+                calibrates__in=[reducedfit.header_hintobject],
+            ).count()
 
             # log the variables above
 
