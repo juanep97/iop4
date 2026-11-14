@@ -25,6 +25,7 @@ from iop4lib.enums import (
     BANDS,
 )
 from .fields import FlagChoices, FlagBitField
+from iop4lib.utils import get_column_values
 
 # logging
 import logging
@@ -429,7 +430,11 @@ class PhotoPolResult(models.Model):
         qs_res = PhotoPolResult.objects.filter(reducedfits__in=self.reducedfits.all()).exclude(astrosource=self.astrosource).distinct()
 
         if not qs_res.exists():
-            return
+            ax = fig.subplots()
+            ax.text(0.5, 0.5, "no calibrator results found", ha='center', va='center', transform=ax.transAxes)
+            ax.set_axis_off()
+            fig.suptitle("Zero Points")
+            return fig, ax
 
         zps, dzps = zip(*[(r.mag_zp, r.mag_zp_err) for r in qs_res])
         zps, dzps = map(np.ravel, [zps, dzps])
@@ -497,15 +502,29 @@ class PhotoPolResult(models.Model):
 
         aprs = self.aperphotresults.order_by('reducedfit__juliandate').all()
 
-        fO = aprs.filter(pairs="O").values_list("flux_counts")
-        dfO = aprs.filter(pairs="O").values_list("flux_counts_err")
+        if not aprs.exists():
+            return
 
-        fE = aprs.filter(pairs="E").values_list("flux_counts")
-        dfE = aprs.filter(pairs="E").values_list("flux_counts_err")
+        column_names = ['reducedfit__pk', 'reducedfit__rotangle', 'pairs', 'flux_counts', 'flux_counts_err']
+        values = get_column_values(aprs, column_names)
 
-        fO, fE, dfO, dfE = map(np.ravel, [fO, fE, dfO, dfE])
+        redf_pks = list(dict.fromkeys(values['reducedfit__pk'])) # unique, in juliandate order
 
-        if self.reduction == REDUCTIONMETHODS.RELPOL:
+        valdict = dict()
+        for redf_pk, angle, pair, flux, flux_err in zip(*[values[k] for k in column_names]):
+            valdict[(redf_pk, 'angle')] = angle
+            valdict[(redf_pk, pair, 'flux')] = flux
+            valdict[(redf_pk, pair, 'flux_err')] = flux_err
+
+        angles = [valdict[(pk, 'angle')] for pk in redf_pks]
+
+        fO = np.array([valdict.get((pk, 'O', 'flux'), np.nan) for pk in redf_pks])
+        dfO = np.array([valdict.get((pk, 'O', 'flux_err'), np.nan) for pk in redf_pks])
+
+        fE = np.array([valdict.get((pk, 'E', 'flux'), np.nan) for pk in redf_pks])
+        dfE = np.array([valdict.get((pk, 'E', 'flux_err'), np.nan) for pk in redf_pks])
+
+        if self.reduction == REDUCTIONMETHODS.RELPOL and 'E' in values['pairs']: # single-beam instruments have no E
             f = (fO+fE)
             df = (dfO+dfE)
         else:
@@ -545,8 +564,8 @@ class PhotoPolResult(models.Model):
         ax.set_ylabel('mag')
 
         ax.set_xticks(x)
-        ax.set_xticklabels([f"{apr.reducedfit.pk}" for apr in aprs.filter(pairs="O")])
-        ax.set_xlabel("ReducedFit")
+        ax.set_xticklabels([f"{pk}\n{angle}" for pk, angle in zip(redf_pks, angles)])
+        ax.set_xlabel("ReducedFit\nAngle")
         ax.set_ylabel(f"mag {self.band}")
         ax.legend()
 
