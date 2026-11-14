@@ -11,6 +11,7 @@ db_path: ~/.iop4data/iop4.db # Path to iop4 sqlite database file.
 astrometry_cache_path: ~/.astrometry_cache/ # <tr> Path to store the astromery index files.
 nthreads: 4 # <int> Number of threads / processes to use (e.g. 4).
 astrometry_timeout: 20 # <int> Timeout in minutes for astrometry solving.
+polarimetry_max_group_size: null # <int> or null. Max number of reducedfits per polarimetry group; larger groups are split (e.g. 8 splits 16-angle DIPOL sequences in two). null = no limit.
 
 ################
 ### GRAPHICS ###
