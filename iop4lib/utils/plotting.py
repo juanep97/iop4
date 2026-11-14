@@ -281,7 +281,7 @@ def plot_preview_astrometry(redf, with_simbad=False, legend=True, names_over=Fal
 
     # overlay sources in Simbad
 
-    if with_simbad:
+    if with_simbad and iop4conf.get('use_simbad', False):
         try:
             # known sources in this area of sky (Simbad)
             pixscale = np.mean(np.sqrt(np.sum(wcs1.pixel_scale_matrix**2, axis=0)))*u.Unit("deg/pix")
@@ -637,7 +637,15 @@ def plot_finding_chart(target_src, fig=None, ax=None):
         s = f"{redf.instrument} {Time(redf.juliandate, format='jd').iso} UTC"
         ax.text(x=0, y=0, s=s, color="yellow")
 
-    simbad_sources = get_simbad_sources(target_src.coord, radius=radius, Nmax=5, exclude_self=False)
+    simbad_sources = []
+    if iop4conf.get('use_simbad', False):
+        try:
+            simbad_sources = get_simbad_sources(
+                target_src.coord, radius=radius, Nmax=5, exclude_self=False,
+            )
+        except Exception as e:
+            logger.debug(f"Simbad query failed, ignoring: {e}")
+
     calibrators = AstroSource.objects.filter(calibrates=target_src)
     
     for src in calibrators:
