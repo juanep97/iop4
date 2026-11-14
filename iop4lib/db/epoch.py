@@ -589,6 +589,8 @@ class Epoch(models.Model):
         split_groups_keys = list()
         split_groups = list()
 
+        max_group_size = iop4conf.get('polarimetry_max_group_size')
+
         for key_T, redf_L in groups_D.items():
             key_D = dict(key_T)
 
@@ -597,8 +599,14 @@ class Epoch(models.Model):
             split_rotangle_D = {rotangle:[redf for redf in redf_L if redf.rotangle==rotangle] for rotangle in rotangles_S}  # to access the redfs in the redfL by rotangle
             
             while any([len(split_rotangle_D[rotangle])>0 for rotangle in rotangles_S]): # while there are redfs for some rotangle, create groups by popping one of each rotangle
-                split_groups.append([split_rotangle_D[rotangle].pop(0) for rotangle in rotangles_S if len(split_rotangle_D[rotangle]) > 0])
-                split_groups_keys.append(key_D)
+                grp = [split_rotangle_D[rotangle].pop(0) for rotangle in rotangles_S if len(split_rotangle_D[rotangle]) > 0]
+                if max_group_size is None:
+                    split_groups.append(grp)
+                    split_groups_keys.append(key_D)
+                else:
+                    for i in range(0, len(grp), max_group_size):
+                        split_groups.append(grp[i:i+max_group_size])
+                        split_groups_keys.append(key_D)
 
         # sort the groups by min(juliandate)
          
