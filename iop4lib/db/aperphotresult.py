@@ -369,6 +369,27 @@ class AperPhotResult(models.Model):
             rgba[..., 3] = np.where(mask, 0.3, 0.0)
             ax.imshow(rgba, origin="lower")
 
+        # plot a compass showing RA DEC directions
+        def _plot_radec_arrows(ap, ax, wcs, loc=(0.2, 0.85), length=30):
+            """Draw arrows towards increasing RA and Dec at `loc` (axes fraction)."""
+            coord = ap.astrosource.coord
+            step = 1 * u.arcsec
+            p0 = ax.transData.transform(coord.to_pixel(wcs))
+            for label, (d_ra, d_dec) in (
+                ("+RA", (step, 0 * u.arcsec)),
+                ("+Dec", (0 * u.arcsec, step)),
+            ):
+                tip = coord.spherical_offsets_by(d_ra, d_dec)
+                d = ax.transData.transform(tip.to_pixel(wcs)) - p0
+                d /= np.linalg.norm(d)
+                ax.annotate(
+                    label, xy=loc, xycoords="axes fraction",
+                    xytext=d * length, textcoords="offset points",
+                    arrowprops=dict(arrowstyle="<-", color="cyan", lw=2),
+                    color="cyan", fontsize=12, ha="center", va="center",
+                )
+        _plot_radec_arrows(self, ax, cutout.wcs)
+
         return fig, ax
 
     def plot_rp(self, **kwargs):
