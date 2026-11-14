@@ -926,7 +926,7 @@ class Instrument(metaclass=ABCMeta):
 
                 ap = apres.get_aperture()
                 annulus = apres.get_annulus()
-                total_mask = apres.get_total_mask()
+                total_mask = apres.get_total_mask(other_apres=aperphotresults)
 
                 ap_stats = ApertureStats(img, ap, error=error)
                 annulus_stats = ApertureStats(img, annulus, error=error, sigma_clip=SigmaClip(sigma=3.0, maxiters=5), mask=total_mask)

@@ -198,16 +198,9 @@ class AperPhotResult(models.Model):
                     other_apres_pks = [othr.pk for othr in other_apres]
                     other_apf = other_apf.filter(pk__in=other_apres_pks).get()
                 else:
-
-                    same_res = other_apf.filter(
+                    other_apf = other_apf.filter(
                         photopolresults__aperphotresults__in=[self.pk],
-                    )
-
-                    if same_res.exists() is not None:
-                        other_apf = same_res.get()
-                    else:
-                        other_apf = other_apf.order_by('-modified').first()
-
+                    ).get()
 
                 other_c = (other_apf.x_px, other_apf.y_px)
 
