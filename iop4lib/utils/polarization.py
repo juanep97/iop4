@@ -36,6 +36,9 @@ def normalize_p_chi(p, chi):
 def eval_model_uncertainty(f, x, popt, pcov, N=1000, s=1):
     """Returns model's +/- n sigma uncertainty region."""
 
+    if np.any(~np.isfinite(pcov)):
+        return (np.full(x.shape, np.nan) for _ in range(2))
+
     samples = np.random.multivariate_normal(popt, pcov, N)
     evaluations = u.Quantity([f(x, *sample) for sample in samples])
     
@@ -503,8 +506,8 @@ def compute_stokes_HWP_analytical(
     
     # the weighted mean would be better, but for consistency with this method's 
     # polarimetry, since it does not weight:
-    sI = np.mean(I)
-    dsI = np.std(I)
+    sI = np.nanmean(I)
+    dsI = np.nanstd(I)
 
     s = np.array([sI, q, u])
     ds = np.array([dsI, dq, du])
@@ -646,7 +649,7 @@ def compute_stokes_HWP_fit_full(
     func = get_func(np.full(len(xdata), True))
         
     I0 = (FO + FE)
-    p0 = (np.mean(I0), 0.01, 0.01) # ~1% polarization
+    p0 = (np.nanmean(I0), 0.01, 0.01) # ~1% polarization
     bounds_lo = (0.0, -1, -1)
     bounds_hi = (np.inf, +1, +1)
     bounds = (bounds_lo, bounds_hi)
@@ -813,9 +816,10 @@ def compute_stokes_HWP_fit_rel(
 
     # build full stokes and its uncertainty
 
-    weights = 1 / dI**2
-    sI = np.sum(weights * I) / np.sum(weights)
-    dsI = np.sqrt(1 / np.sum(weights))
+    ok = np.isfinite(I) & np.isfinite(dI)
+    w = 1 / dI**2
+    sI = np.sum(w[ok] * I[ok]) / np.sum(w[ok])
+    dsI = np.sqrt(1 / np.sum(w[ok]))
 
     s = (sI, *popt)
     scov = np.zeros((3,3))
@@ -942,9 +946,10 @@ def compute_stokes_HWP_fit_rel_nonideal(
 
     # build full stokes and its uncertainty
 
-    weights = 1 / dI**2
-    sI = np.sum(weights * I) / np.sum(weights)
-    dsI = np.sqrt(1 / np.sum(weights))
+    ok = np.isfinite(I) & np.isfinite(dI)
+    w = 1 / dI**2
+    sI = np.sum(w[ok] * I[ok]) / np.sum(w[ok])
+    dsI = np.sqrt(1 / np.sum(w[ok]))
 
     s = (sI, *popt[:-1])
     scov = np.zeros((3,3))
@@ -1060,7 +1065,7 @@ def compute_stokes_HWP_fit_1pair(
         pair = "E"
 
     xdata = np.deg2rad(theta)
-    sI0 = 2*np.mean(ydata)
+    sI0 = 2*np.nanmean(ydata)
     p0 = (sI0, 0.01, 0.01) # ~1% polarization
     bounds_lo = (0.0, -1, -1)
     bounds_hi = (np.inf, +1, +1)
