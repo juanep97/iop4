@@ -76,3 +76,49 @@ def test_iop4_script():
     import subprocess
     assert subprocess.run(["iop4", "--help"]).returncode == 0, "iop4 help invokation"
     assert subprocess.run(["iop4", "--check-config"]).returncode == 0, "iop4 configuration check"
+
+
+def _load_version_module_from(dest):
+    """ Copy iop4lib/version.py to `dest` and import it from there """
+    import shutil
+    import importlib.util
+    import iop4lib.version
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(iop4lib.version.__file__, dest)
+
+    spec = importlib.util.spec_from_file_location("version_copy", dest)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+def test_version_without_git(tmp_path, monkeypatch):
+    """ Without git (e.g. non-editable installs), use the installed version.
+
+    Regression test for PR #141 (git was required at import time).
+    """
+    monkeypatch.setenv("PATH", "")
+    version = _load_version_module_from(tmp_path / "iop4lib" / "version.py")
+
+    assert version.GIT_COMMIT_HASH is None
+    assert version.GIT_BRANCH is None
+    assert version.GIT_DESCRIBE == version.__version__
+
+def test_version_in_unrelated_git_repo(tmp_path):
+    """ The git info of an unrelated repo containing IOP4 must not be used.
+
+    See `test_version_without_git`.
+    """
+    import subprocess
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "-c", "user.name=test", "-c", "user.email=test@test",
+         "commit", "-q", "--allow-empty", "-m", "init"],
+        cwd=tmp_path, check=True,
+    )
+
+    dest = tmp_path / "venv" / "site-packages" / "iop4lib" / "version.py"
+    version = _load_version_module_from(dest)
+
+    assert version.GIT_COMMIT_HASH is None
+    assert version.GIT_DESCRIBE == version.__version__

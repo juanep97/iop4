@@ -19,7 +19,11 @@
 
     {% if request.user.is_authenticated %}
         <p class="styled-box">
-            This site is currently running IOP4 <i>{{ git_branch }} @ <a href="https://github.com/juanep97/iop4/commit/{{ git_commit_hash }}">{{ git_describe }}</a></i>.<br>
+            {% if git_commit_hash %}
+                This site is currently running IOP4 <i>{{ git_branch }} @ <a href="https://github.com/juanep97/iop4/commit/{{ git_commit_hash }}">{{ git_describe }}</a></i>.<br>
+            {% else %}
+                This site is currently running IOP4 <i>{{ git_describe }}</i>.<br>
+            {% endif %}
             <br>
             <span style="font-size:small;">
                 This message is visible only to authenticated users.
