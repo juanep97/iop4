@@ -21,7 +21,7 @@ import pandas as pd
 from astropy.time import Time
 from pathlib import Path
 
-#logging
+# logging
 import logging
 logger = logging.getLogger(__name__)
 
@@ -42,9 +42,9 @@ def plot(request):
     save_filename = f"IOP4_{source_name}_{band}"
 
     # comment these lines to allow for empty plot
-    if not AstroSource.objects.filter(name=source_name).exists(): 
+    if not AstroSource.objects.filter(name=source_name).exists():
         return HttpResponseBadRequest(f"Source '{source_name}' does not exist".format(source_name=source_name))
-    
+
     target_src = AstroSource.objects.get(name=source_name)
 
     logger.debug(f"Serving results for {target_src} band {band} from {date_start} to {date_end}")
@@ -53,18 +53,37 @@ def plot(request):
 
     import bokeh.colors
     from bokeh.document import Document
-    from bokeh.transform import factor_cmap
-    from bokeh.layouts import column, gridplot
-    from bokeh.models import CategoricalColorMapper, LinearColorMapper, RangeTool, Range1d, LinearAxis, CustomJS, ColumnDataSource, Whisker, DatetimeAxis, DatetimeTickFormatter, Scatter, Segment, CDSView, GroupFilter, AllIndices, HoverTool, NumeralTickFormatter, BoxZoomTool, DataTable, TableColumn, CategoricalMarkerMapper, CustomJSTransform, CustomJSHover, SaveTool, Toolbar
-    from bokeh.plotting import figure, show
-    from bokeh.embed import components, json_item
-    from bokeh.models import Div, Circle, Column, Row
-    from bokeh.plotting import figure
-    from bokeh.models import ColumnDataSource, Styles, InlineStyleSheet, GlobalInlineStyleSheet
-    from bokeh.transform import factor_cmap, factor_mark, transform
-    from bokeh.events import Event, PanStart, PanEnd, Press, PressUp, RangesUpdate
+    from bokeh.events import PanStart, PanEnd
+    from bokeh.layouts import gridplot
+    from bokeh.models import (
+        AllIndices,
+        BoxZoomTool,
+        CDSView,
+        Circle,
+        Column,
+        ColumnDataSource,
+        CustomJS,
+        CustomJSHover,
+        CustomJSTransform,
+        DataTable,
+        DatetimeAxis,
+        DatetimeTickFormatter,
+        Div,
+        HoverTool,
+        InlineStyleSheet,
+        NumeralTickFormatter,
+        Range1d,
+        RangeTool,
+        Row,
+        SaveTool,
+        Scatter,
+        Segment,
+        Span,
+        TableColumn,
+    )
     from bokeh.models.widgets import HTMLTemplateFormatter, NumberFormatter
-    from bokeh.models import Span
+    from bokeh.plotting import figure
+    from bokeh.transform import factor_cmap, transform
 
     lod_threshold = 2000
     lod_factor = 10
@@ -74,7 +93,7 @@ def plot(request):
     @np.vectorize
     def f_x1_to_x2(x1_val):
         return Time(x1_val, format='mjd').datetime
-    
+
     # Get data from DB
     column_names = ['id', 'juliandate', 'band', 'instrument', 'mag', 'mag_err', 'p', 'p_err', 'chi', 'chi_err', 'flags']
 
@@ -120,20 +139,22 @@ def plot(request):
             df['instrument'] = list(map(lambda x: "IOP3-"+x, df["Telescope"]))
 
             df_crosscheck = pd.concat([df_crosscheck, df], ignore_index=True, join="inner")
-        
+
         dipol_dpath = str(Path(iop4conf.datadir) / "iop4_crosscheck_data" / "dipol")
-        
+
         def get_invariable_str(s):
             return s.replace(' ', '').replace('-','').replace('+','').replace('_','').upper()
-    
+
         for fpath in glob.iglob(f"{dipol_dpath}/*.txt"):
 
             if get_invariable_str(target_src.name) in get_invariable_str(fpath) or get_invariable_str(target_src.other_names_list[0]) in get_invariable_str(fpath):
                 logger.debug(f"Reading {fpath}")
 
-                df = pd.read_csv(fpath, delim_whitespace=True, header=None, 
-                                 names=["mjd", "q", "u", "p", "p_err", "chi", "chi_err"],
-                                 usecols=range(7), dtype=float)
+                df = pd.read_csv(
+                    fpath, delim_whitespace=True, header=None,
+                    names=["mjd", "q", "u", "p", "p_err", "chi", "chi_err"],
+                    usecols=range(7), dtype=float,
+                )
 
                 if date_start is not None:
                     df = df.loc[df["mjd"] >= Time(date_start).mjd]
@@ -193,7 +214,7 @@ def plot(request):
     rgb_L = [bokeh.colors.RGB.from_hex_string(hexcolor) for hexcolor in instrument_color_L]
 
     hsl_L_nonselected = [rgb.to_hsl() for rgb in rgb_L]
-    hsl_L_selected= [rgb.to_hsl() for rgb in rgb_L]
+    hsl_L_selected = [rgb.to_hsl() for rgb in rgb_L]
 
     for hsl in hsl_L_nonselected:
         # make non-selected colors lighter and more gray
@@ -202,71 +223,74 @@ def plot(request):
 
     for hsl in hsl_L_selected:
         hsl.l = 0.5
-    
+
     palette_selected = [bokeh.colors.RGB.from_hsl(hsl) for hsl in hsl_L_selected]
     palette_nonselected = [bokeh.colors.RGB.from_hsl(hsl) for hsl in hsl_L_nonselected]
-    
-    index_cmap_selected = factor_cmap('instrument', 
-                             palette=palette_selected, 
-                             factors=instruments_L)
-    
-    index_cmap_nonselected = factor_cmap('instrument', 
-                                   palette=palette_nonselected, 
-                                   factors=instruments_L)
-    
+
+    index_cmap_selected = factor_cmap(
+        'instrument', palette=palette_selected, factors=instruments_L,
+    )
+
+    index_cmap_nonselected = factor_cmap(
+        'instrument', palette=palette_nonselected, factors=instruments_L,
+    )
+
     # # Flags and markers
 
     markermap = transform("flags", CustomJSTransform(v_func="""
             let markers = [];
-            
+
             for (let i = 0; i < xs.length; i++) {
-                                                     
+
                 let marker = "circle";
-                                                                                          
+
                 if (xs[i] & (1 << 1)) { // bad photometry
                     marker = "triangle";
-                } 
+                }
 
                 if (xs[i] & (1 << 2)) { // bad polarimetry
                     marker = "inverted_triangle";
                 }
 
                 if ((xs[i] & (1 << 1)) && (xs[i] & (1 << 2))) { // bad photometry and polarimetry
-                    marker = "cross";                                 
+                    marker = "cross";
                 }
-                                                                                                                       
-                markers.push(marker);
-            }   
-                                                     
-            return markers;"""))
 
+                markers.push(marker);
+            }
+
+            return markers;"""
+    ))
 
     # Define data sources
 
-    source = ColumnDataSource(data=dict(pk = pks,
-                                        instrument = vals['instrument'],
-                                        x1 = x1, # mjd
-                                        x2 = x2, # datetime
-                                        datestr = Time(vals["juliandate"],format="jd").strftime("%Y/%m/%d %H:%M"),
-                                        y1 = vals['mag'], 
-                                        y1_min = vals['mag']-vals['mag_err'], # if not sent it is computed in JS in check_plot()
-                                        y1_max = vals['mag']+vals['mag_err'], # if not sent it is computed in JS in check_plot()
-                                        y1_err = vals['mag_err'],
-                                        y2 = vals['p'], 
-                                        y2_min = vals['p']-vals['p_err'], # if not sent it is computed in JS in check_plot()
-                                        y2_max = vals['p']+vals['p_err'], # if not sent it is computed in JS in check_plot()
-                                        y2_err = vals['p_err'],
-                                        y3 = vals['chi'], 
-                                        y3_min = vals['chi']-vals['chi_err'], # if not sent it is computed in JS in check_plot()
-                                        y3_max = vals['chi']+vals['chi_err'], # if not sent it is computed in JS in check_plot()
-                                        y3_err = vals['chi_err'],
-                                        flags = vals['flags'],
-                                    ),
-                                name="source")
+    source = ColumnDataSource(
+        data=dict(
+            pk=pks,
+            instrument=vals['instrument'],
+            x1=x1, # mjd
+            x2=x2, # datetime
+            datestr=Time(vals["juliandate"], format="jd").strftime("%Y/%m/%d %H:%M"),
+            y1=vals['mag'],
+            y1_min=vals['mag']-vals['mag_err'], # if not sent it is computed in JS in check_plot()
+            y1_max=vals['mag']+vals['mag_err'], # if not sent it is computed in JS in check_plot()
+            y1_err=vals['mag_err'],
+            y2=vals['p'],
+            y2_min=vals['p']-vals['p_err'], # if not sent it is computed in JS in check_plot()
+            y2_max=vals['p']+vals['p_err'], # if not sent it is computed in JS in check_plot()
+            y2_err=vals['p_err'],
+            y3=vals['chi'],
+            y3_min=vals['chi']-vals['chi_err'], # if not sent it is computed in JS in check_plot()
+            y3_max=vals['chi']+vals['chi_err'], # if not sent it is computed in JS in check_plot()
+            y3_err=vals['chi_err'],
+            flags=vals['flags'],
+        ),
+        name="source",
+    )
 
     view = CDSView(filter=AllIndices(), name="plot_view")
 
-    # These will set the correspondence between axes x1 units and axes x2 units 
+    # These will set the correspondence between axes x1 units and axes x2 units
 
     if len(x1) >= 2:
         # for the main plot
@@ -311,59 +335,65 @@ def plot(request):
 
     # Create a hover tool with custom JS callback
 
-    hover_formatter = CustomJSHover(args=dict(source=source), 
-                                    code="""
-                                        let idx = special_vars.index;
+    hover_formatter = CustomJSHover(
+        args=dict(source=source),
+        code="""
+            let idx = special_vars.index;
 
-                                        const [name, s1, s2] = format.split(',');
-                                        const y = source.data[s1][idx];
-                                        const dy = source.data[s2][idx];
+            const [name, s1, s2] = format.split(',');
+            const y = source.data[s1][idx];
+            const dy = source.data[s2][idx];
 
-                                        if (name == "mag") {
-                                            return parseFloat(y).toFixed(2) + " ± " + parseFloat(dy).toFixed(2);
-                                        } else if ((name == "p")) {
-                                            return parseFloat(100*y).toFixed(2) + " ± " + parseFloat(100*dy).toFixed(2) + " %";
-                                        } else if ((name == "chi")) {
-                                            return parseFloat(y).toFixed(2) + " ± " + parseFloat(dy).toFixed(2) + " º";
-                                        }
+            if (name == "mag") {
+                return parseFloat(y).toFixed(2) + " ± " + parseFloat(dy).toFixed(2);
+            } else if ((name == "p")) {
+                return parseFloat(100*y).toFixed(2) + " ± " + parseFloat(100*dy).toFixed(2) + " %";
+            } else if ((name == "chi")) {
+                return parseFloat(y).toFixed(2) + " ± " + parseFloat(dy).toFixed(2) + " º";
+            }
 
-                                        return "error in hover formatter";
-                                        """)
+            return "error in hover formatter";
+            """,
+    )
 
-    hover_tool = HoverTool(renderers=[], formatters={"@pk":hover_formatter})
+    hover_tool = HoverTool(renderers=[], formatters={"@pk": hover_formatter})
 
-    hover_tool.callback = CustomJS(args = dict(source = source, hover = hover_tool), code = '''
-            if (cb_data.index.indices.length > 0) { 
+    hover_tool.callback = CustomJS(
+        args=dict(source=source, hover=hover_tool),
+        code="""
+            if (cb_data.index.indices.length > 0) {
                 let index = cb_data.index.indices[0];
-                              
+
                 let mag = source.data.y1[index];
                 let p = source.data.y2[index];
                 let chi = source.data.y3[index];
                 let flags = source.data.flags[index];
 
                 let tooltips = [["id", "@pk"], ["instrument", "@instrument"], ["date", "@datestr"]]
-                              
+
                 if (isFinite(mag)) {
                     //tooltips.push(["mag", "@y1"]);
                     tooltips.push(["mag", "@pk{mag,y1,y1_err}"]);
                 }
-                             
+
                 if (isFinite(p)) {
                     //tooltips.push(["mag", "@y2{0.0 %}"]);
-                    tooltips.push(["p", "@pk{p,y2,y2_err}"]);                                       
-                } 
-                              
+                    tooltips.push(["p", "@pk{p,y2,y2_err}"]);
+                }
+
                 if (isFinite(chi)) {
                     //tooltips.push(["mag", "@y2"]);
                     tooltips.push(["chi", "@pk{chi,y3,y3_err}"]);
                 }
-                    
+
                 tooltips.push(["flags", flags_to_str(flags)]);
-                              
+
                 hover.tooltips = tooltips
-                
-            } ''')
-    
+
+            }
+            """,
+    )
+
     # other tools
 
     save_tool = SaveTool(filename=save_filename) # customize filename of saved plot
@@ -375,82 +405,86 @@ def plot(request):
         # Create the main plot with range slider and secondary x-axis, fixed styles of markers
 
         # alternatively: # figure(sizing_mode="stretch", width=800, height=200,
-        p_main = figure(x_range=x1_lims, tools="", lod_threshold=lod_threshold, lod_factor=lod_factor, lod_timeout=lod_timeout, output_backend="webgl")  
-        p_main.circle(x='x1', y='y1', source=source, view=view,
-                    radius=3, 
-                    line_color=bokeh.colors.named.navy, 
-                    fill_color=bokeh.colors.named.navy, 
-                    selection_line_color=bokeh.colors.named.navy.darken(0.1), 
-                    nonselection_line_color=bokeh.colors.named.navy.lighten(0.55), 
-                    selection_fill_color=bokeh.colors.named.navy.darken(0.1), 
-                    nonselection_fill_color=bokeh.colors.named.navy.lighten(0.55), 
-                    selection_fill_alpha=0.5, 
-                    nonselection_fill_alpha=0.5, 
-                    selection_line_alpha=0.5, 
-                    nonselection_line_alpha=0.5)
+        p_main = figure(x_range=x1_lims, tools="", lod_threshold=lod_threshold, lod_factor=lod_factor, lod_timeout=lod_timeout, output_backend="webgl")
+        p_main.circle(
+            x='x1', y='y1', source=source, view=view,
+            radius=3,
+            line_color=bokeh.colors.named.navy,
+            fill_color=bokeh.colors.named.navy,
+            selection_line_color=bokeh.colors.named.navy.darken(0.1),
+            nonselection_line_color=bokeh.colors.named.navy.lighten(0.55),
+            selection_fill_color=bokeh.colors.named.navy.darken(0.1),
+            nonselection_fill_color=bokeh.colors.named.navy.lighten(0.55),
+            selection_fill_alpha=0.5,
+            nonselection_fill_alpha=0.5,
+            selection_line_alpha=0.5,
+            nonselection_line_alpha=0.5,
+        )
 
         p_main.y_range = Range1d(*y1_lims[::-1])
 
         p_main.extra_x_ranges["secondary"] = Range1d(*x2_lims)
         p_main_ax_x2 = DatetimeAxis(x_range_name="secondary", axis_label="Date")
-        p_main_ax_x2.formatter = DatetimeTickFormatter(months=r"%Y/%m/%d",
-                                                days=r"%Y/%m/%d %H:%M",
-                                                hours=r"%Y/%m/%d %H:%M",
-                                                minutes=r"%Y/%m/%d %H:%M")
+        p_main_ax_x2.formatter = DatetimeTickFormatter(
+            months=r"%Y/%m/%d",
+            days=r"%Y/%m/%d %H:%M",
+            hours=r"%Y/%m/%d %H:%M",
+            minutes=r"%Y/%m/%d %H:%M",
+        )
         p_main.add_layout(p_main_ax_x2, 'above')
 
         p_main.add_tools(range_tool)
 
     # Create three subplots that show data in the selected range tool of the main plot
 
-    pltDict =   {   
-                    'ax1': {
-                                'x':"x1", 
-                                'y':"y1", 
-                                "y_label": "mag" if not use_hostcorrected else "mag (corr)",
-                                "err": ["y1_min", "y1_max"],     
-                                "yref": getattr(target_src, f'mag_{band}', None),                        
-                                "marker": markermap,
-                                "size": 5,
-                                "color": index_cmap_selected,
-                                "selected_color": index_cmap_selected,
-                                "nonselected_color": index_cmap_nonselected,
-                                "alpha": 0.5,
-                                "selected_alpha": 0.5,
-                                "nonselected_alpha": 0.5,
-                            }, 
-                    'ax2':  {
-                                'x':"x1", 
-                                'y':"y2", 
-                                "y_label": "p [%]" if not use_hostcorrected else "p (corr) [%]",
-                                "err": ["y2_min", "y2_max"],
-                                "yref": getattr(target_src, f'p', None),                       
-                                "marker": markermap,
-                                "size": 5,
-                                "color": index_cmap_selected,
-                                "selected_color": index_cmap_selected,
-                                "nonselected_color": index_cmap_nonselected,
-                                "alpha": 0.5,
-                                "selected_alpha": 0.5,
-                                "nonselected_alpha": 0.5,
-                            },
-                    'ax3':  {
-                                'x':"x1", 
-                                'y':"y3", 
-                                "y_label": "chi [º]",
-                                "err": ["y3_min", "y3_max"],                               
-                                "yref": getattr(target_src, f'chi', None),                             
-                                "marker": markermap,
-                                "size": 5,
-                                "color": index_cmap_selected,
-                                "selected_color": index_cmap_selected,
-                                "nonselected_color": index_cmap_nonselected,
-                                "alpha": 0.5,
-                                "selected_alpha": 0.5,
-                                "nonselected_alpha": 0.5,
-                            },            
-                }
-                            
+    pltDict = {
+        'ax1': {
+            'x': "x1",
+            'y': "y1",
+            "y_label": "mag" if not use_hostcorrected else "mag (corr)",
+            "err": ["y1_min", "y1_max"],
+            "yref": getattr(target_src, f'mag_{band}', None),
+            "marker": markermap,
+            "size": 5,
+            "color": index_cmap_selected,
+            "selected_color": index_cmap_selected,
+            "nonselected_color": index_cmap_nonselected,
+            "alpha": 0.5,
+            "selected_alpha": 0.5,
+            "nonselected_alpha": 0.5,
+        },
+        'ax2': {
+            'x': "x1",
+            'y': "y2",
+            "y_label": "p [%]" if not use_hostcorrected else "p (corr) [%]",
+            "err": ["y2_min", "y2_max"],
+            "yref": getattr(target_src, 'p', None),
+            "marker": markermap,
+            "size": 5,
+            "color": index_cmap_selected,
+            "selected_color": index_cmap_selected,
+            "nonselected_color": index_cmap_nonselected,
+            "alpha": 0.5,
+            "selected_alpha": 0.5,
+            "nonselected_alpha": 0.5,
+        },
+        'ax3': {
+            'x': "x1",
+            'y': "y3",
+            "y_label": "chi [º]",
+            "err": ["y3_min", "y3_max"],
+            "yref": getattr(target_src, 'chi', None),
+            "marker": markermap,
+            "size": 5,
+            "color": index_cmap_selected,
+            "selected_color": index_cmap_selected,
+            "nonselected_color": index_cmap_nonselected,
+            "alpha": 0.5,
+            "selected_alpha": 0.5,
+            "nonselected_alpha": 0.5,
+        },
+    }
+
     for axLabel, axDict in pltDict.items():
 
         p = figure(title=None, x_range=selected_range, toolbar_location=None, tools=tools, lod_threshold=lod_threshold, lod_factor=lod_factor, lod_timeout=lod_timeout, output_backend="webgl", name=f"plot_{axLabel}")
@@ -466,7 +500,6 @@ def plot(request):
             segs_nonselected = Segment(x0=axDict['x'], y0=axDict["err"][0], x1=axDict['x'], y1=axDict["err"][1], line_color=axDict["nonselected_color"], line_alpha=axDict["nonselected_alpha"])
             errorbars_renderer = p.add_glyph(source, segs_initial, selection_glyph=segs_initial, nonselection_glyph=segs_nonselected, view=view, name=f"{axLabel}_errorbars_renderer")
             errorbars_renderer.visible = True
-
 
         if (yref := axDict.get('yref')):
             hline = Span(
@@ -487,10 +520,12 @@ def plot(request):
             p.y_range.flipped = True
             p.extra_x_ranges["secondary"] = Range1d(*x2_range)
             p_ax_x2 = DatetimeAxis(x_range_name="secondary")
-            p_ax_x2.formatter = DatetimeTickFormatter(months=r"%Y/%m/%d",
-                                                days=r"%Y/%m/%d %H:%M",
-                                                hours=r"%Y/%m/%d %H:%M",
-                                                minutes=r"%Y/%m/%d %H:%M")
+            p_ax_x2.formatter = DatetimeTickFormatter(
+                months=r"%Y/%m/%d",
+                days=r"%Y/%m/%d %H:%M",
+                hours=r"%Y/%m/%d %H:%M",
+                minutes=r"%Y/%m/%d %H:%M",
+            )
             p.add_layout(p_ax_x2, 'above')
 
         if axLabel == "ax3":
@@ -527,11 +562,14 @@ def plot(request):
     # because the range_tool changes the p1 primary axes but not the secondary (otherwise they are already linked)
 
     p1, p2, p3 = pltDict["ax1"]["p"], pltDict["ax2"]["p"], pltDict["ax3"]["p"]
-    
+
     factor = (x2_lims[1] - x2_lims[0]) / (x1_lims[1] - x1_lims[0])
     shift = x2_lims[0] - x1_lims[0]*factor
 
-    callback = CustomJS(args=dict(primary=p1.x_range, secondary=p1.extra_x_ranges["secondary"], factor=factor, shift=shift), code = """secondary.start = factor * primary.start + shift; secondary.end = factor * primary.end + shift;""")
+    callback = CustomJS(
+        args=dict(primary=p1.x_range, secondary=p1.extra_x_ranges["secondary"], factor=factor, shift=shift),
+        code="""secondary.start = factor * primary.start + shift; secondary.end = factor * primary.end + shift;""",
+    )
     p1.x_range.js_on_change('start', callback)
     p1.x_range.js_on_change('end', callback)
 
@@ -567,9 +605,9 @@ def plot(request):
         p2.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
         p3.js_on_event(PanStart, CustomJS(code=cb_hide_errorbars))
         p3.js_on_event(PanEnd, CustomJS(code=cb_restore_errorbars))
-        
+
     # add a callback to anable flagging data
-    
+
     cb_stage_to_flag = CustomJS(args=dict(source=source), code="""
         vueApp.$data.selected_plot_idx = source.selected.indices;
     """)
@@ -578,29 +616,32 @@ def plot(request):
     ##############
     # Data table #
     ##############
-    
+
     table_link_formatter = HTMLTemplateFormatter(template="""<a href="/iop4/admin/iop4api/photopolresult/?id=<%= value %>"><%= value %></a>""")
     float_formatter = NumberFormatter(format='0.00')
     percent_formatter = NumberFormatter(format='0.0 %')
     flags_to_str_formatter = HTMLTemplateFormatter(template="""<span><%= flags_to_str(flags) %></span>""")
-    
-    table_columns = [   
-                        TableColumn(field="pk", title="id", formatter=table_link_formatter),
-                        TableColumn(field="instrument", title="instrument"),
-                        TableColumn(field="x1", title="mjd", formatter=float_formatter),
-                        TableColumn(field="y1", title="mag", formatter=float_formatter),
-                        TableColumn(field="y1_err", title="dmag", formatter=float_formatter),
-                        TableColumn(field="y2", title="p", formatter=percent_formatter),
-                        TableColumn(field="y2_err", title="dp", formatter=percent_formatter),
-                        TableColumn(field="y3", title="chi", formatter=float_formatter),
-                        TableColumn(field="y3_err", title="dchi", formatter=float_formatter),
-                        TableColumn(field="flags", title="flags", formatter=flags_to_str_formatter),
-                    ]
-               
-    data_table = DataTable(source=source, view=view, columns=table_columns, index_position=None,
-                           sortable=True, reorderable=True, scroll_to_selection=True, #sizing_mode="stretch_width", # this works and is fast
-                            sizing_mode="inherit", # this also works fast while respecting the container size
-                            stylesheets=[InlineStyleSheet(css=""".slick-cell.selected { background-color: #d2eaff; }""")]) 
+
+    table_columns = [
+        TableColumn(field="pk", title="id", formatter=table_link_formatter),
+        TableColumn(field="instrument", title="instrument"),
+        TableColumn(field="x1", title="mjd", formatter=float_formatter),
+        TableColumn(field="y1", title="mag", formatter=float_formatter),
+        TableColumn(field="y1_err", title="dmag", formatter=float_formatter),
+        TableColumn(field="y2", title="p", formatter=percent_formatter),
+        TableColumn(field="y2_err", title="dp", formatter=percent_formatter),
+        TableColumn(field="y3", title="chi", formatter=float_formatter),
+        TableColumn(field="y3_err", title="dchi", formatter=float_formatter),
+        TableColumn(field="flags", title="flags", formatter=flags_to_str_formatter),
+    ]
+
+    data_table = DataTable(
+        source=source, view=view, columns=table_columns, index_position=None,
+        sortable=True, reorderable=True, scroll_to_selection=True,
+        # sizing_mode="stretch_width", # this works and is fast
+        sizing_mode="inherit", # this also works fast while respecting the container size
+        stylesheets=[InlineStyleSheet(css=""".slick-cell.selected { background-color: #d2eaff; }""")],
+    )
 
     #################################################
     # Create a legend (it will be a different plot) #
@@ -611,37 +652,37 @@ def plot(request):
     legend_source = ColumnDataSource(data=dict(x=[0], y=[0]))
 
     label_stylesheet = InlineStyleSheet(css="""
-                                        :host { 
-                                            display: flex;
-                                            align-items: self-end;
-                                            margin: 0;
-                                            margin-left: 10px;
-                                            min-width: 6em;
-                                            /* max-width: 12em; */
-                                        }
+        :host {
+            display: flex;
+            align-items: self-end;
+            margin: 0;
+            margin-left: 10px;
+            min-width: 6em;
+            /* max-width: 12em; */
+        }
 
-                                        label {
-                                            display: flex;
-                                            cursor: pointer; 
-                                            font-weight: normal;
-                                            white-space: nowrap;
-                                        }
+        label {
+            display: flex;
+            cursor: pointer;
+            font-weight: normal;
+            white-space: nowrap;
+        }
 
-                                        span {
-                                            display: flex;
-                                            align-items: flex-end;
-                                            min-width: 4em;
-                                        }
+        span {
+            display: flex;
+            align-items: flex-end;
+            min-width: 4em;
+        }
 
-                                        input {
-                                            cursor: pointer;
-                                        }
+        input {
+            cursor: pointer;
+        }
 
-                                        label:active {
-                                            background-color: #f2f2f2;
-                                            border-radius: 4px;
-                                        }
-                                        """)
+        label:active {
+            background-color: #f2f2f2;
+            border-radius: 4px;
+        }
+        """)
 
     legend_row_L = list()
 
@@ -667,7 +708,7 @@ def plot(request):
 
     # Flag legend entries
     # values here must match those in PhotoPolResult.FLAGS (0, 1 << 1 = 2, 1 << 2 = 4, 1 << 1 | 1 << 2 = 6)
-        
+
     for flag_value, flag_label, marker in zip([2,4,6], ["bad photometry", "bad polarimetry", "bad photometry and polarimetry"], ["triangle", "inverted_triangle", "cross"]):
         # Create Div elements for labels
         if flag_value in [2,4]:
@@ -695,22 +736,21 @@ def plot(request):
     # Combine rows into a column and display
     legend_layout = Column(children=legend_row_L)
 
-
-
-
     # Get the components to embed in the Django template
 
     doc = Document()
     doc.add_root(plot_layout)
     doc.add_root(data_table)
     doc.add_root(legend_layout)
-    
+
     from bokeh.embed.util import standalone_docs_json_and_render_items
     doc, render_items = standalone_docs_json_and_render_items([plot_layout, data_table, legend_layout])
-    return JsonResponse({'doc':doc,
-                        'render_items':[item.to_json() for item in render_items],
-                        'n_points':len(x1),
-                        'enable_full_lc': enable_full_lc,
-                        'enable_crosscheckpts': enable_crosscheckpts,
-                        'enable_errorbars': enable_errorbars,
-                        'use_hostcorrected': use_hostcorrected})
+    return JsonResponse({
+        'doc': doc,
+        'render_items': [item.to_json() for item in render_items],
+        'n_points': len(x1),
+        'enable_full_lc': enable_full_lc,
+        'enable_crosscheckpts': enable_crosscheckpts,
+        'enable_errorbars': enable_errorbars,
+        'use_hostcorrected': use_hostcorrected,
+    })
