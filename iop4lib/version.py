@@ -19,3 +19,36 @@ except Exception:
     version = "0.0.0"
 
 __version__ = version
+
+# Git information, only available when running from the git repository (e.g.
+# editable installs). Otherwise (e.g. non-editable installs), fall back to the
+# installed version.
+
+try:
+
+    import os
+    import subprocess
+    from pathlib import Path
+
+    def _git(*args):
+        return subprocess.check_output(
+            ['git', *args],
+            cwd=os.path.dirname(os.path.realpath(__file__)),
+            stderr=subprocess.DEVNULL,
+        ).decode('ascii').strip()
+
+    # git searches parent directories for a repository; make sure the one it
+    # finds is the IOP4 source tree (and not e.g. an unrelated repo that
+    # happens to contain the environment where IOP4 is installed).
+    git_root = Path(_git('rev-parse', '--show-toplevel')).resolve()
+    if git_root != Path(__file__).resolve().parents[1]:
+        raise RuntimeError("Not running from the IOP4 git repository")
+
+    GIT_COMMIT_HASH = _git('rev-parse', 'HEAD')
+    GIT_BRANCH = _git('rev-parse', '--abbrev-ref', 'HEAD')
+    GIT_DESCRIBE = _git('describe', '--always')
+
+except Exception:
+    GIT_COMMIT_HASH = None
+    GIT_BRANCH = None
+    GIT_DESCRIBE = version

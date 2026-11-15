@@ -1,7 +1,5 @@
-import sys, os, subprocess
-GIT_COMMIT_HASH = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=os.path.dirname(os.path.realpath(__file__))).decode('ascii').strip()
-GIT_BRANCH = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], cwd=os.path.dirname(os.path.realpath(__file__))).decode('ascii').strip()
-GIT_DESCRIBE = subprocess.check_output(['git', 'describe', '--always'], cwd=os.path.dirname(os.path.realpath(__file__))).decode('ascii').strip()
+import sys, os
+from iop4lib.version import GIT_COMMIT_HASH, GIT_DESCRIBE
 
 # thumnail_gallery extension
 from pathlib import Path
@@ -159,6 +157,9 @@ def linkcode_resolve(domain, info):
     This function is used by the sphinx.ext.linkcode extension.
     """
     if domain != 'py':
+        return None
+
+    if GIT_COMMIT_HASH is None:  # not running from the git repository
         return None
 
     # Get the module and object name

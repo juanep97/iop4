@@ -10,20 +10,16 @@ from django.shortcuts import render, redirect
 # iop4lib imports
 from iop4lib.db import AstroSource
 from iop4lib.enums import SRCTYPES
+from iop4lib.version import GIT_COMMIT_HASH, GIT_BRANCH, GIT_DESCRIBE
 
 # other imports
 import json
 import os
-import subprocess
 from pathlib import Path
 
 #logging
 import logging
 logger = logging.getLogger(__name__)
-
-GIT_COMMIT_HASH = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=os.path.dirname(os.path.realpath(__file__))).decode('ascii').strip()
-GIT_BRANCH = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], cwd=os.path.dirname(os.path.realpath(__file__))).decode('ascii').strip()
-GIT_DESCRIBE = subprocess.check_output(['git', 'describe', '--always'], cwd=os.path.dirname(os.path.realpath(__file__))).decode('ascii').strip()
 
 def index(request, tabs=None):
 
