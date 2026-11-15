@@ -292,13 +292,14 @@ def plot(request):
 
     x1 = np.array(x1, dtype=float)
     y1 = np.array(y1, dtype=float)
+    y1 = y1[np.isfinite(y1)] # e.g. results without photometry have mag NaN
 
     if len(y1) >= 2:
-        y1_lims = np.nanmin(y1)-0.05*(np.nanmax(y1)-np.nanmin(y1)), np.nanmax(y1)+0.05*(np.nanmax(y1)-np.nanmin(y1))
+        y1_lims = np.min(y1)-0.05*(np.max(y1)-np.min(y1)), np.max(y1)+0.05*(np.max(y1)-np.min(y1))
     elif len(y1) == 1:
         y1_lims = y1[0]-0.05, y1[0]+0.05
     else:
-        y1_lims = np.nan, np.nan
+        y1_lims = 0, 1 # placeholder, NaN limits would prevent the plot from rendering
 
     # Create RangeTool and Selected_range
     selected_range = Range1d(*x1_range)
@@ -476,6 +477,11 @@ def plot(request):
                 line_dash="dashed",
             )
             p.add_layout(hline)
+
+        # without finite values, the automatic y range would be NaN and the
+        # plot would not render (for ax1, neither would the date axis)
+        if not np.isfinite(np.asarray(source.data[axDict['y']], dtype=float)).any():
+            p.y_range.start, p.y_range.end = 0, 1
 
         if axLabel == "ax1":
             p.y_range.flipped = True
