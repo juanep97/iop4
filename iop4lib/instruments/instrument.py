@@ -624,6 +624,11 @@ class Instrument(metaclass=ABCMeta):
 
         centroids_and_fwhms_dict = dict()
 
+        # offsets (fitted centroid - wcs position) of each pair, and sources
+        # with `fit_centroid: false` in their metadata, to be positioned later
+        wcs_offsets = {'O': [], 'E': []}
+        not_fitted = list()
+
         with u.set_enabled_equivalencies(redf.pixscale_equiv):
 
             if use_cutout:
@@ -641,6 +646,10 @@ class Instrument(metaclass=ABCMeta):
                         wcs_pos = astrosource.coord.to_pixel(wcs)
 
                         wcs_pos_orig = wcs_pos
+
+                        if not astrosource.metadata.get("fit_centroid", True):
+                            not_fitted.append((astrosource, pairs, wcs_pos_orig))
+                            continue
 
                         if use_cutout:
                             cutout = Cutout2D(img - bkg.background_median, position=wcs_pos, size=cutout_size, wcs=wcs)
@@ -751,13 +760,28 @@ class Instrument(metaclass=ABCMeta):
                         # like we did above for c2 itself
                             
                         centroids_and_fwhms_dict[(astrosource, pairs)] = CentroidFwhmTuple(c2, fwhm)
-                    
+                        wcs_offsets[pairs].append(np.array(c2) - np.array(wcs_pos_orig))
+
                 except Exception as e:
                     msg = f"{redf} ({astrosource} {pairs}: error fitting centroid and fwhm: {e}"
                     if not astrosource.is_calibrator:
                         logger.exception(msg)
                     else:
                         logger.debug(msg)
+
+        # Sources with `fit_centroid: false` (e.g. those with a brighter nearby
+        # companion, where the fit would jump to the companion) are placed at their
+        # wcs position, corrected by the median offset of the fitted sources. Their
+        # fwhm is not fitted either, the median of the image is used instead.
+
+        for astrosource, pairs, wcs_pos in not_fitted:
+            if wcs_offsets[pairs]:
+                offset = np.median(wcs_offsets[pairs], axis=0)
+            else:
+                logger.warning(f"{redf} ({astrosource} {pairs}): no fitted sources to correct the wcs position, using it as is")
+                offset = np.zeros(2)
+            logger.debug(f"{redf} ({astrosource} {pairs}): not fitting centroid, using wcs position with offset {offset}")
+            centroids_and_fwhms_dict[(astrosource, pairs)] = CentroidFwhmTuple(np.array(wcs_pos) + offset, fwhm_median)
 
         return CentroidsAndFwhmResultTuple(centroids_and_fwhms_dict, fwhm_stats, detected_fwhms)
 

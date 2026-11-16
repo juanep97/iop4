@@ -251,6 +251,7 @@ class AstroSource(models.Model):
             "DIPOL.polarimetry.only_pair" : ['E', 'O'],
             "mask_other_sources": [False, True],
             "other_masks": None,
+            "fit_centroid": [False, True], # if false, use the wcs position (corrected by the offset of other sources)
         }
         
         allowed_keys = list(allowed_metadata.keys())
