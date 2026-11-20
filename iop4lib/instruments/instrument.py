@@ -584,8 +584,8 @@ class Instrument(metaclass=ABCMeta):
 
         if fwhm_stats is None:
 
-            n_seg_threshold = 4 # use 3 for more stats (but 4 is faster, less sources)
-            npixels = 6 # use 4 for more stats (but 6 is faster, less sources)
+            n_seg_threshold = 5 # lower values detect more sources, but also more cosmic rays and hot pixels
+            npixels = 10 # idem
             seg_threshold = n_seg_threshold * bkg.background_rms
             segment_map, convolved_data = get_segmentation(data, fwhm=1, npixels=npixels, threshold=seg_threshold)
             seg_cat, positions, tb = get_cat_sources_from_segment_map(segment_map, data, convolved_data)

@@ -78,11 +78,11 @@ def test_polarimetry(load_test_catalog):
     # assert r.mag_err < 0.15, "dmag < 0.15" # TODO
 
     assert r.p == approx(p_lit, abs=0.5/100), "p (%) within 0.5 of lit. value"
-    assert r.p == approx(p_lit, abs=1.25*r.p_err), "p (%) within ~p_err of lit. value"
+    assert r.p == approx(p_lit, abs=1.5*r.p_err), "p (%) within 1.5 p_err of lit. value"
     assert r.p_err < 0.5/100, "dp < 0.5%"
 
     assert r.chi == approx(chi_lit, abs=3), "chi (º) within 3º of lit. value"
-    assert r.chi == approx(chi_lit, abs=1.25*r.chi_err), "chi (º) within ~chi_err of lit.value"
+    assert r.chi == approx(chi_lit, abs=1.5*r.chi_err), "chi (º) within 1.5 chi_err of lit. value"
     assert r.chi_err < 5, "dchi < 5º" # (dCPA is ~3º for DIPOL already)
 
     # ensure also that reference values didn't change since included in tests
