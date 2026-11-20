@@ -58,6 +58,29 @@ def test_catalog(load_test_catalog):
     assert src.p == approx(5.21/100)
     assert src.chi == approx(54.54)
 
+def test_astrosource_metadata_validation():
+    """ Check the validation of AstroSource metadata keys and values """
+    from iop4lib.db import AstroSource
+
+    AstroSource.validate_metadata({
+        "DIPOL.polarimetry.only_pair": "O",
+        "mask_other_sources": True,
+        "other_masks": [{"ra": "10h31m22.21s", "dec": "+74d41m54.28s", "r": "3 arcsec"}],
+        "fit_centroid": False,
+    })
+
+    for invalid in [
+        {"DIPOL.polarimetry.only_pair": "X"},
+        {"mask_other_sources": "no"},
+        {"fit_centroid": "no"},
+        {"unknown_key": True},
+    ]:
+        with pytest.raises(ValueError):
+            AstroSource.validate_metadata(invalid)
+
+    with pytest.raises(TypeError):
+        AstroSource.validate_metadata(["fit_centroid"])
+
 @pytest.mark.django_db(transaction=True)
 def test_host_correction_data_load(load_test_catalog):
     r""" Check that the host correction data can be correctly loaded """
