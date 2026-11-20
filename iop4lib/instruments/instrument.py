@@ -870,6 +870,21 @@ class Instrument(metaclass=ABCMeta):
         # TODO: best choice?
         r_ap, r_in, r_out = 3.0*ap_sigma, 5.0*ap_sigma, 9.0*ap_sigma
 
+        # targets might require a fixed aperture radius (e.g. to leave out a
+        # close companion), which is then used for all sources in the images.
+        fixed_radii = {src.metadata["aperture_radius"] for redf in reducedfits for src in redf.sources_in_field.filter(is_calibrator=False) if "aperture_radius" in src.metadata}
+
+        if fixed_radii:
+            if len(fixed_radii) > 1:
+                logger.warning(f"Several fixed aperture radii for the targets of {reducedfits}: {fixed_radii}, using the smallest one.")
+            with u.set_enabled_equivalencies(reducedfits[0].pixscale_equiv):
+                r_ap = min(u.Quantity(r) for r in fixed_radii).to(r_ap.unit)
+            logger.debug(f"Using fixed aperture radius {r_ap:.1f} for {reducedfits}")
+            # keep the annulus at least as far from the aperture as by default
+            if r_in < 5/3*r_ap or r_out < 3*r_ap:
+                logger.warning(f"Annulus ({r_in:.1f}, {r_out:.1f}) too close to the fixed aperture {r_ap:.1f} for {reducedfits}, enlarging it.")
+                r_in, r_out = max(r_in, 5/3*r_ap), max(r_out, 3*r_ap)
+
         return CommonAperturesTuple(r_ap, r_in, r_out, ap_fwhm, fwhm_stats, centroids_and_fwhms)
     
 
