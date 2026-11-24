@@ -249,7 +249,7 @@ class AstroSource(models.Model):
 
         allowed_metadata = {
             "DIPOL.polarimetry.only_pair" : ['E', 'O'],
-            "DIPOL.polarimetry.sigma_clip" : [False, True], # if false, do not discard outliers in the polarimetry fit
+            "polarimetry.sigma_clip" : [False, True], # if false, do not discard outliers in the polarimetry fit
             "mask_other_sources": [False, True],
             "other_masks": None,
             "fit_centroid": [False, True], # if false, use the wcs position (corrected by the offset of other sources)

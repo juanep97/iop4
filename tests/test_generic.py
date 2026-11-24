@@ -64,7 +64,7 @@ def test_astrosource_metadata_validation():
 
     for valid in [
         {"DIPOL.polarimetry.only_pair": "O"},
-        {"DIPOL.polarimetry.sigma_clip": False},
+        {"polarimetry.sigma_clip": False},
         {"mask_other_sources": True},
         {"other_masks": [{"ra": "10h31m22.21s", "dec": "+74d41m54.28s", "r": "3 arcsec"}]},
         {"fit_centroid": False},
@@ -74,7 +74,7 @@ def test_astrosource_metadata_validation():
 
     for invalid in [
         {"DIPOL.polarimetry.only_pair": "X"},
-        {"DIPOL.polarimetry.sigma_clip": "no"},
+        {"polarimetry.sigma_clip": "no"},
         {"mask_other_sources": "no"},
         {"fit_centroid": "no"},
         {"other_masks": [{"ra": "10h31m22.21s", "dec": "+74d41m54.28s"}]},

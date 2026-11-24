@@ -1345,7 +1345,7 @@ class InstrumentHWP(ABC, Instrument):
                     theta=theta,
                     FO=FO, dFO=dFO,
                     FE=FE, dFE=dFE,
-                    sigma_clip=astrosource.metadata.get(f"{cls.name}.polarimetry.sigma_clip", True),
+                    sigma_clip=astrosource.metadata.get("polarimetry.sigma_clip", True),
                 )
 
                 if only_pair == "O":
