@@ -107,24 +107,29 @@ def _do_fit(func, xdata, ydata, sigma, p0, bounds=None):
     return popt, pcov
 
 
-def fit_with_sigma_clip(
+def do_fit(
         func, xdata, ydata, sigma, p0, bounds=None,
+        with_clip=True,
         clip_sigma=5, max_iter=3,
         min_keep=4, min_keep_frac=0.74,
         max_discard=2, max_discard_frac=0.3,
         soft=True,
         mode="absmedian",
         get_func=None,
-        clip=True,
     ):
-    """Performs curve_fit with some sigma-clip rejection of outliers (none if clip=False)."""
+    """Performs curve_fit, sigma-clipping outliers if `with_clip=True`.
+
+    get_func: needed only when the model of each point depends on its position
+    in the array, not only on its x value (e.g. in HWP_fit_full, where the first
+    points are O and the rest E). get_func(idx) must return the model for the
+    subset of points xdata[idx] being fitted.
+    """
 
     N = len(xdata)
 
-    if not clip:
-        popt, pcov = _do_fit(func, xdata, ydata, sigma, p0, bounds)
-        return popt, pcov, np.full(N, True)
-    
+    if not with_clip:
+        max_iter = 0 # no iterations, just the final fit
+
     min_keep = max(min_keep, round(min_keep_frac*N))
     max_discard = min(max_discard, round(max_discard_frac*N))
 
@@ -663,7 +668,7 @@ def compute_stokes_HWP_fit_full(
     bounds_hi = (np.inf, +1, +1)
     bounds = (bounds_lo, bounds_hi)
 
-    popt, pcov, idx = fit_with_sigma_clip(func, xdata, ydata, sigma, p0, bounds, get_func=get_func, clip=sigma_clip)
+    popt, pcov, idx = do_fit(func, xdata, ydata, sigma, p0, bounds, with_clip=sigma_clip, get_func=get_func)
     perr = np.sqrt(np.diag(pcov))
 
     pnames = ["I", "q", "u"]
@@ -797,27 +802,7 @@ def compute_stokes_HWP_fit_rel(
     bounds_hi = (+1, +1)
     bounds = (bounds_lo, bounds_hi)
 
-    # # a) no sigma clipping
-    
-    # idx = np.full(len(xdata), True)
-    # popt, pcov, infodict, mesg, ier = sp.optimize.curve_fit(
-    #     func,
-    #     xdata = xdata,
-    #     ydata = ydata,
-    #     sigma = sigma,
-    #     absolute_sigma = False,
-    #     p0 = p0,
-    #     bounds = bounds,
-    #     nan_policy = 'omit',
-    #     full_output = True,
-    # )
-
-    # b) with sigma clip
-
-    popt, pcov, idx = fit_with_sigma_clip(func, xdata, ydata, sigma, p0, bounds, clip=sigma_clip)
-
-    # ---
-
+    popt, pcov, idx = do_fit(func, xdata, ydata, sigma, p0, bounds, with_clip=sigma_clip)
     perr = np.sqrt(np.diag(pcov))
 
     pnames = ["q", "u"]
@@ -948,7 +933,7 @@ def compute_stokes_HWP_fit_rel_nonideal(
     bounds_hi = (+1, +1, +1.0)
     bounds = (bounds_lo, bounds_hi)
 
-    popt, pcov, idx = fit_with_sigma_clip(func, xdata, ydata, sigma, p0, bounds, clip=sigma_clip)
+    popt, pcov, idx = do_fit(func, xdata, ydata, sigma, p0, bounds, with_clip=sigma_clip)
     perr = np.sqrt(np.diag(pcov))
 
     pnames = ["q", "u", "k"]
@@ -1083,7 +1068,7 @@ def compute_stokes_HWP_fit_1pair(
     bounds_hi = (np.inf, +1, +1)
     bounds = (bounds_lo, bounds_hi)
 
-    popt, pcov, idx = fit_with_sigma_clip(func, xdata, ydata, sigma, p0, bounds, clip=sigma_clip)
+    popt, pcov, idx = do_fit(func, xdata, ydata, sigma, p0, bounds, with_clip=sigma_clip)
     perr = np.sqrt(np.diag(pcov))
 
     pnames = ["I", "q", "u"]
