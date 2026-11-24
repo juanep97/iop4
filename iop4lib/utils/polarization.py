@@ -107,8 +107,9 @@ def _do_fit(func, xdata, ydata, sigma, p0, bounds=None):
     return popt, pcov
 
 
-def fit_with_sigma_clip(
+def do_fit(
         func, xdata, ydata, sigma, p0, bounds=None,
+        with_clip=True,
         clip_sigma=5, max_iter=3,
         min_keep=4, min_keep_frac=0.74,
         max_discard=2, max_discard_frac=0.3,
@@ -116,17 +117,32 @@ def fit_with_sigma_clip(
         mode="absmedian",
         get_func=None,
     ):
-    """Performs curve_fit with some sigma-clip rejection of outliers."""
+    """Performs curve_fit, sigma-clipping outliers if `with_clip=True`.
 
-    N = len(xdata)
-    
+    get_func: needed only when the model of each point depends on its position
+    in the array, not only on its x value (e.g. in HWP_fit_full, where the first
+    points are O and the rest E). get_func(idx) must return the model for the
+    subset of points xdata[idx] being fitted.
+    """
+
+    # start from the valid points only. curve_fit (nan_policy='omit') removes nan
+    # points from the arrays before calling func; if they were still in idx,
+    # get_func(idx) would not know they were removed and would evaluate the wrong
+    # model for the following points (e.g. in HWP_fit_full, a nan O point would
+    # make the first E point be treated as O). This also keeps them out of the
+    # returned idx, which then only contains the points actually used in the fit.
+    idx = np.isfinite(ydata) & np.isfinite(sigma)
+
+    N = sum(idx)
+
+    if not with_clip:
+        max_iter = 0 # no iterations, just the final fit
+
     min_keep = max(min_keep, round(min_keep_frac*N))
     max_discard = min(max_discard, round(max_discard_frac*N))
 
     # print(f"{min_keep=}")
     # print(f"{max_discard=}")
-
-    idx = np.full(N, True)
 
     for it in range(max_iter):
 
@@ -211,8 +227,10 @@ def fit_with_sigma_clip(
         idx = new_idx
         
         # print(f"it {it}: {to_discard_total=}")
-    
-    popt, pcov = _do_fit(func, xdata[idx], ydata[idx], sigma[idx], p0, bounds)
+
+    fit_func = get_func(idx) if get_func else func
+
+    popt, pcov = _do_fit(fit_func, xdata[idx], ydata[idx], sigma[idx], p0, bounds)
 
     # print(f"final {idx=}")
 
@@ -468,6 +486,8 @@ def _build_figure_annotation(fig, fit_stats, stokes, stokes_corr=None, kappa=Non
     return ab
 
 def polmethod(name):
+    # all polmethods share the same keyword arguments, so they can be called
+    # interchangeably (sigma_clip has no effect on the analytical ones).
     def wrap(f):
         f.name = name
         return f
@@ -478,6 +498,7 @@ def compute_stokes_HWP_analytical(
         theta, FO, FE, dFO, dFE,
         inst_pol_dict=None,
         plot=False, fig=None, annotate=False,
+        sigma_clip=True,
     ):
     """Compute polarimetry using an analytical expression ([1]).
     
@@ -608,6 +629,7 @@ def compute_stokes_HWP_fit_full(
         theta, FO, FE, dFO, dFE, 
         inst_pol_dict=None,
         plot=False, fig=None, annotate=False,
+        sigma_clip=True,
     ):
     """Compute polarimetry with a fit of (I,q,u) to both the O and the E pairs.
     
@@ -654,7 +676,7 @@ def compute_stokes_HWP_fit_full(
     bounds_hi = (np.inf, +1, +1)
     bounds = (bounds_lo, bounds_hi)
 
-    popt, pcov, idx = fit_with_sigma_clip(func, xdata, ydata, sigma, p0, bounds, get_func=get_func)
+    popt, pcov, idx = do_fit(func, xdata, ydata, sigma, p0, bounds, with_clip=sigma_clip, get_func=get_func)
     perr = np.sqrt(np.diag(pcov))
 
     pnames = ["I", "q", "u"]
@@ -754,6 +776,7 @@ def compute_stokes_HWP_fit_rel(
         theta, FO, FE, dFO, dFE,
         inst_pol_dict=None,
         plot=False, fig=None, annotate=False,
+        sigma_clip=True,
         kappa=None,
     ):
     """Compute polarimetry with a fit to the relative difference between E and O pairs.
@@ -787,27 +810,7 @@ def compute_stokes_HWP_fit_rel(
     bounds_hi = (+1, +1)
     bounds = (bounds_lo, bounds_hi)
 
-    # # a) no sigma clipping
-    
-    # idx = np.full(len(xdata), True)
-    # popt, pcov, infodict, mesg, ier = sp.optimize.curve_fit(
-    #     func,
-    #     xdata = xdata,
-    #     ydata = ydata,
-    #     sigma = sigma,
-    #     absolute_sigma = False,
-    #     p0 = p0,
-    #     bounds = bounds,
-    #     nan_policy = 'omit',
-    #     full_output = True,
-    # )
-
-    # b) with sigma clip
-
-    popt, pcov, idx = fit_with_sigma_clip(func, xdata, ydata, sigma, p0, bounds)
-
-    # ---
-
+    popt, pcov, idx = do_fit(func, xdata, ydata, sigma, p0, bounds, with_clip=sigma_clip)
     perr = np.sqrt(np.diag(pcov))
 
     pnames = ["q", "u"]
@@ -911,6 +914,7 @@ def compute_stokes_HWP_fit_rel_nonideal(
         theta, FO, FE, dFO, dFE,
         inst_pol_dict=None,
         plot=False, fig=None, annotate=False,
+        sigma_clip=True,
     ):
     """Compute polarimetry with a fit to the relative difference between E and O pairs (non-ideal HWP case).
     
@@ -937,7 +941,7 @@ def compute_stokes_HWP_fit_rel_nonideal(
     bounds_hi = (+1, +1, +1.0)
     bounds = (bounds_lo, bounds_hi)
 
-    popt, pcov, idx = fit_with_sigma_clip(func, xdata, ydata, sigma, p0, bounds)
+    popt, pcov, idx = do_fit(func, xdata, ydata, sigma, p0, bounds, with_clip=sigma_clip)
     perr = np.sqrt(np.diag(pcov))
 
     pnames = ["q", "u", "k"]
@@ -1044,6 +1048,7 @@ def compute_stokes_HWP_fit_1pair(
         theta, FO=None, dFO=None, FE=None, dFE=None,
         inst_pol_dict=None,
         plot=False, fig=None, annotate=False,
+        sigma_clip=True,
     ):
     """Compute polarimetry fitting only the O (or E) pair."""
 
@@ -1071,7 +1076,7 @@ def compute_stokes_HWP_fit_1pair(
     bounds_hi = (np.inf, +1, +1)
     bounds = (bounds_lo, bounds_hi)
 
-    popt, pcov, idx = fit_with_sigma_clip(func, xdata, ydata, sigma, p0, bounds)
+    popt, pcov, idx = do_fit(func, xdata, ydata, sigma, p0, bounds, with_clip=sigma_clip)
     perr = np.sqrt(np.diag(pcov))
 
     pnames = ["I", "q", "u"]
@@ -1163,6 +1168,7 @@ def compute_stokes_HWP_analytical_1pair(
         theta, FO=None, dFO=None, FE=None, dFE=None,
         inst_pol_dict=None,
         plot=False, fig=None, annotate=False,
+        sigma_clip=True,
     ):
     """Compute polarimetry fitting only the O (or E) pair (analytical)."""
 
@@ -1193,6 +1199,7 @@ def compute_stokes_HWP_fit_1pair_rel(
         theta, FO=None, dFO=None, FE=None, dFE=None,
         inst_pol_dict=None,
         plot=False, fig=None, annotate=False,
+        sigma_clip=True,
         kappa=None,
     ):
     """Compute polarimetry fitting only the O (or E) pair (relative)."""
@@ -1218,6 +1225,7 @@ def compute_stokes_HWP_fit_1pair_rel(
         fig=fig,
         annotate=annotate,
         kappa=kappa,
+        sigma_clip=sigma_clip,
     )
 
 

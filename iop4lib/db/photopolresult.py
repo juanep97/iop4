@@ -636,6 +636,7 @@ class PhotoPolResult(models.Model):
             FO=FO, dFO=dFO,
             FE=FE, dFE=dFE,
             inst_pol_dict=inst_pol_dict,
+            sigma_clip=astrosource.metadata.get("polarimetry.sigma_clip", True),
         )
 
         if only_pair == "O":

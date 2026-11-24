@@ -64,6 +64,7 @@ def test_astrosource_metadata_validation():
 
     for valid in [
         {"DIPOL.polarimetry.only_pair": "O"},
+        {"polarimetry.sigma_clip": False},
         {"mask_other_sources": True},
         {"other_masks": [{"ra": "10h31m22.21s", "dec": "+74d41m54.28s", "r": "3 arcsec"}]},
         {"fit_centroid": False},
@@ -73,6 +74,7 @@ def test_astrosource_metadata_validation():
 
     for invalid in [
         {"DIPOL.polarimetry.only_pair": "X"},
+        {"polarimetry.sigma_clip": "no"},
         {"mask_other_sources": "no"},
         {"fit_centroid": "no"},
         {"other_masks": [{"ra": "10h31m22.21s", "dec": "+74d41m54.28s"}]},
@@ -84,6 +86,32 @@ def test_astrosource_metadata_validation():
 
     with pytest.raises(TypeError):
         AstroSource.validate_metadata(["fit_centroid"])
+
+def test_polarimetry_sigma_clip():
+    """ The polarimetry fit ignores nan points and discards outliers, unless called with sigma_clip=False """
+    import numpy as np
+    from iop4lib.utils.polarization import compute_stokes_HWP_fit_full
+
+    theta = np.arange(0, 360, 22.5)
+    F = 0.03*np.cos(np.deg2rad(4*theta)) - 0.02*np.sin(np.deg2rad(4*theta))
+    F = F + np.random.default_rng(0).normal(0, 0.002, len(theta))
+    FO, FE = 1e4*(1+F), 1e4*(1-F)
+    FO[2] = np.nan # missing point
+    FO[3] *= 1.2 # outlier
+    dFO = dFE = np.full(len(theta), 20.0)
+
+    # fit_full, since its model depends on the position of the points in the array.
+    # Guards against regressions where a nan or discarded point shifts the O/E
+    # split of get_func (E points fitted with the O model), see #222.
+    _, stats_clip = compute_stokes_HWP_fit_full(theta=theta, FO=FO, FE=FE, dFO=dFO, dFE=dFE)
+    _, stats_noclip = compute_stokes_HWP_fit_full(theta=theta, FO=FO, FE=FE, dFO=dFO, dFE=dFE, sigma_clip=False)
+
+    _, q_clip, u_clip = stats_clip["popt"]
+    _, q_noclip, u_noclip = stats_noclip["popt"]
+
+    # the outlier biases the fit only if it is not discarded
+    assert np.hypot(q_clip-0.03, u_clip+0.02) < 0.003
+    assert np.hypot(q_noclip-0.03, u_noclip+0.02) > 0.005
 
 @pytest.mark.django_db(transaction=True)
 def test_host_correction_data_load(load_test_catalog):
