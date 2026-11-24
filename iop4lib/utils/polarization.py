@@ -125,7 +125,15 @@ def do_fit(
     subset of points xdata[idx] being fitted.
     """
 
-    N = len(xdata)
+    # start from the valid points only. curve_fit (nan_policy='omit') removes nan
+    # points from the arrays before calling func; if they were still in idx,
+    # get_func(idx) would not know they were removed and would evaluate the wrong
+    # model for the following points (e.g. in HWP_fit_full, a nan O point would
+    # make the first E point be treated as O). This also keeps them out of the
+    # returned idx, which then only contains the points actually used in the fit.
+    idx = np.isfinite(ydata) & np.isfinite(sigma)
+
+    N = sum(idx)
 
     if not with_clip:
         max_iter = 0 # no iterations, just the final fit
@@ -135,8 +143,6 @@ def do_fit(
 
     # print(f"{min_keep=}")
     # print(f"{max_discard=}")
-
-    idx = np.full(N, True)
 
     for it in range(max_iter):
 
@@ -221,8 +227,10 @@ def do_fit(
         idx = new_idx
         
         # print(f"it {it}: {to_discard_total=}")
-    
-    popt, pcov = _do_fit(func, xdata[idx], ydata[idx], sigma[idx], p0, bounds)
+
+    fit_func = get_func(idx) if get_func else func
+
+    popt, pcov = _do_fit(fit_func, xdata[idx], ydata[idx], sigma[idx], p0, bounds)
 
     # print(f"final {idx=}")
 
