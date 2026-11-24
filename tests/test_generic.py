@@ -62,17 +62,21 @@ def test_astrosource_metadata_validation():
     """ Check the validation of AstroSource metadata keys and values """
     from iop4lib.db import AstroSource
 
-    AstroSource.validate_metadata({
-        "DIPOL.polarimetry.only_pair": "O",
-        "mask_other_sources": True,
-        "other_masks": [{"ra": "10h31m22.21s", "dec": "+74d41m54.28s", "r": "3 arcsec"}],
-        "fit_centroid": False,
-    })
+    for valid in [
+        {"DIPOL.polarimetry.only_pair": "O"},
+        {"mask_other_sources": True},
+        {"other_masks": [{"ra": "10h31m22.21s", "dec": "+74d41m54.28s", "r": "3 arcsec"}]},
+        {"fit_centroid": False},
+        {"aperture_radius": "2 arcsec"},
+    ]:
+        AstroSource.validate_metadata(valid)
 
     for invalid in [
         {"DIPOL.polarimetry.only_pair": "X"},
         {"mask_other_sources": "no"},
         {"fit_centroid": "no"},
+        {"other_masks": [{"ra": "10h31m22.21s", "dec": "+74d41m54.28s"}]},
+        {"aperture_radius": "2 pix"},
         {"unknown_key": True},
     ]:
         with pytest.raises(ValueError):

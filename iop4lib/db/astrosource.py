@@ -252,6 +252,7 @@ class AstroSource(models.Model):
             "mask_other_sources": [False, True],
             "other_masks": None,
             "fit_centroid": [False, True], # if false, use the wcs position (corrected by the offset of other sources)
+            "aperture_radius": None, # fixed aperture radius (e.g. '2 arcsec') for the images where this source is a target
         }
         
         allowed_keys = list(allowed_metadata.keys())
@@ -268,6 +269,22 @@ class AstroSource(models.Model):
 
             # handle more complex cases here, where allowed values can't be
             # specified as a list of possibilities.
+
+            if k == "other_masks":
+                try:
+                    for o_data in v:
+                        SkyCoord(o_data["ra"], o_data["dec"])
+                        u.Quantity(o_data["r"])
+                except Exception as e:
+                    raise ValueError(f"Invalid value for metadata key '{k}', it must be a list of dicts with 'ra', 'dec' and 'r' keys: {e}")
+
+            if k == "aperture_radius":
+                try:
+                    if u.Quantity(v).to_value("arcsec") <= 0:
+                        raise ValueError("it is not positive")
+                except Exception as e:
+                    raise ValueError(f"Invalid value for metadata key '{k}', it must be a positive angle (e.g. '2 arcsec'): {e}")
+
             # ...
             
     @property
