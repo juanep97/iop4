@@ -350,6 +350,13 @@ class FTPArchiveMixin():
 
 
 class SFTPArchiveMixin():
+    """ Mixin for SFTP archives that can have several accounts.
+
+    The class must define ``ftp_address`` and ``ftp_accounts``, a list of
+    (user, password) tuples. All accounts are checked for remote dirs. A remote
+    dir found in more than one account raises an error, so it can be checked
+    by hand.
+    """
 
     @classmethod
     @abstractmethod
@@ -362,26 +369,56 @@ class SFTPArchiveMixin():
         pass
 
     @classmethod
-    def _sftp_connect(cls):
+    def _sftp_connect(cls, user, password):
+        logger.debug(f"Loging to {cls.name} SFTP server as {user}.")
         transport = paramiko.Transport((cls.ftp_address.split(":")[0], int(cls.ftp_address.split(":")[1])))
-        transport.connect(username=cls.ftp_user, password=cls.ftp_password)
+        transport.connect(username=user, password=password)
         sftp = transport.open_sftp_client()
         sftp.chdir('DATA/')
         return sftp
 
     @classmethod
-    def list_remote_epochnames(cls):
-        try:
-            logger.debug(f"Loging to {cls.name} FTP server.")
+    def _check_credentials(cls):
+        if cls.ftp_address is None or any(None in account for account in cls.ftp_accounts):
+            raise ValueError(f"FTP credentials not set for {cls.name}.")
 
-            sftp = cls._sftp_connect()
-            remote_dirnameL_all = sftp.listdir('')
+    @classmethod
+    def _list_remote_dirnames_by_account(cls) -> dict[tuple, list[str]]:
+        """ Lists the remote dirs in each account, checking that no dir is in more than one account. """
+
+        dirnames_by_account = dict()
+
+        for account in cls.ftp_accounts:
+            sftp = cls._sftp_connect(*account)
+            dirnames_by_account[account] = [dirname for dirname in sftp.listdir() if dirname not in ('.', '..')]
             sftp.close()
 
-            if '.' in remote_dirnameL_all:
-                remote_dirnameL_all.remove('.')
-            if '..' in remote_dirnameL_all:
-                remote_dirnameL_all.remove('..')
+        all_dirnames = [dirname for dirnames in dirnames_by_account.values() for dirname in dirnames]
+        repeated_dirnames = sorted({dirname for dirname in all_dirnames if all_dirnames.count(dirname) > 1})
+
+        if len(repeated_dirnames) > 0:
+            raise Exception(f"Remote dirs {repeated_dirnames} found in more than one {cls.name} account, check them by hand.")
+
+        return dirnames_by_account
+
+    @classmethod
+    def _account_by_dirname(cls, dirnames) -> dict[str, tuple]:
+        """ Returns the account of each of the given remote dirs (dirs not found in any account are left out).
+
+        Each dir is in only one account, since _list_remote_dirnames_by_account raises otherwise.
+        """
+
+        # with only one account, there is no need to log in to find out
+        if len(cls.ftp_accounts) == 1:
+            return {dirname: cls.ftp_accounts[0] for dirname in dirnames}
+
+        return {dirname: account for account, account_dirnames in cls._list_remote_dirnames_by_account().items()
+                                 for dirname in account_dirnames if dirname in dirnames}
+
+    @classmethod
+    def list_remote_epochnames(cls):
+        try:
+            remote_dirnameL_all = [dirname for dirnames in cls._list_remote_dirnames_by_account().values() for dirname in dirnames]
 
             logger.debug(f"Total of {len(remote_dirnameL_all)} dirs in {cls.name} remote.")
 
@@ -404,11 +441,13 @@ class SFTPArchiveMixin():
     def list_remote_raw_fnames(cls, epoch):
         try:
 
-            logger.debug(f"Loging to {cls.name} FTP server.")
-
-            sftp = cls._sftp_connect()
-
             remote_dir = cls.epochname_to_remote_dirname(epoch.epochname)
+
+            if (account := cls._account_by_dirname([remote_dir]).get(remote_dir)) is None:
+                raise Exception(f"{remote_dir} not found in any {cls.name} account.")
+
+            sftp = cls._sftp_connect(*account)
+
             logger.debug(f"Trying to change {remote_dir} directory.")
             sftp.chdir(remote_dir)
 
@@ -435,11 +474,12 @@ class SFTPArchiveMixin():
     def download_rawfits(cls, rawfits: list['RawFit'] | list[str]):
         from iop4lib.db import RawFit
 
-        if cls.ftp_address is None or cls.ftp_user is None or cls.ftp_password is None:
-            raise ValueError(f"FTP credentials not set for {cls.name}.")
+        cls._check_credentials()
 
         try:
-            sftp = cls._sftp_connect()
+            # gather the remote dir of each file, to download them by account
+
+            downloads = list() # (fileloc, remote_dir, filename, filepath) of each file
 
             for rawfit in rawfits:
 
@@ -454,52 +494,72 @@ class SFTPArchiveMixin():
                     yyyy_mm_dd = night.strftime("%Y-%m-%d")
                     filepath =  Path(rawfit.filepath)
 
-                rel_path = os.path.join(cls.epochname_to_remote_dirname(f"{tel}/{yyyy_mm_dd}"), filename)
+                downloads.append((fileloc, cls.epochname_to_remote_dirname(f"{tel}/{yyyy_mm_dd}"), filename, filepath))
 
-                logger.debug(f"Downloading {fileloc} from {cls.name} archive ...")
+            account_by_dirname = cls._account_by_dirname({remote_dir for _, remote_dir, _, _ in downloads})
 
-                if not filepath.parent.exists():
-                    os.makedirs(filepath.parent)
+            if len(missing := [fileloc for fileloc, remote_dir, _, _ in downloads if remote_dir not in account_by_dirname]) > 0:
+                raise Exception(f"{missing} not found in any {cls.name} account.")
 
-                with open(filepath, 'wb') as f:
-                    sftp.get(rel_path, filepath)
+            for account in cls.ftp_accounts:
 
-            sftp.close()
+                account_downloads = [d for d in downloads if account_by_dirname[d[1]] == account]
+
+                if len(account_downloads) == 0:
+                    continue
+
+                sftp = cls._sftp_connect(*account)
+
+                for fileloc, remote_dir, filename, filepath in account_downloads:
+
+                    logger.debug(f"Downloading {fileloc} from {cls.name} archive ...")
+
+                    if not filepath.parent.exists():
+                        os.makedirs(filepath.parent)
+
+                    with open(filepath, 'wb') as f:
+                        sftp.get(os.path.join(remote_dir, filename), filepath)
+
+                sftp.close()
+
         except Exception as e:
             raise Exception(f"Error downloading rawfits: {e}.")
 
     @classmethod
     def list_remote_filelocs(cls, epochnames: list[str]) -> list[str]:
-        from iop4lib.db import Epoch
 
-        if cls.ftp_address is None or cls.ftp_user is None or cls.ftp_password is None:
-            raise ValueError(f"FTP credentials not set for {cls.name}.")
+        cls._check_credentials()
 
-        sftp = cls._sftp_connect()
+        dirnames_by_account = cls._list_remote_dirnames_by_account()
 
-        dirnames = sftp.listdir()
+        all_dirnames = [dirname for dirnames in dirnames_by_account.values() for dirname in dirnames]
+
+        for epochname in epochnames:
+            if (remote_dir := cls.epochname_to_remote_dirname(epochname)) not in all_dirnames:
+                logger.error(f"{cls.name} remote dir {remote_dir} does not exist.")
 
         fileloc_list = list()
 
-        for epochname in epochnames:
+        for account, dirnames in dirnames_by_account.items():
 
-            tel, night = Epoch.epochname_to_tel_night(epochname)
-            yymmdd = night.strftime("%y%m%d")
+            account_epochnames = [epochname for epochname in epochnames if cls.epochname_to_remote_dirname(epochname) in dirnames]
 
-            remote_dir = cls.epochname_to_remote_dirname(epochname)
-
-            if remote_dir not in dirnames:
-                logger.error(f"{cls.name} remote dir {remote_dir} does not exist.")
+            if len(account_epochnames) == 0:
                 continue
 
-            try:
-                fnames = [fpath.split("/")[-1] for fpath in sftp.listdir(f"{remote_dir}")]
-                fileloc_list.extend([f"{epochname}/{fname}" for fname in fnames if cls.re_expr_fnames.search(fname) and fname != '.' and fname != '..'])
-        
+            sftp = cls._sftp_connect(*account)
 
-            except Exception as e:
-                logger.error(f"Error listing {cls.name} remote dir for {epochname}: {e}.")
-            
-        sftp.close()
+            for epochname in account_epochnames:
+
+                remote_dir = cls.epochname_to_remote_dirname(epochname)
+
+                try:
+                    fnames = [fpath.split("/")[-1] for fpath in sftp.listdir(f"{remote_dir}")]
+                    fileloc_list.extend([f"{epochname}/{fname}" for fname in fnames if cls.re_expr_fnames.search(fname) and fname != '.' and fname != '..'])
+
+                except Exception as e:
+                    logger.error(f"Error listing {cls.name} remote dir for {epochname}: {e}.")
+
+            sftp.close()
 
         return fileloc_list

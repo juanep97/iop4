@@ -149,6 +149,9 @@ class Config(dict):
             if (k in ['basedir', 'datadir', 'log_file'] or 'path' in k) and v is not None: # config variables should have ~ expanded
                 setattr(self, k, str(Path(v).expanduser()))
 
+        if not self.is_valid():
+            raise ValueError(f"Config file {self.config_path} is not valid.")
+
         # If data dir does not exist, create it
         
         if not os.path.exists(self.datadir):

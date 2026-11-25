@@ -34,8 +34,8 @@ log_level: 20 # <int>. Possible values are: 10 (DEBUG), 20 (INFO), 30 (WARNING),
 ############
 
 caha_address: null # <caha ftp address>
-caha_password: null # <your caha password>
-caha_user: null # <your caha user>
+caha_accounts: # list of accounts (e.g. one per proposal), all of them are checked for new data.
+  - {user: null, password: null} # <your caha user> and <your caha password>
 
 ###########
 ### OSN ###

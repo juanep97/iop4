@@ -103,3 +103,107 @@ def test_build_multi_proc_photopol(load_test_catalog):
     assert mag_R_lit == approx(9.786)
     assert p_lit == approx(5.21/100)
     assert chi_lit == approx(54.54)
+
+
+class FakeSFTP:
+    """ Fake SFTP client for a CAHA account, with remote dirs {dirname: [fnames]}. """
+
+    def __init__(self, user, dirs):
+        self.user = user
+        self.dirs = dirs
+        self.cwd = None
+
+    def chdir(self, dirname):
+        self.cwd = dirname
+
+    def listdir(self, path='.'):
+        dirname = self.cwd if path == '.' else path
+        return list(self.dirs) if dirname is None else list(self.dirs[dirname])
+
+    def get(self, remotepath, localpath):
+        Path(localpath).write_text(f"{self.user}:{remotepath}")
+
+    def close(self):
+        pass
+
+
+@pytest.fixture
+def fake_caha_archive(monkeypatch, tmp_path):
+    """ Fake CAHA archive, returns a function to set the remote dirs of each account. """
+
+    from iop4lib.telescopes import CAHAT220
+
+    monkeypatch.setattr(iop4conf, "datadir", str(tmp_path))
+    monkeypatch.setattr(iop4conf, "caha_address", "fake.caha.es:22")
+
+    remote = dict()
+
+    def set_remote(accounts):
+        """ accounts: {(user, password): {dirname: [fnames]}} """
+        remote.clear()
+        remote.update(accounts)
+        monkeypatch.setattr(iop4conf, "caha_accounts", [{"user": user, "password": password} for user, password in accounts], raising=False)
+
+    monkeypatch.setattr(CAHAT220, "_sftp_connect", classmethod(lambda cls, user, password: FakeSFTP(user, remote[(user, password)])))
+
+    return set_remote
+
+
+def test_caha_multiple_accounts(fake_caha_archive):
+    """ Test that epochs and files of all CAHA accounts are listed and downloaded from their account. """
+
+    from types import SimpleNamespace
+    from iop4lib.telescopes import CAHAT220
+
+    fake_caha_archive({
+        ("user1", "pass1"): {"250913_CAFOS": ["a.fits", "a.txt"]},
+        ("user2", "pass2"): {"250914_CAFOS": ["b.fits"], "notanepoch": []},
+    })
+
+    assert CAHAT220.ftp_accounts == [("user1", "pass1"), ("user2", "pass2")]
+
+    assert sorted(CAHAT220.list_remote_epochnames()) == ["CAHA-T220/2025-09-13", "CAHA-T220/2025-09-14"]
+
+    assert CAHAT220.list_remote_raw_fnames(SimpleNamespace(epochname="CAHA-T220/2025-09-14")) == ["b.fits"]
+
+    filelocs = CAHAT220.list_remote_filelocs(["CAHA-T220/2025-09-13", "CAHA-T220/2025-09-14", "CAHA-T220/2025-09-15"])
+    assert sorted(filelocs) == ["CAHA-T220/2025-09-13/a.fits", "CAHA-T220/2025-09-14/b.fits"]
+
+    CAHAT220.download_rawfits(filelocs)
+    assert (Path(iop4conf.datadir) / "raw/CAHA-T220/2025-09-13/a.fits").read_text() == "user1:250913_CAFOS/a.fits"
+    assert (Path(iop4conf.datadir) / "raw/CAHA-T220/2025-09-14/b.fits").read_text() == "user2:250914_CAFOS/b.fits"
+
+    with pytest.raises(Exception, match="not found in any"):
+        CAHAT220.download_rawfits(["CAHA-T220/2025-09-15/c.fits"])
+
+
+def test_caha_single_account(fake_caha_archive):
+    """ Test that a single CAHA account works (it doesn't need to log in to find the account of each dir). """
+
+    from iop4lib.telescopes import CAHAT220
+
+    fake_caha_archive({("user1", "pass1"): {"250913_CAFOS": ["a.fits"]}})
+
+    assert CAHAT220.ftp_accounts == [("user1", "pass1")]
+    assert CAHAT220.list_remote_epochnames() == ["CAHA-T220/2025-09-13"]
+
+    CAHAT220.download_rawfits(["CAHA-T220/2025-09-13/a.fits"])
+    assert (Path(iop4conf.datadir) / "raw/CAHA-T220/2025-09-13/a.fits").read_text() == "user1:250913_CAFOS/a.fits"
+
+
+def test_caha_same_night_in_several_accounts(fake_caha_archive):
+    """ Test that a night found in more than one CAHA account raises an error. """
+
+    from iop4lib.telescopes import CAHAT220
+
+    fake_caha_archive({
+        ("user1", "pass1"): {"250913_CAFOS": ["a.fits"]},
+        ("user2", "pass2"): {"250913_CAFOS": ["b.fits"]},
+    })
+
+    with pytest.raises(Exception, match="more than one"):
+        CAHAT220.list_remote_epochnames()
+
+    with pytest.raises(Exception, match="more than one"):
+        CAHAT220.list_remote_filelocs(["CAHA-T220/2025-09-13"])
+

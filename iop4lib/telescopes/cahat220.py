@@ -40,6 +40,9 @@ class CAHAT220(SFTPArchiveMixin, Telescope, metaclass=ABCMeta):
     and inside each folder there are the files for that day.
 
     Currently only one instrument, CAFOS.
+
+    Several accounts can be given in the config (caha_accounts), all of them
+    are checked for new data.
     """
 
     # telescope identification
@@ -58,12 +61,8 @@ class CAHAT220(SFTPArchiveMixin, Telescope, metaclass=ABCMeta):
         return iop4conf.caha_address
     
     @ReadOnlyClassProperty
-    def ftp_user(cls):
-        return iop4conf.caha_user
-    
-    @ReadOnlyClassProperty
-    def ftp_password(cls):
-        return iop4conf.caha_password
+    def ftp_accounts(cls):
+        return [(account["user"], account["password"]) for account in iop4conf.caha_accounts]
     
     @ReadOnlyClassProperty
     def ftp_encoding(cls):
