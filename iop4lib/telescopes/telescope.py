@@ -501,9 +501,9 @@ class SFTPArchiveMixin():
                     yyyy_mm_dd = night.strftime("%Y-%m-%d")
                     filepath =  Path(rawfit.filepath)
 
-                remote_dirname = cls.epochname_to_remote_dirname(f"{tel}/{yyyy_mm_dd}")
+                remote_dir = cls.epochname_to_remote_dirname(f"{tel}/{yyyy_mm_dd}")
 
-                downloads.append((fileloc, remote_dirname, filename, filepath))
+                downloads.append((fileloc, remote_dir, filename, filepath))
 
             account_by_dirname = cls._account_by_dirname({remote_dir for _, remote_dir, _, _ in downloads})
 
