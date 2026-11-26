@@ -412,13 +412,20 @@ class SFTPArchiveMixin():
         if len(cls.ftp_accounts) == 1:
             return {dirname: cls.ftp_accounts[0] for dirname in dirnames}
 
-        return {dirname: account for account, account_dirnames in cls._list_remote_dirnames_by_account().items()
-                                 for dirname in account_dirnames if dirname in dirnames}
+        return {
+            dirname: account
+            for account, account_dirnames in cls._list_remote_dirnames_by_account().items()
+            for dirname in account_dirnames
+            if dirname in dirnames
+        }
 
     @classmethod
     def list_remote_epochnames(cls):
         try:
-            remote_dirnameL_all = [dirname for dirnames in cls._list_remote_dirnames_by_account().values() for dirname in dirnames]
+            remote_dirnameL_all = [
+                dirname for dirnames in cls._list_remote_dirnames_by_account().values()
+                for dirname in dirnames
+            ]
 
             logger.debug(f"Total of {len(remote_dirnameL_all)} dirs in {cls.name} remote.")
 
@@ -494,12 +501,16 @@ class SFTPArchiveMixin():
                     yyyy_mm_dd = night.strftime("%Y-%m-%d")
                     filepath =  Path(rawfit.filepath)
 
-                downloads.append((fileloc, cls.epochname_to_remote_dirname(f"{tel}/{yyyy_mm_dd}"), filename, filepath))
+                remote_dirname = cls.epochname_to_remote_dirname(f"{tel}/{yyyy_mm_dd}")
+
+                downloads.append((fileloc, remote_dirname, filename, filepath))
 
             account_by_dirname = cls._account_by_dirname({remote_dir for _, remote_dir, _, _ in downloads})
 
-            if len(missing := [fileloc for fileloc, remote_dir, _, _ in downloads if remote_dir not in account_by_dirname]) > 0:
-                raise Exception(f"{missing} not found in any {cls.name} account.")
+            missing_dirs = sorted({remote_dir for _, remote_dir, _, _ in downloads if remote_dir not in account_by_dirname})
+
+            if len(missing_dirs) > 0:
+                raise Exception(f"Remote dirs {missing_dirs} not found in any {cls.name} account.")
 
             for account in cls.ftp_accounts:
 
